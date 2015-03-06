@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1425 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2014.3.1506 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -525,6 +525,10 @@
                        template = that.altTemplate;
                    }
 
+                   that.angular("cleanup", function() {
+                       return { elements: [ editable.element ]};
+                   });
+
                    data = that._modelFromElement(editable.element);
                    that._destroyEditable();
 
@@ -536,6 +540,10 @@
                    if (that._hasBindingTarget()) {
                         kendo.bind(item, data);
                    }
+
+                   that.angular("compile", function() {
+                       return { elements: [ item ], data: [ { dataItem: data } ]};
+                   });
                }
            }
 

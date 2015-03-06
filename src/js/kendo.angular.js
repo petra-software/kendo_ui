@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1425 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2014.3.1506 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -222,6 +222,24 @@
                 setupRebind(object, scope, element, originalElement, attrs.kRebind, destroyRegister);
             }
 
+            if (attrs.kNgDisabled) {
+                var kNgDisabled = attrs.kNgDisabled;
+                var isDisabled = scope[kNgDisabled];
+                if (isDisabled) {
+                    object.enable(!isDisabled);
+                }
+                bindToKNgDisabled(object, scope, element, kNgDisabled);
+            }
+
+            if (attrs.kNgReadonly) {
+                var kNgReadonly = attrs.kNgReadonly;
+                var isReadonly = scope[kNgReadonly];
+                if (isReadonly) {
+                    object.readonly(isReadonly);
+                }
+                bindToKNgReadonly(object, scope, element, kNgReadonly);
+            }
+
             // kNgModel is used for the "logical" value
             if (attrs.kNgModel) {
                 bindToKNgModel(object, scope, attrs.kNgModel);
@@ -238,6 +256,35 @@
 
             return object;
         }
+    }
+
+    function bindToKNgDisabled(widget, scope, element, kNgDisabled) {
+        if ((kendo.ui.PanelBar && widget instanceof kendo.ui.PanelBar) || (kendo.ui.Menu && widget instanceof kendo.ui.Menu)) {
+            $log.warn("k-ng-disabled specified on a widget that does not have the enable() method: " + (widget.options.name));
+            return;
+        }
+        scope.$apply(function() {
+            scope.$watch(kNgDisabled, function(newValue, oldValue) {
+                if (newValue != oldValue) {
+                    widget.enable(!newValue);
+                }
+            });
+        });
+    }
+
+    function bindToKNgReadonly(widget, scope, element, kNgReadonly) {
+        if (typeof widget.readonly != "function") {
+            $log.warn("k-ng-readonly specified on a widget that does not have the readonly() method: " + (widget.options.name));
+            return;
+        }
+        scope.$apply(function() {
+            scope.$watch(kNgReadonly, function(newValue, oldValue) {
+                if (newValue != oldValue) {
+                    widget.readonly(newValue);
+                }
+            });
+        });
+
     }
 
     function exposeWidget(widget, scope, attrs, kendoWidget, origAttr) {

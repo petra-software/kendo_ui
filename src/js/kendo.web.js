@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1425 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2014.3.1506 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2014.3.1425";
+    kendo.version = "2014.3.1506";
 
     function Class() {}
 
@@ -8463,7 +8463,7 @@ function pad(number, digits, end) {
 
                 this._aggregateResult = this._calculateAggregates(this._data, options);
                 this.view(result.data);
-                this.trigger(REQUESTEND, { });
+                this.trigger(REQUESTEND, { type: "read" });
                 this.trigger(CHANGE, { items: result.data });
             }
 
@@ -14459,7 +14459,7 @@ kendo.ExcelExporter = kendo.Class.extend({
                     cells: cells
                 });
 
-                return rows.concat(this._footer(dataItem, level+1));
+                return rows.concat(this._footer(dataItem));
             } else {
                 var dataCells = $.map(this.columns, $.proxy(this._cell, this, dataItem));
 
@@ -14476,7 +14476,7 @@ kendo.ExcelExporter = kendo.Class.extend({
 
         return rows;
     },
-    _footer: function(dataItem, level) {
+    _footer: function(dataItem) {
         var rows = [];
         var footer = false;
 
@@ -14499,7 +14499,7 @@ kendo.ExcelExporter = kendo.Class.extend({
         if (footer) {
             rows.push({
                 type: "group-footer",
-                cells: $.map(new Array(level), function() {
+                cells: $.map(new Array(this.dataSource.group().length), function() {
                     return {
                         background: "#dfdfdf",
                         color: "#333"
@@ -55377,6 +55377,8 @@ kendo.PDFMixin = {
                 trFilter.append(that.thead.find(".k-filter-row .k-group-cell").add(filterCells));
 
                 this.lockedHeader = table.prependTo(container);
+                this.thead.find(".k-group-cell").remove();
+
                 this._syncLockedHeaderHeight();
             }
         },
@@ -57244,6 +57246,10 @@ kendo.PDFMixin = {
                        template = that.altTemplate;
                    }
 
+                   that.angular("cleanup", function() {
+                       return { elements: [ editable.element ]};
+                   });
+
                    data = that._modelFromElement(editable.element);
                    that._destroyEditable();
 
@@ -57255,6 +57261,10 @@ kendo.PDFMixin = {
                    if (that._hasBindingTarget()) {
                         kendo.bind(item, data);
                    }
+
+                   that.angular("compile", function() {
+                       return { elements: [ item ], data: [ { dataItem: data } ]};
+                   });
                }
            }
 
@@ -82716,6 +82726,8 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 sizingProperty = isHorizontal ? "width" : "height",
                 totalSize = element[sizingProperty]();
 
+            that.wrapper.addClass("k-splitter-resizing");
+
             if (splitBarsCount === 0) {
                 splitBarsCount = panes.length - 1;
                 panes.slice(0, splitBarsCount)
@@ -82795,6 +82807,8 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             that._detachEvents();
             that._attachEvents();
+
+            that.wrapper.removeClass("k-splitter-resizing");
 
             kendo.resize(panes);
             that.trigger(LAYOUTCHANGE);
@@ -100652,7 +100666,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             if (!!task) {
                 taskId = task.get("id");
 
-                if (taskId === undefined || taskId === null) {
+                if (taskId === undefined || taskId === null || taskId === "") {
                     return [];
                 }
 
@@ -103169,6 +103183,22 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             }, options));
         },
 
+        _createNewModel: function(data) {
+            var model = {};
+
+            if (data instanceof Model) {
+                model = data;
+            }
+
+            model = DataSource.fn._createNewModel.call(this, model);
+
+            if (data.parentId) {
+                model.parentId = data.parentId;
+            }
+
+            return model;
+        },
+
         _readData: function(newData) {
             var result = [];
             var data = this.data();
@@ -105497,6 +105527,24 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 setupRebind(object, scope, element, originalElement, attrs.kRebind, destroyRegister);
             }
 
+            if (attrs.kNgDisabled) {
+                var kNgDisabled = attrs.kNgDisabled;
+                var isDisabled = scope[kNgDisabled];
+                if (isDisabled) {
+                    object.enable(!isDisabled);
+                }
+                bindToKNgDisabled(object, scope, element, kNgDisabled);
+            }
+
+            if (attrs.kNgReadonly) {
+                var kNgReadonly = attrs.kNgReadonly;
+                var isReadonly = scope[kNgReadonly];
+                if (isReadonly) {
+                    object.readonly(isReadonly);
+                }
+                bindToKNgReadonly(object, scope, element, kNgReadonly);
+            }
+
             // kNgModel is used for the "logical" value
             if (attrs.kNgModel) {
                 bindToKNgModel(object, scope, attrs.kNgModel);
@@ -105513,6 +105561,35 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             return object;
         }
+    }
+
+    function bindToKNgDisabled(widget, scope, element, kNgDisabled) {
+        if ((kendo.ui.PanelBar && widget instanceof kendo.ui.PanelBar) || (kendo.ui.Menu && widget instanceof kendo.ui.Menu)) {
+            $log.warn("k-ng-disabled specified on a widget that does not have the enable() method: " + (widget.options.name));
+            return;
+        }
+        scope.$apply(function() {
+            scope.$watch(kNgDisabled, function(newValue, oldValue) {
+                if (newValue != oldValue) {
+                    widget.enable(!newValue);
+                }
+            });
+        });
+    }
+
+    function bindToKNgReadonly(widget, scope, element, kNgReadonly) {
+        if (typeof widget.readonly != "function") {
+            $log.warn("k-ng-readonly specified on a widget that does not have the readonly() method: " + (widget.options.name));
+            return;
+        }
+        scope.$apply(function() {
+            scope.$watch(kNgReadonly, function(newValue, oldValue) {
+                if (newValue != oldValue) {
+                    widget.readonly(newValue);
+                }
+            });
+        });
+
     }
 
     function exposeWidget(widget, scope, attrs, kendoWidget, origAttr) {

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1425 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2014.3.1506 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -5825,18 +5825,22 @@
                 this.toolService.activeConnection.target(p);
                 return true;
             },
-            end: function () {
-                var nc = this.toolService.activeConnection,
-                    hi = this.toolService.hoveredItem,
-                    connector = this.toolService._hoveredConnector;
+            end: function (p) {
+                var connection = this.toolService.activeConnection,
+                    hoveredItem = this.toolService.hoveredItem,
+                    connector = this.toolService._hoveredConnector,
+                    target;
 
-                if (connector && connector._c != nc.sourceConnector) {
-                    nc.target(connector._c);
-                } else if (hi) {
-                    nc.target(hi);
+                if (connector && connector._c != connection.sourceConnector) {
+                    target = connector._c;
+                } else if (hoveredItem && hoveredItem instanceof diagram.Shape) {
+                    target = hoveredItem.getConnector(AUTO) || hoveredItem.getConnector(p);
+                } else {
+                    target = p;
                 }
 
-                nc.updateModel(true);
+                connection.target(target);
+                connection.updateModel(true);
 
                 this.toolService._connectionManipulation();
             },
@@ -6410,7 +6414,7 @@
                 if (ts._hoveredConnector) {
                     target = ts._hoveredConnector._c;
                 } else if (item && item instanceof diagram.Shape) {
-                    target = item;
+                    target = item.getConnector(AUTO) || item.getConnector(p);
                 } else {
                     target = p;
                 }
@@ -7134,6 +7138,8 @@
             DeleteShapeUnit: DeleteShapeUnit,
             DeleteConnectionUnit: DeleteConnectionUnit,
             ConnectionEditAdorner: ConnectionEditAdorner,
+            ConnectionTool: ConnectionTool,
+            ConnectorVisual: ConnectorVisual,
             UndoRedoService: UndoRedoService,
             ResizingAdorner: ResizingAdorner,
             Selector: Selector,
@@ -12023,6 +12029,12 @@
             source: function (source, undoable) {
                 var dataItem;
                 if (isDefined(source)) {
+                    var shapeSource = source instanceof Shape;
+
+                    if (shapeSource && !source.getConnector(AUTO)) {
+                        return;
+                    }
+
                     if (undoable && this.diagram) {
                         this.diagram.undoRedoService.addCompositeItem(new diagram.ConnectionEditUnit(this, source));
                     }
@@ -12049,11 +12061,12 @@
                             this._clearSourceConnector();
                         }
 
-                    } else if (source instanceof Shape) {
+                    } else if (shapeSource) {
                         dataItem = source.dataItem;
                         if (dataItem) {
                             this._setFromOptions(dataItem.id);
                         }
+
                         this.sourceConnector = source.getConnector(AUTO);// source.getConnector(this.targetPoint());
                         this.sourceConnector.connections.push(this);
                     }
@@ -12112,6 +12125,12 @@
             target: function (target, undoable) {
                 var dataItem;
                 if (isDefined(target)) {
+                    var shapeTarget = target instanceof Shape;
+
+                    if (shapeTarget && !target.getConnector(AUTO)) {
+                        return;
+                    }
+
                     if (undoable && this.diagram) {
                         this.diagram.undoRedoService.addCompositeItem(new diagram.ConnectionEditUnit(this, undefined, target));
                     }
@@ -12139,12 +12158,12 @@
                         if (this.targetConnector) {
                             this._clearTargetConnector();
                         }
-                    } else if (target instanceof Shape) {
+                    } else if (shapeTarget) {
                         dataItem = target.dataItem;
                         if (dataItem) {
                             this._setToOptions(dataItem.id);
                         }
-                        this.targetConnector = target.getConnector(AUTO);// target.getConnector(this.sourcePoint());
+                        this.targetConnector = target.getConnector(AUTO);
                         this.targetConnector.connections.push(this);
                     }
 
@@ -12490,7 +12509,7 @@
                 that._initTheme();
                 that._initElements();
                 that._extendLayoutOptions(that.options);
-                that._initShapeDefaults();
+                that._initShapeDefaults(userOptions);
 
                 that._initCanvas();
 
@@ -12521,13 +12540,15 @@
                 // TODO: We may consider using real Clipboard API once is supported by the standard.
                 that._clipboard = [];
 
-                if (that.options.layout) {
-                    that.layout(that.options.layout);
-                }
                 that.pauseMouseHandlers = false;
 
                 that._createShapes();
                 that._createConnections();
+
+                if (that.options.layout) {
+                    that.layout(that.options.layout);
+                }
+
                 that.zoom(that.options.zoom);
 
                 that.canvas.draw();
@@ -12742,14 +12763,19 @@
                 this.scrollable = $("<div />").appendTo(this.element);
             },
 
-            _initShapeDefaults: function() {
+            _initShapeDefaults: function(userOptions) {
                 var options = this.options;
+                var userShapeDefaults = (userOptions || {}).shapeDefaults;
                 if (options.editable === false) {
                     deepExtend(options.shapeDefaults, {
                         editable: {
                             connect: false
                         }
                     });
+                }
+
+                if (userShapeDefaults && userShapeDefaults.connectors) {
+                    options.shapeDefaults.connectors = userShapeDefaults.connectors;
                 }
             },
 
@@ -13205,9 +13231,7 @@
              */
 
            remove: function(items, undoable) {
-                if (!isArray(items)) {
-                    items = [items];
-                }
+                items = isArray(items) ? items.slice(0) : [items];
                 var elements = splitDiagramElements(items);
                 var shapes = elements.shapes;
                 var connections = elements.connections;

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1425 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2014.3.1506 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -3597,10 +3597,16 @@
                             }
                         }
 
-                        limitsCache[key] = limits;
+                        if (limits.min !== MAX_VALUE || limits.max !== MIN_VALUE) {
+                            limitsCache[key] = limits;
+                        } else {
+                            limits = null;
+                        }
                     }
 
-                    chart.valueAxisRanges[axisName] = limits;
+                    if (limits) {
+                        chart.valueAxisRanges[axisName] = limits;
+                    }
                 }
             }
         },
@@ -5096,14 +5102,17 @@
 
     var ClipAnimationMixin = {
         createAnimation: function() {
-            var box = this.box;
-            var clipPath = draw.Path.fromRect(box.toRect());
-            this.visual.clip(clipPath);
-            this.animation = new ClipAnimation(clipPath, {
-                box: box
-            });
-            if (anyHasZIndex(this.options.series)) {
-                this._setChildrenAnimation(clipPath);
+            var root = this.getRoot();
+            if (root && (root.options || {}).transitions !== false) {
+                var box = root.box;
+                var clipPath = draw.Path.fromRect(box.toRect());
+                this.visual.clip(clipPath);
+                this.animation = new ClipAnimation(clipPath, {
+                    box: box
+                });
+                if (anyHasZIndex(this.options.series)) {
+                    this._setChildrenAnimation(clipPath);
+                }
             }
         },
 
@@ -7190,7 +7199,7 @@
                     value = pointData.valueFields.value;
                     plotValue = math.abs(value);
                     fields = pointData.fields;
-                    angle = round(plotValue * anglePerValue, DEFAULT_PRECISION);
+                    angle = plotValue * anglePerValue;
                     explode = data.length != 1 && !!fields.explode;
                     if (!isFn(currentSeries.color)) {
                         currentSeries.color = fields.color || colors[i % colorsCount];

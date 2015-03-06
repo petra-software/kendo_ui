@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1425 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2014.3.1506 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -284,6 +284,16 @@ $.extend(true, kendo.ui.Groupable.prototype.options.messages,{
 });
 }
 
+/* NumericTextBox messages */
+
+if (kendo.ui.NumericTextBox) {
+kendo.ui.NumericTextBox.prototype.options =
+$.extend(true, kendo.ui.NumericTextBox.prototype.options,{
+  "upArrowText": "Wert erhöhen",
+  "downArrowText": "Wert verringern"
+});
+}
+
 /* Pager messages */
 
 if (kendo.ui.Pager) {
@@ -346,7 +356,7 @@ $.extend(true, kendo.ui.Scheduler.prototype.options.messages,{
     "timezoneEditorButton": "Zeitzone",
     "timezoneEditorTitle": "Zeitzonen",
     "title": "Titel",
-    "noTimezone": "No timezone"
+    "noTimezone": "Keine Zeitzone"
   },
   "event": "Termin",
   "recurrenceMessages": {
@@ -367,7 +377,7 @@ $.extend(true, kendo.ui.Scheduler.prototype.options.messages,{
     "day": "Tag",
     "month": "Monat",
     "week": "Woche",
-    "workWeek": "Work Week"
+    "workWeek": "Arbeitswoche"
   },
   "deleteWindowTitle": "Termin löschen",
   "showFullDay": "Ganzen Tag anzeigen",

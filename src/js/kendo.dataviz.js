@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1425 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2014.3.1506 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2014.3.1425";
+    kendo.version = "2014.3.1506";
 
     function Class() {}
 
@@ -10035,7 +10035,7 @@ function pad(number, digits, end) {
 
                 this._aggregateResult = this._calculateAggregates(this._data, options);
                 this.view(result.data);
-                this.trigger(REQUESTEND, { });
+                this.trigger(REQUESTEND, { type: "read" });
                 this.trigger(CHANGE, { items: result.data });
             }
 
@@ -40203,10 +40203,16 @@ kendo.PDFMixin = {
                             }
                         }
 
-                        limitsCache[key] = limits;
+                        if (limits.min !== MAX_VALUE || limits.max !== MIN_VALUE) {
+                            limitsCache[key] = limits;
+                        } else {
+                            limits = null;
+                        }
                     }
 
-                    chart.valueAxisRanges[axisName] = limits;
+                    if (limits) {
+                        chart.valueAxisRanges[axisName] = limits;
+                    }
                 }
             }
         },
@@ -41702,14 +41708,17 @@ kendo.PDFMixin = {
 
     var ClipAnimationMixin = {
         createAnimation: function() {
-            var box = this.box;
-            var clipPath = draw.Path.fromRect(box.toRect());
-            this.visual.clip(clipPath);
-            this.animation = new ClipAnimation(clipPath, {
-                box: box
-            });
-            if (anyHasZIndex(this.options.series)) {
-                this._setChildrenAnimation(clipPath);
+            var root = this.getRoot();
+            if (root && (root.options || {}).transitions !== false) {
+                var box = root.box;
+                var clipPath = draw.Path.fromRect(box.toRect());
+                this.visual.clip(clipPath);
+                this.animation = new ClipAnimation(clipPath, {
+                    box: box
+                });
+                if (anyHasZIndex(this.options.series)) {
+                    this._setChildrenAnimation(clipPath);
+                }
             }
         },
 
@@ -43796,7 +43805,7 @@ kendo.PDFMixin = {
                     value = pointData.valueFields.value;
                     plotValue = math.abs(value);
                     fields = pointData.fields;
-                    angle = round(plotValue * anglePerValue, DEFAULT_PRECISION);
+                    angle = plotValue * anglePerValue;
                     explode = data.length != 1 && !!fields.explode;
                     if (!isFn(currentSeries.color)) {
                         currentSeries.color = fields.color || colors[i % colorsCount];
@@ -58011,6 +58020,8 @@ kendo.PDFMixin = {
         },
 
         _load: function(data) {
+            this.surface.clear();
+
             if (data.length === 0) {
                 return;
             }
@@ -65473,18 +65484,22 @@ kendo.PDFMixin = {
                 this.toolService.activeConnection.target(p);
                 return true;
             },
-            end: function () {
-                var nc = this.toolService.activeConnection,
-                    hi = this.toolService.hoveredItem,
-                    connector = this.toolService._hoveredConnector;
+            end: function (p) {
+                var connection = this.toolService.activeConnection,
+                    hoveredItem = this.toolService.hoveredItem,
+                    connector = this.toolService._hoveredConnector,
+                    target;
 
-                if (connector && connector._c != nc.sourceConnector) {
-                    nc.target(connector._c);
-                } else if (hi) {
-                    nc.target(hi);
+                if (connector && connector._c != connection.sourceConnector) {
+                    target = connector._c;
+                } else if (hoveredItem && hoveredItem instanceof diagram.Shape) {
+                    target = hoveredItem.getConnector(AUTO) || hoveredItem.getConnector(p);
+                } else {
+                    target = p;
                 }
 
-                nc.updateModel(true);
+                connection.target(target);
+                connection.updateModel(true);
 
                 this.toolService._connectionManipulation();
             },
@@ -66058,7 +66073,7 @@ kendo.PDFMixin = {
                 if (ts._hoveredConnector) {
                     target = ts._hoveredConnector._c;
                 } else if (item && item instanceof diagram.Shape) {
-                    target = item;
+                    target = item.getConnector(AUTO) || item.getConnector(p);
                 } else {
                     target = p;
                 }
@@ -66782,6 +66797,8 @@ kendo.PDFMixin = {
             DeleteShapeUnit: DeleteShapeUnit,
             DeleteConnectionUnit: DeleteConnectionUnit,
             ConnectionEditAdorner: ConnectionEditAdorner,
+            ConnectionTool: ConnectionTool,
+            ConnectorVisual: ConnectorVisual,
             UndoRedoService: UndoRedoService,
             ResizingAdorner: ResizingAdorner,
             Selector: Selector,
@@ -79487,6 +79504,12 @@ kendo.PDFMixin = {
             source: function (source, undoable) {
                 var dataItem;
                 if (isDefined(source)) {
+                    var shapeSource = source instanceof Shape;
+
+                    if (shapeSource && !source.getConnector(AUTO)) {
+                        return;
+                    }
+
                     if (undoable && this.diagram) {
                         this.diagram.undoRedoService.addCompositeItem(new diagram.ConnectionEditUnit(this, source));
                     }
@@ -79513,11 +79536,12 @@ kendo.PDFMixin = {
                             this._clearSourceConnector();
                         }
 
-                    } else if (source instanceof Shape) {
+                    } else if (shapeSource) {
                         dataItem = source.dataItem;
                         if (dataItem) {
                             this._setFromOptions(dataItem.id);
                         }
+
                         this.sourceConnector = source.getConnector(AUTO);// source.getConnector(this.targetPoint());
                         this.sourceConnector.connections.push(this);
                     }
@@ -79576,6 +79600,12 @@ kendo.PDFMixin = {
             target: function (target, undoable) {
                 var dataItem;
                 if (isDefined(target)) {
+                    var shapeTarget = target instanceof Shape;
+
+                    if (shapeTarget && !target.getConnector(AUTO)) {
+                        return;
+                    }
+
                     if (undoable && this.diagram) {
                         this.diagram.undoRedoService.addCompositeItem(new diagram.ConnectionEditUnit(this, undefined, target));
                     }
@@ -79603,12 +79633,12 @@ kendo.PDFMixin = {
                         if (this.targetConnector) {
                             this._clearTargetConnector();
                         }
-                    } else if (target instanceof Shape) {
+                    } else if (shapeTarget) {
                         dataItem = target.dataItem;
                         if (dataItem) {
                             this._setToOptions(dataItem.id);
                         }
-                        this.targetConnector = target.getConnector(AUTO);// target.getConnector(this.sourcePoint());
+                        this.targetConnector = target.getConnector(AUTO);
                         this.targetConnector.connections.push(this);
                     }
 
@@ -79954,7 +79984,7 @@ kendo.PDFMixin = {
                 that._initTheme();
                 that._initElements();
                 that._extendLayoutOptions(that.options);
-                that._initShapeDefaults();
+                that._initShapeDefaults(userOptions);
 
                 that._initCanvas();
 
@@ -79985,13 +80015,15 @@ kendo.PDFMixin = {
                 // TODO: We may consider using real Clipboard API once is supported by the standard.
                 that._clipboard = [];
 
-                if (that.options.layout) {
-                    that.layout(that.options.layout);
-                }
                 that.pauseMouseHandlers = false;
 
                 that._createShapes();
                 that._createConnections();
+
+                if (that.options.layout) {
+                    that.layout(that.options.layout);
+                }
+
                 that.zoom(that.options.zoom);
 
                 that.canvas.draw();
@@ -80206,14 +80238,19 @@ kendo.PDFMixin = {
                 this.scrollable = $("<div />").appendTo(this.element);
             },
 
-            _initShapeDefaults: function() {
+            _initShapeDefaults: function(userOptions) {
                 var options = this.options;
+                var userShapeDefaults = (userOptions || {}).shapeDefaults;
                 if (options.editable === false) {
                     deepExtend(options.shapeDefaults, {
                         editable: {
                             connect: false
                         }
                     });
+                }
+
+                if (userShapeDefaults && userShapeDefaults.connectors) {
+                    options.shapeDefaults.connectors = userShapeDefaults.connectors;
                 }
             },
 
@@ -80669,9 +80706,7 @@ kendo.PDFMixin = {
              */
 
            remove: function(items, undoable) {
-                if (!isArray(items)) {
-                    items = [items];
-                }
+                items = isArray(items) ? items.slice(0) : [items];
                 var elements = splitDiagramElements(items);
                 var shapes = elements.shapes;
                 var connections = elements.connections;
@@ -83981,6 +84016,24 @@ kendo.PDFMixin = {
                 setupRebind(object, scope, element, originalElement, attrs.kRebind, destroyRegister);
             }
 
+            if (attrs.kNgDisabled) {
+                var kNgDisabled = attrs.kNgDisabled;
+                var isDisabled = scope[kNgDisabled];
+                if (isDisabled) {
+                    object.enable(!isDisabled);
+                }
+                bindToKNgDisabled(object, scope, element, kNgDisabled);
+            }
+
+            if (attrs.kNgReadonly) {
+                var kNgReadonly = attrs.kNgReadonly;
+                var isReadonly = scope[kNgReadonly];
+                if (isReadonly) {
+                    object.readonly(isReadonly);
+                }
+                bindToKNgReadonly(object, scope, element, kNgReadonly);
+            }
+
             // kNgModel is used for the "logical" value
             if (attrs.kNgModel) {
                 bindToKNgModel(object, scope, attrs.kNgModel);
@@ -83997,6 +84050,35 @@ kendo.PDFMixin = {
 
             return object;
         }
+    }
+
+    function bindToKNgDisabled(widget, scope, element, kNgDisabled) {
+        if ((kendo.ui.PanelBar && widget instanceof kendo.ui.PanelBar) || (kendo.ui.Menu && widget instanceof kendo.ui.Menu)) {
+            $log.warn("k-ng-disabled specified on a widget that does not have the enable() method: " + (widget.options.name));
+            return;
+        }
+        scope.$apply(function() {
+            scope.$watch(kNgDisabled, function(newValue, oldValue) {
+                if (newValue != oldValue) {
+                    widget.enable(!newValue);
+                }
+            });
+        });
+    }
+
+    function bindToKNgReadonly(widget, scope, element, kNgReadonly) {
+        if (typeof widget.readonly != "function") {
+            $log.warn("k-ng-readonly specified on a widget that does not have the readonly() method: " + (widget.options.name));
+            return;
+        }
+        scope.$apply(function() {
+            scope.$watch(kNgReadonly, function(newValue, oldValue) {
+                if (newValue != oldValue) {
+                    widget.readonly(newValue);
+                }
+            });
+        });
+
     }
 
     function exposeWidget(widget, scope, attrs, kendoWidget, origAttr) {

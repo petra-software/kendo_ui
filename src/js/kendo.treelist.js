@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1425 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2014.3.1506 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -162,6 +162,22 @@
                     model: TreeListModel
                 }
             }, options));
+        },
+
+        _createNewModel: function(data) {
+            var model = {};
+
+            if (data instanceof Model) {
+                model = data;
+            }
+
+            model = DataSource.fn._createNewModel.call(this, model);
+
+            if (data.parentId) {
+                model.parentId = data.parentId;
+            }
+
+            return model;
         },
 
         _readData: function(newData) {
