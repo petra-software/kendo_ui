@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1506 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2014.3.1513 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -38,7 +38,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2014.3.1506";
+    kendo.version = "2014.3.1513";
 
     function Class() {}
 

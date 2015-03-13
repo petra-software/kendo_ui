@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1506 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2014.3.1513 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2014.3.1506";
+    kendo.version = "2014.3.1513";
 
     function Class() {}
 
@@ -8121,6 +8121,9 @@ function pad(number, digits, end) {
                 dest.splice(idx--, 1);
             } else if (group.hasSubgroups && items.length) {
                 mergeGroups(group, items, skip, take);
+                if (!group.items.length) {
+                    dest.splice(idx--, 1);
+                }
             } else {
                 items = items.slice(skip, skip + take);
                 group.items = items;
@@ -21274,7 +21277,7 @@ function pad(number, digits, end) {
         var siblings = centerElement.siblings(),
             noTitle = !!centerElement.children("ul")[0],
             showTitle = (!!siblings[0] && $.trim(centerElement.text()) === ""),
-            android = kendo.mobile.application && kendo.mobile.application.element.is(".km-android");
+            android = !!(kendo.mobile.application && kendo.mobile.application.element.is(".km-android"));
 
         centerElement.prevAll().toggleClass("km-absolute", noTitle);
         centerElement.toggleClass("km-show-title", showTitle);

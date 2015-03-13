@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1506 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2014.3.1513 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2014.3.1506";
+    kendo.version = "2014.3.1513";
 
     function Class() {}
 
@@ -7072,6 +7072,9 @@ function pad(number, digits, end) {
                 dest.splice(idx--, 1);
             } else if (group.hasSubgroups && items.length) {
                 mergeGroups(group, items, skip, take);
+                if (!group.items.length) {
+                    dest.splice(idx--, 1);
+                }
             } else {
                 items = items.slice(skip, skip + take);
                 group.items = items;
@@ -51562,6 +51565,16 @@ kendo.PDFMixin = {
 
             kendo.destroy(that.wrapper);
 
+            that.rowTemplate =
+            that.altRowTemplate =
+            that.lockedRowTemplate =
+            that.lockedAltRowTemplate =
+            that.detailTemplate =
+            that.footerTemplate =
+            that.groupFooterTemplate =
+            that.lockedGroupFooterTemplate = null;
+
+
             that.scrollables =
             that.thead =
             that.tbody =
@@ -56817,6 +56830,13 @@ kendo.PDFMixin = {
             Widget.fn.setOptions.call(this, options);
 
             this._templates();
+
+            if (this.selectable) {
+                this.selectable.destroy();
+                this.selectable = null;
+            }
+
+            this._selectable();
         },
 
         _templates: function() {
@@ -81060,6 +81080,10 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                              .wrap('<div class="km-popup-wrapper k-popup"></div>').parent();
         }
 
+        function preventClick(e) {
+            e.preventDefault();
+        }
+
         var ToolBar = Widget.extend({
             init: function(element, options) {
                 var that = this;
@@ -81121,6 +81145,11 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                     press: toggleActive,
                     release: toggleActive
                 });
+
+                that.element.on(CLICK, "." + STATE_DISABLED, preventClick);
+                if (options.resizable) {
+                    that.popup.element.on(CLICK, + "." + STATE_DISABLED, preventClick);
+                }
 
                 if (options.resizable) {
                     this._toggleOverflowAnchor();

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1506 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2014.3.1513 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -423,6 +423,10 @@
                              .wrap('<div class="km-popup-wrapper k-popup"></div>').parent();
         }
 
+        function preventClick(e) {
+            e.preventDefault();
+        }
+
         var ToolBar = Widget.extend({
             init: function(element, options) {
                 var that = this;
@@ -484,6 +488,11 @@
                     press: toggleActive,
                     release: toggleActive
                 });
+
+                that.element.on(CLICK, "." + STATE_DISABLED, preventClick);
+                if (options.resizable) {
+                    that.popup.element.on(CLICK, + "." + STATE_DISABLED, preventClick);
+                }
 
                 if (options.resizable) {
                     this._toggleOverflowAnchor();

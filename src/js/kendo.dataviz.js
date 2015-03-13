@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1506 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2014.3.1513 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2014.3.1506";
+    kendo.version = "2014.3.1513";
 
     function Class() {}
 
@@ -8644,6 +8644,9 @@ function pad(number, digits, end) {
                 dest.splice(idx--, 1);
             } else if (group.hasSubgroups && items.length) {
                 mergeGroups(group, items, skip, take);
+                if (!group.items.length) {
+                    dest.splice(idx--, 1);
+                }
             } else {
                 items = items.slice(skip, skip + take);
                 group.items = items;
@@ -30409,7 +30412,8 @@ kendo.PDFMixin = {
             var options = this.options;
             if (options.visible && this.hasBox()) {
                 this.visual.append(draw.Path.fromRect(
-                    this.paddingBox.toRect(), this.visualStyle()
+                    this.paddingBox.toRect(),
+                    this.visualStyle()
                 ));
             }
         },
@@ -44581,6 +44585,13 @@ kendo.PDFMixin = {
             if (pane.title) {
                 pane.contentBox.y1 += pane.title.box.height();
             }
+        },
+
+        visualStyle: function() {
+            var style = BoxElement.fn.visualStyle.call(this);
+            style.zIndex = -10;
+
+            return style;
         },
 
         renderComplete: function() {
@@ -70999,6 +71010,10 @@ kendo.PDFMixin = {
                              .wrap('<div class="km-popup-wrapper k-popup"></div>').parent();
         }
 
+        function preventClick(e) {
+            e.preventDefault();
+        }
+
         var ToolBar = Widget.extend({
             init: function(element, options) {
                 var that = this;
@@ -71060,6 +71075,11 @@ kendo.PDFMixin = {
                     press: toggleActive,
                     release: toggleActive
                 });
+
+                that.element.on(CLICK, "." + STATE_DISABLED, preventClick);
+                if (options.resizable) {
+                    that.popup.element.on(CLICK, + "." + STATE_DISABLED, preventClick);
+                }
 
                 if (options.resizable) {
                     this._toggleOverflowAnchor();

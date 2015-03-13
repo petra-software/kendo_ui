@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1506 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2014.3.1513 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -28,7 +28,7 @@
         var siblings = centerElement.siblings(),
             noTitle = !!centerElement.children("ul")[0],
             showTitle = (!!siblings[0] && $.trim(centerElement.text()) === ""),
-            android = kendo.mobile.application && kendo.mobile.application.element.is(".km-android");
+            android = !!(kendo.mobile.application && kendo.mobile.application.element.is(".km-android"));
 
         centerElement.prevAll().toggleClass("km-absolute", noTitle);
         centerElement.toggleClass("km-show-title", showTitle);

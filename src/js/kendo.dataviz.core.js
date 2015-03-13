@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1506 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2014.3.1513 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1007,7 +1007,8 @@
             var options = this.options;
             if (options.visible && this.hasBox()) {
                 this.visual.append(draw.Path.fromRect(
-                    this.paddingBox.toRect(), this.visualStyle()
+                    this.paddingBox.toRect(),
+                    this.visualStyle()
                 ));
             }
         },
