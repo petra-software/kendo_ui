@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1513 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2014.3.1513";
+    kendo.version = "2014.3.1516";
 
     function Class() {}
 
@@ -75116,7 +75116,9 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                     context.item = item = items[i];
                     node = elements[i].parent();
 
-                    node.find(">div>.k-in").html(that.templates.itemContent(context));
+                    if (field != "expanded" && field != "checked") {
+                        node.find(">div>.k-in").html(that.templates.itemContent(context));
+                    }
 
                     if (field == CHECKED) {
                         isChecked = item[field];

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1513 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -2990,7 +2990,7 @@
                 dataItem: this.dataItem,
                 runningTotal: this.runningTotal,
                 total: this.total,
-                element: $(e.target),
+                element: $((e || {}).target),
                 originalEvent: e,
                 point: this
             };
@@ -6287,6 +6287,10 @@
         },
 
         drawLines: function(container, options, lines, lineOptions) {
+            if (!lines) {
+                return;
+            }
+
             var lineStyle = {
                 stroke: {
                     color: lineOptions.color || this.color,
