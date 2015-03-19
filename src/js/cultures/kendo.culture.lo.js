@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -15,7 +15,7 @@
     kendo.cultures["lo"] = {
         name: "lo",
         numberFormat: {
-            pattern: ["(n)"],
+            pattern: ["-n"],
             decimals: 2,
             ",": ",",
             ".": ".",
@@ -29,7 +29,7 @@
                 symbol: "%"
             },
             currency: {
-                pattern: ["(n$)","n$"],
+                pattern: ["-n $","n $"],
                 decimals: 2,
                 ",": ",",
                 ".": ".",
@@ -42,11 +42,11 @@
                 days: {
                     names: ["ວັນອາທິດ","ວັນຈັນ","ວັນອັງຄານ","ວັນພຸດ","ວັນພະຫັດ","ວັນສຸກ","ວັນເສົາ"],
                     namesAbbr: ["ອາທິດ","ຈັນ","ອັງຄານ","ພຸດ","ພະຫັດ","ສຸກ","ເສົາ"],
-                    namesShort: ["ອ","ຈ","ອ","ພ","ພ","ສ","ເ"]
+                    namesShort: ["ທ","ຈ","ອ","ພ","ພຫ","ສ","ເສ"]
                 },
                 months: {
                     names: ["ມັງກອນ","ກຸມພາ","ມີນາ","ເມສາ","ພຶດສະພາ","ມິຖຸນາ","ກໍລະກົດ","ສິງຫາ","ກັນຍາ","ຕຸລາ","ພະຈິກ","ທັນວາ",""],
-                    namesAbbr: ["ມັງກອນ","ກຸມພາ","ມີນາ","ເມສາ","ພຶດສະພາ","ມິຖຸນາ","ກໍລະກົດ","ສິງຫາ","ກັນຍາ","ຕຸລາ","ພະຈິກ","ທັນວາ",""]
+                    namesAbbr: ["ມ.ກ","ກ.ພ","ມິ.ນ","ມ.ສ","ພ.ພ","ມິ.ຖ","ກ.ລ","ສ.ຫ","ກ.ຍ","ຕ.ລ","ພ.ຈ","ທ.ວ",""]
                 },
                 AM: ["ເຊົ້າ","ເຊົ້າ","ເຊົ້າ"],
                 PM: ["ແລງ","ແລງ","ແລງ"],
@@ -54,12 +54,12 @@
                     d: "dd/MM/yyyy",
                     D: "dd MMMM yyyy",
                     F: "dd MMMM yyyy HH:mm:ss",
-                    g: "dd/MM/yyyy H:mm tt",
+                    g: "dd/MM/yyyy HH:mm",
                     G: "dd/MM/yyyy HH:mm:ss",
-                    m: "dd MMMM",
-                    M: "dd MMMM",
+                    m: "d MMMM",
+                    M: "d MMMM",
                     s: "yyyy'-'MM'-'dd'T'HH':'mm':'ss",
-                    t: "H:mm tt",
+                    t: "HH:mm",
                     T: "HH:mm:ss",
                     u: "yyyy'-'MM'-'dd HH':'mm':'ss'Z'",
                     y: "MMMM yyyy",
@@ -67,7 +67,7 @@
                 },
                 "/": "/",
                 ":": ":",
-                firstDay: 0
+                firstDay: 1
             }
         }
     }

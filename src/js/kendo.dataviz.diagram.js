@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -4342,6 +4342,23 @@
             }
         },
 
+        _normalizeMarkerOptions: function(options) {
+            var startCap = options.startCap;
+            var endCap = options.endCap;
+
+            if (isString(startCap)) {
+                options.startCap = {
+                    type: startCap
+                };
+            }
+
+            if (isString(endCap)) {
+                options.endCap = {
+                    type: endCap
+                };
+            }
+        },
+
         _removeMarker: function(position) {
             var marker = this._markers[position];
             if (marker) {
@@ -4352,14 +4369,15 @@
 
         _createMarkers: function() {
             var options = this.options;
-            var startCap = options.startCap;
-            var endCap = options.endCap;
+            this._normalizeMarkerOptions(options);
+
             this._markers = {};
-            this._markers[START] = this._createMarker(startCap, START);
-            this._markers[END] = this._createMarker(endCap, END);
+            this._markers[START] = this._createMarker(options.startCap, START);
+            this._markers[END] = this._createMarker(options.endCap, END);
         },
 
-        _createMarker: function(type, position) {
+        _createMarker: function(options, position) {
+            var type = (options || {}).type;
             var path = this._getPath(position);
             var markerType, marker;
             if (!path) {
@@ -4375,9 +4393,9 @@
                 this._removeMarker(position);
             }
             if (markerType) {
-                marker = new markerType({
+                marker = new markerType(deepExtend({}, options, {
                     position: position
-                });
+                }));
                 marker.positionMarker(path);
                 this.drawingContainer().append(marker.drawingElement);
 
@@ -4404,15 +4422,22 @@
         },
 
         _redrawMarker: function(pathChange, position, options) {
+            this._normalizeMarkerOptions(options);
+
             var pathOptions = this.options;
             var cap = this._capMap[position];
+            var pathCapType = (pathOptions[cap] || {}).type;
             var optionsCap = options[cap];
             var created = false;
-            if (optionsCap && pathOptions[cap] != optionsCap) {
-                pathOptions[cap] = optionsCap;
-                this._removeMarker(position);
-                this._markers[position] = this._createMarker(optionsCap, position);
-                created  = true;
+            if (optionsCap) {
+                pathOptions[cap] = deepExtend({}, pathOptions[cap], optionsCap);
+                if (optionsCap.type && pathCapType != optionsCap.type) {
+                    this._removeMarker(position);
+                    this._markers[position] = this._createMarker(pathOptions[cap], position);
+                    created  = true;
+                } else if (this._markers[position]) {
+                   this._markers[position].redraw(optionsCap);
+                }
             } else if (pathChange && !this._markers[position] && pathOptions[cap]) {
                 this._markers[position] = this._createMarker(pathOptions[cap], position);
                 created = true;
@@ -5299,7 +5324,7 @@
                 this.title = "Deletion";
             },
             undo: function () {
-                this.diagram._addShape(this.shape, { undoable: false });
+                this.diagram._addShape(this.shape, false);
                 this.shape.select(false);
             },
             redo: function () {
@@ -5815,11 +5840,16 @@
             start: function (p, meta) {
                 var diagram = this.toolService.diagram,
                     connector = this.toolService._hoveredConnector,
-                    connection = diagram.connect(connector._c, p);
+                    connection = diagram._createConnection({}, connector._c, p);
 
-                this.toolService._connectionManipulation(connection, connector._c.shape, true);
-                this.toolService._removeHover();
-                selectSingle(this.toolService.activeConnection, meta);
+                if (diagram._addConnection(connection)) {
+                    this.toolService._connectionManipulation(connection, connector._c.shape, true);
+                    this.toolService._removeHover();
+                    selectSingle(this.toolService.activeConnection, meta);
+                } else {
+                    connection.source(null);
+                    this.toolService.end();
+                }
             },
             move: function (p) {
                 this.toolService.activeConnection.target(p);
@@ -5830,6 +5860,10 @@
                     hoveredItem = this.toolService.hoveredItem,
                     connector = this.toolService._hoveredConnector,
                     target;
+
+                if (!connection) {
+                    return;
+                }
 
                 if (connector && connector._c != connection.sourceConnector) {
                     target = connector._c;
@@ -11460,10 +11494,7 @@
                 var diagram = this.diagram;
                 if (diagram && diagram._isEditable) {
                     var bounds = this._bounds;
-                    var model;
-                    if (this.dataItem) {
-                        model = diagram.dataSource.getByUid(this.dataItem.uid);
-                    }
+                    var model = this.dataItem;
 
                     if (model) {
                         diagram._suspendModelRefresh();
@@ -11758,6 +11789,11 @@
                         boundsChange = true;
                     }
 
+                    if (options.connectors) {
+                        shapeOptions.connectors = options.connectors;
+                        this._updateConnectors();
+                    }
+
                     shapeOptions = deepExtend(shapeOptions, options);
 
                     if  (options.rotation || boundsChange) {
@@ -11767,6 +11803,27 @@
                     if (shapeOptions.content) {
                         this.content(shapeOptions.content);
                     }
+                }
+            },
+
+            _updateConnectors: function() {
+                var connections = this.connections();
+                this.connectors = [];
+                this._createConnectors();
+                var connection;
+                var source;
+                var target;
+
+                for (var idx = 0; idx < connections.length; idx++) {
+                    connection = connections[idx];
+                    source = connection.source();
+                    target = connection.target();
+                    if (source.shape && source.shape === this) {
+                        connection.source(this.getConnector(source.options.name) || null);
+                    } else if (target.shape && target.shape === this) {
+                        connection.target(this.getConnector(target.options.name) || null);
+                    }
+                    connection.updateModel();
                 }
             },
 
@@ -12232,7 +12289,7 @@
                             diagram._deferredConnectionUpdates.push(inactiveItem.onActivate(setNewTarget));
                         }
                     }
-                } else if (instance !== that[name]()) {
+                } else {
                     that[name](instance, false);
                 }
             },
@@ -12509,7 +12566,7 @@
                 that._initTheme();
                 that._initElements();
                 that._extendLayoutOptions(that.options);
-                that._initShapeDefaults(userOptions);
+                that._initDefaults(userOptions);
 
                 that._initCanvas();
 
@@ -12619,50 +12676,80 @@
             ],
 
             _createGlobalToolBar: function() {
-                var tools = this.options.editable.tools;
-                if (this._isEditable && tools.length === 0) {
-                    tools = ["createShape", "undo", "redo", "rotateClockwise", "rotateAnticlockwise"];
-                }
+                var editable = this.options.editable;
+                if (editable) {
+                    var tools = editable.tools;
+                    if (this._isEditable && tools.length === 0) {
+                        tools = ["createShape", "undo", "redo", "rotateClockwise", "rotateAnticlockwise"];
+                    }
 
-                if (tools && tools.length) {
-                    this.toolBar = new DiagramToolBar(this, {
-                        tools: tools || {},
-                        click: proxy(this._toolBarClick, this),
-                        modal: false
-                    });
+                    if (tools && tools.length) {
+                        this.toolBar = new DiagramToolBar(this, {
+                            tools: tools || {},
+                            click: proxy(this._toolBarClick, this),
+                            modal: false
+                        });
 
-                    this.toolBar.element.css({
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        width: this.element.width(),
-                        textAlign: "left"
-                    });
+                        this.toolBar.element.css({
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: this.element.width(),
+                            textAlign: "left"
+                        });
 
-                    this.element.append(this.toolBar.element);
+                        this.element.append(this.toolBar.element);
+                    }
                 }
             },
 
             createShape: function() {
-                var that = this;
-                if (((this.editor && this.editor.end()) || !this.editor) &&
-                    !this.trigger("add", { shape: {} })) {
-                    var view = this.dataSource.view() || [];
+                if ((this.editor && this.editor.end()) || !this.editor) {
+                    var dataSource = this.dataSource;
+                    var view = dataSource.view() || [];
                     var index = view.length;
-                    var model = this.dataSource.insert(index, {});
-                    that.editModel(model, "shape");
+                    var model = createModel(dataSource, {});
+                    var shape = this._createShape(model, {});
+
+                    if (!this.trigger("add", { shape: shape })) {
+                        dataSource.insert(index, model);
+                        var inactiveItem = this._inactiveShapeItems.getByUid(model.uid);
+                        inactiveItem.element = shape;
+                        this.edit(shape);
+                    }
                 }
             },
 
+            _createShape: function(dataItem, options) {
+                options = deepExtend({}, this.options.shapeDefaults, options);
+                options.dataItem = dataItem;
+                var shape = new Shape(options, this);
+                return shape;
+            },
+
             createConnection: function() {
-                if (((this.editor && this.editor.end()) || !this.editor) &&
-                    !this.trigger("add", { connection: {} })) {
-                    var view = this.connectionsDataSource.view() || [];
+                if (((this.editor && this.editor.end()) || !this.editor)) {
+                    var connectionsDataSource = this.connectionsDataSource;
+                    var view = connectionsDataSource.view() || [];
                     var index = view.length;
-                    var model = this.connectionsDataSource.insert(index, {});
-                    var connection = this._connectionsDataMap[model.uid];
-                    this.edit(connection);
+                    var model = createModel(connectionsDataSource, {});
+                    var connection = this._createConnection(model);
+                    if (!this.trigger("add", { connection: connection })) {
+                        this._connectionsDataMap[model.uid] = connection;
+                        connectionsDataSource.insert(index, model);
+                        this.addConnection(connection, false);
+                        this.edit(connection);
+                    }
                 }
+            },
+
+            _createConnection: function(dataItem, source, target) {
+                var options = deepExtend({}, this.options.connectionDefaults);
+                options.dataItem = dataItem;
+
+                var connection = new Connection(source || new Point(), target || new Point(), options);
+
+                return connection;
             },
 
             editModel: function(dataItem, editorType) {
@@ -12763,15 +12850,12 @@
                 this.scrollable = $("<div />").appendTo(this.element);
             },
 
-            _initShapeDefaults: function(userOptions) {
+            _initDefaults: function(userOptions) {
                 var options = this.options;
                 var userShapeDefaults = (userOptions || {}).shapeDefaults;
                 if (options.editable === false) {
-                    deepExtend(options.shapeDefaults, {
-                        editable: {
-                            connect: false
-                        }
-                    });
+                    options.shapeDefaults.editable = false;
+                    options.connectionDefaults.editable = false;
                 }
 
                 if (userShapeDefaults && userShapeDefaults.connectors) {
@@ -13140,21 +13224,27 @@
             },
 
             _addConnection: function (connection, undoable) {
-                var newConnection, newItem, dataItem;
-                if (this.connectionsDataSource && this._isEditable) {
-                    newItem = cloneDataItem(connection.dataItem);
-                    dataItem = this.connectionsDataSource.add(newItem);
-                    newConnection = this._connectionsDataMap[dataItem.uid];
-                    newConnection.redraw(connection.options);
-                    newConnection._updateConnector(connection.source(), "source");
-                    newConnection._updateConnector(connection.target(), "target");
-                } else {
-                    newConnection = this.addConnection(connection, undoable);
-                    newConnection.source(connection.source());
-                    newConnection.target(connection.target());
-                }
+                var connectionsDataSource = this.connectionsDataSource;
+                var dataItem;
+                if (connectionsDataSource && this._isEditable) {
+                    dataItem = createModel(connectionsDataSource, cloneDataItem(connection.dataItem));
+                    connection.dataItem = dataItem;
+                    connection.updateModel();
 
-                return newConnection;
+                    if (!this.trigger("add", { connection: connection })) {
+                        this._connectionsDataMap[dataItem.uid] = connection;
+
+                        connectionsDataSource.add(dataItem);
+                        this.addConnection(connection, undoable);
+                        connection._updateConnectors();
+
+                        return connection;
+                    }
+                } else if (!this.trigger("add", { connection: connection })) {
+                    this.addConnection(connection, undoable);
+                    connection._updateConnectors();
+                    return connection;
+                }
             },
 
             /**
@@ -13199,29 +13289,24 @@
                 return shape;
             },
 
-            _addShape: function(shape, options) {
+            _addShape: function(shape, undoable) {
                 var that = this;
-                var newItem, dataItem;
-                if (this.dataSource && this._isEditable) {
-                    newItem = cloneDataItem(shape.dataItem);
-                    if (!this.trigger("add", { shape: newItem })) {
-                        dataItem = this.dataSource.add(newItem);
-                        var updateShape = function() {
-                            var element = that._dataMap[dataItem.id];
-                            element.redraw(shape.options);
-                        };
+                var dataSource = that.dataSource;
+                var dataItem;
+                if (dataSource && this._isEditable) {
+                    dataItem = createModel(dataSource, cloneDataItem(shape.dataItem));
+                    shape.dataItem = dataItem;
+                    shape.updateModel();
+
+                    if (!this.trigger("add", { shape: shape })) {
+                        this.dataSource.add(dataItem);
                         var inactiveItem = this._inactiveShapeItems.getByUid(dataItem.uid);
-                        shape.dataItem = dataItem;
-                        shape.updateModel();
-                        if (inactiveItem) {
-                            inactiveItem.onActivate(updateShape);
-                        } else {
-                            updateShape();
-                        }
-                        return that._dataMap[dataItem.id];
+                        inactiveItem.element = shape;
+                        inactiveItem.undoable = undoable;
+                        return shape;
                     }
-                } else {
-                    return this.addShape(shape, options);
+                } else if (!this.trigger("add", { shape: shape })) {
+                    return this.addShape(shape, { undoable: undoable });
                 }
             },
             /**
@@ -13281,25 +13366,21 @@
             },
 
             _triggerRemove: function(items){
-                if (this._isEditable) {
-                    var toRemove = [];
-                    var item, args;
+                var toRemove = [];
+                var item, args;
 
-                    for (var idx = 0; idx < items.length; idx++) {
-                        item = items[idx];
-                        if (item instanceof Shape) {
-                            args = { shape: item.dataItem };
-                        } else {
-                            args = { connection: item.dataItem };
-                        }
-                        if (!this.trigger("remove", args)) {
-                            toRemove.push(item);
-                        }
+                for (var idx = 0; idx < items.length; idx++) {
+                    item = items[idx];
+                    if (item instanceof Shape) {
+                        args = { shape: item };
+                    } else {
+                        args = { connection: item };
                     }
-                    return toRemove;
-                } else {
-                    return items;
+                    if (!this.trigger("remove", args)) {
+                        toRemove.push(item);
+                    }
                 }
+                return toRemove;
             },
 
             /**
@@ -14165,7 +14246,7 @@
 
                 if (!this.singleToolBar && diagram.select().length === 1) {
                     var element = diagram.select()[0];
-                    if (element) {
+                    if (element && element.options.editable !== false) {
                         var tools = element.options.editable.tools;
                         if (this._isEditable && tools.length === 0) {
                             if (element instanceof Shape) {
@@ -14433,8 +14514,15 @@
                 var inactiveItems = diagram._inactiveShapeItems;
                 inactiveItems.forEach(function(inactiveItem) {
                     var dataItem = inactiveItem.dataItem;
+                    var shape = inactiveItem.element;
                     if (!dataItem.isNew()) {
-                        diagram._addDataItem(dataItem);
+                        if (shape) {
+                            shape._setOptionsFromModel();
+                            diagram.addShape(shape, { undoable: inactiveItem.undoable });
+                            diagram._dataMap[dataItem.id] = shape;
+                        } else {
+                            diagram._addDataItem(dataItem);
+                        }
                         inactiveItem.activate();
                         inactiveItems.remove(dataItem);
                     }
@@ -14822,23 +14910,11 @@
             },
 
             createTool: function(tool) {
-                var toolName;
-                if (isPlainObject(tool)) {
-                    if (tool.name) {
-                        toolName = tool.name + "Tool";
-                        if (this[toolName]) {
-                            this[toolName](tool);
-                        }
-                    } else if (tool.template) {
-                        this._toolBar.add({
-                            template: tool.template
-                        });
-                    }
+                var toolName = (isPlainObject(tool) ? tool.name : tool) + "Tool";
+                if (this[toolName]) {
+                    this[toolName](tool);
                 } else {
-                    toolName = tool + "Tool";
-                    if (this[toolName]) {
-                        this[toolName]({});
-                    }
+                    this._tools.push(tool);
                 }
             },
 
@@ -15366,6 +15442,14 @@
                 shapes: shapes,
                 connections: connections
             };
+        }
+
+        function createModel(dataSource, model) {
+            if (dataSource.reader.model) {
+                return new dataSource.reader.model(model);
+            }
+
+            return new kendo.data.ObservableObject(model);
         }
 
         dataviz.ui.plugin(Diagram);

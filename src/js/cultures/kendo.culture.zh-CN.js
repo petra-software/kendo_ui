@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -46,7 +46,7 @@
                 },
                 months: {
                     names: ["一月","二月","三月","四月","五月","六月","七月","八月","九月","十月","十一月","十二月",""],
-                    namesAbbr: ["一月","二月","三月","四月","五月","六月","七月","八月","九月","十月","十一月","十二月",""]
+                    namesAbbr: ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月",""]
                 },
                 AM: ["上午","上午","上午"],
                 PM: ["下午","下午","下午"],
@@ -67,7 +67,7 @@
                 },
                 "/": "/",
                 ":": ":",
-                firstDay: 0
+                firstDay: 1
             }
         }
     }

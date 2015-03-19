@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2014.3.1516";
+    kendo.version = "2015.1.318";
 
     function Class() {}
 
@@ -4033,10 +4033,11 @@ function pad(number, digits, end) {
 
     // kendo.saveAs -----------------------------------------------
     (function() {
-        function postToProxy(dataURI, fileName, proxyURL) {
+        function postToProxy(dataURI, fileName, proxyURL, proxyTarget) {
             var form = $("<form>").attr({
                 action: proxyURL,
-                method: "POST"
+                method: "POST",
+                target: proxyTarget
             });
 
             var data = kendo.antiForgeryTokens();
@@ -4106,7 +4107,7 @@ function pad(number, digits, end) {
                 }
             }
 
-            save(options.dataURI, options.fileName, options.proxyURL);
+            save(options.dataURI, options.fileName, options.proxyURL, options.proxyTarget);
         };
     })();
 })(jQuery, window);
@@ -6754,6 +6755,8 @@ function pad(number, digits, end) {
 
 
 
+var A = 0;
+
 
 
 /*jshint eqnull: true, loopfunc: true, evil: true */
@@ -6933,7 +6936,7 @@ function pad(number, digits, end) {
                 });
 
                 for (i = 0, len = result.length; i < len; i++) {
-                    if (result[i].children) {
+                    if (result[i] && result[i].children) {
                         result[i].unbind(CHANGE);
                     }
                 }
@@ -8623,6 +8626,34 @@ function pad(number, digits, end) {
         }
     });
 
+    function cloneGroups(groups) {
+        var result = [];
+        var item;
+        var group;
+
+        for (var idx = 0, length = groups.length; idx < length; idx++) {
+            item = groups[idx];
+            if (!("field" in item && "items" in item && "value" in item)) {
+                break;
+            }
+
+            group = {};
+            for (var field in item) {
+                var shouldSerialize = item.shouldSerialize ? item.shouldSerialize : item.hasOwnProperty;
+                if (shouldSerialize.call(item, field)) {
+                    group[field] = item[field];
+                }
+            }
+
+            result.push(group);
+
+            if (group.hasSubgroups) {
+                result = result.concat(cloneGroups(group.items));
+            }
+        }
+        return result;
+    }
+
     function mergeGroups(target, dest, skip, take) {
         var group,
             idx = 0,
@@ -10232,7 +10263,6 @@ function pad(number, digits, end) {
             data = that._findRange(skip, math.min(skip + take, that.total()));
 
             if (data.length) {
-
                 that._skipRequestsInProgress = true;
                 that._pending = undefined;
 
@@ -10352,6 +10382,7 @@ function pad(number, digits, end) {
 
         _mergeGroups: function(data, range, skip, take) {
             if (this._isServerGrouped()) {
+                //var temp = cloneGroups(range),
                 var temp = range.toJSON(),
                     prevGroup;
 
@@ -10379,7 +10410,7 @@ function pad(number, digits, end) {
             return this._take || this._pageSize;
         },
 
-        _prefetchSuccessHandler: function (skip, size, callback) {
+        _prefetchSuccessHandler: function (skip, size, callback, force) {
             var that = this;
 
             return function(data) {
@@ -10415,7 +10446,7 @@ function pad(number, digits, end) {
                 that._ranges.sort( function(x, y) { return x.start - y.start; } );
                 that._total = that.reader.total(data);
 
-                if (!that._skipRequestsInProgress) {
+                if (force || !that._skipRequestsInProgress) {
                     if (callback && temp.length) {
                         callback();
                     } else {
@@ -10454,6 +10485,32 @@ function pad(number, digits, end) {
                         }
                     });
                 }, 100);
+            } else if (callback) {
+                callback();
+            }
+        },
+
+        _multiplePrefetch: function(skip, take, callback) {
+            var that = this,
+                size = math.min(skip + take, that.total()),
+                options = {
+                    take: take,
+                    skip: skip,
+                    page: skip / take + 1,
+                    pageSize: take,
+                    sort: that._sort,
+                    filter: that._filter,
+                    group: that._group,
+                    aggregate: that._aggregate
+                };
+
+            if (!that._rangeExists(skip, size)) {
+                if (!that.trigger(REQUESTSTART, { type: "read" })) {
+                    that.transport.read({
+                        data: that._params(options),
+                        success: that._prefetchSuccessHandler(skip, size, callback, true)
+                    });
+                }
             } else if (callback) {
                 callback();
             }
@@ -11617,6 +11674,35 @@ function pad(number, digits, end) {
         }
     });
 
+    var TypedBinder = Binder.extend({
+        dataType: function() {
+            var dataType = this.element.getAttribute("data-type") || this.element.type || "text"; 
+            return dataType.toLowerCase();
+        },
+
+        parsedValue: function() {
+            return this._parseValue(this.element.value, this.dataType());
+        },
+
+        _parseValue : function (value, dataType){
+            if (dataType == "date") {
+                value = kendo.parseDate(value, "yyyy-MM-dd");
+            } else if (dataType == "datetime-local") {
+                value = kendo.parseDate(value, ["yyyy-MM-ddTHH:mm:ss", "yyyy-MM-ddTHH:mm"] );
+            } else if (dataType == "number") {
+                value = kendo.parseFloat(value);
+            } else if (dataType == "boolean"){
+                value = value.toLowerCase();
+                if(kendo.parseFloat(value) !== null){
+                    value = Boolean(kendo.parseFloat(value));
+                }else{
+                    value = (value.toLowerCase() === "true");
+                }
+            }
+            return value;
+        }
+    });
+
     binders.attr = Binder.extend({
         refresh: function(key) {
             this.element.setAttribute(key, this.bindings.attr[key].get());
@@ -11719,7 +11805,7 @@ function pad(number, digits, end) {
                 this.element.style.display = "none";
             }
         }
-    });
+  });
 
     binders.html = Binder.extend({
         refresh: function() {
@@ -11727,9 +11813,9 @@ function pad(number, digits, end) {
         }
     });
 
-    binders.value = Binder.extend({
+    binders.value = TypedBinder.extend({
         init: function(element, bindings, options) {
-            Binder.fn.init.call(this, element, bindings, options);
+            TypedBinder.fn.init.call(this, element, bindings, options);
 
             this._change = proxy(this.change, this);
             this.eventName = options.valueUpdate || CHANGE;
@@ -11742,19 +11828,7 @@ function pad(number, digits, end) {
         change: function() {
             this._initChange = this.eventName != CHANGE;
 
-            var value = this.element.value;
-
-            var type = this.element.type;
-
-            if (type == "date") {
-                value = kendo.parseDate(value, "yyyy-MM-dd");
-            } else if (type == "datetime-local") {
-                value = kendo.parseDate(value, ["yyyy-MM-ddTHH:mm:ss", "yyyy-MM-ddTHH:mm"] );
-            } else if (type == "number") {
-                value = kendo.parseFloat(value);
-            }
-
-            this.bindings[VALUE].set(value);
+            this.bindings[VALUE].set(this.parsedValue());
 
             this._initChange = false;
         },
@@ -11767,7 +11841,7 @@ function pad(number, digits, end) {
                     value = "";
                 }
 
-                var type = this.element.type;
+                var type = this.dataType();
 
                 if (type == "date") {
                     value = kendo.toString(value, "yyyy-MM-dd");
@@ -11924,33 +11998,41 @@ function pad(number, digits, end) {
     });
 
     binders.input = {
-        checked: Binder.extend({
+        checked: TypedBinder.extend({
             init: function(element, bindings, options) {
-                Binder.fn.init.call(this, element, bindings, options);
+                TypedBinder.fn.init.call(this, element, bindings, options);
                 this._change = proxy(this.change, this);
 
                 $(this.element).change(this._change);
             },
+
             change: function() {
                 var element = this.element;
                 var value = this.value();
 
                 if (element.type == "radio") {
+                    value = this.parsedValue();
                     this.bindings[CHECKED].set(value);
                 } else if (element.type == "checkbox") {
                     var source = this.bindings[CHECKED].get();
                     var index;
 
                     if (source instanceof ObservableArray) {
-                        value = this.element.value;
-
-                        if (value !== "on" && value !== "off") {
-                            index = source.indexOf(value);
-                            if (index > -1) {
-                                source.splice(index, 1);
-                            } else {
-                                source.push(value);
+                        value = this.parsedValue();
+                        if (value instanceof Date) {
+                            for(var i = 0; i < source.length; i++){
+                                if(source[i] instanceof Date && +source[i] === +value){
+                                    index = i;
+                                    break;
+                                }
                             }
+                        }else{
+                            index = source.indexOf(value);
+                        }
+                        if (index > -1) {
+                            source.splice(index, 1);
+                        } else {
+                            source.push(value);
                         }
                     } else {
                         this.bindings[CHECKED].set(value);
@@ -11961,18 +12043,33 @@ function pad(number, digits, end) {
             refresh: function() {
                 var value = this.bindings[CHECKED].get(),
                     source = value,
+                    type = this.dataType(),
                     element = this.element;
 
                 if (element.type == "checkbox") {
                     if (source instanceof ObservableArray) {
-                        value = this.element.value;
-                        if (source.indexOf(value) >= 0) {
-                            value = true;
+                        var index = -1;
+                        value = this.parsedValue();
+                        if(value instanceof Date){
+                            for(var i = 0; i < source.length; i++){
+                                if(source[i] instanceof Date && +source[i] === +value){
+                                    index = i;
+                                    break;
+                                }
+                            }
+                        }else{
+                            index = source.indexOf(value);
                         }
+                        element.checked = (index >= 0);
+                    }else{
+                        element.checked = source;
                     }
-
-                    element.checked = value === true;
                 } else if (element.type == "radio" && value != null) {
+                    if (type == "date") {
+                        value = kendo.toString(value, "yyyy-MM-dd");
+                    } else if (type == "datetime-local") {
+                        value = kendo.toString(value, "yyyy-MM-ddTHH:mm:ss");
+                    }
                     if (element.value === value.toString()) {
                         element.checked = true;
                     }
@@ -11996,12 +12093,34 @@ function pad(number, digits, end) {
     };
 
     binders.select = {
-        value: Binder.extend({
+        value: TypedBinder.extend({
             init: function(target, bindings, options) {
-                Binder.fn.init.call(this, target, bindings, options);
+                TypedBinder.fn.init.call(this, target, bindings, options);
 
                 this._change = proxy(this.change, this);
                 $(this.element).change(this._change);
+            },
+
+            parsedValue : function() {
+                var dataType = this.dataType();
+                var values = [];
+                var value, option, idx, length;
+                for (idx = 0, length = this.element.options.length; idx < length; idx++) {
+                    option = this.element.options[idx];
+
+                    if (option.selected) {
+                        value = option.attributes.value;
+
+                        if (value && value.specified) {
+                            value = option.value;
+                        } else {
+                            value = option.text;
+                        }
+
+                        values.push(this._parseValue(value, dataType));
+                    }
+                }
+                return values;
             },
 
             change: function() {
@@ -12016,21 +12135,7 @@ function pad(number, digits, end) {
                     idx,
                     length;
 
-                for (idx = 0, length = element.options.length; idx < length; idx++) {
-                    option = element.options[idx];
-
-                    if (option.selected) {
-                        value = option.attributes.value;
-
-                        if (value && value.specified) {
-                            value = option.value;
-                        } else {
-                            value = option.text;
-                        }
-
-                        values.push(value);
-                    }
-                }
+                values = this.parsedValue();
 
                 if (field) {
                     source = this.bindings.source.get();
@@ -12040,7 +12145,8 @@ function pad(number, digits, end) {
 
                     for (valueIndex = 0; valueIndex < values.length; valueIndex++) {
                         for (idx = 0, length = source.length; idx < length; idx++) {
-                            if (source[idx].get(field) == values[valueIndex]) {
+                            var match = valuePrimitive ? (this._parseValue(values[valueIndex], this.dataType()) === source[idx].get(field)) : (this._parseValue(source[idx].get(field), this.dataType()).toString() === values[valueIndex]);
+                            if (match) {
                                 values[valueIndex] = source[idx];
                                 break;
                             }
@@ -12061,10 +12167,12 @@ function pad(number, digits, end) {
                 var optionIndex,
                     element = this.element,
                     options = element.options,
+                    valuePrimitive = this.options.valuePrimitive,
                     value = this.bindings[VALUE].get(),
                     values = value,
                     field = this.options.valueField || this.options.textField,
                     found = false,
+                    type = this.dataType(),
                     optionValue;
 
                 if (!(values instanceof ObservableArray)) {
@@ -12076,8 +12184,15 @@ function pad(number, digits, end) {
                 for (var valueIndex = 0; valueIndex < values.length; valueIndex++) {
                     value = values[valueIndex];
 
+
                     if (field && value instanceof ObservableObject) {
                         value = value.get(field);
+                    }
+
+                    if (type == "date") {
+                        value = kendo.toString(values[valueIndex], "yyyy-MM-dd");
+                    } else if (type == "datetime-local") {
+                        value = kendo.toString(values[valueIndex], "yyyy-MM-ddTHH:mm:ss");
                     }
 
                     for (optionIndex = 0; optionIndex < options.length; optionIndex++) {
@@ -12087,7 +12202,7 @@ function pad(number, digits, end) {
                             optionValue = options[optionIndex].text;
                         }
 
-                        if (optionValue == value) {
+                        if (value != null && optionValue == value.toString()) {
                             options[optionIndex].selected = true;
                             found = true;
                         }
@@ -13064,14 +13179,15 @@ function pad(number, digits, end) {
             return true;
         },
 
+        triggerBeforeHide: function() {
+            return true;
+        },
+
         showStart: function() {
             this.element.css("display", "");
         },
 
         showEnd: function() {
-        },
-
-        hideStart: function() {
         },
 
         hideEnd: function() {
@@ -13148,7 +13264,14 @@ function pad(number, digits, end) {
             } else {
                 element = content;
                 if (that._evalTemplate) {
-                    element.html(kendo.template(element.html())(that.model || {}));
+                    var result = $(kendo.template($("<div />").append(element.clone(true)).html())(that.model || {}));
+
+                    // template uses DOM
+                    if ($.contains(document, element[0])) {
+                        element.replaceWith(result);
+                    }
+
+                    element = result;
                 }
                 if (that._wrap) {
                     element = element.wrapAll(wrapper).parent();
@@ -13169,8 +13292,6 @@ function pad(number, digits, end) {
 
             view.element.parent().append(this.element);
         },
-
-        hideStart: $.noop,
 
         hideEnd: function() {
             this.element.remove();
@@ -13272,7 +13393,7 @@ function pad(number, digits, end) {
         },
 
         show: function(view, transition, locationID) {
-            if (!view.triggerBeforeShow()) {
+            if (!view.triggerBeforeShow() || (this.view && !this.view.triggerBeforeHide())) {
                 this.trigger("after");
                 return false;
             }
@@ -13314,8 +13435,6 @@ function pad(number, digits, end) {
                 that.after();
                 return true;
             }
-
-            current.hideStart();
 
             if (!theTransition || !kendo.effects.enabled) {
                 view.showStart();
@@ -14886,6 +15005,7 @@ function pad(number, digits, end) {
                     x: e.x,
                     y: e.y,
                     currentTarget: that.currentTarget,
+                    initialTarget: e.touch ? e.touch.initialTouch : null,
                     dropTarget: e.dropTarget
                 }
             ));
@@ -18372,18 +18492,17 @@ function pad(number, digits, end) {
         defined = util.defined;
 
     // Base drawing surface ==================================================
-    var Surface = kendo.Observable.extend({
+    var Surface = Widget.extend({
         init: function(element, options) {
-            kendo.Observable.fn.init.call(this);
-
             this.options = deepExtend({}, this.options, options);
-            this.bind(this.events, this.options);
+
+            Widget.fn.init.call(this, element, this.options);
 
             this._click = this._handler("click");
             this._mouseenter = this._handler("mouseenter");
             this._mouseleave = this._handler("mouseleave");
 
-            this.element = $(element);
+            this._visual = new kendo.drawing.Group();
 
             if (this.options.width) {
                 this.element.css("width", this.options.width);
@@ -18394,7 +18513,9 @@ function pad(number, digits, end) {
             }
         },
 
-        options: { },
+        options: {
+            name: "Surface"
+        },
 
         events: [
             "click",
@@ -18403,12 +18524,22 @@ function pad(number, digits, end) {
             "resize"
         ],
 
-        draw: noop,
-        clear: noop,
-        destroy: noop,
+        draw: function(element) {
+            this._visual.children.push(element);
+        },
 
-        resize: Widget.fn.resize,
-        size: Widget.fn.size,
+        clear: function() {
+            this._visual.children = [];
+        },
+
+        destroy: function() {
+            this._visual = null;
+            Widget.fn.destroy.call(this);
+        },
+
+        exportVisual: function() {
+            return this._visual;
+        },
 
         getSize: function() {
             return {
@@ -18461,6 +18592,8 @@ function pad(number, digits, end) {
             };
         }
     });
+
+    kendo.ui.plugin(Surface);
 
     Surface.create = function(element, options) {
         return SurfaceFactory.current.create(element, options);
@@ -18901,7 +19034,7 @@ function pad(number, digits, end) {
                 }
             }
 
-            measureBox.innerHTML = text;
+            $(measureBox).text(text);
             measureBox.appendChild(baselineMarker);
             doc.body.appendChild(measureBox);
 
@@ -18983,7 +19116,11 @@ function pad(number, digits, end) {
         shift = [].shift,
         slice = [].slice,
         unshift = [].unshift,
-        defId = 1;
+        defId = 1,
+
+        START = "start",
+        END = "end",
+        HORIZONTAL = "horizontal";
 
     // Drawing primitives =====================================================
     var Element = Class.extend({
@@ -19971,6 +20108,170 @@ function pad(number, digits, end) {
 
     definePointAccessors(RadialGradient.fn, ["center"]);
 
+    var Layout = Group.extend({
+        init: function(rect, options) {
+            Group.fn.init.call(this, kendo.deepExtend({}, this._defaults, options));
+            this._rect = rect;
+            this._fieldMap = {};
+        },
+
+        _defaults: {
+            alignContent: START,
+            justifyContent: START,
+            alignItems: START,
+            spacing: 0,
+            orientation: HORIZONTAL,
+            lineSpacing: 0,
+            wrap: true
+        },
+
+        rect: function(value) {
+            if (value)  {
+                this._rect = value;
+                return this;
+            } else {
+                return this._rect;
+            }
+        },
+
+        _initMap: function() {
+            var options = this.options;
+            var fieldMap = this._fieldMap;
+            if (options.orientation == HORIZONTAL) {
+                fieldMap.sizeField = "width";
+                fieldMap.groupsSizeField = "height";
+                fieldMap.groupAxis = "x";
+                fieldMap.groupsAxis = "y";
+            } else {
+                fieldMap.sizeField = "height";
+                fieldMap.groupsSizeField = "width";
+                fieldMap.groupAxis = "y";
+                fieldMap.groupsAxis = "x";
+            }
+        },
+
+        reflow: function() {
+            if (!this._rect || this.children.length === 0) {
+                return;
+            }
+            this._initMap();
+
+            if (this.options.transform) {
+                this.transform(null);
+            }
+
+            var options = this.options;
+            var fieldMap = this._fieldMap;
+            var rect = this._rect;
+            var groupOptions =  this._initGroups();
+            var groups = groupOptions.groups;
+            var groupsSize = groupOptions.groupsSize;
+            var sizeField = fieldMap.sizeField;
+            var groupsSizeField = fieldMap.groupsSizeField;
+            var groupAxis = fieldMap.groupAxis;
+            var groupsAxis = fieldMap.groupsAxis;
+            var groupStart = alignStart(groupsSize, rect, options.alignContent, groupsAxis, groupsSizeField);
+            var groupOrigin = new Point();
+            var elementOrigin = new Point();
+            var size = new g.Size();
+            var elementStart, bbox, element, group, groupBox;
+
+            for (var groupIdx = 0; groupIdx < groups.length; groupIdx++) {
+                group = groups[groupIdx];
+                groupOrigin[groupAxis] = elementStart = alignStart(group.size, rect, options.justifyContent, groupAxis, sizeField);
+                groupOrigin[groupsAxis] = groupStart;
+                size[sizeField] = group.size;
+                size[groupsSizeField] = group.lineSize;
+                groupBox = new Rect(groupOrigin, size);
+                for (var idx = 0; idx < group.bboxes.length; idx++) {
+                    element = group.elements[idx];
+                    bbox = group.bboxes[idx];
+                    elementOrigin[groupAxis] = elementStart;
+                    elementOrigin[groupsAxis] = alignStart(bbox.size[groupsSizeField], groupBox, options.alignItems, groupsAxis, groupsSizeField);
+                    translateToPoint(elementOrigin, bbox, element);
+                    elementStart+= bbox.size[sizeField] + options.spacing;
+                }
+                groupStart += group.lineSize + options.lineSpacing;
+            }
+
+            if (!options.wrap && group.size > rect.size[sizeField]) {
+                var scale = rect.size[sizeField] / groupBox.size[sizeField];
+                var scaledStart = groupBox.topLeft().scale(scale, scale);
+                var scaledSize = groupBox.size[groupsSizeField] * scale;
+                var newStart = alignStart(scaledSize, rect, options.alignContent, groupsAxis, groupsSizeField)
+                var transform = g.transform();
+                if (groupAxis === "x") {
+                    transform.translate(rect.origin.x - scaledStart.x, newStart - scaledStart.y);
+                } else {
+                    transform.translate(newStart - scaledStart.x, rect.origin.y - scaledStart.y);
+                }
+                transform.scale(scale, scale);
+
+                this.transform(transform);
+            }
+        },
+
+        _initGroups: function() {
+            var options = this.options;
+            var children = this.children;
+            var lineSpacing = options.lineSpacing;
+            var sizeField = this._fieldMap.sizeField;
+            var groupsSize = -lineSpacing;
+            var groups = [];
+            var group = this._newGroup();
+            var addGroup = function() {
+                groups.push(group);
+                groupsSize+= group.lineSize + lineSpacing;
+            };
+            var bbox, element;
+
+            for (var idx = 0; idx < children.length; idx++) {
+                element = children[idx];
+                bbox = children[idx].clippedBBox();
+                if (element.visible() && bbox) {
+                    if (options.wrap && group.size + bbox.size[sizeField] + options.spacing > this._rect.size[sizeField]) {
+                        if (group.bboxes.length === 0) {
+                            this._addToGroup(group, bbox, element);
+                            addGroup();
+                            group = this._newGroup();
+                        } else {
+                            addGroup();
+                            group = this._newGroup();
+                            this._addToGroup(group, bbox, element);
+                        }
+                    } else {
+                        this._addToGroup(group, bbox, element);
+                    }
+                }
+            }
+
+            if (group.bboxes.length)  {
+                addGroup();
+            }
+
+            return {
+                groups: groups,
+                groupsSize: groupsSize
+            };
+        },
+
+        _addToGroup: function(group, bbox, element) {
+            group.size += bbox.size[this._fieldMap.sizeField] + this.options.spacing;
+            group.lineSize = Math.max(bbox.size[this._fieldMap.groupsSizeField], group.lineSize);
+            group.bboxes.push(bbox);
+            group.elements.push(element);
+        },
+
+        _newGroup: function() {
+            return {
+                lineSize: 0,
+                size: -this.options.spacing,
+                bboxes: [],
+                elements: []
+            };
+        }
+    });
+
     // Helper functions ===========================================
     function elementsBoundingBox(elements, applyTransform, transformation) {
         var boundingBox;
@@ -20078,22 +20379,213 @@ function pad(number, digits, end) {
         return "kdef" + defId++;
     }
 
+    function align(elements, rect, alignment) {
+       alignElements(elements, rect, alignment, "x", "width");
+    }
+
+    function vAlign(elements, rect, alignment) {
+        alignElements(elements, rect, alignment, "y", "height");
+    }
+
+    function stack(elements) {
+        stackElements(getStackElements(elements), "x", "y", "width");
+    }
+
+    function vStack(elements) {
+        stackElements(getStackElements(elements), "y", "x", "height");
+    }
+
+    function wrap(elements, rect) {
+        return wrapElements(elements, rect, "x", "y", "width");
+    }
+
+    function vWrap(elements, rect) {
+        return wrapElements(elements, rect, "y", "x", "height");
+    }
+
+    function wrapElements(elements, rect, axis, otherAxis, sizeField) {
+        var result = [];
+        var stacks = getStacks(elements, rect, sizeField);
+        var origin = rect.origin.clone();
+        var startElement;
+        var elementIdx;
+        var stack;
+        var idx;
+
+        for (idx = 0; idx < stacks.length; idx++) {
+            stack = stacks[idx];
+            startElement = stack[0];
+            origin[otherAxis] = startElement.bbox.origin[otherAxis];
+            translateToPoint(origin, startElement.bbox, startElement.element);
+            startElement.bbox.origin[axis] = origin[axis];
+            stackElements(stack, axis, otherAxis, sizeField);
+            result.push([]);
+            for (elementIdx = 0; elementIdx < stack.length; elementIdx++) {
+                result[idx].push(stack[elementIdx].element);
+            }
+        }
+        return result;
+    }
+
+    function fit (element, rect)  {
+        var bbox = element.clippedBBox();
+        var elementSize = bbox.size;
+        var rectSize = rect.size;
+        if (rectSize.width < elementSize.width || rectSize.height < elementSize.height) {
+            var scale = math.min(rectSize.width / elementSize.width, rectSize.height / elementSize.height);
+            var transform = element.transform() || g.transform();
+            transform.scale(scale, scale);
+            element.transform(transform);
+        }
+    }
+
+    //TO DO: consider using same function for the layout with callbacks
+    function getStacks(elements, rect, sizeField) {
+        var maxSize = rect.size[sizeField];
+        var stackSize = 0;
+        var stacks = [];
+        var stack = [];
+        var element;
+        var size;
+        var bbox;
+
+        var addElementToStack = function() {
+            stack.push({
+                element: element,
+                bbox: bbox
+            });
+        };
+        for (var idx = 0; idx < elements.length; idx++) {
+            element = elements[idx];
+            bbox = element.clippedBBox();
+            if (bbox) {
+                size = bbox.size[sizeField];
+                if (stackSize + size > maxSize) {
+                    if (stack.length) {
+                        stacks.push(stack);
+                        stack = [];
+                        addElementToStack();
+                        stackSize = size;
+                    } else {
+                        addElementToStack();
+                        stacks.push(stack);
+                        stack = [];
+                        stackSize = 0;
+                    }
+                } else {
+                    addElementToStack();
+                    stackSize += size;
+                }
+            }
+        }
+
+        if (stack.length) {
+            stacks.push(stack);
+        }
+
+        return stacks;
+    }
+
+    function getStackElements(elements) {
+        var stackElements = [];
+        var element;
+        var bbox;
+        for (var idx = 0; idx < elements.length; idx++) {
+            element = elements[idx];
+            bbox = element.clippedBBox();
+            if (bbox) {
+                stackElements.push({
+                    element: element,
+                    bbox: bbox
+                });
+            }
+        }
+
+        return stackElements;
+    }
+
+    function stackElements(elements, stackAxis, otherAxis, sizeField) {
+        if (elements.length > 1) {
+            var previousBBox = elements[0].bbox;
+            var origin = new Point();
+            var element;
+            var bbox;
+
+            for (var idx = 1; idx < elements.length; idx++) {
+                element = elements[idx].element;
+                bbox = elements[idx].bbox;
+                origin[stackAxis] = previousBBox.origin[stackAxis] + previousBBox.size[sizeField];
+                origin[otherAxis] = bbox.origin[otherAxis];
+                translateToPoint(origin, bbox, element);
+                bbox.origin[stackAxis] = origin[stackAxis];
+                previousBBox = bbox;
+            }
+        }
+    }
+
+    function alignElements(elements, rect, alignment, axis, sizeField) {
+        var bbox, start, point;
+        alignment = alignment || "start";
+
+        for (var idx = 0; idx < elements.length; idx++) {
+            bbox = elements[idx].clippedBBox();
+            if (bbox) {
+                point = bbox.origin.clone();
+                point[axis] = alignStart(bbox.size[sizeField], rect, alignment, axis, sizeField);
+                translateToPoint(point, bbox, elements[idx]);
+            }
+        }
+    }
+
+    function alignStart(size, rect, align, axis, sizeField) {
+        var start;
+        if (align == START) {
+            start = rect.origin[axis];
+        } else if (align == END) {
+            start = rect.origin[axis] + rect.size[sizeField] - size;
+        } else {
+           start = rect.origin[axis] + (rect.size[sizeField] - size) / 2;
+        }
+
+        return start;
+    }
+
+    function translate(x, y, element) {
+        var transofrm = element.transform() || g.transform();
+        var matrix = transofrm.matrix();
+        matrix.e += x;
+        matrix.f += y;
+        element.transform(transofrm);
+    }
+
+    function translateToPoint(point, bbox, element) {
+        translate(point.x - bbox.origin.x, point.y - bbox.origin.y, element);
+    }
+
     // Exports ================================================================
     deepExtend(drawing, {
+        align: align,
         Arc: Arc,
         Circle: Circle,
         Element: Element,
         ElementsArray: ElementsArray,
+        fit: fit,
         Gradient: Gradient,
         GradientStop: GradientStop,
         Group: Group,
         Image: Image,
+        Layout: Layout,
         LinearGradient: LinearGradient,
         MultiPath: MultiPath,
         Path: Path,
         RadialGradient: RadialGradient,
         Segment: Segment,
-        Text: Text
+        stack: stack,
+        Text: Text,
+        vAlign: vAlign,
+        vStack: vStack,
+        vWrap: vWrap,
+        wrap: wrap
     });
 
 })(window.kendo.jQuery);
@@ -20456,10 +20948,12 @@ function pad(number, digits, end) {
         },
 
         draw: function(element) {
+            d.Surface.fn.draw.call(this, element);
             this._root.load([element]);
         },
 
         clear: function() {
+            d.Surface.fn.clear.call(this);
             this._root.clear();
         },
 
@@ -21619,10 +22113,12 @@ function pad(number, digits, end) {
         type: "canvas",
 
         draw: function(element) {
+            d.Surface.fn.draw.call(this, element);
             this._root.load([element], undefined, this.options.cors);
         },
 
         clear: function() {
+            d.Surface.fn.clear.call(this);
             this._root.clear();
         },
 
@@ -22266,10 +22762,12 @@ function pad(number, digits, end) {
         },
 
         draw: function(element) {
+            d.Surface.fn.draw.call(this, element);
             this._root.load([element], undefined, null);
         },
 
         clear: function() {
+            d.Surface.fn.clear.call(this);
             this._root.clear();
         }
     });
@@ -22815,12 +23313,13 @@ function pad(number, digits, end) {
 
         addColors: function(attrs) {
             var options = this.srcElement.options;
+            var opacity = valueOrDefault(this.opacity, 1);
             var stopColors = [];
             var stops = options.fill.stops;
             var baseColor = options.baseColor;
             var colorsField = this.element.colors ? "colors.value" : "colors";
-            var color = stopColor(baseColor, stops[0]);
-            var color2 = stopColor(baseColor, stops[stops.length - 1]);
+            var color = stopColor(baseColor, stops[0], opacity);
+            var color2 = stopColor(baseColor, stops[stops.length - 1], opacity);
             var stop;
 
             for (var idx = 0; idx < stops.length; idx++) {
@@ -22828,7 +23327,7 @@ function pad(number, digits, end) {
 
                 stopColors.push(
                     math.round(stop.offset() * 100) + "% " +
-                    stopColor(baseColor, stop)
+                    stopColor(baseColor, stop, opacity)
                 );
             }
 
@@ -23400,12 +23899,14 @@ function pad(number, digits, end) {
         return field.indexOf("fill") === 0 || field.indexOf(GRADIENT) === 0;
     }
 
-    function stopColor(baseColor, stop) {
+    function stopColor(baseColor, stop, baseOpacity) {
+        var opacity = baseOpacity * valueOrDefault(stop.opacity(), 1);
         var color;
+
         if (baseColor) {
-            color = blendColors(baseColor, stop.color(), stop.opacity());
+            color = blendColors(baseColor, stop.color(), opacity);
         } else {
-            color = blendColors(stop.color(), "#fff", 1 - stop.opacity());
+            color = blendColors(stop.color(), "#fff", 1 - opacity);
         }
         return color;
     }
@@ -23468,3758 +23969,6 @@ function pad(number, digits, end) {
 
 })(window.kendo.jQuery);
 
-(function(global, parseFloat, undefined){
-
-    "use strict";
-
-    // WARNING: removing the following jshint declaration and turning
-    // == into === to make JSHint happy will break functionality.
-    /* jshint eqnull:true */
-    /* jshint -W069 */
-    /* jshint loopfunc:true */
-    /* jshint newcap:false */
-    /* global VBArray */
-
-    var kendo = global.kendo;
-
-    // XXX: remove this junk (assume `true`) when we no longer have to support IE < 10
-    var HAS_TYPED_ARRAYS = !!global.Uint8Array;
-
-    var NL = "\n";
-
-    var RESOURCE_COUNTER = 0;
-
-    var BASE64 = (function(){
-        var keyStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-        return {
-            decode: function(str) {
-                var input = str.replace(/[^A-Za-z0-9\+\/\=]/g, ""), i = 0, n = input.length, output = [];
-
-	        while (i < n) {
-		    var enc1 = keyStr.indexOf(input.charAt(i++));
-		    var enc2 = keyStr.indexOf(input.charAt(i++));
-		    var enc3 = keyStr.indexOf(input.charAt(i++));
-		    var enc4 = keyStr.indexOf(input.charAt(i++));
-
-		    var chr1 = (enc1 << 2) | (enc2 >>> 4);
-		    var chr2 = ((enc2 & 15) << 4) | (enc3 >>> 2);
-		    var chr3 = ((enc3 & 3) << 6) | enc4;
-
-		    output.push(chr1);
-		    if (enc3 != 64) {
-                        output.push(chr2);
-                    }
-		    if (enc4 != 64) {
-                        output.push(chr3);
-                    }
-	        }
-
-	        return output;
-            },
-            encode: function(bytes) {
-                var i = 0, n = bytes.length;
-                var output = "";
-
-	        while (i < n) {
-		    var chr1 = bytes[i++];
-		    var chr2 = bytes[i++];
-		    var chr3 = bytes[i++];
-
-		    var enc1 = chr1 >>> 2;
-		    var enc2 = ((chr1 & 3) << 4) | (chr2 >>> 4);
-		    var enc3 = ((chr2 & 15) << 2) | (chr3 >>> 6);
-		    var enc4 = chr3 & 63;
-
-		    if (i - n == 2) {
-			enc3 = enc4 = 64;
-		    } else if (i - n == 1) {
-			enc4 = 64;
-		    }
-
-		    output += keyStr.charAt(enc1) + keyStr.charAt(enc2) + keyStr.charAt(enc3) + keyStr.charAt(enc4);
-                }
-                return output;
-            }
-        };
-    }());
-
-    var PAPER_SIZE = {
-        a0        : [ 2383.94 , 3370.39 ],
-        a1        : [ 1683.78 , 2383.94 ],
-        a2        : [ 1190.55 , 1683.78 ],
-        a3        : [ 841.89  , 1190.55 ],
-        a4        : [ 595.28  , 841.89  ],
-        a5        : [ 419.53  , 595.28  ],
-        a6        : [ 297.64  , 419.53  ],
-        a7        : [ 209.76  , 297.64  ],
-        a8        : [ 147.40  , 209.76  ],
-        a9        : [ 104.88  , 147.40  ],
-        a10       : [ 73.70   , 104.88  ],
-        b0        : [ 2834.65 , 4008.19 ],
-        b1        : [ 2004.09 , 2834.65 ],
-        b2        : [ 1417.32 , 2004.09 ],
-        b3        : [ 1000.63 , 1417.32 ],
-        b4        : [ 708.66  , 1000.63 ],
-        b5        : [ 498.90  , 708.66  ],
-        b6        : [ 354.33  , 498.90  ],
-        b7        : [ 249.45  , 354.33  ],
-        b8        : [ 175.75  , 249.45  ],
-        b9        : [ 124.72  , 175.75  ],
-        b10       : [ 87.87   , 124.72  ],
-        c0        : [ 2599.37 , 3676.54 ],
-        c1        : [ 1836.85 , 2599.37 ],
-        c2        : [ 1298.27 , 1836.85 ],
-        c3        : [ 918.43  , 1298.27 ],
-        c4        : [ 649.13  , 918.43  ],
-        c5        : [ 459.21  , 649.13  ],
-        c6        : [ 323.15  , 459.21  ],
-        c7        : [ 229.61  , 323.15  ],
-        c8        : [ 161.57  , 229.61  ],
-        c9        : [ 113.39  , 161.57  ],
-        c10       : [ 79.37   , 113.39  ],
-        executive : [ 521.86  , 756.00  ],
-        folio     : [ 612.00  , 936.00  ],
-        legal     : [ 612.00  , 1008.00 ],
-        letter    : [ 612.00  , 792.00  ],
-        tabloid   : [ 792.00  , 1224.00 ]
-    };
-
-    function makeOutput() {
-        var indentLevel = 0, output = BinaryStream();
-        function out() {
-            for (var i = 0; i < arguments.length; ++i) {
-                var x = arguments[i];
-                if (x === undefined) {
-                    throw new Error("Cannot output undefined to PDF");
-                }
-                else if (x instanceof PDFValue) {
-                    x.beforeRender(out);
-                    x.render(out);
-                }
-                else if (isArray(x)) {
-                    renderArray(x, out);
-                }
-                else if (isDate(x)) {
-                    renderDate(x, out);
-                }
-                else if (typeof x == "number") {
-                    if (isNaN(x)) {
-                        throw new Error("Cannot output NaN to PDF");
-                    }
-                    // make sure it doesn't end up in exponent notation
-                    var num = x.toFixed(7);
-                    if (num.indexOf(".") >= 0) {
-                        num = num.replace(/\.?0+$/, "");
-                    }
-                    if (num == "-0") {
-                        num = "0";
-                    }
-                    output.writeString(num);
-                }
-                else if (/string|boolean/.test(typeof x)) {
-                    output.writeString(x+"");
-                }
-                else if (typeof x.get == "function") {
-                    output.write(x.get());
-                }
-                else if (typeof x == "object") {
-                    if (!x) {
-                        output.writeString("null");
-                    } else {
-                        out(new PDFDictionary(x));
-                    }
-                }
-            }
-        }
-        out.writeData = function(data) {
-            output.write(data);
-        };
-        out.withIndent = function(f) {
-            ++indentLevel;
-            f(out);
-            --indentLevel;
-        };
-        out.indent = function() {
-            out(NL, pad("", indentLevel * 2, "  "));
-            out.apply(null, arguments);
-        };
-        out.offset = function() {
-            return output.offset();
-        };
-        out.toString = function() {
-            throw new Error("FIX CALLER");
-        };
-        out.get = function() {
-            return output.get();
-        };
-        out.stream = function() {
-            return output;
-        };
-        return out;
-    }
-
-    function wrapObject(value, id) {
-        var beforeRender = value.beforeRender;
-        var renderValue = value.render;
-
-        value.beforeRender = function(){};
-
-        value.render = function(out) {
-            out(id, " 0 R");
-        };
-
-        value.renderFull = function(out) {
-            value._offset = out.offset();
-            out(id, " 0 obj ");
-            beforeRender.call(value, out);
-            renderValue.call(value, out);
-            out(" endobj");
-        };
-    }
-
-    function PDFDocument(options) {
-        var self = this;
-        var out = makeOutput();
-        var objcount = 0;
-        var objects = [];
-
-        function getOption(name, defval) {
-            return (options && options[name] != null) ? options[name] : defval;
-        }
-
-        self.getOption = getOption;
-
-        self.attach = function(value) {
-            if (objects.indexOf(value) < 0) {
-                wrapObject(value, ++objcount);
-                objects.push(value);
-            }
-            return value;
-        };
-
-        self.pages = [];
-
-        self.FONTS = {};
-        self.IMAGES = {};
-        self.GRAD_COL_FUNCTIONS = {}; // cache for color gradient functions
-        self.GRAD_OPC_FUNCTIONS = {}; // cache for opacity gradient functions
-        self.GRAD_COL = {};     // cache for whole color gradient objects
-        self.GRAD_OPC = {};     // cache for whole opacity gradient objects
-
-        function getPaperOptions(getOption) {
-            var paperSize = getOption("paperSize", PAPER_SIZE.a4);
-            if (!paperSize) {
-                return {};
-            }
-            if (typeof paperSize == "string") {
-                paperSize = PAPER_SIZE[paperSize.toLowerCase()];
-                if (paperSize == null) {
-                    throw new Error("Unknown paper size");
-                }
-            }
-
-            paperSize[0] = unitsToPoints(paperSize[0]);
-            paperSize[1] = unitsToPoints(paperSize[1]);
-
-            if (getOption("landscape", false)) {
-                paperSize = [
-                    Math.max(paperSize[0], paperSize[1]),
-                    Math.min(paperSize[0], paperSize[1])
-                ];
-            }
-
-            var margin = getOption("margin");
-            if (margin) {
-                if (typeof margin == "string") {
-                    margin = unitsToPoints(margin, 0);
-                    margin = { left: margin, top: margin, right: margin, bottom: margin };
-                } else {
-                    margin.left = unitsToPoints(margin.left, 0);
-                    margin.top = unitsToPoints(margin.top, 0);
-                    margin.right = unitsToPoints(margin.right, 0);
-                    margin.bottom = unitsToPoints(margin.bottom, 0);
-                }
-                if (getOption("addMargin")) {
-                    paperSize[0] += margin.left + margin.right;
-                    paperSize[1] += margin.top + margin.bottom;
-                }
-            }
-            return { paperSize: paperSize, margin: margin };
-        }
-
-        var catalog = self.attach(new PDFCatalog());
-        var pageTree = self.attach(new PDFPageTree());
-        catalog.setPages(pageTree);
-
-        self.addPage = function(options) {
-            var paperOptions  = getPaperOptions(function(name, defval){
-                return (options && options[name] != null) ? options[name] : defval;
-            });
-            var paperSize     = paperOptions.paperSize;
-            var margin        = paperOptions.margin;
-            var contentWidth  = paperSize[0];
-            var contentHeight = paperSize[1];
-            if (margin) {
-                contentWidth -= margin.left + margin.right;
-                contentHeight -= margin.top + margin.bottom;
-            }
-            var content = new PDFStream(makeOutput(), null, true);
-            var props = {
-                Contents : self.attach(content),
-                Parent   : pageTree,
-                MediaBox : [ 0, 0, paperSize[0], paperSize[1] ]
-            };
-            var page = new PDFPage(self, props);
-            page._content = content;
-            pageTree.addPage(self.attach(page));
-
-            // canvas-like coord. system.  (0,0) is upper-left.
-            // text must be vertically mirorred before drawing.
-            page.transform(1, 0, 0, -1, 0, paperSize[1]);
-
-            if (margin) {
-                page.translate(margin.left, margin.top);
-                // XXX: clip to right/bottom margin.  Make this optional?
-                page.rect(0, 0, contentWidth, contentHeight);
-                page.clip();
-            }
-
-            self.pages.push(page);
-            return page;
-        };
-
-        self.render = function() {
-            var i;
-            /// file header
-            out("%PDF-1.4", NL, "%\xc2\xc1\xda\xcf\xce", NL, NL);
-
-            /// file body
-            for (i = 0; i < objects.length; ++i) {
-                objects[i].renderFull(out);
-                out(NL, NL);
-            }
-
-            /// cross-reference table
-            var xrefOffset = out.offset();
-            out("xref", NL, 0, " ", objects.length + 1, NL);
-            out("0000000000 65535 f ", NL);
-            for (i = 0; i < objects.length; ++i) {
-                out(zeropad(objects[i]._offset, 10), " 00000 n ", NL);
-            }
-            out(NL);
-
-            /// trailer
-            out("trailer", NL);
-            out(new PDFDictionary({
-                Size: objects.length + 1,
-                Root: catalog,
-                Info: new PDFDictionary({
-                    Producer     : new PDFString("Kendo UI PDF Generator"),
-                    Title        : new PDFString(getOption("title", "")),
-                    Author       : new PDFString(getOption("author", "")),
-                    Subject      : new PDFString(getOption("subject", "")),
-                    Keywords     : new PDFString(getOption("keywords", "")),
-                    Creator      : new PDFString(getOption("creator", "Kendo UI PDF Generator")),
-                    CreationDate : getOption("date", new Date())
-                })
-            }), NL, NL);
-
-            /// end
-            out("startxref", NL, xrefOffset, NL);
-            out("%%EOF", NL);
-
-            return out.stream().offset(0);
-        };
-    }
-
-    var FONT_CACHE = {
-        "Times-Roman"           : true,
-        "Times-Bold"            : true,
-        "Times-Italic"          : true,
-        "Times-BoldItalic"      : true,
-        "Helvetica"             : true,
-        "Helvetica-Bold"        : true,
-        "Helvetica-Oblique"     : true,
-        "Helvetica-BoldOblique" : true,
-        "Courier"               : true,
-        "Courier-Bold"          : true,
-        "Courier-Oblique"       : true,
-        "Courier-BoldOblique"   : true,
-        "Symbol"                : true,
-        "ZapfDingbats"          : true
-    };
-
-    function loadBinary(url, cont) {
-        function error() {
-            if (global.console) {
-                if (global.console.error) {
-                    global.console.error("Cannot load URL: %s", url);
-                } else {
-                    global.console.log("Cannot load URL: %s", url);
-                }
-            }
-            cont(null);
-        }
-        var req = new XMLHttpRequest();
-        req.open('GET', url, true);
-        if (HAS_TYPED_ARRAYS) {
-            req.responseType = "arraybuffer";
-        }
-        req.onload = function() {
-            if (req.status == 200 || req.status == 304) {
-                if (HAS_TYPED_ARRAYS) {
-                    cont(new Uint8Array(req.response));
-                } else {
-                    cont(new VBArray(req.responseBody).toArray()); // IE9 only
-                }
-            } else {
-                error();
-            }
-        };
-        req.onerror = error;
-        req.send(null);
-    }
-
-    function loadFont(url, cont) {
-        var font = FONT_CACHE[url];
-        if (font) {
-            cont(font);
-        } else {
-            loadBinary(url, function(data){
-                if (data == null) {
-                    throw new Error("Cannot load font from " + url);
-                } else {
-                    var font = new kendo.pdf.TTFFont(data);
-                    FONT_CACHE[url] = font;
-                    cont(font);
-                }
-            });
-        }
-    }
-
-    var IMAGE_CACHE = {};
-
-    function loadImage(url, cont) {
-        var img = IMAGE_CACHE[url];
-        if (img) {
-            cont(img);
-        } else {
-            img = new Image();
-            if (!(/^data:/i.test(url))) {
-                img.crossOrigin = "Anonymous";
-            }
-            img.src = url;
-
-            var onload = function() {
-                var canvas = document.createElement("canvas");
-                canvas.width = img.width;
-                canvas.height = img.height;
-                var ctx = canvas.getContext("2d");
-
-                ctx.drawImage(img, 0, 0);
-
-                var imgdata;
-                try {
-                    imgdata = ctx.getImageData(0, 0, img.width, img.height);
-                } catch(ex) {
-                    // it tainted the canvas -- can't draw it.
-                    return cont(IMAGE_CACHE[url] = "TAINTED");
-                }
-
-                // in case it contains transparency, we must separate rgb data from the alpha
-                // channel and create a PDFRawImage image with opacity.  otherwise we can use a
-                // PDFJpegImage.
-                //
-                // to do this in one step, we create the rgb and alpha streams anyway, even if
-                // we might end up not using them if hasAlpha remains false.
-
-                var hasAlpha = false, rgb = BinaryStream(), alpha = BinaryStream();
-                var rawbytes = imgdata.data;
-                var i = 0;
-                while (i < rawbytes.length) {
-                    rgb.writeByte(rawbytes[i++]);
-                    rgb.writeByte(rawbytes[i++]);
-                    rgb.writeByte(rawbytes[i++]);
-                    var a = rawbytes[i++];
-                    if (a < 255) {
-                        hasAlpha = true;
-                    }
-                    alpha.writeByte(a);
-                }
-
-                if (hasAlpha) {
-                    img = new PDFRawImage(img.width, img.height, rgb, alpha);
-                } else {
-                    // no transparency, encode as JPEG.
-                    var data = canvas.toDataURL("image/jpeg");
-                    data = data.substr(data.indexOf(";base64,") + 8);
-
-                    var stream = BinaryStream();
-                    stream.writeBase64(data);
-                    stream.offset(0);
-                    img = new PDFJpegImage(img.width, img.height, stream);
-                }
-
-                cont(IMAGE_CACHE[url] = img);
-            };
-
-            if (img.complete) {
-                onload();
-            } else {
-                img.onload = onload;
-                img.onerror = function(ev) {
-                    cont(IMAGE_CACHE[url] = "TAINTED");
-                };
-            }
-        }
-    }
-
-    function manyLoader(loadOne) {
-        return function(urls, callback) {
-            var n = urls.length, i = n;
-            if (n === 0) {
-                return callback();
-            }
-            while (i-- > 0) {
-                loadOne(urls[i], function(){
-                    if (--n === 0) {
-                        callback();
-                    }
-                });
-            }
-        };
-    }
-
-    var loadFonts = manyLoader(loadFont);
-    var loadImages = manyLoader(loadImage);
-
-    PDFDocument.prototype = {
-        loadFonts: loadFonts,
-        loadImages: loadImages,
-
-        getFont: function(url) {
-            var font = this.FONTS[url];
-            if (!font) {
-                font = FONT_CACHE[url];
-                if (!font) {
-                    throw new Error("Font " + url + " has not been loaded");
-                }
-                if (font === true) {
-                    font = this.attach(new PDFStandardFont(url));
-                } else {
-                    font = this.attach(new PDFFont(this, font));
-                }
-                this.FONTS[url] = font;
-            }
-            return font;
-        },
-
-        getImage: function(url) {
-            var img = this.IMAGES[url];
-            if (!img) {
-                img = IMAGE_CACHE[url];
-                if (!img) {
-                    throw new Error("Image " + url + " has not been loaded");
-                }
-                if (img === "TAINTED") {
-                    return null;
-                }
-                img = this.IMAGES[url] = this.attach(img.asStream(this));
-            }
-            return img;
-        },
-
-        getOpacityGS: function(opacity, forStroke) {
-            var id = parseFloat(opacity).toFixed(3);
-            opacity = parseFloat(id);
-            id += forStroke ? "S" : "F";
-            var cache = this._opacityGSCache || (this._opacityGSCache = {});
-            var gs = cache[id];
-            if (!gs) {
-                var props = {
-                    Type: _("ExtGState")
-                };
-                if (forStroke) {
-                    props.CA = opacity;
-                } else {
-                    props.ca = opacity;
-                }
-                gs = this.attach(new PDFDictionary(props));
-                gs._resourceName = _("GS" + (++RESOURCE_COUNTER));
-                cache[id] = gs;
-            }
-            return gs;
-        },
-
-        dict: function(props) {
-            return new PDFDictionary(props);
-        },
-
-        name: function(str) {
-            return _(str);
-        },
-
-        stream: function(props, content) {
-            return new PDFStream(content, props);
-        }
-    };
-
-    /* -----[ utils ]----- */
-
-    function pad(str, len, ch) {
-        while (str.length < len) {
-            str = ch + str;
-        }
-        return str;
-    }
-
-    function zeropad(n, len) {
-        return pad(n+"", len, "0");
-    }
-
-    function hasOwnProperty(obj, key) {
-        return Object.prototype.hasOwnProperty.call(obj, key);
-    }
-
-    var isArray = Array.isArray || function(obj) {
-        return obj instanceof Array;
-    };
-
-    function isDate(obj) {
-        return obj instanceof Date;
-    }
-
-    function renderArray(a, out) {
-        out("[");
-        if (a.length > 0) {
-            out.withIndent(function(){
-                for (var i = 0; i < a.length; ++i) {
-                    if (i > 0 && i % 8 === 0) {
-                        out.indent(a[i]);
-                    } else {
-                        out(" ", a[i]);
-                    }
-                }
-            });
-            //out.indent();
-        }
-        out(" ]");
-    }
-
-    function renderDate(date, out) {
-        out("(D:",
-            zeropad(date.getUTCFullYear(), 4),
-            zeropad(date.getUTCMonth() + 1, 2),
-            zeropad(date.getUTCDate(), 2),
-            zeropad(date.getUTCHours(), 2),
-            zeropad(date.getUTCMinutes(), 2),
-            zeropad(date.getUTCSeconds(), 2),
-            "Z)");
-    }
-
-    function mm2pt(mm) {
-        return mm * (72/25.4);
-    }
-
-    function cm2pt(cm) {
-        return mm2pt(cm * 10);
-    }
-
-    function in2pt(inch)  {
-        return inch * 72;
-    }
-
-    function unitsToPoints(x, def) {
-        if (typeof x == "number") {
-            return x;
-        }
-        if (typeof x == "string") {
-            var m;
-            m = /^\s*([0-9.]+)\s*(mm|cm|in|pt)\s*$/.exec(x);
-            if (m) {
-                var num = parseFloat(m[1]);
-                if (!isNaN(num)) {
-                    if (m[2] == "pt") {
-                        return num;
-                    }
-                    return {
-                        "mm": mm2pt,
-                        "cm": cm2pt,
-                        "in": in2pt
-                    }[m[2]](num);
-                }
-            }
-        }
-        if (def != null) {
-            return def;
-        }
-        throw new Error("Can't parse unit: " + x);
-    }
-
-    /* -----[ PDF basic objects ]----- */
-
-    function PDFValue(){}
-
-    PDFValue.prototype.beforeRender = function(){};
-
-    function defclass(Ctor, proto, Base) {
-        if (!Base) {
-            Base = PDFValue;
-        }
-        Ctor.prototype = new Base();
-        for (var i in proto) {
-            if (hasOwnProperty(proto, i)) {
-                Ctor.prototype[i] = proto[i];
-            }
-        }
-        return Ctor;
-    }
-
-    /// strings
-
-    var PDFString = defclass(function PDFString(value){
-        this.value = value;
-    }, {
-        render: function(out) {
-            //out("(\xFE\xFF", utf16_be_encode(this.escape()), ")");
-            var txt = "", esc = this.escape();
-            for (var i = 0; i < esc.length; ++i) {
-                txt += String.fromCharCode(esc.charCodeAt(i) & 0xFF);
-            }
-            out("(", txt, ")");
-        },
-        escape: function() {
-            return this.value.replace(/([\(\)\\])/g, "\\$1");
-        },
-        toString: function() {
-            return this.value;
-        }
-    });
-
-    var PDFHexString = defclass(function PDFHexString(value){
-        this.value = value;
-    }, {
-        render: function(out) {
-            out("<");
-            for (var i = 0; i < this.value.length; ++i) {
-                out(zeropad(this.value.charCodeAt(i).toString(16), 4));
-            }
-            out(">");
-        }
-    }, PDFString);
-
-    /// names
-
-    var PDFName = defclass(function PDFName(name) {
-        this.name = name;
-    }, {
-        render: function(out) {
-            out("/" + this.escape());
-        },
-        escape: function() {
-            return this.name.replace(/[^\x21-\x7E]/g, function(c){
-                return "#" + zeropad(c.charCodeAt(0).toString(16), 2);
-            });
-        },
-        toString: function() {
-            return this.name;
-        }
-    });
-
-    var PDFName_cache = {};
-    PDFName.get = _;
-
-    function _(name) {
-        if (hasOwnProperty(PDFName_cache, name)) {
-            return PDFName_cache[name];
-        }
-        return (PDFName_cache[name] = new PDFName(name));
-    }
-
-    /// dictionary
-
-    var PDFDictionary = defclass(function PDFDictionary(props) {
-        this.props = props;
-    }, {
-        render: function(out) {
-            var props = this.props, empty = true;
-            out("<<");
-            out.withIndent(function(){
-                for (var i in props) {
-                    if (hasOwnProperty(props, i) && !/^_/.test(i)) {
-                        empty = false;
-                        out.indent(_(i), " ", props[i]);
-                    }
-                }
-            });
-            if (!empty) {
-                out.indent();
-            }
-            out(">>");
-        }
-    });
-
-    /// streams
-
-    var PDFStream = defclass(function PDFStream(data, props, compress) {
-        if (typeof data == "string") {
-            var tmp = BinaryStream();
-            tmp.write(data);
-            data = tmp;
-        }
-        this.data = data;
-        this.props = props || {};
-        this.compress = compress;
-    }, {
-        render: function(out) {
-            var data = this.data.get(), props = this.props;
-            if (this.compress && global.pako && typeof global.pako.deflate == "function") {
-                if (!props.Filter) {
-                    props.Filter = [];
-                } else if (!(props.Filter instanceof Array)) {
-                    props.Filter = [ props.Filter ];
-                }
-                props.Filter.unshift(_("FlateDecode"));
-                data = global.pako.deflate(data);
-            }
-            props.Length = data.length;
-            out(new PDFDictionary(props), " stream", NL);
-            out.writeData(data);
-            out(NL, "endstream");
-        }
-    });
-
-    /// catalog
-
-    var PDFCatalog = defclass(function PDFCatalog(props){
-        props = this.props = props || {};
-        props.Type = _("Catalog");
-    }, {
-        setPages: function(pagesObj) {
-            this.props.Pages = pagesObj;
-        }
-    }, PDFDictionary);
-
-    /// page tree
-
-    var PDFPageTree = defclass(function PDFPageTree(){
-        this.props = {
-            Type  : _("Pages"),
-            Kids  : [],
-            Count : 0
-        };
-    }, {
-        addPage: function(pageObj) {
-            this.props.Kids.push(pageObj);
-            this.props.Count++;
-        }
-    }, PDFDictionary);
-
-    /// images
-
-    // JPEG
-
-    function PDFJpegImage(width, height, data) {
-        this.asStream = function() {
-            var stream = new PDFStream(data, {
-                Type             : _("XObject"),
-                Subtype          : _("Image"),
-                Width            : width,
-                Height           : height,
-                BitsPerComponent : 8,
-                ColorSpace       : _("DeviceRGB"),
-                Filter           : _("DCTDecode")
-            });
-            stream._resourceName = _("I" + (++RESOURCE_COUNTER));
-            return stream;
-        };
-    }
-
-    // PDFRawImage will be used for images with transparency (PNG)
-
-    function PDFRawImage(width, height, rgb, alpha) {
-        this.asStream = function(pdf) {
-            var mask = new PDFStream(alpha, {
-                Type             : _("XObject"),
-                Subtype          : _("Image"),
-                Width            : width,
-                Height           : height,
-                BitsPerComponent : 8,
-                ColorSpace       : _("DeviceGray")
-            }, true);
-            var stream = new PDFStream(rgb, {
-                Type             : _("XObject"),
-                Subtype          : _("Image"),
-                Width            : width,
-                Height           : height,
-                BitsPerComponent : 8,
-                ColorSpace       : _("DeviceRGB"),
-                SMask            : pdf.attach(mask)
-            }, true);
-            stream._resourceName = _("I" + (++RESOURCE_COUNTER));
-            return stream;
-        };
-    }
-
-    /// standard fonts
-
-    var PDFStandardFont = defclass(function PDFStandardFont(name){
-        this.props = {
-            Type     : _("Font"),
-            Subtype  : _("Type1"),
-            BaseFont : _(name)
-        };
-        this._resourceName = _("F" + (++RESOURCE_COUNTER));
-    }, {
-        encodeText: function(str) {
-            return new PDFString(str+"");
-        }
-    }, PDFDictionary);
-
-    /// TTF fonts
-
-    var PDFFont = defclass(function PDFFont(pdf, font, props){
-        props = this.props = props || {};
-        props.Type = _("Font");
-        props.Subtype = _("Type0");
-        props.Encoding = _("Identity-H");
-
-        this._pdf = pdf;
-        this._font = font;
-        this._sub = font.makeSubset();
-        this._resourceName = _("F" + (++RESOURCE_COUNTER));
-
-        var head = font.head;
-
-        this.name = font.psName;
-        var scale = this.scale = font.scale;
-        this.bbox = [
-            head.xMin * scale,
-            head.yMin * scale,
-            head.xMax * scale,
-            head.yMax * scale
-        ];
-
-        this.italicAngle = font.post.italicAngle;
-        this.ascent = font.ascent * scale;
-        this.descent = font.descent * scale;
-        this.lineGap = font.lineGap * scale;
-        this.capHeight = font.os2.capHeight || this.ascent;
-        this.xHeight = font.os2.xHeight || 0;
-        this.stemV = 0;
-
-        this.familyClass = (font.os2.familyClass || 0) >> 8;
-        this.isSerif = this.familyClass >= 1 && this.familyClass <= 7;
-        this.isScript = this.familyClass == 10;
-
-        this.flags = ((font.post.isFixedPitch ? 1 : 0) |
-                      (this.isSerif ? 1 << 1 : 0) |
-                      (this.isScript ? 1 << 3 : 0) |
-                      (this.italicAngle !== 0 ? 1 << 6 : 0) |
-                      (1 << 5));
-    }, {
-        encodeText: function(text) {
-            return new PDFHexString(this._sub.encodeText(text+""));
-        },
-        beforeRender: function() {
-            var self = this;
-            var font = self._font;
-            var sub = self._sub;
-
-            // write the TTF data
-            var data = sub.render();
-            var fontStream = new PDFStream(BinaryStream(data), {
-                Length1: data.length
-            }, true);
-
-            var descriptor = self._pdf.attach(new PDFDictionary({
-                Type         : _("FontDescriptor"),
-                FontName     : _(self._sub.psName),
-                FontBBox     : self.bbox,
-                Flags        : self.flags,
-                StemV        : self.stemV,
-                ItalicAngle  : self.italicAngle,
-                Ascent       : self.ascent,
-                Descent      : self.descent,
-                CapHeight    : self.capHeight,
-                XHeight      : self.xHeight,
-                FontFile2    : self._pdf.attach(fontStream)
-            }));
-
-            var cmap = sub.ncid2ogid;
-            var firstChar = sub.firstChar;
-            var lastChar = sub.lastChar;
-            var charWidths = [];
-            (function loop(i, chunk){
-                if (i <= lastChar) {
-                    var gid = cmap[i];
-                    if (gid == null) {
-                        loop(i + 1);
-                    } else {
-                        if (!chunk) {
-                            charWidths.push(i, chunk = []);
-                        }
-                        chunk.push(self._font.widthOfGlyph(gid));
-                        loop(i + 1, chunk);
-                    }
-                }
-            })(firstChar);
-
-            // As if two dictionaries weren't enough, we need another
-            // one, the "descendant font".  Only that one can be of
-            // Subtype CIDFontType2.  PDF is the X11 of document
-            // formats: portable but full of legacy that nobody cares
-            // about anymore.
-
-            var descendant = new PDFDictionary({
-                Type: _("Font"),
-                Subtype: _("CIDFontType2"),
-                BaseFont: _(self._sub.psName),
-                CIDSystemInfo: new PDFDictionary({
-                    Registry   : new PDFString("Adobe"),
-                    Ordering   : new PDFString("Identity"),
-                    Supplement : 0
-                }),
-                FontDescriptor: descriptor,
-                FirstChar: firstChar,
-                LastChar: lastChar,
-                DW: Math.round(self._font.widthOfGlyph(0)),
-                W: charWidths,
-                CIDToGIDMap: self._pdf.attach(self._makeCidToGidMap())
-            });
-
-            var dict = self.props;
-            dict.BaseFont = _(self._sub.psName);
-            dict.DescendantFonts = [ self._pdf.attach(descendant) ];
-
-            // Compute the ToUnicode map so that apps can extract
-            // meaningful text from the PDF.
-            var unimap = new PDFToUnicodeCmap(firstChar, lastChar, sub.subset);
-            var unimapStream = new PDFStream(makeOutput(), null, true);
-            unimapStream.data(unimap);
-            dict.ToUnicode = self._pdf.attach(unimapStream);
-        },
-        _makeCidToGidMap: function() {
-            return new PDFStream(BinaryStream(this._sub.cidToGidMap()), null, true);
-        }
-    }, PDFDictionary);
-
-    var PDFToUnicodeCmap = defclass(function PDFUnicodeCMap(firstChar, lastChar, map){
-        this.firstChar = firstChar;
-        this.lastChar = lastChar;
-        this.map = map;
-    }, {
-        render: function(out) {
-            out.indent("/CIDInit /ProcSet findresource begin");
-            out.indent("12 dict begin");
-            out.indent("begincmap");
-            out.indent("/CIDSystemInfo <<");
-            out.indent("  /Registry (Adobe)");
-            out.indent("  /Ordering (UCS)");
-            out.indent("  /Supplement 0");
-            out.indent(">> def");
-            out.indent("/CMapName /Adobe-Identity-UCS def");
-            out.indent("/CMapType 2 def");
-            out.indent("1 begincodespacerange");
-            out.indent("  <0000><ffff>");
-            out.indent("endcodespacerange");
-
-            var self = this;
-            out.indent(self.lastChar - self.firstChar + 1, " beginbfchar");
-            out.withIndent(function(){
-                for (var code = self.firstChar; code <= self.lastChar; ++code) {
-                    var unicode = self.map[code];
-                    out.indent("<", zeropad(code.toString(16), 4), ">",
-                               "<", zeropad(unicode.toString(16), 4), ">");
-                }
-            });
-            out.indent("endbfchar");
-
-            out.indent("endcmap");
-            out.indent("CMapName currentdict /CMap defineresource pop");
-            out.indent("end");
-            out.indent("end");
-        }
-    });
-
-    /// gradients
-
-    function makeHash(a) {
-        return a.map(function(x){
-            return isArray(x) ? makeHash(x)
-                : typeof x == "number" ? (Math.round(x * 1000) / 1000).toFixed(3)
-                : x;
-        }).join(" ");
-    }
-
-    function cacheColorGradientFunction(pdf, r1, g1, b1, r2, g2, b2) {
-        var hash = makeHash([ r1, g1, b1, r2, g2, b2 ]);
-        var func = pdf.GRAD_COL_FUNCTIONS[hash];
-        if (!func) {
-            func = pdf.GRAD_COL_FUNCTIONS[hash] = pdf.attach(new PDFDictionary({
-                FunctionType: 2,
-                Domain: [ 0, 1 ],
-                Range: [ 0, 1, 0, 1, 0, 1 ],
-                N: 1,
-                C0: [ r1 , g1 , b1 ],
-                C1: [ r2 , g2 , b2 ]
-            }));
-        }
-        return func;
-    }
-
-    function cacheOpacityGradientFunction(pdf, a1, a2) {
-        var hash = makeHash([ a1, a2 ]);
-        var func = pdf.GRAD_OPC_FUNCTIONS[hash];
-        if (!func) {
-            func = pdf.GRAD_OPC_FUNCTIONS[hash] = pdf.attach(new PDFDictionary({
-                FunctionType: 2,
-                Domain: [ 0, 1 ],
-                Range: [ 0, 1 ],
-                N: 1,
-                C0: [ a1 ],
-                C1: [ a2 ]
-            }));
-        }
-        return func;
-    }
-
-    function makeGradientFunctions(pdf, stops) {
-        var hasAlpha = false;
-        var opacities = [];
-        var colors = [];
-        var offsets = [];
-        var encode = [];
-        var i, prev, cur, prevColor, curColor;
-        for (i = 1; i < stops.length; ++i) {
-            prev = stops[i - 1];
-            cur = stops[i];
-            prevColor = prev.color;
-            curColor = cur.color;
-            colors.push(cacheColorGradientFunction(
-                pdf,
-                prevColor.r, prevColor.g, prevColor.b,
-                curColor.r,  curColor.g,  curColor.b
-            ));
-            if (prevColor.a < 1 || curColor.a < 1) {
-                hasAlpha = true;
-            }
-            offsets.push(cur.offset);
-            encode.push(0, 1);
-        }
-        if (hasAlpha) {
-            for (i = 1; i < stops.length; ++i) {
-                prev = stops[i - 1];
-                cur = stops[i];
-                prevColor = prev.color;
-                curColor = cur.color;
-                opacities.push(cacheOpacityGradientFunction(
-                    pdf, prevColor.a, curColor.a
-                ));
-            }
-        }
-        offsets.pop();
-        return {
-            hasAlpha  : hasAlpha,
-            colors    : assemble(colors),
-            opacities : hasAlpha ? assemble(opacities) : null
-        };
-        function assemble(funcs) {
-            if (funcs.length == 1) {
-                return funcs[0];
-            }
-            return {
-                FunctionType: 3,
-                Functions: funcs,
-                Domain: [ 0, 1 ],
-                Bounds: offsets,
-                Encode: encode
-            };
-        }
-    }
-
-    function cacheColorGradient(pdf, isRadial, stops, coords, funcs, box) {
-        var shading, hash;
-        // if box is given then we have user-space coordinates, which
-        // means the gradient is designed for a certain position/size
-        // on page.  caching won't do any good.
-        if (!box) {
-            var a = [ isRadial ].concat(coords);
-            stops.forEach(function(x){
-                a.push(x.offset, x.color.r, x.color.g, x.color.b);
-            });
-            hash = makeHash(a);
-            shading = pdf.GRAD_COL[hash];
-        }
-        if (!shading) {
-            shading = new PDFDictionary({
-                Type: _("Shading"),
-                ShadingType: isRadial ? 3 : 2,
-                ColorSpace: _("DeviceRGB"),
-                Coords: coords,
-                Domain: [ 0, 1 ],
-                Function: funcs,
-                Extend: [ true, true ]
-            });
-            pdf.attach(shading);
-            shading._resourceName = "S" + (++RESOURCE_COUNTER);
-            if (hash) {
-                pdf.GRAD_COL[hash] = shading;
-            }
-        }
-        return shading;
-    }
-
-    function cacheOpacityGradient(pdf, isRadial, stops, coords, funcs, box) {
-        var opacity, hash;
-        // if box is given then we have user-space coordinates, which
-        // means the gradient is designed for a certain position/size
-        // on page.  caching won't do any good.
-        if (!box) {
-            var a = [ isRadial ].concat(coords);
-            stops.forEach(function(x){
-                a.push(x.offset, x.color.a);
-            });
-            hash = makeHash(a);
-            opacity = pdf.GRAD_OPC[hash];
-        }
-        if (!opacity) {
-            opacity = new PDFDictionary({
-                Type: _("ExtGState"),
-                AIS: false,
-                CA: 1,
-                ca: 1,
-                SMask: {
-                    Type: _("Mask"),
-                    S: _("Luminosity"),
-                    G: pdf.attach(new PDFStream("/a0 gs /s0 sh", {
-                        Type: _("XObject"),
-                        Subtype: _("Form"),
-                        FormType: 1,
-                        BBox: (box ? [
-                            box.left, box.top + box.height, box.left + box.width, box.top
-                        ] : [ 0, 1, 1, 0 ]),
-                        Group: {
-                            Type: _("Group"),
-                            S: _("Transparency"),
-                            CS: _("DeviceGray"),
-                            I: true
-                        },
-                        Resources: {
-                            ExtGState: {
-                                a0: { CA: 1, ca: 1 }
-                            },
-                            Shading: {
-                                s0: {
-                                    ColorSpace: _("DeviceGray"),
-                                    Coords: coords,
-                                    Domain: [ 0, 1 ],
-                                    ShadingType: isRadial ? 3 : 2,
-                                    Function: funcs,
-                                    Extend: [ true, true ]
-                                }
-                            }
-                        }
-                    }))
-                }
-            });
-            pdf.attach(opacity);
-            opacity._resourceName = "O" + (++RESOURCE_COUNTER);
-            if (hash) {
-                pdf.GRAD_OPC[hash] = opacity;
-            }
-        }
-        return opacity;
-    }
-
-    function cacheGradient(pdf, gradient, box) {
-        var isRadial = gradient.type == "radial";
-        var funcs = makeGradientFunctions(pdf, gradient.stops);
-        var coords = isRadial ? [
-            gradient.start.x , gradient.start.y , gradient.start.r,
-            gradient.end.x   , gradient.end.y   , gradient.end.r
-        ] : [
-            gradient.start.x , gradient.start.y,
-            gradient.end.x   , gradient.end.y
-        ];
-        var shading = cacheColorGradient(
-            pdf, isRadial, gradient.stops, coords, funcs.colors, gradient.userSpace && box
-        );
-        var opacity = funcs.hasAlpha ? cacheOpacityGradient(
-            pdf, isRadial, gradient.stops, coords, funcs.opacities, gradient.userSpace && box
-        ) : null;
-        return {
-            hasAlpha: funcs.hasAlpha,
-            shading: shading,
-            opacity: opacity
-        };
-    }
-
-    /// page object
-
-    var PDFPage = defclass(function PDFPage(pdf, props){
-        this._pdf = pdf;
-        this._rcount = 0;
-        this._textMode = false;
-        this._fontResources = {};
-        this._gsResources = {};
-        this._xResources = {};
-        this._patResources = {};
-        this._shResources = {};
-        this._opacity = 1;
-        this._matrix = [ 1, 0, 0, 1, 0, 0 ];
-
-        this._font = null;
-        this._fontSize = null;
-
-        this._contextStack = [];
-
-        props = this.props = props || {};
-        props.Type = _("Page");
-        props.ProcSet = [
-            _("PDF"),
-            _("Text"),
-            _("ImageB"),
-            _("ImageC"),
-            _("ImageI")
-        ];
-        props.Resources = new PDFDictionary({
-            Font      : new PDFDictionary(this._fontResources),
-            ExtGState : new PDFDictionary(this._gsResources),
-            XObject   : new PDFDictionary(this._xResources),
-            Pattern   : new PDFDictionary(this._patResources),
-            Shading   : new PDFDictionary(this._shResources)
-        });
-    }, {
-        _out: function() {
-            this._content.data.apply(null, arguments);
-        },
-        transform: function(a, b, c, d, e, f) {
-            if (!isIdentityMatrix(arguments)) {
-                this._matrix = mmul(this._matrix, arguments);
-                this._out(a, " ", b, " ", c, " ", d, " ", e, " ", f, " cm");
-                // XXX: debug
-                // this._out(" % current matrix: ", this._matrix);
-                this._out(NL);
-            }
-        },
-        translate: function(dx, dy) {
-            this.transform(1, 0, 0, 1, dx, dy);
-        },
-        scale: function(sx, sy) {
-            this.transform(sx, 0, 0, sy, 0, 0);
-        },
-        rotate: function(angle) {
-            var cos = Math.cos(angle), sin = Math.sin(angle);
-            this.transform(cos, sin, -sin, cos, 0, 0);
-        },
-        beginText: function() {
-            this._textMode = true;
-            this._out("BT", NL);
-        },
-        endText: function() {
-            this._textMode = false;
-            this._out("ET", NL);
-        },
-        _requireTextMode: function() {
-            if (!this._textMode) {
-                throw new Error("Text mode required; call page.beginText() first");
-            }
-        },
-        _requireFont: function() {
-            if (!this._font) {
-                throw new Error("No font selected; call page.setFont() first");
-            }
-        },
-        setFont: function(font, size) {
-            this._requireTextMode();
-            if (font == null) {
-                font = this._font;
-            } else if (!(font instanceof PDFFont)) {
-                font = this._pdf.getFont(font);
-            }
-            if (size == null) {
-                size = this._fontSize;
-            }
-            this._fontResources[font._resourceName] = font;
-            this._font = font;
-            this._fontSize = size;
-            this._out(font._resourceName, " ", size, " Tf", NL);
-        },
-        setTextLeading: function(size) {
-            this._requireTextMode();
-            this._out(size, " TL", NL);
-        },
-        setTextRenderingMode: function(mode) {
-            this._requireTextMode();
-            this._out(mode, " Tr", NL);
-        },
-        showText: function(text) {
-            this._requireFont();
-            this._out(this._font.encodeText(text), " Tj", NL);
-        },
-        showTextNL: function(text) {
-            this._requireFont();
-            this._out(this._font.encodeText(text), " '", NL);
-        },
-        setStrokeColor: function(r, g, b) {
-            this._out(r, " ", g, " ", b, " RG", NL);
-        },
-        setOpacity: function(opacity) {
-            this.setFillOpacity(opacity);
-            this.setStrokeOpacity(opacity);
-            this._opacity *= opacity;
-        },
-        setStrokeOpacity: function(opacity) {
-            if (opacity < 1) {
-                var gs = this._pdf.getOpacityGS(this._opacity * opacity, true);
-                this._gsResources[gs._resourceName] = gs;
-                this._out(gs._resourceName, " gs", NL);
-            }
-        },
-        setFillColor: function(r, g, b) {
-            this._out(r, " ", g, " ", b, " rg", NL);
-        },
-        setFillOpacity: function(opacity) {
-            if (opacity < 1) {
-                var gs = this._pdf.getOpacityGS(this._opacity * opacity, false);
-                this._gsResources[gs._resourceName] = gs;
-                this._out(gs._resourceName, " gs", NL);
-            }
-        },
-        gradient: function(gradient, box) {
-            this.save();
-            this.rect(box.left, box.top, box.width, box.height);
-            this.clip();
-            if (!gradient.userSpace) {
-                this.transform(box.width, 0, 0, box.height, box.left, box.top);
-            }
-            var g = cacheGradient(this._pdf, gradient, box);
-            var sname = g.shading._resourceName, oname;
-            this._shResources[sname] = g.shading;
-            if (g.hasAlpha) {
-                oname = g.opacity._resourceName;
-                this._gsResources[oname] = g.opacity;
-                this._out("/" + oname + " gs ");
-            }
-            this._out("/" + sname + " sh", NL);
-            this.restore();
-        },
-        setDashPattern: function(dashArray, dashPhase) {
-            this._out(dashArray, " ", dashPhase, " d", NL);
-        },
-        setLineWidth: function(width) {
-            this._out(width, " w", NL);
-        },
-        setLineCap: function(lineCap) {
-            this._out(lineCap, " J", NL);
-        },
-        setLineJoin: function(lineJoin) {
-            this._out(lineJoin, " j", NL);
-        },
-        setMitterLimit: function(mitterLimit) {
-            this._out(mitterLimit, " M", NL);
-        },
-        save: function() {
-            this._contextStack.push(this._context());
-            this._out("q", NL);
-        },
-        restore: function() {
-            this._out("Q", NL);
-            this._context(this._contextStack.pop());
-        },
-
-        // paths
-        moveTo: function(x, y) {
-            this._out(x, " ", y, " m", NL);
-        },
-        lineTo: function(x, y) {
-            this._out(x, " ", y, " l", NL);
-        },
-        bezier: function(x1, y1, x2, y2, x3, y3) {
-            this._out(x1, " ", y1, " ", x2, " ", y2, " ", x3, " ", y3, " c", NL);
-        },
-        bezier1: function(x1, y1, x3, y3) {
-            this._out(x1, " ", y1, " ", x3, " ", y3, " y", NL);
-        },
-        bezier2: function(x2, y2, x3, y3) {
-            this._out(x2, " ", y2, " ", x3, " ", y3, " v", NL);
-        },
-        close: function() {
-            this._out("h", NL);
-        },
-        rect: function(x, y, w, h) {
-            this._out(x, " ", y, " ", w, " ", h, " re", NL);
-        },
-        ellipse: function(x, y, rx, ry) {
-            function _X(v) { return x + v; }
-            function _Y(v) { return y + v; }
-
-            // how to get to the "magic number" is explained here:
-            // http://www.whizkidtech.redprince.net/bezier/circle/kappa/
-            var k = 0.5522847498307936;
-
-            this.moveTo(_X(0), _Y(ry));
-            this.bezier(
-                _X(rx * k) , _Y(ry),
-                _X(rx)     , _Y(ry * k),
-                _X(rx)     , _Y(0)
-            );
-            this.bezier(
-                _X(rx)     , _Y(-ry * k),
-                _X(rx * k) , _Y(-ry),
-                _X(0)      , _Y(-ry)
-            );
-            this.bezier(
-                _X(-rx * k) , _Y(-ry),
-                _X(-rx)     , _Y(-ry * k),
-                _X(-rx)     , _Y(0)
-            );
-            this.bezier(
-                _X(-rx)     , _Y(ry * k),
-                _X(-rx * k) , _Y(ry),
-                _X(0)       , _Y(ry)
-            );
-        },
-        circle: function(x, y, r) {
-            this.ellipse(x, y, r, r);
-        },
-        stroke: function() {
-            this._out("S", NL);
-        },
-        nop: function() {
-            this._out("n", NL);
-        },
-        clip: function() {
-            this._out("W n", NL);
-        },
-        clipStroke: function() {
-            this._out("W S", NL);
-        },
-        closeStroke: function() {
-            this._out("s", NL);
-        },
-        fill: function() {
-            this._out("f", NL);
-        },
-        fillStroke: function() {
-            this._out("B", NL);
-        },
-        drawImage: function(url) {
-            var img = this._pdf.getImage(url);
-            if (img) { // the result can be null for a cross-domain image
-                this._xResources[img._resourceName] = img;
-                this._out(img._resourceName, " Do", NL);
-            }
-        },
-        comment: function(txt) {
-            var self = this;
-            txt.split(/\r?\n/g).forEach(function(line){
-                self._out("% ", line, NL);
-            });
-        },
-
-        // internal
-        _context: function(val) {
-            if (val != null) {
-                this._opacity = val.opacity;
-                this._matrix = val.matrix;
-            } else {
-                return {
-                    opacity: this._opacity,
-                    matrix: this._matrix
-                };
-            }
-        }
-    }, PDFDictionary);
-
-    function BinaryStream(data) {
-        var offset = 0, length = 0;
-        if (data == null) {
-            data = HAS_TYPED_ARRAYS ? new Uint8Array(256) : [];
-        } else {
-            length = data.length;
-        }
-
-        var ensure = HAS_TYPED_ARRAYS ? function(len) {
-            if (len >= data.length) {
-                var tmp = new Uint8Array(Math.max(len + 256, data.length * 2));
-                tmp.set(data, 0);
-                data = tmp;
-            }
-        } : function() {};
-
-        var get = HAS_TYPED_ARRAYS ? function() {
-            return new Uint8Array(data.buffer, 0, length);
-        } : function() {
-            return data;
-        };
-
-        var write = HAS_TYPED_ARRAYS ? function(bytes) {
-            if (typeof bytes == "string") {
-                return writeString(bytes);
-            }
-            var len = bytes.length;
-            ensure(offset + len);
-            data.set(bytes, offset);
-            offset += len;
-            if (offset > length) {
-                length = offset;
-            }
-        } : function(bytes) {
-            if (typeof bytes == "string") {
-                return writeString(bytes);
-            }
-            for (var i = 0; i < bytes.length; ++i) {
-                writeByte(bytes[i]);
-            }
-        };
-
-        var slice = HAS_TYPED_ARRAYS ? function(start, length) {
-            if (data.buffer.slice) {
-                return new Uint8Array(data.buffer.slice(start, start + length));
-            } else {
-                // IE10
-                var x = new Uint8Array(length);
-                x.set(new Uint8Array(data.buffer, start, length));
-                return x;
-            }
-        } : function(start, length) {
-            return data.slice(start, start + length);
-        };
-
-        function eof() {
-            return offset >= length;
-        }
-        function readByte() {
-            return offset < length ? data[offset++] : 0;
-        }
-        function writeByte(b) {
-            ensure(offset);
-            data[offset++] = b & 0xFF;
-            if (offset > length) {
-                length = offset;
-            }
-        }
-        function readShort() {
-            return (readByte() << 8) | readByte();
-        }
-        function writeShort(w) {
-            writeByte(w >> 8);
-            writeByte(w);
-        }
-        function readShort_() {
-            var w = readShort();
-            return w >= 0x8000 ? w - 0x10000 : w;
-        }
-        function writeShort_(w) {
-            writeShort(w < 0 ? w + 0x10000 : w);
-        }
-        function readLong() {
-            return (readShort() * 0x10000) + readShort();
-        }
-        function writeLong(w) {
-            writeShort((w >>> 16) & 0xFFFF);
-            writeShort(w & 0xFFFF);
-        }
-        function readLong_() {
-            var w = readLong();
-            return w >= 0x80000000 ? w - 0x100000000 : w;
-        }
-        function writeLong_(w) {
-            writeLong(w < 0 ? w + 0x100000000 : w);
-        }
-        function readFixed() {
-            return readLong() / 0x10000;
-        }
-        function writeFixed(f) {
-            writeLong(Math.round(f * 0x10000));
-        }
-        function readFixed_() {
-            return readLong_() / 0x10000;
-        }
-        function writeFixed_(f) {
-            writeLong_(Math.round(f * 0x10000));
-        }
-        function read(len) {
-            return times(len, readByte);
-        }
-        function readString(len) {
-            return String.fromCharCode.apply(String, read(len));
-        }
-        function writeString(str) {
-            for (var i = 0; i < str.length; ++i) {
-                writeByte(str.charCodeAt(i));
-            }
-        }
-        function times(n, reader) {
-            for (var ret = new Array(n), i = 0; i < n; ++i) {
-                ret[i] = reader();
-            }
-            return ret;
-        }
-
-        var stream = {
-            eof         : eof,
-            readByte    : readByte,
-            writeByte   : writeByte,
-            readShort   : readShort,
-            writeShort  : writeShort,
-            readLong    : readLong,
-            writeLong   : writeLong,
-            readFixed   : readFixed,
-            writeFixed  : writeFixed,
-
-            // signed numbers.
-            readShort_  : readShort_,
-            writeShort_ : writeShort_,
-            readLong_   : readLong_,
-            writeLong_  : writeLong_,
-            readFixed_  : readFixed_,
-            writeFixed_ : writeFixed_,
-
-            read        : read,
-            write       : write,
-            readString  : readString,
-            writeString : writeString,
-
-            times       : times,
-            get         : get,
-            slice       : slice,
-
-            offset: function(pos) {
-                if (pos != null) {
-                    offset = pos;
-                    return stream;
-                }
-                return offset;
-            },
-
-            skip: function(nbytes) {
-                offset += nbytes;
-            },
-
-            toString: function() {
-                throw new Error("FIX CALLER.  BinaryStream is no longer convertible to string!");
-            },
-
-            length: function() { return length; },
-
-            saveExcursion: function(f) {
-                var pos = offset;
-                try {
-                    return f();
-                } finally {
-                    offset = pos;
-                }
-            },
-
-            writeBase64: function(base64) {
-                if (window.atob) {
-                    writeString(window.atob(base64));
-                } else {
-                    write(BASE64.decode(base64));
-                }
-            },
-            base64: function() {
-                return BASE64.encode(get());
-            }
-        };
-
-        return stream;
-    }
-
-    function unquote(str) {
-        return str.replace(/^\s*(['"])(.*)\1\s*$/, "$2");
-    }
-
-    function parseFontDef(fontdef) {
-        // XXX: this is very crude for now and buggy.  Proper parsing is quite involved.
-        var rx = /^\s*((normal|italic)\s+)?((normal|small-caps)\s+)?((normal|bold|\d+)\s+)?(([0-9.]+)(px|pt))(\/(([0-9.]+)(px|pt)|normal))?\s+(.*?)\s*$/i;
-        var m = rx.exec(fontdef);
-        if (!m) {
-            return { fontSize: 12, fontFamily: "sans-serif" };
-        }
-        var fontSize = m[8] ? parseInt(m[8], 10) : 12;
-        return {
-            italic     : m[2] && m[2].toLowerCase() == "italic",
-            variant    : m[4],
-            bold       : m[6] && /bold|700/i.test(m[6]),
-            fontSize   : fontSize,
-            lineHeight : m[12] ? m[12] == "normal" ? fontSize : parseInt(m[12], 10) : null,
-            fontFamily : m[14].split(/\s*,\s*/g).map(unquote)
-        };
-    }
-
-    function getFontURL(style) {
-        function mkFamily(name) {
-            if (style.bold) {
-                name += "|bold";
-            }
-            if (style.italic) {
-                name += "|italic";
-            }
-            return name.toLowerCase();
-        }
-        var fontFamily = style.fontFamily;
-        var name, url;
-        if (fontFamily instanceof Array) {
-            for (var i = 0; i < fontFamily.length; ++i) {
-                name = mkFamily(fontFamily[i]);
-                url = FONT_MAPPINGS[name];
-                if (url) {
-                    break;
-                }
-            }
-        } else {
-            url = FONT_MAPPINGS[fontFamily.toLowerCase()];
-        }
-        while (typeof url == "function") {
-            url = url();
-        }
-        if (!url) {
-            url = "Times-Roman";
-        }
-        return url;
-    }
-
-    var FONT_MAPPINGS = {
-        "serif"                    : "Times-Roman",
-        "serif|bold"               : "Times-Bold",
-        "serif|italic"             : "Times-Italic",
-        "serif|bold|italic"        : "Times-BoldItalic",
-        "sans-serif"               : "Helvetica",
-        "sans-serif|bold"          : "Helvetica-Bold",
-        "sans-serif|italic"        : "Helvetica-Oblique",
-        "sans-serif|bold|italic"   : "Helvetica-BoldOblique",
-        "monospace"                : "Courier",
-        "monospace|bold"           : "Courier-Bold",
-        "monospace|italic"         : "Courier-Oblique",
-        "monospace|bold|italic"    : "Courier-BoldOblique",
-        "zapfdingbats"             : "ZapfDingbats",
-        "zapfdingbats|bold"        : "ZapfDingbats",
-        "zapfdingbats|italic"      : "ZapfDingbats",
-        "zapfdingbats|bold|italic" : "ZapfDingbats"
-    };
-
-    function fontAlias(alias, name) {
-        alias = alias.toLowerCase();
-        FONT_MAPPINGS[alias] = function() {
-            return FONT_MAPPINGS[name];
-        };
-        FONT_MAPPINGS[alias + "|bold"] = function() {
-            return FONT_MAPPINGS[name + "|bold"];
-        };
-        FONT_MAPPINGS[alias + "|italic"] = function() {
-            return FONT_MAPPINGS[name + "|italic"];
-        };
-        FONT_MAPPINGS[alias + "|bold|italic"] = function() {
-            return FONT_MAPPINGS[name + "|bold|italic"];
-        };
-    }
-
-    // Let's define some common names to an appropriate replacement.
-    // These are overridable via kendo.pdf.defineFont, should the user
-    // want to include the proper versions.
-
-    fontAlias("Times New Roman" , "serif");
-    fontAlias("Courier New"     , "monospace");
-    fontAlias("Arial"           , "sans-serif");
-    fontAlias("Helvetica"       , "sans-serif");
-    fontAlias("Verdana"         , "sans-serif");
-    fontAlias("Tahoma"          , "sans-serif");
-    fontAlias("Georgia"         , "sans-serif");
-    fontAlias("Monaco"          , "monospace");
-    fontAlias("Andale Mono"     , "monospace");
-
-    function defineFont(name, url) {
-        if (arguments.length == 1) {
-            for (var i in name) {
-                if (hasOwnProperty(name, i)) {
-                    defineFont(i, name[i]);
-                }
-            }
-        } else {
-            name = name.toLowerCase();
-            FONT_MAPPINGS[name] = url;
-
-            // special handling for DejaVu fonts: if they get defined,
-            // let them also replace the default families, for good
-            // Unicode support out of the box.
-            switch (name) {
-              case "dejavu sans"               : FONT_MAPPINGS["sans-serif"]              = url; break;
-              case "dejavu sans|bold"          : FONT_MAPPINGS["sans-serif|bold"]         = url; break;
-              case "dejavu sans|italic"        : FONT_MAPPINGS["sans-serif|italic"]       = url; break;
-              case "dejavu sans|bold|italic"   : FONT_MAPPINGS["sans-serif|bold|italic"]  = url; break;
-              case "dejavu serif"              : FONT_MAPPINGS["serif"]                   = url; break;
-              case "dejavu serif|bold"         : FONT_MAPPINGS["serif|bold"]              = url; break;
-              case "dejavu serif|italic"       : FONT_MAPPINGS["serif|italic"]            = url; break;
-              case "dejavu serif|bold|italic"  : FONT_MAPPINGS["serif|bold|italic"]       = url; break;
-              case "dejavu mono"               : FONT_MAPPINGS["monospace"]               = url; break;
-              case "dejavu mono|bold"          : FONT_MAPPINGS["monospace|bold"]          = url; break;
-              case "dejavu mono|italic"        : FONT_MAPPINGS["monospace|italic"]        = url; break;
-              case "dejavu mono|bold|italic"   : FONT_MAPPINGS["monospace|bold|italic"]   = url; break;
-            }
-        }
-    }
-
-    /// exports.
-
-    kendo.pdf = {
-        Document      : PDFDocument,
-        BinaryStream  : BinaryStream,
-        defineFont    : defineFont,
-        parseFontDef  : parseFontDef,
-        getFontURL    : getFontURL,
-        loadFonts     : loadFonts,
-        loadImages    : loadImages,
-
-        TEXT_RENDERING_MODE : {
-            fill           : 0,
-            stroke         : 1,
-            fillAndStroke  : 2,
-            invisible      : 3,
-            fillAndClip    : 4,
-            strokeAndClip  : 5,
-            fillStrokeClip : 6,
-            clip           : 7
-        }
-    };
-
-    function mmul(a, b) {
-        var a1 = a[0], b1 = a[1], c1 = a[2], d1 = a[3], e1 = a[4], f1 = a[5];
-        var a2 = b[0], b2 = b[1], c2 = b[2], d2 = b[3], e2 = b[4], f2 = b[5];
-        return [
-            a1*a2 + b1*c2,          a1*b2 + b1*d2,
-            c1*a2 + d1*c2,          c1*b2 + d1*d2,
-            e1*a2 + f1*c2 + e2,     e1*b2 + f1*d2 + f2
-        ];
-    }
-
-    function isIdentityMatrix(m) {
-        return m[0] === 1 && m[1] === 0 && m[2] === 0 && m[3] === 1 && m[4] === 0 && m[5] === 0;
-    }
-
-})(this, parseFloat);
-
-(function(global){
-
-/*****************************************************************************\
- *
- * The code in this file, although written from scratch, is influenced by the
- * TrueType parser/encoder in PDFKit -- http://pdfkit.org/ (a CoffeeScript
- * library for producing PDF files).
- *
- * PDFKit is (c) Devon Govett 2014 and released under the MIT License.
- *
-\*****************************************************************************/
-
-"use strict";
-
-// WARNING: removing the following jshint declaration and turning
-// == into === to make JSHint happy will break functionality.
-/* jshint eqnull:true */
-/* jshint loopfunc:true */
-/* jshint newcap:false */
-
-function hasOwnProperty(obj, key) {
-    return Object.prototype.hasOwnProperty.call(obj, key);
-}
-
-function sortedKeys(obj) {
-    return Object.keys(obj).sort(function(a, b){ return a - b; }).map(parseFloat);
-}
-
-var PDF = global.kendo.pdf;
-var BinaryStream = PDF.BinaryStream;
-
-///
-
-function Directory(data) {
-    this.raw = data;
-    this.scalerType = data.readLong();
-    this.tableCount = data.readShort();
-    this.searchRange = data.readShort();
-    this.entrySelector = data.readShort();
-    this.rangeShift = data.readShort();
-
-    var tables = this.tables = {};
-    for (var i = 0; i < this.tableCount; ++i) {
-        var entry = {
-            tag      : data.readString(4),
-            checksum : data.readLong(),
-            offset   : data.readLong(),
-            length   : data.readLong()
-        };
-        tables[entry.tag] = entry;
-    }
-}
-
-Directory.prototype = {
-
-    readTable: function(name, Ctor) {
-        var def = this.tables[name];
-        if (!def) {
-            throw new Error("Table " + name + " not found in directory");
-        }
-        return (this[name] = def.table = new Ctor(this, def));
-    },
-
-    render: function(tables) {
-        var tableCount = Object.keys(tables).length;
-
-        var maxpow2 = Math.pow(2, Math.floor(Math.log(tableCount) / Math.LN2));
-        var searchRange = maxpow2 * 16;
-        var entrySelector = Math.floor(Math.log(maxpow2) / Math.LN2);
-        var rangeShift = tableCount * 16 - searchRange;
-
-        var out = BinaryStream();
-        out.writeLong(this.scalerType);
-        out.writeShort(tableCount);
-        out.writeShort(searchRange);
-        out.writeShort(entrySelector);
-        out.writeShort(rangeShift);
-
-        var directoryLength = tableCount * 16;
-        var offset = out.offset() + directoryLength;
-        var headOffset = null;
-        var tableData = BinaryStream();
-
-        for (var tag in tables) {
-            if (hasOwnProperty(tables, tag)) {
-                var table = tables[tag];
-
-                out.writeString(tag);
-                out.writeLong(this.checksum(table));
-                out.writeLong(offset);
-                out.writeLong(table.length);
-
-                tableData.write(table);
-                if (tag == "head") {
-                    headOffset = offset;
-                }
-                offset += table.length;
-
-                while (offset % 4) {
-                    tableData.writeByte(0);
-                    offset++;
-                }
-            }
-        }
-
-        out.write(tableData.get());
-        var sum = this.checksum(out.get());
-        var adjustment = 0xB1B0AFBA - sum;
-
-        out.offset(headOffset + 8);
-        out.writeLong(adjustment);
-        return out.get();
-    },
-
-    checksum: function(data) {
-        data = BinaryStream(data);
-        var sum = 0;
-        while (!data.eof()) {
-            sum += data.readLong();
-        }
-        return sum & 0xFFFFFFFF;
-    }
-};
-
-function deftable(methods) {
-    function Ctor(file, def) {
-        this.definition = def;
-        this.length = def.length;
-        this.offset = def.offset;
-        this.file = file;
-        this.rawData = file.raw;
-        this.parse(file.raw);
-    }
-    Ctor.prototype.raw = function() {
-        return this.rawData.slice(this.offset, this.length);
-    };
-    for (var i in methods) {
-        if (hasOwnProperty(methods, i)) {
-            Ctor[i] = Ctor.prototype[i] = methods[i];
-        }
-    }
-    return Ctor;
-}
-
-var HeadTable = deftable({
-    parse: function(data) {
-        data.offset(this.offset);
-        this.version             = data.readLong();
-        this.revision            = data.readLong();
-        this.checkSumAdjustment  = data.readLong();
-        this.magicNumber         = data.readLong();
-        this.flags               = data.readShort();
-        this.unitsPerEm          = data.readShort();
-        this.created             = data.read(8);
-        this.modified            = data.read(8);
-
-        this.xMin = data.readShort_();
-        this.yMin = data.readShort_();
-        this.xMax = data.readShort_();
-        this.yMax = data.readShort_();
-
-        this.macStyle           = data.readShort();
-        this.lowestRecPPEM      = data.readShort();
-        this.fontDirectionHint  = data.readShort_();
-        this.indexToLocFormat   = data.readShort_();
-        this.glyphDataFormat    = data.readShort_();
-    },
-    render: function(indexToLocFormat) {
-        var out = BinaryStream();
-        out.writeLong(this.version);
-        out.writeLong(this.revision);
-        out.writeLong(0);       // checksum adjustment; shall be computed later
-        out.writeLong(this.magicNumber);
-        out.writeShort(this.flags);
-        out.writeShort(this.unitsPerEm);
-        out.write(this.created);
-        out.write(this.modified);
-        out.writeShort_(this.xMin);
-        out.writeShort_(this.yMin);
-        out.writeShort_(this.xMax);
-        out.writeShort_(this.yMax);
-        out.writeShort(this.macStyle);
-        out.writeShort(this.lowestRecPPEM);
-        out.writeShort_(this.fontDirectionHint);
-        out.writeShort_(indexToLocFormat); // this will depend on the `loca` table
-        out.writeShort_(this.glyphDataFormat);
-        return out.get();
-    }
-});
-
-var LocaTable = deftable({
-    parse: function(data) {
-        data.offset(this.offset);
-        var format = this.file.head.indexToLocFormat;
-        if (format === 0) {
-            this.offsets = data.times(this.length / 2, function(){
-                return 2 * data.readShort();
-            });
-        } else {
-            this.offsets = data.times(this.length / 4, data.readLong);
-        }
-    },
-    offsetOf: function(id) {
-        return this.offsets[id];
-    },
-    lengthOf: function(id) {
-        return this.offsets[id + 1] - this.offsets[id];
-    },
-    render: function(offsets) {
-        var out = BinaryStream();
-        var needsLongFormat = offsets[offsets.length - 1] > 0xFFFF;
-        for (var i = 0; i < offsets.length; ++i) {
-            if (needsLongFormat) {
-                out.writeLong(offsets[i]);
-            } else {
-                out.writeShort(offsets[i] / 2);
-            }
-        }
-        return {
-            format: needsLongFormat ? 1 : 0,
-            table: out.get()
-        };
-    }
-});
-
-var HheaTable = deftable({
-    parse: function(data) {
-        data.offset(this.offset);
-
-        this.version              = data.readLong();
-        this.ascent               = data.readShort_();
-        this.descent              = data.readShort_();
-        this.lineGap              = data.readShort_();
-        this.advanceWidthMax      = data.readShort();
-        this.minLeftSideBearing   = data.readShort_();
-        this.minRightSideBearing  = data.readShort_();
-        this.xMaxExtent           = data.readShort_();
-        this.caretSlopeRise       = data.readShort_();
-        this.caretSlopeRun        = data.readShort_();
-        this.caretOffset          = data.readShort_();
-
-        data.skip(4 * 2);       // reserved
-
-        this.metricDataFormat     = data.readShort_();
-        this.numOfLongHorMetrics  = data.readShort();
-    },
-    render: function(ids) {
-        var out = BinaryStream();
-        out.writeLong(this.version);
-        out.writeShort_(this.ascent);
-        out.writeShort_(this.descent);
-        out.writeShort_(this.lineGap);
-        out.writeShort(this.advanceWidthMax);
-        out.writeShort_(this.minLeftSideBearing);
-        out.writeShort_(this.minRightSideBearing);
-        out.writeShort_(this.xMaxExtent);
-        out.writeShort_(this.caretSlopeRise);
-        out.writeShort_(this.caretSlopeRun);
-        out.writeShort_(this.caretOffset);
-
-        out.write([ 0, 0, 0, 0, 0, 0, 0, 0 ]); // reserved bytes
-
-        out.writeShort_(this.metricDataFormat);
-        out.writeShort(ids.length);
-        return out.get();
-    }
-});
-
-var MaxpTable = deftable({
-    parse: function(data) {
-        data.offset(this.offset);
-        this.version = data.readLong();
-        this.numGlyphs = data.readShort();
-        this.maxPoints = data.readShort();
-        this.maxContours = data.readShort();
-        this.maxComponentPoints = data.readShort();
-        this.maxComponentContours = data.readShort();
-        this.maxZones = data.readShort();
-        this.maxTwilightPoints = data.readShort();
-        this.maxStorage = data.readShort();
-        this.maxFunctionDefs = data.readShort();
-        this.maxInstructionDefs = data.readShort();
-        this.maxStackElements = data.readShort();
-        this.maxSizeOfInstructions = data.readShort();
-        this.maxComponentElements = data.readShort();
-        this.maxComponentDepth = data.readShort();
-    },
-    render: function(glyphIds) {
-        var out = BinaryStream();
-        out.writeLong(this.version);
-        out.writeShort(glyphIds.length);
-        out.writeShort(this.maxPoints);
-        out.writeShort(this.maxContours);
-        out.writeShort(this.maxComponentPoints);
-        out.writeShort(this.maxComponentContours);
-        out.writeShort(this.maxZones);
-        out.writeShort(this.maxTwilightPoints);
-        out.writeShort(this.maxStorage);
-        out.writeShort(this.maxFunctionDefs);
-        out.writeShort(this.maxInstructionDefs);
-        out.writeShort(this.maxStackElements);
-        out.writeShort(this.maxSizeOfInstructions);
-        out.writeShort(this.maxComponentElements);
-        out.writeShort(this.maxComponentDepth);
-        return out.get();
-    }
-});
-
-var HmtxTable = deftable({
-    parse: function(data) {
-        data.offset(this.offset);
-        var dir = this.file, hhea = dir.hhea;
-        this.metrics = data.times(hhea.numOfLongHorMetrics, function(){
-            return {
-                advance: data.readShort(),
-                lsb: data.readShort_()
-            };
-        });
-        var lsbCount = dir.maxp.numGlyphs - dir.hhea.numOfLongHorMetrics;
-        this.leftSideBearings = data.times(lsbCount, data.readShort_);
-    },
-    forGlyph: function(id) {
-        var metrics = this.metrics;
-        var n = metrics.length;
-        if (id < n) {
-            return metrics[id];
-        }
-        return {
-            advance: metrics[n - 1].advance,
-            lsb: this.leftSideBearings[id - n]
-        };
-    },
-    render: function(glyphIds) {
-        var out = BinaryStream();
-        for (var i = 0; i < glyphIds.length; ++i) {
-            var m = this.forGlyph(glyphIds[i]);
-            out.writeShort(m.advance);
-            out.writeShort_(m.lsb);
-        }
-        return out.get();
-    }
-});
-
-var GlyfTable = (function(){
-
-    function SimpleGlyph(raw) {
-        this.raw = raw;
-    }
-    SimpleGlyph.prototype = {
-        compound: false,
-        render: function() {
-            return this.raw.get();
-        }
-    };
-
-    var ARG_1_AND_2_ARE_WORDS     = 0x0001;
-    var WE_HAVE_A_SCALE           = 0x0008;
-    var MORE_COMPONENTS           = 0x0020;
-    var WE_HAVE_AN_X_AND_Y_SCALE  = 0x0040;
-    var WE_HAVE_A_TWO_BY_TWO      = 0x0080;
-    var WE_HAVE_INSTRUCTIONS      = 0x0100;
-
-    function CompoundGlyph(data) {
-        this.raw = data;
-        var ids = this.glyphIds = [];
-        var offsets = this.idOffsets = [];
-        while (true) {
-            var flags = data.readShort();
-            offsets.push(data.offset());
-            ids.push(data.readShort());
-
-            if (!(flags & MORE_COMPONENTS)) {
-                break;
-            }
-
-            data.skip(flags & ARG_1_AND_2_ARE_WORDS ? 4 : 2);
-
-            if (flags & WE_HAVE_A_TWO_BY_TWO) {
-                data.skip(8);
-            } else if (flags & WE_HAVE_AN_X_AND_Y_SCALE) {
-                data.skip(4);
-            } else if (flags & WE_HAVE_A_SCALE) {
-                data.skip(2);
-            }
-        }
-    }
-
-    CompoundGlyph.prototype = {
-        compound: true,
-        render: function(old2new) {
-            var out = BinaryStream(this.raw.get());
-            for (var i = 0; i < this.glyphIds.length; ++i) {
-                var id = this.glyphIds[i];
-                out.offset(this.idOffsets[i]);
-                out.writeShort(old2new[id]);
-            }
-            return out.get();
-        }
-    };
-
-    return deftable({
-        parse: function(data) {
-            this.cache = {};
-        },
-        glyphFor: function(id) {
-            var cache = this.cache;
-            if (hasOwnProperty(cache, id)) {
-                return cache[id];
-            }
-
-            var loca = this.file.loca;
-            var length = loca.lengthOf(id);
-
-            if (length === 0) {
-                return (cache[id] = null);
-            }
-
-            var data = this.rawData;
-            var offset = this.offset + loca.offsetOf(id);
-            var raw = BinaryStream(data.slice(offset, length));
-
-            var numberOfContours = raw.readShort_();
-            var xMin = raw.readShort_();
-            var yMin = raw.readShort_();
-            var xMax = raw.readShort_();
-            var yMax = raw.readShort_();
-
-            var glyph = cache[id] = numberOfContours == -1 ? new CompoundGlyph(raw) : new SimpleGlyph(raw);
-
-            glyph.numberOfContours = numberOfContours;
-            glyph.xMin = xMin;
-            glyph.yMin = yMin;
-            glyph.xMax = xMax;
-            glyph.yMax = yMax;
-
-            return glyph;
-        },
-        render: function(glyphs, oldIds, old2new) {
-            var out = BinaryStream(), offsets = [];
-            for (var i = 0; i < oldIds.length; ++i) {
-                var id = oldIds[i];
-                var glyph = glyphs[id];
-                offsets.push(out.offset());
-                if (glyph) {
-                    out.write(glyph.render(old2new));
-                }
-            }
-            offsets.push(out.offset());
-            return {
-                table: out.get(),
-                offsets: offsets
-            };
-        }
-    });
-
-}());
-
-var NameTable = (function(){
-
-    function NameEntry(text, entry) {
-        this.text = text;
-        this.length = text.length;
-        this.platformID = entry.platformID;
-        this.platformSpecificID = entry.platformSpecificID;
-        this.languageID = entry.languageID;
-        this.nameID = entry.nameID;
-    }
-
-    return deftable({
-        parse: function(data) {
-            data.offset(this.offset);
-            var format = data.readShort();
-            var count = data.readShort();
-            var stringOffset = this.offset + data.readShort();
-            var nameRecords = data.times(count, function(){
-                return {
-                    platformID         : data.readShort(),
-                    platformSpecificID : data.readShort(),
-                    languageID         : data.readShort(),
-                    nameID             : data.readShort(),
-                    length             : data.readShort(),
-                    offset             : data.readShort() + stringOffset
-                };
-            });
-            var strings = this.strings = {};
-            for (var i = 0; i < nameRecords.length; ++i) {
-                var rec = nameRecords[i];
-                data.offset(rec.offset);
-                var text = data.readString(rec.length);
-                if (!strings[rec.nameID]) {
-                    strings[rec.nameID] = [];
-                }
-                strings[rec.nameID].push(new NameEntry(text, rec));
-            }
-            this.postscriptEntry = strings[6][0];
-            this.postscriptName = this.postscriptEntry.text.replace(/[^\x20-\x7F]/g, "");
-        },
-
-        render: function(psName) {
-            var strings = this.strings;
-            var strCount = 0;
-            for (var i in strings) {
-                if (hasOwnProperty(strings, i)) {
-                    strCount += strings[i].length;
-                }
-            }
-            var out = BinaryStream();
-            var strTable = BinaryStream();
-
-            out.writeShort(0);  // format
-            out.writeShort(strCount);
-            out.writeShort(6 + 12 * strCount); // stringOffset
-
-            for (i in strings) {
-                if (hasOwnProperty(strings, i)) {
-                    var list = i == 6 ? [
-                        new NameEntry(psName, this.postscriptEntry)
-                    ] : strings[i];
-                    for (var j = 0; j < list.length; ++j) {
-                        var str = list[j];
-                        out.writeShort(str.platformID);
-                        out.writeShort(str.platformSpecificID);
-                        out.writeShort(str.languageID);
-                        out.writeShort(str.nameID);
-                        out.writeShort(str.length);
-                        out.writeShort(strTable.offset());
-
-                        strTable.writeString(str.text);
-                    }
-                }
-            }
-
-            out.write(strTable.get());
-
-            return out.get();
-        }
-    });
-
-})();
-
-var PostTable = (function(){
-
-    var POSTSCRIPT_GLYPHS = ".notdef .null nonmarkingreturn space exclam quotedbl numbersign dollar percent ampersand quotesingle parenleft parenright asterisk plus comma hyphen period slash zero one two three four five six seven eight nine colon semicolon less equal greater question at A B C D E F G H I J K L M N O P Q R S T U V W X Y Z bracketleft backslash bracketright asciicircum underscore grave a b c d e f g h i j k l m n o p q r s t u v w x y z braceleft bar braceright asciitilde Adieresis Aring Ccedilla Eacute Ntilde Odieresis Udieresis aacute agrave acircumflex adieresis atilde aring ccedilla eacute egrave ecircumflex edieresis iacute igrave icircumflex idieresis ntilde oacute ograve ocircumflex odieresis otilde uacute ugrave ucircumflex udieresis dagger degree cent sterling section bullet paragraph germandbls registered copyright trademark acute dieresis notequal AE Oslash infinity plusminus lessequal greaterequal yen mu partialdiff summation product pi integral ordfeminine ordmasculine Omega ae oslash questiondown exclamdown logicalnot radical florin approxequal Delta guillemotleft guillemotright ellipsis nonbreakingspace Agrave Atilde Otilde OE oe endash emdash quotedblleft quotedblright quoteleft quoteright divide lozenge ydieresis Ydieresis fraction currency guilsinglleft guilsinglright fi fl daggerdbl periodcentered quotesinglbase quotedblbase perthousand Acircumflex Ecircumflex Aacute Edieresis Egrave Iacute Icircumflex Idieresis Igrave Oacute Ocircumflex apple Ograve Uacute Ucircumflex Ugrave dotlessi circumflex tilde macron breve dotaccent ring cedilla hungarumlaut ogonek caron Lslash lslash Scaron scaron Zcaron zcaron brokenbar Eth eth Yacute yacute Thorn thorn minus multiply onesuperior twosuperior threesuperior onehalf onequarter threequarters franc Gbreve gbreve Idotaccent Scedilla scedilla Cacute cacute Ccaron ccaron dcroat".split(/\s+/g);
-
-    return deftable({
-        parse: function(data) {
-            data.offset(this.offset);
-
-            this.format = data.readLong();
-            this.italicAngle = data.readFixed_();
-            this.underlinePosition = data.readShort_();
-            this.underlineThickness = data.readShort_();
-            this.isFixedPitch = data.readLong();
-            this.minMemType42 = data.readLong();
-            this.maxMemType42 = data.readLong();
-            this.minMemType1 = data.readLong();
-            this.maxMemType1 = data.readLong();
-
-            var numberOfGlyphs;
-
-            switch (this.format) {
-              case 0x00010000:
-              case 0x00030000:
-                break;
-
-              case 0x00020000:
-                numberOfGlyphs = data.readShort();
-                this.glyphNameIndex = data.times(numberOfGlyphs, data.readShort);
-                this.names = [];
-                var limit = this.offset + this.length;
-                while (data.offset() < limit) {
-                    this.names.push(data.readString(data.readByte()));
-                }
-                break;
-
-              case 0x00025000:
-                numberOfGlyphs = data.readShort();
-                this.offsets = data.read(numberOfGlyphs);
-                break;
-
-              case 0x00040000:
-                this.map = data.times(this.file.maxp.numGlyphs, data.readShort);
-                break;
-            }
-        },
-        glyphFor: function(code) {
-            switch (this.format) {
-              case 0x00010000:
-                return POSTSCRIPT_GLYPHS[code] || ".notdef";
-
-              case 0x00020000:
-                var index = this.glyphNameIndex[code];
-                if (index < POSTSCRIPT_GLYPHS.length) {
-                    return POSTSCRIPT_GLYPHS[index];
-                }
-                return this.names[index - POSTSCRIPT_GLYPHS.length] || ".notdef";
-
-              case 0x00025000:
-
-              case 0x00030000:
-                return ".notdef";
-
-              case 0x00040000:
-                return this.map[code] || 0xFFFF;
-            }
-        },
-        render: function(mapping) {
-            if (this.format == 0x00030000) {
-                return this.raw();
-            }
-
-            // keep original header, but set format to 2.0
-            var out = BinaryStream(this.rawData.slice(this.offset, 32));
-            out.writeLong(0x00020000);
-            out.offset(32);
-
-            var indexes = [];
-            var strings = [];
-
-            for (var i = 0; i < mapping.length; ++i) {
-                var id = mapping[i];
-                var post = this.glyphFor(id);
-                var index = POSTSCRIPT_GLYPHS.indexOf(post);
-                if (index >= 0) {
-                    indexes.push(index);
-                } else {
-                    indexes.push(POSTSCRIPT_GLYPHS.length + strings.length);
-                    strings.push(post);
-                }
-            }
-
-            out.writeShort(mapping.length);
-
-            for (i = 0; i < indexes.length; ++i) {
-                out.writeShort(indexes[i]);
-            }
-
-            for (i = 0; i < strings.length; ++i) {
-                out.writeByte(strings[i].length);
-                out.writeString(strings[i]);
-            }
-
-            return out.get();
-        }
-    });
-})();
-
-var CmapTable = (function(){
-
-    function CmapEntry(data, offset) {
-        var self = this;
-        self.platformID = data.readShort();
-        self.platformSpecificID = data.readShort();
-        self.offset = offset + data.readLong();
-
-        data.saveExcursion(function(){
-            data.offset(self.offset);
-            self.format = data.readShort();
-            self.length = data.readShort();
-            self.language = data.readShort();
-
-            self.isUnicode = (
-                self.platformID == 3 && self.platformSpecificID == 1 && self.format == 4
-            ) || (
-                self.platformID === 0 && self.format == 4
-            );
-
-            self.codeMap = {};
-            switch (self.format) {
-              case 0:
-                for (var i = 0; i < 256; ++i) {
-                    self.codeMap[i] = data.readByte();
-                }
-                break;
-
-              case 4:
-                var segCount = data.readShort() / 2;
-
-                data.skip(6);       // searchRange, entrySelector, rangeShift
-                var endCode = data.times(segCount, data.readShort);
-                data.skip(2);       // reserved pad
-                var startCode = data.times(segCount, data.readShort);
-                var idDelta = data.times(segCount, data.readShort_);
-                var idRangeOffset = data.times(segCount, data.readShort);
-
-                var count = (self.length + self.offset - data.offset()) / 2;
-                var glyphIds = data.times(count, data.readShort);
-
-                for (i = 0; i < segCount; ++i) {
-                    var start = startCode[i], end = endCode[i];
-                    for (var code = start; code <= end; ++code) {
-                        var glyphId;
-                        if (idRangeOffset[i] === 0) {
-                            glyphId = code + idDelta[i];
-                        } else {
-                            ///
-                            // When non-zero, idRangeOffset contains for each segment the byte offset of the Glyph ID
-                            // into the glyphIds table, from the *current* `i` cell of idRangeOffset.  In other words,
-                            // this offset spans from the first into the second array.  This works, because the arrays
-                            // are consecutive in the TTF file:
-                            //
-                            //     [ ...idRangeOffset... ][ ...glyphIds... ]
-                            //       ...... 48 ......       .... ID ....
-                            //              ^----- 48 bytes -----^
-                            //
-                            // (but I can't stop wondering why is it not just a plain index, possibly incremented by 1
-                            // so that we can have that special `zero` value.)
-                            //
-                            // The elements of idRangeOffset are even numbers, because both arrays contain 16-bit words,
-                            // yet the offset is in bytes.  That is why we divide it by 2.  Then we subtract the
-                            // remaining segments (segCount-i), and add the code-start offset, to which we need to add
-                            // the corresponding delta to get the actual glyph ID.
-                            ///
-                            var index = idRangeOffset[i] / 2 - (segCount - i) + (code - start);
-                            glyphId = glyphIds[index] || 0;
-                            if (glyphId !== 0) {
-                                glyphId += idDelta[i];
-                            }
-                        }
-                        self.codeMap[code] = glyphId & 0xFFFF;
-                    }
-                }
-            }
-        });
-    }
-
-    function renderCharmap(ncid2ogid, ogid2ngid) {
-        var codes = sortedKeys(ncid2ogid);
-        var startCodes = [];
-        var endCodes = [];
-        var last = null;
-        var diff = null;
-
-        function new_gid(charcode) {
-            return ogid2ngid[ncid2ogid[charcode]];
-        }
-
-        for (var i = 0; i < codes.length; ++i) {
-            var code = codes[i];
-            var gid = new_gid(code);
-            var delta = gid - code;
-            if (last == null || delta !== diff) {
-                if (last) {
-                    endCodes.push(last);
-                }
-                startCodes.push(code);
-                diff = delta;
-            }
-            last = code;
-        }
-
-        if (last) {
-            endCodes.push(last);
-        }
-        endCodes.push(0xFFFF);
-        startCodes.push(0xFFFF);
-
-        var segCount = startCodes.length;
-        var segCountX2 = segCount * 2;
-        var searchRange = 2 * Math.pow(2, Math.floor(Math.log(segCount) / Math.LN2));
-        var entrySelector = Math.log(searchRange / 2) / Math.LN2;
-        var rangeShift = segCountX2 - searchRange;
-
-        var deltas = [];
-        var rangeOffsets = [];
-        var glyphIds = [];
-
-        for (i = 0; i < segCount; ++i) {
-            var startCode = startCodes[i];
-            var endCode = endCodes[i];
-            if (startCode == 0xFFFF) {
-                deltas.push(0);
-                rangeOffsets.push(0);
-                break;
-            }
-            var startGlyph = new_gid(startCode);
-            if (startCode - startGlyph >= 0x8000) {
-                deltas.push(0);
-                rangeOffsets.push(2 * (glyphIds.length + segCount - i));
-                for (var j = startCode; j <= endCode; ++j) {
-                    glyphIds.push(new_gid(j));
-                }
-            } else {
-                deltas.push(startGlyph - startCode);
-                rangeOffsets.push(0);
-            }
-        }
-
-        var out = BinaryStream();
-
-        out.writeShort(3);      // platformID
-        out.writeShort(1);      // platformSpecificID
-        out.writeLong(12);      // offset
-        out.writeShort(4);      // format
-        out.writeShort(16 + segCount * 8 + glyphIds.length * 2); // length
-        out.writeShort(0);      // language
-        out.writeShort(segCountX2);
-        out.writeShort(searchRange);
-        out.writeShort(entrySelector);
-        out.writeShort(rangeShift);
-
-        endCodes.forEach(out.writeShort);
-        out.writeShort(0);      // reserved pad
-        startCodes.forEach(out.writeShort);
-        deltas.forEach(out.writeShort_);
-        rangeOffsets.forEach(out.writeShort);
-        glyphIds.forEach(out.writeShort);
-
-        return out.get();
-    }
-
-    return deftable({
-        parse: function(data) {
-            var self = this;
-            var offset = self.offset;
-            data.offset(offset);
-
-            self.version = data.readShort();
-            var tableCount = data.readShort();
-            self.unicodeEntry = null;
-            self.tables = data.times(tableCount, function(){
-                var entry = new CmapEntry(data, offset);
-                if (entry.isUnicode) {
-                    self.unicodeEntry = entry;
-                }
-                return entry;
-            });
-        },
-        render: function(ncid2ogid, ogid2ngid) {
-            var out = BinaryStream();
-            out.writeShort(0);  // version
-            out.writeShort(1);  // tableCount
-            out.write(renderCharmap(ncid2ogid, ogid2ngid));
-            return out.get();
-        },
-        getUnicodeEntry: function() {
-            if (!this.unicodeEntry) {
-                throw new Error("Font doesn't have an Unicode encoding");
-            }
-            return this.unicodeEntry;
-        }
-    });
-
-})();
-
-var OS2Table = deftable({
-    parse: function(data) {
-        data.offset(this.offset);
-        this.version = data.readShort();
-        this.averageCharWidth = data.readShort_();
-        this.weightClass = data.readShort();
-        this.widthClass = data.readShort();
-        this.type = data.readShort();
-        this.ySubscriptXSize = data.readShort_();
-        this.ySubscriptYSize = data.readShort_();
-        this.ySubscriptXOffset = data.readShort_();
-        this.ySubscriptYOffset = data.readShort_();
-        this.ySuperscriptXSize = data.readShort_();
-        this.ySuperscriptYSize = data.readShort_();
-        this.ySuperscriptXOffset = data.readShort_();
-        this.ySuperscriptYOffset = data.readShort_();
-        this.yStrikeoutSize = data.readShort_();
-        this.yStrikeoutPosition = data.readShort_();
-        this.familyClass = data.readShort_();
-
-        this.panose = data.times(10, data.readByte);
-        this.charRange = data.times(4, data.readLong);
-
-        this.vendorID = data.readString(4);
-        this.selection = data.readShort();
-        this.firstCharIndex = data.readShort();
-        this.lastCharIndex = data.readShort();
-
-        if (this.version > 0) {
-            this.ascent = data.readShort_();
-            this.descent = data.readShort_();
-            this.lineGap = data.readShort_();
-            this.winAscent = data.readShort();
-            this.winDescent = data.readShort();
-            this.codePageRange = data.times(2, data.readLong);
-
-            if (this.version > 1) {
-                this.xHeight = data.readShort();
-                this.capHeight = data.readShort();
-                this.defaultChar = data.readShort();
-                this.breakChar = data.readShort();
-                this.maxContext = data.readShort();
-            }
-        }
-    },
-    render: function() {
-        return this.raw();
-    }
-});
-
-var subsetTag = 100000;
-
-function nextSubsetTag() {
-    var ret = "", n = subsetTag+"";
-    for (var i = 0; i < n.length; ++i) {
-        ret += String.fromCharCode(n.charCodeAt(i) - 48 + 65);
-    }
-    ++subsetTag;
-    return ret;
-}
-
-function Subfont(font) {
-    this.font = font;
-    this.subset = {};
-    this.unicodes = {};
-    this.ogid2ngid = { 0: 0 };
-    this.ngid2ogid = { 0: 0 };
-    this.ncid2ogid = {};
-    this.next = this.firstChar = 1;
-    this.nextGid = 1;
-    this.psName = nextSubsetTag() + "+" + this.font.psName;
-}
-
-Subfont.prototype = {
-    use: function(ch) {
-        var code;
-        if (typeof ch == "string") {
-            var ret = "";
-            for (var i = 0; i < ch.length; ++i) {
-                code = this.use(ch.charCodeAt(i));
-                ret += String.fromCharCode(code);
-            }
-            return ret;
-        }
-        code = this.unicodes[ch];
-        if (!code) {
-            code = this.next++;
-            this.subset[code] = ch;
-            this.unicodes[ch] = code;
-
-            // generate new GID (glyph ID) and maintain newGID ->
-            // oldGID and back mappings
-            var old_gid = this.font.cmap.getUnicodeEntry().codeMap[ch];
-            if (old_gid) {
-                this.ncid2ogid[code] = old_gid;
-                if (this.ogid2ngid[old_gid] == null) {
-                    var new_gid = this.nextGid++;
-                    this.ogid2ngid[old_gid] = new_gid;
-                    this.ngid2ogid[new_gid] = old_gid;
-                }
-            }
-        }
-        return code;
-    },
-    encodeText: function(text) {
-        return this.use(text);
-    },
-    glyphIds: function() {
-        return sortedKeys(this.ogid2ngid);
-    },
-    glyphsFor: function(glyphIds, result) {
-        if (!result) {
-            result = {};
-        }
-        for (var i = 0; i < glyphIds.length; ++i) {
-            var id = glyphIds[i];
-            if (!result[id]) {
-                var glyph = result[id] = this.font.glyf.glyphFor(id);
-                if (glyph && glyph.compound) {
-                    this.glyphsFor(glyph.glyphIds, result);
-                }
-            }
-        }
-        return result;
-    },
-    render: function() {
-        var glyphs = this.glyphsFor(this.glyphIds());
-
-        // add missing sub-glyphs
-        for (var old_gid in glyphs) {
-            if (hasOwnProperty(glyphs, old_gid)) {
-                old_gid = parseInt(old_gid, 10);
-                if (this.ogid2ngid[old_gid] == null) {
-                    var new_gid = this.nextGid++;
-                    this.ogid2ngid[old_gid] = new_gid;
-                    this.ngid2ogid[new_gid] = old_gid;
-                }
-            }
-        }
-
-        // must obtain old_gid_ids in an order matching sorted
-        // new_gid_ids
-        var new_gid_ids = sortedKeys(this.ngid2ogid);
-        var old_gid_ids = new_gid_ids.map(function(id){
-            return this.ngid2ogid[id];
-        }, this);
-
-        var font = this.font;
-        var glyf = font.glyf.render(glyphs, old_gid_ids, this.ogid2ngid);
-        var loca = font.loca.render(glyf.offsets);
-
-        this.lastChar = this.next - 1;
-
-        var tables = {
-            "cmap" : CmapTable.render(this.ncid2ogid, this.ogid2ngid),
-            "glyf" : glyf.table,
-            "loca" : loca.table,
-            "hmtx" : font.hmtx.render(old_gid_ids),
-            "hhea" : font.hhea.render(old_gid_ids),
-            "maxp" : font.maxp.render(old_gid_ids),
-            "post" : font.post.render(old_gid_ids),
-            "name" : font.name.render(this.psName),
-            "head" : font.head.render(loca.format),
-            "OS/2" : font.os2.render()
-        };
-
-        return this.font.directory.render(tables);
-    },
-    cidToGidMap: function() {
-        var out = BinaryStream(), len = 0;
-        for (var cid = this.firstChar; cid < this.next; ++cid) {
-            while (len < cid) {
-                out.writeShort(0);
-                len++;
-            }
-            var old_gid = this.ncid2ogid[cid];
-            if (old_gid) {
-                var new_gid = this.ogid2ngid[old_gid];
-                out.writeShort(new_gid);
-            } else {
-                out.writeShort(0);
-            }
-            len++;
-        }
-        return out.get();
-    }
-};
-
-function TTFFont(rawData, name) {
-    var self = this;
-    var data = self.contents = BinaryStream(rawData);
-    if (data.readString(4) == "ttcf") {
-        if (!name) {
-            throw new Error("Must specify a name for TTC files");
-        }
-        var version = data.readLong();
-        var numFonts = data.readLong();
-        for (var i = 0; i < numFonts; ++i) {
-            var offset = data.readLong();
-            data.saveExcursion(function(){
-                data.offset(offset);
-                self.parse();
-            });
-            if (self.psName == name) {
-                return;
-            }
-        }
-        throw new Error("Font " + name + " not found in collection");
-    } else {
-        data.offset(0);
-        self.parse();
-    }
-}
-
-TTFFont.prototype = {
-    parse: function() {
-        var dir = this.directory = new Directory(this.contents);
-
-        this.head = dir.readTable("head", HeadTable);
-        this.loca = dir.readTable("loca", LocaTable);
-        this.hhea = dir.readTable("hhea", HheaTable);
-        this.maxp = dir.readTable("maxp", MaxpTable);
-        this.hmtx = dir.readTable("hmtx", HmtxTable);
-        this.glyf = dir.readTable("glyf", GlyfTable);
-        this.name = dir.readTable("name", NameTable);
-        this.post = dir.readTable("post", PostTable);
-        this.cmap = dir.readTable("cmap", CmapTable);
-        this.os2  = dir.readTable("OS/2", OS2Table);
-
-        this.psName = this.name.postscriptName;
-        this.ascent = this.os2.ascent || this.hhea.ascent;
-        this.descent = this.os2.descent || this.hhea.descent;
-        this.lineGap = this.os2.lineGap || this.hhea.lineGap;
-        this.scale = 1000 / this.head.unitsPerEm;
-    },
-    widthOfGlyph: function(glyph) {
-        return this.hmtx.forGlyph(glyph).advance * this.scale;
-    },
-    makeSubset: function() {
-        return new Subfont(this);
-    }
-};
-
-PDF.TTFFont = TTFFont;
-
-})(this);
-
-
-
-(function(kendo){
-
-kendo.PDFMixin = {
-    extend: function(proto) {
-        proto.events.push("pdfExport");
-        proto.options.pdf = this.options;
-        proto.saveAsPDF = this.saveAsPDF;
-    },
-    options: {
-        fileName  : "Export.pdf",
-        proxyURL  : "",
-
-        // paperSize can be an usual name, i.e. "A4", or an array of two Number-s specifying the
-        // width/height in points (1pt = 1/72in), or strings including unit, i.e. "10mm".  Supported
-        // units are "mm", "cm", "in" and "pt".  The default "auto" means paper size is determined
-        // by content.
-        paperSize : "auto",
-
-        // pass true to reverse the paper dimensions if needed such that width is the larger edge.
-        // doesn't make much sense with "auto" paperSize.
-        landscape : false,
-
-        // pass an object containing { left, top, bottom, right } margins (numbers of strings with
-        // units).
-        margin    : null,
-
-        // optional information for the PDF Info dictionary; all strings except for the date.
-        title     : null,
-        author    : null,
-        subject   : null,
-        keywords  : null,
-        creator   : "Kendo UI PDF Generator",
-        date      : null        // CreationDate; must be a Date object, defaults to new Date()
-    },
-    saveAsPDF: function() {
-        if (this.trigger("pdfExport")) {
-            return;
-        }
-
-        var options = this.options.pdf;
-
-        kendo.drawing.drawDOM(this.wrapper[0])
-        .then(function(root) {
-            return kendo.drawing.exportPDF(root, options);
-        })
-        .done(function(dataURI) {
-            kendo.saveAs({
-                dataURI: dataURI,
-                fileName: options.fileName,
-                proxyURL: options.proxyURL,
-                forceProxy: options.forceProxy
-            });
-        });
-    }
-};
-
-})(kendo);
-
-
-
-(function(kendo, $){
-
-    "use strict";
-
-    // WARNING: removing the following jshint declaration and turning
-    // == into === to make JSHint happy will break functionality.
-    /*jshint eqnull:true  */
-
-    var drawing     = kendo.drawing;
-    var geo         = kendo.geometry;
-    var Color       = drawing.Color;
-
-    function PDF() {
-        if (!kendo.pdf) {
-            throw new Error("kendo.pdf.js is not loaded");
-        }
-        return kendo.pdf;
-    }
-
-    var DASH_PATTERNS = {
-        dash           : [ 4 ],
-        dashDot        : [ 4, 2, 1, 2 ],
-        dot            : [ 1, 2 ],
-        longDash       : [ 8, 2 ],
-        longDashDot    : [ 8, 2, 1, 2 ],
-        longDashDotDot : [ 8, 2, 1, 2, 1, 2 ],
-        solid          : []
-    };
-
-    var LINE_CAP = {
-        butt   : 0,
-        round  : 1,
-        square : 2
-    };
-
-    var LINE_JOIN = {
-        miter : 0,
-        round : 1,
-        bevel : 2
-    };
-
-    function render(group, callback) {
-        var fonts = [], images = [], options = group.options;
-
-        function getOption(name, defval, hash) {
-            if (!hash) {
-                hash = options;
-            }
-            if (hash.pdf && hash.pdf[name] != null) {
-                return hash.pdf[name];
-            }
-            return defval;
-        }
-
-        var multiPage = getOption("multiPage");
-
-        group.traverse(function(element){
-            dispatch({
-                Image: function(element) {
-                    if (images.indexOf(element.src()) < 0) {
-                        images.push(element.src());
-                    }
-                },
-                Text: function(element) {
-                    var style = PDF().parseFontDef(element.options.font);
-                    var url = PDF().getFontURL(style);
-                    if (fonts.indexOf(url) < 0) {
-                        fonts.push(url);
-                    }
-                }
-            }, element);
-        });
-
-        function doIt() {
-            if (--count > 0) {
-                return;
-            }
-
-            var pdf = new (PDF().Document)({
-                title     : getOption("title"),
-                author    : getOption("author"),
-                subject   : getOption("subject"),
-                keywords  : getOption("keywords"),
-                creator   : getOption("creator"),
-                date      : getOption("date")
-            });
-
-            function drawPage(group) {
-                var options = group.options;
-
-                var tmp = optimize(group);
-                var bbox = tmp.bbox;
-                group = tmp.root;
-
-                var paperSize = getOption("paperSize", getOption("paperSize", "auto"), options), addMargin = false;
-                if (paperSize == "auto") {
-                    if (bbox) {
-                        var size = bbox.getSize();
-                        paperSize = [ size.width, size.height ];
-                        addMargin = true;
-                        var origin = bbox.getOrigin();
-                        tmp = new drawing.Group();
-                        tmp.transform(new geo.Matrix(1, 0, 0, 1, -origin.x, -origin.y));
-                        tmp.append(group);
-                        group = tmp;
-                    }
-                    else {
-                        paperSize = "A4";
-                    }
-                }
-
-                var page;
-                page = pdf.addPage({
-                    paperSize : paperSize,
-                    margin    : getOption("margin", getOption("margin"), options),
-                    addMargin : addMargin,
-                    landscape : getOption("landscape", getOption("landscape", false), options)
-                });
-                drawElement(group, page, pdf);
-            }
-
-            if (multiPage) {
-                group.children.forEach(drawPage);
-            } else {
-                drawPage(group);
-            }
-
-            callback(pdf.render(), pdf);
-        }
-
-        var count = 2;
-        PDF().loadFonts(fonts, doIt);
-        PDF().loadImages(images, doIt);
-    }
-
-    function toDataURL(group, callback) {
-        render(group, function(data){
-            callback("data:application/pdf;base64," + data.base64());
-        });
-    }
-
-    function toBlob(group, callback) {
-        render(group, function(data){
-            callback(new Blob([ data.get() ], { type: "application/pdf" }));
-        });
-    }
-
-    function saveAs(group, filename, proxy, callback) {
-        // XXX: Safari has Blob, but does not support the download attribute
-        //      so we'd end up converting to dataURL and using the proxy anyway.
-        if (window.Blob && !kendo.support.browser.safari) {
-            toBlob(group, function(blob){
-                kendo.saveAs({ dataURI: blob, fileName: filename });
-                if (callback) {
-                    callback(blob);
-                }
-            });
-        } else {
-            toDataURL(group, function(dataURL){
-                kendo.saveAs({ dataURI: dataURL, fileName: filename, proxyURL: proxy });
-                if (callback) {
-                    callback(dataURL);
-                }
-            });
-        }
-    }
-
-    function dispatch(handlers, element) {
-        var handler = handlers[element.nodeType];
-        if (handler) {
-            return handler.call.apply(handler, arguments);
-        }
-        return element;
-    }
-
-    function drawElement(element, page, pdf) {
-        if (element.DEBUG) {
-            page.comment(element.DEBUG);
-        }
-
-        var transform = element.transform();
-        var opacity = element.opacity();
-
-        page.save();
-
-        if (opacity != null && opacity < 1) {
-            page.setOpacity(opacity);
-        }
-
-        setStrokeOptions(element, page, pdf);
-        setFillOptions(element, page, pdf);
-        setClipping(element, page, pdf);
-
-        if (transform) {
-            var m = transform.matrix();
-            page.transform(m.a, m.b, m.c, m.d, m.e, m.f);
-        }
-
-        dispatch({
-            Path      : drawPath,
-            MultiPath : drawMultiPath,
-            Circle    : drawCircle,
-            Arc       : drawArc,
-            Text      : drawText,
-            Image     : drawImage,
-            Group     : drawGroup
-        }, element, page, pdf);
-
-        page.restore();
-    }
-
-    function setStrokeOptions(element, page, pdf) {
-        var stroke = element.stroke && element.stroke();
-        if (!stroke) {
-            return;
-        }
-
-        var color = stroke.color;
-        if (color) {
-            color = parseColor(color);
-            if (color == null) {
-                return; // no stroke
-            }
-            page.setStrokeColor(color.r, color.g, color.b);
-            if (color.a != 1) {
-                page.setStrokeOpacity(color.a);
-            }
-        }
-
-        var width = stroke.width;
-        if (width != null) {
-            if (width === 0) {
-                return; // no stroke
-            }
-            page.setLineWidth(width);
-        }
-
-        var dashType = stroke.dashType;
-        if (dashType) {
-            page.setDashPattern(DASH_PATTERNS[dashType], 0);
-        }
-
-        var lineCap = stroke.lineCap;
-        if (lineCap) {
-            page.setLineCap(LINE_CAP[lineCap]);
-        }
-
-        var lineJoin = stroke.lineJoin;
-        if (lineJoin) {
-            page.setLineJoin(LINE_JOIN[lineJoin]);
-        }
-
-        var opacity = stroke.opacity;
-        if (opacity != null) {
-            page.setStrokeOpacity(opacity);
-        }
-    }
-
-    function setFillOptions(element, page, pdf) {
-        var fill = element.fill && element.fill();
-        if (!fill) {
-            return;
-        }
-
-        if (fill instanceof drawing.Gradient) {
-            return;
-        }
-
-        var color = fill.color;
-        if (color) {
-            color = parseColor(color);
-            if (color == null) {
-                return; // no fill
-            }
-            page.setFillColor(color.r, color.g, color.b);
-            if (color.a != 1) {
-                page.setFillOpacity(color.a);
-            }
-        }
-
-        var opacity = fill.opacity;
-        if (opacity != null) {
-            page.setFillOpacity(opacity);
-        }
-    }
-
-    function setClipping(element, page, pdf) {
-        // XXX: only Path supported at the moment.
-        var clip = element.clip();
-        if (clip) {
-            _drawPath(clip, page, pdf);
-            page.clip();
-            // page.setStrokeColor(Math.random(), Math.random(), Math.random());
-            // page.setLineWidth(1);
-            // page.stroke();
-        }
-    }
-
-    function shouldDraw(thing) {
-        return (thing &&
-                (thing instanceof drawing.Gradient ||
-                 (thing.color && !/^(none|transparent)$/i.test(thing.color) &&
-                  (thing.width == null || thing.width > 0) &&
-                  (thing.opacity == null || thing.opacity > 0))));
-    }
-
-    function maybeGradient(element, page, pdf, stroke) {
-        var fill = element.fill();
-        if (fill instanceof drawing.Gradient) {
-            if (stroke) {
-                page.clipStroke();
-            } else {
-                page.clip();
-            }
-            var isRadial = fill instanceof drawing.RadialGradient;
-            var start, end;
-            if (isRadial) {
-                start = { x: fill.center().x , y: fill.center().y , r: 0 };
-                end   = { x: fill.center().x , y: fill.center().y , r: fill.radius() };
-            } else {
-                start = { x: fill.start().x , y: fill.start().y };
-                end   = { x: fill.end().x   , y: fill.end().y   };
-            }
-            var gradient = {
-                type: isRadial ? "radial" : "linear",
-                start: start,
-                end: end,
-                userSpace: fill.userSpace(),
-                stops: fill.stops.elements().map(function(stop){
-                    var offset = stop.offset();
-                    if (/%$/.test(offset)) {
-                        offset = parseFloat(offset) / 100;
-                    } else {
-                        offset = parseFloat(offset);
-                    }
-                    var color = parseColor(stop.color());
-                    color.a *= stop.opacity();
-                    return {
-                        offset: offset,
-                        color: color
-                    };
-                })
-            };
-            var box = element.rawBBox();
-            var tl = box.topLeft(), size = box.getSize();
-            box = {
-                left   : tl.x,
-                top    : tl.y,
-                width  : size.width,
-                height : size.height
-            };
-            page.gradient(gradient, box);
-            return true;
-        }
-    }
-
-    function maybeFillStroke(element, page, pdf) {
-        if (shouldDraw(element.fill()) && shouldDraw(element.stroke())) {
-            if (!maybeGradient(element, page, pdf, true)) {
-                page.fillStroke();
-            }
-        } else if (shouldDraw(element.fill())) {
-            if (!maybeGradient(element, page, pdf, false)) {
-                page.fill();
-            }
-        } else if (shouldDraw(element.stroke())) {
-            page.stroke();
-        } else {
-            // we should not get here; the path should have been
-            // optimized away.  but let's be prepared.
-            page.nop();
-        }
-    }
-
-    function maybeDrawRect(path, page, pdf) {
-        var segments = path.segments;
-        if (segments.length == 4 && path.options.closed) {
-            // detect if this path looks like a rectangle parallel to the axis
-            var a = [];
-            for (var i = 0; i < segments.length; ++i) {
-                if (segments[i].controlIn()) { // has curve?
-                    return false;
-                }
-                a[i] = segments[i].anchor();
-            }
-            // it's a rectangle if the y/x/y/x or x/y/x/y coords of
-            // consecutive points are the same.
-            var isRect = (
-                a[0].y == a[1].y && a[1].x == a[2].x && a[2].y == a[3].y && a[3].x == a[0].x
-            ) || (
-                a[0].x == a[1].x && a[1].y == a[2].y && a[2].x == a[3].x && a[3].y == a[0].y
-            );
-            if (isRect) {
-                // this saves a bunch of instructions in PDF:
-                // moveTo, lineTo, lineTo, lineTo, close -> rect.
-                page.rect(a[0].x, a[0].y,
-                          a[2].x - a[0].x /*width*/,
-                          a[2].y - a[0].y /*height*/);
-                return true;
-            }
-        }
-    }
-
-    function _drawPath(element, page, pdf) {
-        var segments = element.segments;
-        if (segments.length === 0) {
-            return;
-        }
-        if (!maybeDrawRect(element, page, pdf)) {
-            for (var prev, i = 0; i < segments.length; ++i) {
-                var seg = segments[i];
-                var anchor = seg.anchor();
-                if (!prev) {
-                    page.moveTo(anchor.x, anchor.y);
-                } else {
-                    var prevOut = prev.controlOut();
-                    var controlIn = seg.controlIn();
-                    if (prevOut && controlIn) {
-                        page.bezier(
-                            prevOut.x   , prevOut.y,
-                            controlIn.x , controlIn.y,
-                            anchor.x    , anchor.y
-                        );
-                    } else {
-                        page.lineTo(anchor.x, anchor.y);
-                    }
-                }
-                prev = seg;
-            }
-            if (element.options.closed) {
-                page.close();
-            }
-        }
-    }
-
-    function drawPath(element, page, pdf) {
-        _drawPath(element, page, pdf);
-        maybeFillStroke(element, page, pdf);
-    }
-
-    function drawMultiPath(element, page, pdf) {
-        var paths = element.paths;
-        for (var i = 0; i < paths.length; ++i) {
-            _drawPath(paths[i], page, pdf);
-        }
-        maybeFillStroke(element, page, pdf);
-    }
-
-    function drawCircle(element, page, pdf) {
-        var g = element.geometry();
-        page.circle(g.center.x, g.center.y, g.radius);
-        maybeFillStroke(element, page, pdf);
-    }
-
-    function drawArc(element, page, pdf) {
-        var points = element.geometry().curvePoints();
-        page.moveTo(points[0].x, points[0].y);
-        for (var i = 1; i < points.length;) {
-            page.bezier(
-                points[i].x, points[i++].y,
-                points[i].x, points[i++].y,
-                points[i].x, points[i++].y
-            );
-        }
-        maybeFillStroke(element, page, pdf);
-    }
-
-    function drawText(element, page, pdf) {
-        var style = PDF().parseFontDef(element.options.font);
-        var pos = element._position;
-        var mode;
-        if (element.fill() && element.stroke()) {
-            mode = PDF().TEXT_RENDERING_MODE.fillAndStroke;
-        } else if (element.fill()) {
-            mode = PDF().TEXT_RENDERING_MODE.fill;
-        } else if (element.stroke()) {
-            mode = PDF().TEXT_RENDERING_MODE.stroke;
-        }
-
-        page.transform(1, 0, 0, -1, pos.x, pos.y + style.fontSize);
-        page.beginText();
-        page.setFont(PDF().getFontURL(style), style.fontSize);
-        page.setTextRenderingMode(mode);
-        page.showText(element.content());
-        page.endText();
-    }
-
-    function drawGroup(element, page, pdf) {
-        var children = element.children;
-        for (var i = 0; i < children.length; ++i) {
-            drawElement(children[i], page, pdf);
-        }
-    }
-
-    function drawImage(element, page, pdf) {
-        var url = element.src();
-        var rect = element.rect();
-        var tl = rect.getOrigin();
-        var sz = rect.getSize();
-        page.transform(sz.width, 0, 0, -sz.height, tl.x, tl.y + sz.height);
-        page.drawImage(url);
-    }
-
-    function exportPDF(group, options) {
-        var defer = $.Deferred();
-
-        group.options.set("pdf", options);
-        drawing.pdf.toDataURL(group, defer.resolve);
-
-        return defer.promise();
-    }
-
-    function parseColor(x) {
-        var color = kendo.parseColor(x, true);
-        return color ? color.toRGB() : null;
-    }
-
-    function optimize(root) {
-        var clipbox = false;
-        var matrix = geo.Matrix.unit();
-        var currentBox = null;
-        var changed;
-        do {
-            changed = false;
-            root = opt(root);
-        } while (root && changed);
-        return { root: root, bbox: currentBox };
-
-        function change(newShape) {
-            changed = true;
-            return newShape;
-        }
-
-        function visible(shape) {
-            return (shape.visible() && shape.opacity() > 0 &&
-                    ( shouldDraw(shape.fill()) ||
-                      shouldDraw(shape.stroke()) ));
-        }
-
-        function optArray(a) {
-            var b = [];
-            for (var i = 0; i < a.length; ++i) {
-                var el = opt(a[i]);
-                if (el != null) {
-                    b.push(el);
-                }
-            }
-            return b;
-        }
-
-        function withClipping(shape, f) {
-            var saveclipbox = clipbox;
-            var savematrix = matrix;
-
-            if (shape.transform()) {
-                matrix = matrix.multiplyCopy(shape.transform().matrix());
-            }
-
-            var clip = shape.clip();
-            if (clip) {
-                clip = clip.bbox();
-                if (clip) {
-                    clip = clip.bbox(matrix);
-                    clipbox = clipbox ? geo.Rect.intersect(clipbox, clip) : clip;
-                }
-            }
-
-            try {
-                return f();
-            }
-            finally {
-                clipbox = saveclipbox;
-                matrix = savematrix;
-            }
-        }
-
-        function inClipbox(shape) {
-            if (clipbox == null) {
-                return false;
-            }
-            var box = shape.rawBBox().bbox(matrix);
-            if (clipbox && box) {
-                box = geo.Rect.intersect(box, clipbox);
-            }
-            return box;
-        }
-
-        function opt(shape) {
-            return withClipping(shape, function(){
-                if (!(shape instanceof drawing.Group || shape instanceof drawing.MultiPath)) {
-                    var box = inClipbox(shape);
-                    if (!box) {
-                        return change(null);
-                    }
-                    currentBox = currentBox ? geo.Rect.union(currentBox, box) : box;
-                }
-                return dispatch({
-                    Path: function(shape) {
-                        if (shape.segments.length === 0 || !visible(shape)) {
-                            return change(null);
-                        }
-                        return shape;
-                    },
-                    MultiPath: function(shape) {
-                        if (!visible(shape)) {
-                            return change(null);
-                        }
-                        var el = new drawing.MultiPath(shape.options);
-                        el.paths = optArray(shape.paths);
-                        if (el.paths.length === 0) {
-                            return change(null);
-                        }
-                        return el;
-                    },
-                    Circle: function(shape) {
-                        if (!visible(shape)) {
-                            return change(null);
-                        }
-                        return shape;
-                    },
-                    Arc: function(shape) {
-                        if (!visible(shape)) {
-                            return change(null);
-                        }
-                        return shape;
-                    },
-                    Text: function(shape) {
-                        if (!/\S/.test(shape.content()) || !visible(shape)) {
-                            return change(null);
-                        }
-                        return shape;
-                    },
-                    Image: function(shape) {
-                        if (!(shape.visible() && shape.opacity() > 0)) {
-                            return change(null);
-                        }
-                        return shape;
-                    },
-                    Group: function(shape) {
-                        var el = new drawing.Group(shape.options);
-                        el.children = optArray(shape.children);
-                        if (shape !== root && el.children.length === 0) {
-                            return change(null);
-                        }
-                        return el;
-                    }
-                }, shape);
-            });
-        }
-    }
-
-    kendo.deepExtend(drawing, {
-        exportPDF: exportPDF,
-
-        pdf: {
-            toDataURL  : toDataURL,
-            toBlob     : toBlob,
-            saveAs     : saveAs,
-            toStream   : render
-        }
-    });
-
-})(window.kendo, window.kendo.jQuery);
-
 (function($, parseFloat, Math){
 
     "use strict";
@@ -27238,42 +23987,431 @@ kendo.PDFMixin = {
 
     var IMAGE_CACHE = {};
 
+    var nodeInfo = {};
+    nodeInfo._root = nodeInfo;
+
+    /* -----[ Custom Text node to speed up rendering in PDF ]----- */
+
+    var TextRect = drawing.Text.extend({
+        nodeType: "Text",
+        init: function(str, rect, options) {
+            drawing.Text.fn.init.call(this, str, rect.getOrigin(), options);
+            this._pdfRect = rect;
+        },
+        rect: function() {
+            // this is the crux of it: we can avoid a call to
+            // measure(), which is what the base class does, since we
+            // already know the rect.  measure() is s-l-o-w.
+            return this._pdfRect;
+        },
+        rawBBox: function() {
+            // also let's avoid creating a new rectangle.
+            return this._pdfRect;
+        }
+    });
+
     /* -----[ exports ]----- */
 
-    function drawDOM(element) {
+    function drawDOM(element, options) {
+        if (!options) {
+            options = {};
+        }
         var defer = $.Deferred();
         element = $(element)[0];
+
+        if (!element) {
+            return defer.reject("No element to export");
+        }
 
         if (typeof window.getComputedStyle != "function") {
             throw new Error("window.getComputedStyle is missing.  You are using an unsupported browser, or running in IE8 compatibility mode.  Drawing HTML is supported in Chrome, Firefox, Safari and IE9+.");
         }
 
         if (kendo.pdf) {
-            kendo.pdf.defineFont(getFontFaces());
+            kendo.pdf.defineFont(getFontFaces(element.ownerDocument));
         }
 
-        if (element) {
-            cacheImages(element, function(){
-                var group = new drawing.Group();
+        function doOne(element) {
+            var group = new drawing.Group();
 
-                // translate to start of page
-                var pos = element.getBoundingClientRect();
-                setTransform(group, [ 1, 0, 0, 1, -pos.left, -pos.top ]);
+            // translate to start of page
+            var pos = element.getBoundingClientRect();
+            setTransform(group, [ 1, 0, 0, 1, -pos.left, -pos.top ]);
 
-                nodeInfo._clipbox = false;
-                nodeInfo._matrix = geo.Matrix.unit();
-                nodeInfo._stackingContext = {
-                    element: element,
-                    group: group
-                };
+            nodeInfo._clipbox = false;
+            nodeInfo._matrix = geo.Matrix.unit();
+            nodeInfo._stackingContext = {
+                element: element,
+                group: group
+            };
 
-                $(element).addClass("k-pdf-export");
-                renderElement(element, group);
-                $(element).removeClass("k-pdf-export");
-                defer.resolve(group);
+            $(element).addClass("k-pdf-export");
+            renderElement(element, group);
+            $(element).removeClass("k-pdf-export");
+
+            return group;
+        }
+
+        cacheImages(element, function(){
+            var forceBreak = options && options.forcePageBreak;
+            var hasPaperSize = options && options.paperSize && options.paperSize != "auto";
+            var paperOptions = hasPaperSize && kendo.pdf.getPaperOptions(function(key, def){
+                return key in options ? options[key] : def;
             });
-        } else {
-            defer.reject("No element to export");
+            var pageWidth = hasPaperSize && paperOptions.paperSize[0];
+            var pageHeight = hasPaperSize && paperOptions.paperSize[1];
+            var margin = options.margin && paperOptions.margin;
+            if (forceBreak || pageHeight) {
+                if (!margin) {
+                    margin = { left: 0, top: 0, right: 0, bottom: 0 };
+                }
+                var group = new drawing.Group({
+                    pdf: {
+                        multiPage : true,
+                        paperSize : hasPaperSize ? paperOptions.paperSize : "auto"
+                    }
+                });
+                handlePageBreaks(
+                    function(x) {
+                        if (options.progress) {
+                            var canceled = false, pageNum = 0;
+                            (function next(){
+                                if (pageNum < x.pages.length) {
+                                    group.append(doOne(x.pages[pageNum]));
+                                    options.progress({
+                                        pageNum: ++pageNum,
+                                        totalPages: x.pages.length,
+                                        cancel: function() {
+                                            canceled = true;
+                                        }
+                                    });
+                                    if (!canceled) {
+                                        setTimeout(next);
+                                    } else {
+                                        // XXX: should we also fail() the deferred object?
+                                        x.container.parentNode.removeChild(x.container);
+                                    }
+                                } else {
+                                    x.container.parentNode.removeChild(x.container);
+                                    defer.resolve(group);
+                                }
+                            })();
+                        } else {
+                            x.pages.forEach(function(page){
+                                group.append(doOne(page));
+                            });
+                            x.container.parentNode.removeChild(x.container);
+                            defer.resolve(group);
+                        }
+                    },
+                    element,
+                    forceBreak,
+                    pageWidth ? pageWidth - margin.left - margin.right : null,
+                    pageHeight ? pageHeight - margin.top - margin.bottom : null,
+                    margin,
+                    options
+                );
+            } else {
+                defer.resolve(doOne(element));
+            }
+        });
+
+        function makeTemplate(template) {
+            if (template != null) {
+                if (typeof template == "string") {
+                    template = kendo.template(template.replace(/^\s+|\s+$/g, ""));
+                }
+                if (typeof template == "function") {
+                    return function(data) {
+                        var el = template(data);
+                        if (el) {
+                            return $(el)[0];
+                        }
+                    };
+                }
+                // assumed jQuery object or DOM element
+                return function() {
+                    return $(template).clone()[0];
+                };
+            }
+        }
+
+        function handlePageBreaks(callback, element, forceBreak, pageWidth, pageHeight, margin, options) {
+            var template = makeTemplate(options.template);
+            var doc = element.ownerDocument;
+            var pages = [];
+            var copy = $(element).clone(true, true)[0];
+            var container = doc.createElement("KENDO-PDF-DOCUMENT");
+            var adjust = 0;
+
+            $(container).css({
+                display  : "block",
+                position : "absolute",
+                left     : "-10000px",
+                top      : "-10000px"
+            });
+
+            if (pageWidth) {
+                // subtle: if we don't set the width *and* margins here, the layout in this
+                // container will be different from the one in our final page elements, and we'll
+                // split at the wrong places.
+                $(container).css({
+                    width        : pageWidth,
+                    paddingLeft  : margin.left,
+                    paddingRight : margin.right
+                });
+
+                // when the first element has a margin-top (i.e. a <h1>) the page will be
+                // inadvertently enlarged by that number (the browser will report the container's
+                // bounding box top to start at the element's top, rather than including its
+                // margin).  Adding overflow: hidden seems to fix it.
+                //
+                // to understand the difference, try the following snippets in your browser:
+                //
+                // 1. <div style="background: yellow">
+                //      <h1 style="margin: 3em">Foo</h1>
+                //    </div>
+                //
+                // 2. <div style="background: yellow; overflow: hidden">
+                //      <h1 style="margin: 3em">Foo</h1>
+                //    </div>
+                //
+                // this detail is not important when automatic page breaking is not requested, hence
+                // doing it only if pageWidth is defined.
+                $(copy).css({ overflow: "hidden" });
+            }
+
+            container.appendChild(copy);
+            element.parentNode.insertBefore(container, element);
+
+            // we need the timeouts here, so that images dimensions are
+            // properly computed in DOM when we start our thing.
+            if (options.beforePageBreak) {
+                setTimeout(function(){
+                    options.beforePageBreak(container, doPageBreak);
+                }, 15);
+            } else {
+                setTimeout(doPageBreak, 15);
+            }
+
+            function doPageBreak() {
+                if (forceBreak != "-" || pageHeight) {
+                    splitElement(copy);
+                }
+
+                // XXX: can contain only text nodes.  better risk producing
+                // an empty page than truncating the content.
+                // if (!(pages.length > 0 && copy.children.length === 0)) {
+                var page = makePage();
+                copy.parentNode.insertBefore(page, copy);
+                page.appendChild(copy);
+                // }
+
+                if (template) {
+                    pages.forEach(function(page, i){
+                        var el = template({
+                            element    : page,
+                            pageNum    : i + 1,
+                            totalPages : pages.length
+                        });
+                        if (el) {
+                            page.appendChild(el);
+                        }
+                    });
+                }
+
+                // allow another timeout here to make sure the images
+                // are rendered in the new DOM nodes.
+                setTimeout(function(){
+                    callback({ pages: pages, container: container });
+                }, 10);
+            }
+
+            function splitElement(element) {
+                var style = getComputedStyle(element);
+                var bottomPadding = parseFloat(getPropertyValue(style, "padding-bottom"));
+                var bottomBorder = parseFloat(getPropertyValue(style, "border-bottom-width"));
+                var saveAdjust = adjust;
+                adjust += bottomPadding + bottomBorder;
+                var isFirst = true;
+                for (var el = element.firstChild; el; el = el.nextSibling) {
+                    if (el.nodeType == 1 /* Element */) {
+                        isFirst = false;
+                        var jqel = $(el);
+                        if (jqel.is(forceBreak)) {
+                            breakAtElement(el);
+                            continue;
+                        }
+                        if (!pageHeight) {
+                            // we're in "manual breaks mode"
+                            splitElement(el);
+                            continue;
+                        }
+                        if (!/^(?:static|relative)$/.test(getPropertyValue(getComputedStyle(el), "position"))) {
+                            continue;
+                        }
+                        var fall = fallsOnMargin(el);
+                        if (fall == 1) {
+                            // element starts on next page, break before anyway.
+                            breakAtElement(el);
+                        }
+                        else if (fall) {
+                            // elements ends up on next page, or possibly doesn't fit on a page at
+                            // all.  break before it anyway if it's an <img> or <tr>, otherwise
+                            // attempt to split.
+                            if (jqel.data("kendoChart") || /^(?:img|tr|iframe|svg|object|canvas|input|textarea|select|video|h[1-6])/i.test(el.tagName)) {
+                                breakAtElement(el);
+                            } else {
+                                splitElement(el);
+                            }
+                        }
+                        else {
+                            splitElement(el);
+                        }
+                    }
+                    else if (el.nodeType == 3 /* Text */ && pageHeight) {
+                        splitText(el, isFirst);
+                        isFirst = false;
+                    }
+                }
+                adjust = saveAdjust;
+            }
+
+            function firstInParent(el) {
+                var p = el.parentNode, first = p.firstChild;
+                if (el === first) {
+                    return true;
+                }
+                if (el === p.children[0]) {
+                    if (first.nodeType == 7 /* comment */ ||
+                        first.nodeType == 8 /* processing instruction */) {
+                        return true;
+                    }
+                    if (first.nodeType == 3 /* text */) {
+                        // if whitespace only we can probably consider it's first
+                        return !/\S/.test(first.data);
+                    }
+                }
+                return false;
+            }
+
+            function breakAtElement(el) {
+                if (el.nodeType == 1 && el !== copy && firstInParent(el)) {
+                    return breakAtElement(el.parentNode);
+                }
+                var page = makePage();
+                var range = doc.createRange();
+                range.setStartBefore(copy);
+                range.setEndBefore(el);
+                page.appendChild(range.extractContents());
+                copy.parentNode.insertBefore(page, copy);
+            }
+
+            function makePage() {
+                var page = doc.createElement("KENDO-PDF-PAGE");
+                $(page).css({
+                    display  : "block",
+                    width    : pageWidth || "auto",
+                    padding  : (margin.top + "px " +
+                                margin.right + "px " +
+                                margin.bottom + "px " +
+                                margin.left + "px"),
+
+                    // allow absolutely positioned elements to be relative to current page
+                    position : "relative",
+
+                    // without the following we might affect layout of subsequent pages
+                    height   : pageHeight || "auto",
+                    overflow : pageHeight || pageWidth ? "hidden" : "visible",
+                    clear    : "both"
+                });
+
+                // debug
+                // $("<div>").css({
+                //     position  : "absolute",
+                //     left      : margin.left,
+                //     top       : margin.top,
+                //     width     : pageWidth,
+                //     height    : pageHeight,
+                //     boxSizing : "border-box",
+                //     background: "rgba(255, 255, 0, 0.5)"
+                //     //border    : "1px solid red"
+                // }).appendTo(page);
+
+                if (options && options.pageClassName) {
+                    page.className = options.pageClassName;
+                }
+                pages.push(page);
+                return page;
+            }
+
+            function fallsOnMargin(thing) {
+                var box = thing.getBoundingClientRect();
+                if (box.width === 0 || box.height === 0) {
+                    // I'd say an element with dimensions zero fits on current page.
+                    return 0;
+                }
+                var top = copy.getBoundingClientRect().top;
+                var available = pageHeight - adjust;
+                return (box.height > available) ? 3
+                    : (box.top - top > available) ? 1
+                    : (box.bottom - top > available) ? 2
+                    : 0;
+            }
+
+            function splitText(node, isFirst) {
+                if (!/\S/.test(node.data)) {
+                    return;
+                }
+
+                var len = node.data.length;
+                var range = doc.createRange();
+                range.selectNodeContents(node);
+                var fall = fallsOnMargin(range);
+                if (!fall) {
+                    return;     // the whole text fits on current page
+                }
+
+                var nextnode = node;
+                if (fall == 1) {
+                    // starts on next page, break before anyway.
+                    if (isFirst) {
+                        // avoid leaving an empty <p>, <li>, etc. on previous page.
+                        breakAtElement(node.parentNode);
+                    } else {
+                        breakAtElement(node);
+                    }
+                }
+                else {
+                    (function findEOP(min, pos, max) {
+                        range.setEnd(node, pos);
+                        if (min == pos || pos == max) {
+                            return pos;
+                        }
+                        if (fallsOnMargin(range)) {
+                            return findEOP(min, (min + pos) >> 1, pos);
+                        } else {
+                            return findEOP(pos, (pos + max) >> 1, max);
+                        }
+                    })(0, len >> 1, len);
+
+                    if (!/\S/.test(range.toString()) && isFirst) {
+                        // avoid leaving an empty <p>, <li>, etc. on previous page.
+                        breakAtElement(node.parentNode);
+                    } else {
+                        // This is only needed for IE, but it feels cleaner to do it anyway.  Without
+                        // it, IE will truncate a very long text (playground/pdf-long-text-2.html).
+                        nextnode = node.splitText(range.endOffset);
+
+                        var page = makePage();
+                        range.setStartBefore(copy);
+                        page.appendChild(range.extractContents());
+                        copy.parentNode.insertBefore(page, copy);
+                    }
+                }
+
+                splitText(nextnode);
+            }
         }
 
         return defer.promise();
@@ -27282,9 +24420,6 @@ kendo.PDFMixin = {
     drawing.drawDOM = drawDOM;
 
     drawDOM.getFontFaces = getFontFaces;
-
-    var nodeInfo = {};
-    nodeInfo._root = nodeInfo;
 
     var parseGradient = (function(){
         var tok_linear_gradient  = /^((-webkit-|-moz-|-o-|-ms-)?linear-gradient\s*)\(/;
@@ -27496,10 +24631,13 @@ kendo.PDFMixin = {
         };
     })();
 
-    function getFontFaces() {
+    function getFontFaces(doc) {
+        if (doc == null) {
+            doc = document;
+        }
         var result = {};
-        for (var i = 0; i < document.styleSheets.length; ++i) {
-            doStylesheet(document.styleSheets[i]);
+        for (var i = 0; i < doc.styleSheets.length; ++i) {
+            doStylesheet(doc.styleSheets[i]);
         }
         return result;
         function doStylesheet(ss) {
@@ -27743,7 +24881,7 @@ kendo.PDFMixin = {
             });
         }
 
-        if (createsStackingContext(element)) {
+        if (createsStackingContext(style)) {
             nodeInfo._stackingContext = {
                 element: element,
                 group: group
@@ -27766,8 +24904,17 @@ kendo.PDFMixin = {
         }
     }
 
-    function createsStackingContext(element) {
-        var style = getComputedStyle(element);
+    function emptyClipbox() {
+        var cb = nodeInfo._clipbox;
+        if (cb == null) {
+            return true;
+        }
+        if (cb) {
+            return cb.width() === 0 || cb.height() === 0;
+        }
+    }
+
+    function createsStackingContext(style) {
         function prop(name) { return getPropertyValue(style, name); }
         if (prop("transform") != "none" ||
             (prop("position") != "static" && prop("z-index") != "auto") ||
@@ -27783,7 +24930,7 @@ kendo.PDFMixin = {
     function getPropertyValue(style, prop) {
         return style.getPropertyValue(prop) ||
             ( browser.webkit && style.getPropertyValue("-webkit-" + prop )) ||
-            ( browser.firefox && style.getPropertyValue("-moz-" + prop )) ||
+            ( browser.mozilla && style.getPropertyValue("-moz-" + prop )) ||
             ( browser.opera && style.getPropertyValue("-o-" + prop)) ||
             ( browser.msie && style.getPropertyValue("-ms-" + prop))
         ;
@@ -27793,7 +24940,7 @@ kendo.PDFMixin = {
         style.setProperty(prop, value, important);
         if (browser.webkit) {
             style.setProperty("-webkit-" + prop, value, important);
-        } else if (browser.firefox) {
+        } else if (browser.mozilla) {
             style.setProperty("-moz-" + prop, value, important);
         } else if (browser.opera) {
             style.setProperty("-o-" + prop, value, important);
@@ -28091,7 +25238,7 @@ kendo.PDFMixin = {
         function pseudo(kind, place) {
             var style = getComputedStyle(element, kind);
             if (style.content && style.content != "normal" && style.content != "none") {
-                var psel = document.createElement(KENDO_PSEUDO_ELEMENT);
+                var psel = element.ownerDocument.createElement(KENDO_PSEUDO_ELEMENT);
                 psel.style.cssText = getCssText(style);
                 psel.textContent = evalPseudoElementContent(element, style.content);
                 element.insertBefore(psel, place);
@@ -28347,6 +25494,16 @@ kendo.PDFMixin = {
             setClipping(background, roundBox(box, rTL, rTR, rBR, rBL));
             group.append(background);
 
+            if (element.tagName == "A" && element.href && !/^#?$/.test($(element).attr("href"))) {
+                background._pdfLink = {
+                    url    : element.href,
+                    top    : box.top,
+                    right  : box.right,
+                    bottom : box.bottom,
+                    left   : box.left
+                };
+            }
+
             if (backgroundColor) {
                 var path = new drawing.Path({
                     fill: { color: backgroundColor.toCssRgba() },
@@ -28507,7 +25664,7 @@ kendo.PDFMixin = {
             function _drawBullet(f) {
                 saveStyle(element, function(){
                     element.style.position = "relative";
-                    var bullet = document.createElement(KENDO_PSEUDO_ELEMENT);
+                    var bullet = element.ownerDocument.createElement(KENDO_PSEUDO_ELEMENT);
                     bullet.style.position = "absolute";
                     bullet.style.boxSizing = "border-box";
                     if (listStylePosition == "outside") {
@@ -28539,15 +25696,14 @@ kendo.PDFMixin = {
               case "square":
                 _drawBullet(function(bullet){
                     // XXX: the science behind these values is called "trial and error".
-                    //      also, ZapfDingbats works well in PDF output, but not in SVG/Canvas.
-                    bullet.style.fontSize = "70%";
-                    bullet.style.lineHeight = "150%";
+                    bullet.style.fontSize = "60%";
+                    bullet.style.lineHeight = "200%";
                     bullet.style.paddingRight = "0.5em";
-                    bullet.style.fontFamily = "ZapfDingbats";
+                    bullet.style.fontFamily = "DejaVu Serif";
                     bullet.innerHTML = {
-                        "disc"   : "l",
-                        "circle" : "m",
-                        "square" : "n"
+                        "disc"   : "\u25cf",
+                        "circle" : "\u25ef",
+                        "square" : "\u25a0"
                     }[listStyleType];
                 });
                 break;
@@ -29007,6 +26163,9 @@ kendo.PDFMixin = {
     }
 
     function renderText(element, node, group) {
+        if (emptyClipbox()) {
+            return;
+        }
         var style = getComputedStyle(element);
 
         if (parseFloat(getPropertyValue(style, "text-indent")) < -500) {
@@ -29017,61 +26176,17 @@ kendo.PDFMixin = {
         }
 
         var text = node.data;
+        var start = 0;
+        var end = text.search(/\S\s*$/) + 1;
+
+        if (!end) {
+            return; // whitespace-only node
+        }
+
         var range = element.ownerDocument.createRange();
         var align = getPropertyValue(style, "text-align");
         var isJustified = align == "justify";
-
-        // skip whitespace
-        var start = 0;
-        var end = /\S\s*$/.exec(node.data).index + 1;
-
-        function doChunk() {
-            while (!/\S/.test(text.charAt(start))) {
-                if (start >= end) {
-                    return true;
-                }
-                start++;
-            }
-            range.setStart(node, start);
-            var len = 0;
-            while (++start <= end) {
-                ++len;
-                range.setEnd(node, start);
-
-                // for justified text we must split at each space, as
-                // space has variable width.  otherwise we can
-                // optimize and split only at end of line (i.e. when a
-                // new rectangle would be created).
-                if (len > 1 && ((isJustified && /\s/.test(text.charAt(start - 1))) || range.getClientRects().length > 1)) {
-                    //
-                    // In IE, getClientRects for a <li> element will return an additional rectangle for the bullet, but
-                    // *only* when only the first char in the LI is selected.  Checking if len > 1 above appears to be a
-                    // good workaround.
-                    //
-                    //// DEBUG
-                    // Array.prototype.slice.call(range.getClientRects()).concat([ range.getBoundingClientRect() ]).forEach(function(r){
-                    //     $("<div>").css({
-                    //         position  : "absolute",
-                    //         left      : r.left + "px",
-                    //         top       : r.top + "px",
-                    //         width     : r.right - r.left + "px",
-                    //         height    : r.bottom - r.top + "px",
-                    //         boxSizing : "border-box",
-                    //         border    : "1px solid red"
-                    //     }).appendTo(document.body);
-                    // });
-                    range.setEnd(node, --start);
-                    break;
-                }
-            }
-
-            // another workaround for IE: if we rely on getBoundingClientRect() we'll overlap with the bullet for LI
-            // elements.  Calling getClientRects() and using the *first* rect appears to give us the correct location.
-            var box = range.getClientRects()[0];
-
-            var str = range.toString().replace(/\s+$/, "");
-            drawText(str, box);
-        }
+        var whiteSpace = getPropertyValue(style, "white-space");
 
         var fontSize = getPropertyValue(style, "font-size");
         var lineHeight = getPropertyValue(style, "line-height");
@@ -29094,9 +26209,152 @@ kendo.PDFMixin = {
 
         var color = getPropertyValue(style, "color");
 
-        function drawText(str, box) {
-            str = str.replace(/[\r\n ]+/g, " ");
+        // A line of 500px, with a font of 12px, contains an average of 80 characters, but since we
+        // err, we'd like to guess a bigger number rather than a smaller one.  Multiplying by 5
+        // seems to be a good option.
+        var estimateLineLength = element.getBoundingClientRect().width / fontSize * 5;
+        if (estimateLineLength === 0) {
+            estimateLineLength = 500;
+        }
 
+        while (!doChunk()) {}
+
+        return;                 // only function declarations after this line
+
+        // Render a chunk of text, typically one line (but for justified text we render each word as
+        // a separate Text object, because spacing is variable).  Returns true when it finished the
+        // current node.  After each chunk it updates `start` to just after the last rendered
+        // character.
+        function doChunk() {
+            var origStart = start;
+            var box, pos = text.substr(start).search(/\S/);
+            start += pos;
+            if (pos < 0 || start >= end) {
+                return true;
+            }
+
+            // Select a single character to determine the height of a line of text.  The box.bottom
+            // will be essential for us to figure out where the next line begins.
+            range.setStart(node, start);
+            range.setEnd(node, start + 1);
+            box = range.getBoundingClientRect();
+
+            // for justified text we must split at each space, because space has variable width.
+            var found = false;
+            if (isJustified) {
+                pos = text.substr(start).search(/\s/);
+                if (pos >= 0) {
+                    // we can only split there if it's on the same line, otherwise we'll fall back
+                    // to the default mechanism (see findEOL below).
+                    range.setEnd(node, start + pos);
+                    var r = range.getBoundingClientRect();
+                    if (r.bottom == box.bottom) {
+                        box = r;
+                        found = true;
+                        start += pos;
+                    }
+                }
+            }
+
+            if (!found) {
+                // This code does three things: (1) it selects one line of text in `range`, (2) it
+                // leaves the bounding rect of that line in `box` and (3) it returns the position
+                // just after the EOL.  We know where the line starts (`start`) but we don't know
+                // where it ends.  To figure this out, we select a piece of text and look at the
+                // bottom of the bounding box.  If it changes, we have more than one line selected
+                // and should retry with a smaller selection.
+                //
+                // To speed things up, we first try to select all text in the node (`start` ->
+                // `end`).  If there's more than one line there, then select only half of it.  And
+                // so on.  When we find a value for `end` that fits in one line, we try increasing
+                // it (also in halves) until we get to the next line.  The algorithm stops when the
+                // right side of the bounding box does not change.
+                //
+                // One more thing to note is that everything happens in a single Text DOM node.
+                // There's no other tags inside it, therefore the left/top coordinates of the
+                // bounding box will not change.
+                pos = (function findEOL(min, eol, max){
+                    range.setEnd(node, eol);
+                    var r = range.getBoundingClientRect();
+                    if (r.bottom != box.bottom && min < eol) {
+                        return findEOL(min, (min + eol) >> 1, eol);
+                    } else if (r.right != box.right) {
+                        box = r;
+                        if (eol < max) {
+                            return findEOL(eol, (eol + max) >> 1, max);
+                        } else {
+                            return eol;
+                        }
+                    } else {
+                        return eol;
+                    }
+                })(start, Math.min(end, start + estimateLineLength), end);
+
+                if (pos == start) {
+                    // if EOL is at the start, then no more text fits on this line.  Skip the
+                    // remainder of this node entirely to avoid a stack overflow.
+                    return true;
+                }
+                start = pos;
+
+                pos = range.toString().search(/\s+$/);
+                if (pos === 0) {
+                    return; // whitespace only; we should not get here.
+                }
+                if (pos > 0) {
+                    // eliminate trailing whitespace
+                    range.setEnd(node, range.startOffset + pos);
+                    box = range.getBoundingClientRect();
+                }
+            }
+
+            // another workaround for IE: if we rely on getBoundingClientRect() we'll overlap with the bullet for LI
+            // elements.  Calling getClientRects() and using the *first* rect appears to give us the correct location.
+            // Note: not to be used in Chrome as it randomly returns a zero-width rectangle from the previous line.
+            if (browser.msie) {
+                box = range.getClientRects()[0];
+            }
+
+            var str = range.toString();
+            if (!/^(?:pre|pre-wrap)$/i.test(whiteSpace)) {
+                // node with non-significant space -- collapse whitespace.
+                str = str.replace(/\s+/g, " ");
+            }
+            else if (/\t/.test(str)) {
+                // with significant whitespace we need to do something about literal TAB characters.
+                // There's no TAB glyph in a font so they would be rendered in PDF as an empty box,
+                // and the whole text will stretch to fill the original width.  The core PDF lib
+                // does not have sufficient context to deal with it.
+
+                // calculate the starting column here, since we initially discarded any whitespace.
+                var cc = 0;
+                for (pos = origStart; pos < range.startOffset; ++pos) {
+                    var code = text.charCodeAt(pos);
+                    if (code == 9) {
+                        // when we meet a TAB we must round up to the next tab stop.
+                        // in all browsers TABs seem to be 8 characters.
+                        cc += 8 - cc % 8;
+                    } else if (code == 10 || code == 13) {
+                        // just in case we meet a newline we must restart.
+                        cc = 0;
+                    } else {
+                        // ordinary character --> advance one column
+                        cc++;
+                    }
+                }
+
+                // based on starting column, replace any TAB characters in the string we actually
+                // have to display with spaces so that they align to columns multiple of 8.
+                while ((pos = str.search("\t")) >= 0) {
+                    var indent = "        ".substr(0, 8 - (cc + pos) % 8);
+                    str = str.substr(0, pos) + indent + str.substr(pos + 1);
+                }
+            }
+
+            drawText(str, box);
+        }
+
+        function drawText(str, box) {
             // In IE the box height will be approximately lineHeight, while in
             // other browsers it'll (correctly) be the height of the bounding
             // box for the current text/font.  Which is to say, IE sucks again.
@@ -29123,10 +26381,14 @@ kendo.PDFMixin = {
             //     .close();
             // group.append(path);
 
-            var text = new drawing.Text(str, new geo.Point(box.left, box.top), {
-                font: font,
-                fill: { color: color }
-            });
+            var text = new TextRect(
+                str, new geo.Rect([ box.left, box.top ],
+                                  [ box.width, box.height ]),
+                {
+                    font: font,
+                    fill: { color: color }
+                }
+            );
             group.append(text);
             decorate(box);
         }
@@ -29150,8 +26412,6 @@ kendo.PDFMixin = {
                 }
             }
         }
-
-        while (!doChunk()) {}
     }
 
     function groupInStackingContext(group, zIndex) {
@@ -29266,14 +26526,22 @@ kendo.PDFMixin = {
 
         popNodeInfo();
 
-        //drawDebugBox(element, container);
+        //drawDebugBox(element.getBoundingClientRect(), container);
     }
 
-    function drawDebugBox(element, group) {
-        var box = element.getBoundingClientRect();
-        var path = drawing.Path.fromRect(new geo.Rect([ box.left, box.top ], [ box.width, box.height ]));
-        group.append(path);
-    }
+    // function drawDebugBox(box, group) {
+    //     var path = drawing.Path.fromRect(new geo.Rect([ box.left, box.top ], [ box.width, box.height ]));
+    //     group.append(path);
+    // }
+
+    // function dumpTextNode(node) {
+    //     var txt = node.data.replace(/^\s+/, "");
+    //     if (txt.length < 100) {
+    //         console.log(node.data.length + ": |" + txt);
+    //     } else {
+    //         console.log(node.data.length + ": |" + txt.substr(0, 50) + "|...|" + txt.substr(-50));
+    //     }
+    // }
 
     function mmul(a, b) {
         var a1 = a[0], b1 = a[1], c1 = a[2], d1 = a[3], e1 = a[4], f1 = a[5];
@@ -29791,6 +27059,29 @@ kendo.PDFMixin = {
 
         toRect: function() {
             return new geom.Rect([this.x1, this.y1], [this.width(), this.height()]);
+        },
+
+        hasSize: function() {
+            return this.width() !== 0 && this.height() !== 0;
+        },
+
+        align: function(targetBox, axis, alignment) {
+            var box = this,
+                c1 = axis + 1,
+                c2 = axis + 2,
+                sizeFunc = axis === X ? WIDTH : HEIGHT,
+                size = box[sizeFunc]();
+
+            if (inArray(alignment, [LEFT, TOP])) {
+                box[c1] = targetBox[c1];
+                box[c2] = box[c1] + size;
+            } else if (inArray(alignment, [RIGHT, BOTTOM])) {
+                box[c2] = targetBox[c2];
+                box[c1] = box[c2] - size;
+            } else if (alignment == CENTER) {
+                box[c1] = targetBox[c1] + (targetBox[sizeFunc]() - size) / 2;
+                box[c2] = box[c1] + size;
+            }
         }
     };
 
@@ -30057,6 +27348,15 @@ kendo.PDFMixin = {
 
             this.createVisual();
 
+            this.addVisual();
+
+            this.renderChildren();
+
+            this.createAnimation();
+            this.renderComplete();
+        },
+
+        addVisual: function() {
             if (this.visual) {
                 this.visual.chartElement = this;
 
@@ -30064,14 +27364,13 @@ kendo.PDFMixin = {
                     this.parent.appendVisual(this.visual);
                 }
             }
+        },
 
+        renderChildren: function() {
             var children = this.children;
             for (var i = 0; i < children.length; i++) {
                 children[i].renderVisual();
             }
-
-            this.createAnimation();
-            this.renderComplete();
         },
 
         createVisual: function() {
@@ -30169,16 +27468,19 @@ kendo.PDFMixin = {
 
         renderComplete: $.noop,
 
-        toggleHighlight: function(show) {
-            var highlight = this._highlight;
-            var options = this.options.highlight;
+        hasHighlight: function() {
+            var options = (this.options || {}).highlight;
+            return !(!this.createHighlight || (options && options.visible === false));
+        },
 
-            if (!this.createHighlight || (options && options.visible === false)) {
-                return;
-            }
+        toggleHighlight: function(show) {
+            var that = this;
+            var highlight = that._highlight;
+            var options = (that.options || {}).highlight;
+            var customVisual = (options || {}).visual;
 
             if (!highlight) {
-                highlight = this._highlight = this.createHighlight({
+                var highlightOptions = {
                     fill: {
                         color: WHITE,
                         opacity: 0.2
@@ -30188,10 +27490,29 @@ kendo.PDFMixin = {
                         width: 1,
                         opacity: 0.2
                     }
-                });
+                };
+                if (customVisual) {
+                    highlight = that._highlight = customVisual(deepExtend(that.highlightVisualArgs(), {
+                        createVisual: function() {
+                            return that.createHighlight(highlightOptions);
+                        },
+                        series: that.series,
+                        dataItem: that.dataItem,
+                        category: that.category,
+                        value: that.value,
+                        percentage: that.percentage,
+                        runningTotal: that.runningTotal,
+                        total: that.total
+                    }));
+                    if (!highlight) {
+                        return;
+                    }
+                } else {
+                    highlight = that._highlight = that.createHighlight(highlightOptions);
+                }
 
-                highlight.options.zIndex = this.options.zIndex;
-                this.appendVisual(highlight);
+                highlight.options.zIndex = that.options.zIndex;
+                that.appendVisual(highlight);
             }
 
             highlight.visible(show);
@@ -30382,23 +27703,7 @@ kendo.PDFMixin = {
         },
 
         align: function(targetBox, axis, alignment) {
-            var element = this,
-                box = element.box,
-                c1 = axis + 1,
-                c2 = axis + 2,
-                sizeFunc = axis === X ? WIDTH : HEIGHT,
-                size = box[sizeFunc]();
-
-            if (inArray(alignment, [LEFT, TOP])) {
-                box[c1] = targetBox[c1];
-                box[c2] = box[c1] + size;
-            } else if (inArray(alignment, [RIGHT, BOTTOM])) {
-                box[c2] = targetBox[c2];
-                box[c1] = box[c2] - size;
-            } else if (alignment == CENTER) {
-                box[c1] = targetBox[c1] + (targetBox[sizeFunc]() - size) / 2;
-                box[c2] = box[c1] + size;
-            }
+            this.box.align(targetBox, axis, alignment);
         },
 
         hasBox: function() {
@@ -30704,18 +28009,40 @@ kendo.PDFMixin = {
         reflow: function(targetBox) {
             var textbox = this;
             var options = textbox.options;
+            var visual = options.visual;
             var align = options.align;
             var rotation = options.rotation;
             textbox.container.options.align = align;
-            BoxElement.fn.reflow.call(textbox, targetBox);
-            if (rotation) {
-                var margin = options.margin;
-                var box = textbox.box.unpad(margin);
-                textbox.normalBox = box.clone();
-                box.rotate(rotation);
-                box.pad(margin);
-                textbox.align(targetBox, X, align);
-                textbox.align(targetBox, Y, options.vAlign);
+
+            if (visual && !textbox._boxReflow && targetBox.hasSize()) {
+                textbox.visual = visual({
+                    text: textbox.content,
+                    rect: targetBox.toRect(),
+                    options: textbox.visualOptions(),
+                    createVisual: function() {
+                        textbox._boxReflow = true;
+                        textbox.reflow(targetBox);
+                        textbox._boxReflow = false;
+                        return textbox.getDefaultVisual();
+                    }
+                });
+                var visualBox = targetBox;
+                if (textbox.visual) {
+                    visualBox = rectToBox(textbox.visual.clippedBBox() || new geom.Rect());
+                }
+                textbox.box = textbox.contentBox = textbox.paddingBox = visualBox;
+            } else {
+                BoxElement.fn.reflow.call(textbox, targetBox);
+
+                if (rotation) {
+                    var margin = options.margin;
+                    var box = textbox.box.unpad(margin);
+                    textbox.normalBox = box.clone();
+                    box.rotate(rotation);
+                    box.pad(margin);
+                    textbox.align(targetBox, X, align);
+                    textbox.align(targetBox, Y, options.vAlign);
+                }
             }
         },
 
@@ -30736,6 +28063,35 @@ kendo.PDFMixin = {
                 var box = draw.Path.fromRect(this.paddingBox.toRect(), this.visualStyle());
                 this.visual.append(box);
             }
+        },
+
+        renderVisual: function() {
+            if (this.options.visual) {
+                this.addVisual();
+            } else {
+                BoxElement.fn.renderVisual.call(this);
+            }
+        },
+
+        visualOptions: function() {
+            var options = this.options;
+            return {
+                background: options.background,
+                border: options.border,
+                color: options.color,
+                font: options.font,
+                margin: options.margin,
+                padding: options.padding,
+                visible: options.visible
+            };
+        },
+
+        getDefaultVisual: function() {
+            this.createVisual();
+            this.renderChildren();
+            var visual = this.visual;
+            delete this.visual;
+            return visual;
         },
 
         rotationTransform: function() {
@@ -31055,7 +28411,8 @@ kendo.PDFMixin = {
                 titleOptions = deepExtend({
                     rotation: options.vertical ? -90 : 0,
                     text: "",
-                    zIndex: 1
+                    zIndex: 1,
+                    visualSize: true
                 }, options.title),
                 title;
 
@@ -31510,6 +28867,13 @@ kendo.PDFMixin = {
             }
 
             return text;
+        },
+
+        slot: function(from , to) {
+            var slot = this.getSlot(from, to);
+            if (slot) {
+                return slot.toRect();
+            }
         }
     });
 
@@ -31686,6 +29050,7 @@ kendo.PDFMixin = {
                     }
                 }
                 note.contentBox = contentBox;
+                note.targetBox = targetBox;
                 note.box = box || contentBox;
             }
         },
@@ -31695,6 +29060,42 @@ kendo.PDFMixin = {
 
             if (this.options.visible) {
                 this.createLine();
+            }
+        },
+
+        renderVisual: function() {
+            var that = this;
+            var options = that.options;
+            var customVisual = options.visual;
+            if (options.visible && customVisual) {
+                var targetPoint = that.targetPoint;
+                that.visual = customVisual({
+                    dataItem: that.dataItem,
+                    category: that.category,
+                    value: that.value,
+                    text: that.text,
+                    series: that.series,
+                    rect: that.targetBox.toRect(),
+                    options: {
+                        background: options.background,
+                        border: options.background,
+                        icon: options.icon,
+                        label: options.label,
+                        line: options.line,
+                        position: options.position,
+                        visible: options.visible
+                    },
+                    createVisual: function() {
+                        that.createVisual();
+                        that.renderChildren();
+                        var defaultVisual = that.visual;
+                        delete that.visual;
+                        return defaultVisual;
+                    }
+                });
+                that.addVisual();
+            } else {
+                BoxElement.fn.renderVisual.call(that);
             }
         },
 
@@ -31750,6 +29151,11 @@ kendo.PDFMixin = {
     });
 
     var ShapeElement = BoxElement.extend({
+        init: function(options, pointData) {
+            this.pointData = pointData;
+            BoxElement.fn.init.call(this, options);
+        },
+
         options: {
             type: CIRCLE,
             align: CENTER,
@@ -31807,8 +29213,45 @@ kendo.PDFMixin = {
             return element;
         },
 
+        createElement: function() {
+            var that = this;
+            var customVisual = that.options.visual;
+            var pointData = that.pointData || {};
+            var visual;
+            if (customVisual) {
+                visual = customVisual({
+                    value: pointData.value,
+                    dataItem: pointData.dataItem,
+                    series: pointData.series,
+                    category: pointData.category,
+                    rect: that.paddingBox.toRect(),
+                    options: that.visualOptions(),
+                    createVisual: function() {
+                        return that.getElement();
+                    }
+                });
+            } else {
+                visual = that.getElement();
+            }
+
+            return visual;
+        },
+
+        visualOptions: function() {
+            var options = this.options;
+            return {
+                background: options.background,
+                border: options.border,
+                margin: options.margin,
+                padding: options.padding,
+                type: options.type,
+                size: options.width,
+                visible: options.visible
+            };
+        },
+
         createVisual: function() {
-            this.visual = this.getElement();
+            this.visual = this.createElement();
         }
     });
 
@@ -31906,7 +29349,7 @@ kendo.PDFMixin = {
                 max = min == max ? 0 : max;
 
                 diff = math.abs((max - min) / max);
-                if(!narrow && diff > ZERO_THRESHOLD) {
+                if(narrow === false || (!narrow && diff > ZERO_THRESHOLD)) {
                     return 0;
                 }
 
@@ -31931,7 +29374,7 @@ kendo.PDFMixin = {
                 min = min == max ? 0 : min;
 
                 diff = (max - min) / max;
-                if(!narrow && diff > ZERO_THRESHOLD) {
+                if(narrow === false || (!narrow && diff > ZERO_THRESHOLD)) {
                     return 0;
                 }
 
@@ -33181,6 +30624,12 @@ kendo.PDFMixin = {
         return currentStops;
     }
 
+    function rectToBox(rect) {
+        var origin = rect.origin;
+        var bottomRight = rect.bottomRight();
+        return new Box2D(origin.x, origin.y, bottomRight.x, bottomRight.y);
+    }
+
     decodeEntities._element = document.createElement("span");
 
     // Exports ================================================================
@@ -33227,6 +30676,7 @@ kendo.PDFMixin = {
         inArray: inArray,
         interpolateValue: interpolateValue,
         mwDelta: mwDelta,
+        rectToBox: rectToBox,
         rotatePoint: rotatePoint,
         round: round,
         ceil: ceil,
@@ -36614,6 +34064,225 @@ kendo.PDFMixin = {
         }
     });
 
+    (function () {
+        var TEXT = "#333333";
+        var INACTIVE = "#7f7f7f";
+        var INACTIVE_SHAPE = "#bdbdbd";
+        var AXIS = "#c8c8c8";
+        var AXIS_MINOR = "#dddddd";
+        var SERIES = ["#008fd3", "#99d101", "#f39b02", "#f05662", "#c03c53", "#acacac"];
+        var SERIES_LIGHT = ["#cbe8f5", "#eaf5cb", "#fceacc", "#fbdcdf", "#f2d7dc", "#eeeeee"];
+        var PRIMARY = SERIES[0];
+        var DIAGRAM_HOVER = WHITE;
+
+        function noteStyle() {
+            return {
+                icon: {
+                    background: "#007cc0",
+                    border: {
+                        color: "#007cc0"
+                    }
+                },
+                label: {
+                    color: "#ffffff"
+                },
+                line: {
+                    color: AXIS
+                }
+            };
+        }
+
+        registerTheme("fiori", {
+            chart: {
+                title: {
+                    color: TEXT
+                },
+                legend: {
+                    labels: {
+                        color: TEXT
+                    },
+                    inactiveItems: {
+                        labels: {
+                            color: INACTIVE
+                        },
+                        markers: {
+                            color: INACTIVE
+                        }
+                    }
+                },
+                seriesDefaults: {
+                    labels: {
+                        color: TEXT
+                    },
+                    errorBars: {
+                        color: TEXT
+                    },
+                    notes: noteStyle(),
+                    candlestick: {
+                        downColor: AXIS,
+                        line: {
+                            color: INACTIVE_SHAPE
+                        }
+                    },
+                    area: {
+                        opacity: 0.8
+                    },
+                    waterfall: {
+                        line: {
+                            color: AXIS
+                        }
+                    },
+                    horizontalWaterfall: {
+                        line: {
+                            color: AXIS
+                        }
+                    },
+                    overlay: {
+                        gradient: "none"
+                    },
+                    border: {
+                        _brightness: 1
+                    }
+                },
+                seriesColors: SERIES,
+                axisDefaults: {
+                    line: {
+                        color: AXIS
+                    },
+                    labels: {
+                        color: TEXT
+                    },
+                    minorGridLines: {
+                        color: AXIS_MINOR
+                    },
+                    majorGridLines: {
+                        color: AXIS
+                    },
+                    title: {
+                        color: TEXT
+                    },
+                    crosshair: {
+                        color: INACTIVE
+                    },
+                    notes: noteStyle()
+                }
+            },
+            gauge: {
+                pointer: {
+                    color: PRIMARY
+                },
+                scale: {
+                    rangePlaceholderColor: AXIS,
+                    labels: {
+                        color: TEXT
+                    },
+                    minorTicks: {
+                        color: TEXT
+                    },
+                    majorTicks: {
+                        color: TEXT
+                    },
+                    line: {
+                        color: TEXT
+                    }
+                }
+            },
+            diagram: {
+                shapeDefaults: {
+                    fill: {
+                        color: PRIMARY
+                    },
+                    connectorDefaults: {
+                        fill: {
+                            color: TEXT
+                        },
+                        stroke: {
+                            color: DIAGRAM_HOVER
+                        },
+                        hover: {
+                            fill: {
+                                color: DIAGRAM_HOVER
+                            },
+                            stroke: {
+                                color: TEXT
+                            }
+                        }
+                    },
+                    content: {
+                        color: TEXT
+                    }
+                },
+                editable: {
+                    resize: {
+                        handles: {
+                            fill: {
+                                color: DIAGRAM_HOVER
+                            },
+                            stroke: {
+                                color: INACTIVE_SHAPE
+                            },
+                            hover: {
+                                fill: {
+                                    color: INACTIVE_SHAPE
+                                },
+                                stroke: {
+                                    color: INACTIVE_SHAPE
+                                }
+                            }
+                        }
+                    },
+                    rotate: {
+                        thumb: {
+                            stroke: {
+                                color: INACTIVE_SHAPE
+                            },
+                            fill: {
+                                color: INACTIVE_SHAPE
+                            }
+                        }
+                    }
+                },
+                selectable: {
+                    stroke: {
+                        color: INACTIVE_SHAPE
+                    }
+                },
+                connectionDefaults: {
+                    stroke: {
+                        color: INACTIVE_SHAPE
+                    },
+                    content: {
+                        color: INACTIVE_SHAPE
+                    },
+                    selection: {
+                        handles: {
+                            fill: {
+                                color: DIAGRAM_HOVER
+                            },
+                            stroke: {
+                                color: INACTIVE_SHAPE
+                            }
+                        },
+                        stroke: {
+                            color: INACTIVE_SHAPE
+                        }
+                    }
+                }
+            },
+            treeMap: {
+                colors: fuse(SERIES, SERIES_LIGHT)
+            }
+        });
+    })();
+    
+    function fuse(arr1, arr2) {
+        return $.map(arr1, function(item, index) {
+            return [
+                [item, arr2[index]]
+            ];
+        });
+    }
+
 })(window.kendo.jQuery);
 
 
@@ -36624,6 +34293,7 @@ kendo.PDFMixin = {
     // Imports ================================================================
     var each = $.each,
         isArray = $.isArray,
+        isPlainObject = $.isPlainObject,
         map = $.map,
         math = Math,
         noop = $.noop,
@@ -37067,6 +34737,44 @@ kendo.PDFMixin = {
             }
         },
 
+        getAxis: function(name) {
+            var axes = this._plotArea.axes;
+
+            for (var idx = 0; idx < axes.length; idx++) {
+                if (axes[idx].options.name === name) {
+                    return new ChartAxis(axes[idx]);
+                }
+            }
+        },
+
+        toggleHighlight: function(show, options) {
+            var plotArea = this._plotArea;
+            var highlight = this._highlight;
+            var firstSeries = (plotArea.srcSeries || plotArea.series || [])[0];
+            var seriesName, categoryName, points;
+
+            if (isPlainObject(options)) {
+                seriesName = options.series;
+                categoryName = options.category;
+            }  else {
+                seriesName = categoryName = options;
+            }
+
+            if (firstSeries.type === DONUT) {
+                points = pointByCategoryName(plotArea.pointsBySeriesName(seriesName), categoryName);
+            } else if (firstSeries.type === PIE || firstSeries.type === FUNNEL) {
+                points = pointByCategoryName((plotArea.charts[0] || {}).points, categoryName);
+            } else {
+                points = plotArea.pointsBySeriesName(seriesName);
+            }
+
+            if (points) {
+               for (var idx = 0; idx < points.length; idx++) {
+                    highlight.togglePointHighlight(points[idx], show);
+               }
+            }
+        },
+
         _initSurface: function() {
             var surface = this.surface;
             var wrap = this._surfaceWrap();
@@ -37136,10 +34844,7 @@ kendo.PDFMixin = {
         },
 
         exportVisual: function() {
-            var model = this._getModel();
-            model.renderVisual();
-
-            return model.visual;
+            return this.surface.exportVisual();
         },
 
         _sharedTooltip: function() {
@@ -38387,18 +36092,18 @@ kendo.PDFMixin = {
         },
 
         createMarker: function() {
-            var item = this,
-                options = item.options,
-                markerColor = options.markerColor,
-                markers = options.markers,
-                markerOptions = deepExtend({}, markers, {
-                    background: markerColor,
-                    border: {
-                        color: markerColor
-                    }
-                });
+            this.container.append(new ShapeElement(this.markerOptions()));
+        },
 
-            item.container.append(new ShapeElement(markerOptions));
+        markerOptions: function() {
+            var options = this.options;
+            var markerColor = options.markerColor;
+            return deepExtend({}, options.markers, {
+                background: markerColor,
+                border: {
+                    color: markerColor
+                }
+            });
         },
 
         createLabel: function() {
@@ -38462,6 +36167,68 @@ kendo.PDFMixin = {
             };
         },
 
+        renderVisual: function() {
+            var that = this;
+            var options = that.options;
+            var customVisual = options.visual;
+
+            if (customVisual) {
+                that.visual = customVisual({
+                    active: options.active,
+                    series: options.series,
+                    options: {
+                        markers: that.markerOptions(),
+                        labels: options.labels
+                    },
+                    createVisual: function() {
+                        ChartElement.fn.renderVisual.call(that);
+                        var defaultVisual = that.visual;
+                        delete that.visual;
+                        return defaultVisual;
+                    }
+                });
+                this.addVisual();
+            } else {
+                ChartElement.fn.renderVisual.call(that);
+            }
+        }
+    });
+
+    var LegendLayout = ChartElement.extend({
+        render: function() {
+            var legendItem, items = this.children;
+            var options = this.options;
+            var vertical = options.vertical;
+            var spacing = options.spacing;
+
+            var visual = this.visual = new draw.Layout(null, {
+                spacing: vertical ? 0 : options.spacing,
+                lineSpacing: vertical ? options.spacing : 0,
+                orientation: vertical ? "vertical" : "horizontal"
+            });
+
+            for (var idx = 0; idx < items.length; idx++) {
+                legendItem = items[idx];
+                legendItem.reflow(new Box2D());
+                legendItem.renderVisual();
+            }
+        },
+
+        reflow: function(box) {
+            this.visual.rect(box.toRect());
+            this.visual.reflow();
+            var bbox = this.visual.clippedBBox();
+            if (bbox) {
+                this.box = dataviz.rectToBox(bbox);
+            } else {
+                this.box = new Box2D();
+            }
+        },
+
+        renderVisual: function() {
+            this.addVisual();
+        },
+
         createVisual: noop
     });
 
@@ -38519,6 +36286,7 @@ kendo.PDFMixin = {
         createContainer: function() {
             var legend = this,
                 options = legend.options,
+                userAlign = options.align,
                 position = options.position,
                 align = position,
                 vAlign = CENTER;
@@ -38526,8 +36294,20 @@ kendo.PDFMixin = {
             if (position == CUSTOM) {
                 align = LEFT;
             } else if (inArray(position, [TOP, BOTTOM])) {
-                align = CENTER;
+                if (userAlign == "start") {
+                    align = LEFT;
+                } else if (userAlign == "end") {
+                    align = RIGHT;
+                } else {
+                    align = CENTER;
+                }
                 vAlign = position;
+            } else if (userAlign) {
+                 if (userAlign == "start") {
+                    vAlign = TOP;
+                 } else if (userAlign == "end") {
+                    vAlign = BOTTOM;
+                 }
             }
 
             legend.container = new BoxElement({
@@ -38552,7 +36332,7 @@ kendo.PDFMixin = {
                 vertical = legend.isVertical(),
                 innerElement, i, item;
 
-            innerElement = new FloatElement({
+            innerElement = new LegendLayout({
                 vertical: vertical,
                 spacing: options.spacing
             });
@@ -38569,15 +36349,18 @@ kendo.PDFMixin = {
                     labels: options.labels
                 }, options.item, item)));
             }
+            innerElement.render();
+
             legend.container.append(innerElement);
         },
 
         isVertical: function() {
             var legend = this,
                 options = legend.options,
+                orientation = options.orientation,
                 position = options.position,
-                vertical = inArray(position, [ LEFT, RIGHT ]) ||
-                    (position == CUSTOM && options.orientation != HORIZONTAL);
+                vertical = (position == CUSTOM && orientation != HORIZONTAL) ||
+                   (defined(orientation) ? orientation != HORIZONTAL : inArray(position, [ LEFT, RIGHT ]));
 
             return vertical;
         },
@@ -38589,24 +36372,19 @@ kendo.PDFMixin = {
         reflow: function(targetBox) {
             var legend = this,
                 options = legend.options,
-                container = legend.container,
-                vertical = legend.isVertical(),
-                containerBox = targetBox.clone();
+                container = legend.container;
+
+            targetBox = targetBox.clone();
 
             if (!legend.hasItems()) {
-                legend.box = targetBox.clone();
+                legend.box = targetBox;
                 return;
             }
 
-            if (vertical) {
-                containerBox.y1 = 0;
-            }
-
             if (options.position === CUSTOM) {
-                legend.containerCustomReflow(containerBox);
-                legend.box = targetBox.clone();
+                legend.containerCustomReflow(targetBox);
+                legend.box = targetBox;
             } else {
-                container.reflow(containerBox);
                 legend.containerReflow(targetBox);
             }
         },
@@ -38614,10 +36392,31 @@ kendo.PDFMixin = {
         containerReflow: function(targetBox) {
             var legend = this,
                 options = legend.options,
-                pos = options.position == TOP || options.position == BOTTOM ? X : Y,
-                containerBox = legend.container.box,
-                box = containerBox.clone();
+                position = options.position,
+                pos = position == TOP || position == BOTTOM ? X : Y,
+                containerBox = targetBox.clone(),
+                container = legend.container,
+                width = options.width,
+                height = options.height,
+                vertical = legend.isVertical(),
+                alignTarget = targetBox.clone(),
+                box;
 
+            if (position == LEFT || position == RIGHT) {
+                containerBox.y1 = alignTarget.y1 = 0;
+            }
+
+            if (vertical && height) {
+                containerBox.y2 = containerBox.y1 + height;
+                containerBox.align(alignTarget, Y, container.options.vAlign);
+            } else if (!vertical && width){
+                containerBox.x2 = containerBox.x1 + width;
+                containerBox.align(alignTarget, X, container.options.align);
+            }
+
+            container.reflow(containerBox);
+            containerBox = container.box;
+            box = containerBox.clone();
             if (options.offsetX || options.offsetY) {
                 containerBox.translate(options.offsetX, options.offsetY);
                 legend.container.reflow(containerBox);
@@ -39734,20 +37533,44 @@ kendo.PDFMixin = {
         },
 
         createVisual: function() {
-            var box = this.box;
-            if (this.visible !== false) {
-                ChartElement.fn.createVisual.call(this);
-                if (box.width() > 0 && box.height() > 0) {
-                    this.createRect();
+            var bar = this;
+            var box = bar.box;
+            var options = bar.options;
+            var customVisual = options.visual;
+
+            if (bar.visible !== false) {
+                ChartElement.fn.createVisual.call(bar);
+                if (customVisual) {
+                    var visual = this.rectVisual = customVisual({
+                        category: bar.category,
+                        dataItem: bar.dataItem,
+                        value: bar.value,
+                        series: bar.series,
+                        percentage: bar.percentage,
+                        runningTotal: bar.runningTotal,
+                        total: bar.total,
+                        rect: box.toRect(),
+                        createVisual: function() {
+                            var group = new draw.Group();
+                            bar.createRect(group);
+                            return group;
+                        },
+                        options: options
+                    });
+                    if (visual) {
+                        bar.visual.append(visual);
+                    }
+                } else if (box.width() > 0 && box.height() > 0) {
+                    bar.createRect(bar.visual);
                 }
             }
         },
 
-        createRect: function(view) {
+        createRect: function(visual) {
             var options = this.options;
             var border = options.border;
             var strokeOpacity = defined(border.opacity) ? border.opacity : options.opacity;
-            var rect = draw.Path.fromRect(this.box.toRect(), {
+            var rect = this.rectVisual = draw.Path.fromRect(this.box.toRect(), {
                 fill: {
                     color: this.color,
                     opacity: options.opacity
@@ -39765,10 +37588,10 @@ kendo.PDFMixin = {
                 alignPathToPixel(rect);
             }
 
-            this.visual.append(rect);
+            visual.append(rect);
 
             if (hasGradientOverlay(options)) {
-                this.visual.append(this.createGradientOverlay(rect, {
+                visual.append(this.createGradientOverlay(rect, {
                         baseColor: this.color
                     }, deepExtend({
                          end: !options.vertical ? [0, 1] : undefined
@@ -39781,6 +37604,18 @@ kendo.PDFMixin = {
             var highlight = draw.Path.fromRect(this.box.toRect(), style);
 
             return alignPathToPixel(highlight);
+        },
+
+        highlightVisual: function() {
+            return this.rectVisual;
+        },
+
+        highlightVisualArgs: function() {
+            return {
+                options: this.options,
+                rect: this.box.toRect(),
+                visual: this.rectVisual
+            };
         },
 
         getBorderColor: function() {
@@ -40329,7 +38164,7 @@ kendo.PDFMixin = {
         },
 
         evalPointOptions: function(options, value, category, categoryIx, series, seriesIx) {
-            var state = { defaults: series._defaults, excluded: ["data", "aggregate", "_events", "tooltip", "template"] };
+            var state = { defaults: series._defaults, excluded: ["data", "aggregate", "_events", "tooltip", "template", "visual", "toggle"] };
 
             var doEval = this._evalSeries[seriesIx];
             if (!defined(doEval)) {
@@ -40553,8 +38388,6 @@ kendo.PDFMixin = {
 
         stackLimits: function(axisName, stackName) {
             var limits = CategoricalChart.fn.stackLimits.call(this, axisName, stackName);
-            limits.min = math.min(0, limits.min);
-            limits.max = math.max(0, limits.max);
 
             return limits;
         },
@@ -41132,6 +38965,19 @@ kendo.PDFMixin = {
             return draw.Path.fromRect(this.box.toRect(), style);
         },
 
+        highlightVisual: function() {
+            return this.bodyVisual;
+        },
+
+        highlightVisualArgs: function() {
+            var options = this.options;
+            return {
+                rect: this.box.toRect(),
+                visual: this.bodyVisual,
+                options: this.options
+            };
+        },
+
         formatValue: function(format) {
             var bullet = this;
 
@@ -41194,6 +39040,7 @@ kendo.PDFMixin = {
                         Point2D(capStart, valueBox.y2),
                         Point2D(capEnd, valueBox.y2));
                 }
+                errorBar.box = Box2D(capStart, valueBox.y1, capEnd, valueBox.y2);
             } else {
                 linePoints = [
                     Point2D(valueBox.x1, centerBox.y),
@@ -41205,6 +39052,7 @@ kendo.PDFMixin = {
                         Point2D(valueBox.x2, capStart),
                         Point2D(valueBox.x2, capEnd));
                 }
+                errorBar.box = Box2D(valueBox.x1, capStart, valueBox.x2, capEnd);
             }
 
             errorBar.linePoints = linePoints;
@@ -41218,6 +39066,33 @@ kendo.PDFMixin = {
         },
 
         createVisual: function() {
+            var that = this;
+            var options = that.options;
+            var visual = options.visual;
+
+            if (visual) {
+                that.visual = visual({
+                    low: that.low,
+                    high: that.high,
+                    rect: that.box.toRect(),
+                    options: {
+                        endCaps: options.endCaps,
+                        color: options.color,
+                        line: options.line
+                    },
+                    createVisual: function() {
+                        that.createDefaultVisual();
+                        var defaultVisual = that.visual;
+                        delete that.visual;
+                        return defaultVisual;
+                    }
+                });
+            } else {
+                that.createDefaultVisual();
+            }
+        },
+
+        createDefaultVisual: function() {
             var errorBar = this,
                 options = errorBar.options,
                 parent = errorBar.parent,
@@ -41386,7 +39261,13 @@ kendo.PDFMixin = {
                 border: this.markerBorder(),
                 opacity: options.opacity,
                 zIndex: valueOrDefault(options.zIndex, this.series.zIndex),
-                animation: options.animation
+                animation: options.animation,
+                visual: options.visual
+            }, {
+                dataItem: this.dataItem,
+                value: this.value,
+                series: this.series,
+                category: this.category
             });
 
             return marker;
@@ -41490,6 +39371,31 @@ kendo.PDFMixin = {
             shadow.reflow(this._childBox);
 
             return shadow.getElement();
+        },
+
+        highlightVisual: function() {
+            return (this.marker || {}).visual;
+        },
+
+        highlightVisualArgs: function() {
+            var marker = this.marker;
+            var visual;
+            var rect;
+            if (marker) {
+                rect = marker.paddingBox.toRect();
+                visual = marker.visual;
+            } else {
+                var size = this.options.markers.size;
+                var halfSize = size / 2;
+                var center = this.box.center();
+                rect = new geom.Rect([center.x - halfSize, center.y - halfSize], [size, size]);
+            }
+
+            return {
+                options: this.options,
+                rect: rect,
+                visual: visual
+            };
         },
 
         tooltipAnchor: function(tooltipWidth, tooltipHeight) {
@@ -42406,7 +40312,7 @@ kendo.PDFMixin = {
         evalPointOptions: function(options, value, fields) {
             var series = fields.series;
             var seriesIx = fields.seriesIx;
-            var state = { defaults: series._defaults, excluded: ["data", "tooltip", "tempate"] };
+            var state = { defaults: series._defaults, excluded: ["data", "tooltip", "tempate", "visual", "toggle"] };
 
             var doEval = this._evalSeries[seriesIx];
             if (!defined(doEval)) {
@@ -42619,6 +40525,11 @@ kendo.PDFMixin = {
     deepExtend(ScatterLineChart.fn, LineChartMixin);
 
     var BubbleChart = ScatterChart.extend({
+        init: function(plotArea, options) {
+            this._maxSize = MIN_VALUE;
+            ScatterChart.fn.init.call(this, plotArea, options);
+        },
+
         options: {
             tooltip: {
                 format: "{3}"
@@ -42630,6 +40541,7 @@ kendo.PDFMixin = {
 
         addValue: function(value, fields) {
             if ((value.size !== null && value.size >= 0) || fields.series.negativeValues.visible) {
+                this._maxSize = math.max(this._maxSize, math.abs(value.size));
                 ScatterChart.fn.addValue.call(this, value, fields);
             }
         },
@@ -42707,7 +40619,6 @@ kendo.PDFMixin = {
             for (seriesIx = 0; seriesIx < series.length; seriesIx++) {
                 var currentSeries = series[seriesIx],
                     seriesPoints = chart.seriesPoints[seriesIx],
-                    seriesMaxSize = chart.maxSize(seriesPoints),
                     minSize = currentSeries.minSize || math.max(boxSize * 0.02, 10),
                     maxSize = currentSeries.maxSize || boxSize * 0.2,
                     minR = minSize / 2,
@@ -42715,7 +40626,7 @@ kendo.PDFMixin = {
                     minArea = math.PI * minR * minR,
                     maxArea = math.PI * maxR * maxR,
                     areaRange = maxArea - minArea,
-                    areaRatio = areaRange / seriesMaxSize;
+                    areaRatio = areaRange / chart._maxSize;
 
                 for (pointIx = 0; pointIx < seriesPoints.length; pointIx++) {
                     var point = seriesPoints[pointIx],
@@ -42736,20 +40647,6 @@ kendo.PDFMixin = {
                     });
                 }
             }
-        },
-
-        maxSize: function(seriesPoints) {
-            var length = seriesPoints.length,
-                max = 0,
-                i,
-                size;
-
-            for (i = 0; i < length; i++) {
-                size = seriesPoints[i].value.size;
-                max = math.max(max, math.abs(size));
-            }
-
-            return max;
         },
 
         formatPointValue: function(point, format) {
@@ -42845,9 +40742,9 @@ kendo.PDFMixin = {
 
         createVisual: function() {
             ChartElement.fn.createVisual.call(this);
-
+            this._mainVisual = this.mainVisual(this.options);
             this.visual.append(
-                this.mainVisual(this.options)
+                this._mainVisual
             );
 
             this.createOverlay();
@@ -42959,6 +40856,18 @@ kendo.PDFMixin = {
             this.color = normalColor;
 
             return overlay;
+        },
+
+        highlightVisual: function() {
+            return this._mainVisual;
+        },
+
+        highlightVisualArgs: function() {
+            return {
+                options: this.options,
+                rect: this.box.toRect(),
+                visual: this._mainVisual
+            };
         },
 
         tooltipAnchor: function() {
@@ -43683,6 +41592,24 @@ kendo.PDFMixin = {
             }));
         },
 
+        highlightVisual: function() {
+            return this.visual;
+        },
+
+        highlightVisualArgs: function() {
+            var sector = this.sector;
+
+            return {
+                options: this.options,
+                radius: sector.r,
+                innerRadius: sector.ir,
+                center: new geom.Point(sector.c.x, sector.c.y),
+                startAngle: sector.startAngle,
+                endAngle: sector.angle + sector.startAngle,
+                visual: this.visual
+            };
+        },
+
         tooltipAnchor: function(width, height) {
             var point = this,
                 box = point.sector.adjacentBox(TOOLTIP_OFFSET, width, height);
@@ -43852,7 +41779,7 @@ kendo.PDFMixin = {
                 dataItem: fields.dataItem,
                 category: fields.category,
                 percentage: fields.percentage
-            }, { defaults: series._defaults, excluded: ["data", "template"] });
+            }, { defaults: series._defaults, excluded: ["data", "template", "visual", "toggle"] });
         },
 
         addValue: function(value, sector, fields) {
@@ -45499,6 +43426,25 @@ kendo.PDFMixin = {
             return result;
         },
 
+        pointsBySeriesName: function(name) {
+            var charts = this.charts,
+                result = [],
+                points, point, i, j, chart;
+
+            for (i = 0; i < charts.length; i++) {
+                chart = charts[i];
+                points = chart.points;
+                for (j = 0; j < points.length; j++) {
+                    point = points[j];
+                    if (point && point.series.name === name) {
+                        result.push(point);
+                    }
+                }
+            }
+
+            return result;
+        },
+
         paneByPoint: function(point) {
             var plotArea = this,
                 panes = plotArea.panes,
@@ -46543,17 +44489,38 @@ kendo.PDFMixin = {
 
             for (var i = 0; i < points.length; i++) {
                 var point = points[i];
-                if (point && point.toggleHighlight) {
-                    point.toggleHighlight(true);
+                if (point && point.toggleHighlight && point.hasHighlight()) {
+                    this.togglePointHighlight(point, true);
                     this._points.push(point);
                 }
+            }
+        },
+
+        togglePointHighlight: function(point, show) {
+            var toggleHandler = (point.options.highlight || {}).toggle;
+            if (toggleHandler) {
+                var eventArgs = {
+                    category: point.category,
+                    series: point.series,
+                    dataItem: point.dataItem,
+                    value: point.value,
+                    preventDefault: preventDefault,
+                    visual: point.highlightVisual(),
+                    show: show
+                };
+                toggleHandler(eventArgs);
+                if (!eventArgs._defaultPrevented) {
+                    point.toggleHighlight(show);
+                }
+            } else {
+                point.toggleHighlight(show);
             }
         },
 
         hide: function() {
             var points = this._points;
             while (points.length) {
-                points.pop().toggleHighlight(false);
+                this.togglePointHighlight(points.pop(), false);
             }
         },
 
@@ -47897,6 +45864,20 @@ kendo.PDFMixin = {
         }
     };
 
+    var ChartAxis = Class.extend({
+        init: function(axis) {
+            this._axis = axis;
+        },
+
+        slot: function(from, to) {
+            return this._axis.slot(from, to);
+        },
+
+        range: function() {
+            return this._axis.range();
+        }
+    });
+
     function intersection(a1, a2, b1, b2) {
         var result,
             ua_t = (b2.x - b1.x) * (a1.y - b1.y) - (b2.y - b1.y) * (a1.x - b1.x),
@@ -48602,6 +46583,20 @@ kendo.PDFMixin = {
         }
     }
 
+    function preventDefault() {
+        this._defaultPrevented = true;
+    }
+
+    function pointByCategoryName(points, name) {
+        if (points) {
+            for (var idx = 0; idx < points.length; idx++) {
+                if (points[idx].category === name) {
+                    return [points[idx]];
+                }
+            }
+        }
+    }
+
     // Exports ================================================================
     dataviz.ui.plugin(Chart);
 
@@ -48708,6 +46703,7 @@ kendo.PDFMixin = {
         CategoricalErrorBar: CategoricalErrorBar,
         CategoricalPlotArea: CategoricalPlotArea,
         CategoryAxis: CategoryAxis,
+        ChartAxis: ChartAxis,
         ChartContainer: ChartContainer,
         ClipAnimation: ClipAnimation,
         ClusterLayout: ClusterLayout,
@@ -48725,6 +46721,7 @@ kendo.PDFMixin = {
         SharedTooltip: SharedTooltip,
         Legend: Legend,
         LegendItem: LegendItem,
+        LegendLayout: LegendLayout,
         LineChart: LineChart,
         LinePoint: LinePoint,
         LineSegment: LineSegment,
@@ -49106,6 +47103,20 @@ kendo.PDFMixin = {
                 box.center(), 0, box.height() / 2,
                 slotStart, angle
             );
+        },
+
+        slot: function(from, to) {
+            var options = this.options;
+            var slot = this.getSlot(from, to);
+            var startAngle = slot.startAngle + 180;
+            var endAngle = startAngle + slot.angle;
+
+            return new geom.Arc([slot.c.x, slot.c.y], {
+                startAngle: startAngle,
+                endAngle: endAngle,
+                radiusX: slot.r,
+                radiusY: slot.r
+            });
         },
 
         pointCategoryIndex: function(point) {
@@ -49498,6 +47509,39 @@ kendo.PDFMixin = {
             );
         },
 
+        slot: function(from, to) {
+            var options = this.options;
+            var start = 360 - options.startAngle;
+            var slot = this.getSlot(from, to);
+            var startAngle;
+            var endAngle;
+            var min;
+            var max;
+            if (!dataviz.util.defined(to)) {
+                to = from;
+            }
+
+            min = math.min(from, to);
+            max = math.max(from, to);
+            if (options.reverse) {
+                startAngle = min;
+                endAngle = max;
+            } else {
+                startAngle = 360 - max;
+                endAngle = 360 - min;
+            }
+
+            startAngle = (startAngle + start) % 360;
+            endAngle = (endAngle + start) % 360;
+
+            return new geom.Arc([slot.c.x, slot.c.y], {
+                startAngle: startAngle,
+                endAngle: endAngle,
+                radiusX: slot.r,
+                radiusY: slot.r
+            });
+        },
+
         getValue: function(point) {
             var axis = this,
                 options = axis.options,
@@ -49515,6 +47559,7 @@ kendo.PDFMixin = {
             return (theta + start + 360) % 360;
         },
 
+        range: NumericAxis.fn.range,
         labelsCount: NumericAxis.fn.labelsCount,
         createAxisLabel: NumericAxis.fn.createAxisLabel
     });
@@ -51424,6 +49469,12 @@ kendo.PDFMixin = {
 
             that.surface.clear();
             that.gaugeArea = that._createGaugeArea();
+
+            that.surface.element.css({
+                width: size.width,
+                height: size.height
+            });
+
             that._createModel();
 
             bbox = _unpad(wrapper.bbox(), that._gaugeAreaMargin);
@@ -56825,7 +54876,7 @@ kendo.PDFMixin = {
 
     // IE < 9 doesn't allow to override toString on definition
     Location.fn.toString = function() {
-        return kendo.format(this.FORMAT, this.lng, this.lat);
+        return kendo.format(this.FORMAT, this.lat, this.lng);
     };
 
     Location.fromLngLat = function(ll) {
@@ -64016,6 +62067,23 @@ kendo.PDFMixin = {
             }
         },
 
+        _normalizeMarkerOptions: function(options) {
+            var startCap = options.startCap;
+            var endCap = options.endCap;
+
+            if (isString(startCap)) {
+                options.startCap = {
+                    type: startCap
+                };
+            }
+
+            if (isString(endCap)) {
+                options.endCap = {
+                    type: endCap
+                };
+            }
+        },
+
         _removeMarker: function(position) {
             var marker = this._markers[position];
             if (marker) {
@@ -64026,14 +62094,15 @@ kendo.PDFMixin = {
 
         _createMarkers: function() {
             var options = this.options;
-            var startCap = options.startCap;
-            var endCap = options.endCap;
+            this._normalizeMarkerOptions(options);
+
             this._markers = {};
-            this._markers[START] = this._createMarker(startCap, START);
-            this._markers[END] = this._createMarker(endCap, END);
+            this._markers[START] = this._createMarker(options.startCap, START);
+            this._markers[END] = this._createMarker(options.endCap, END);
         },
 
-        _createMarker: function(type, position) {
+        _createMarker: function(options, position) {
+            var type = (options || {}).type;
             var path = this._getPath(position);
             var markerType, marker;
             if (!path) {
@@ -64049,9 +62118,9 @@ kendo.PDFMixin = {
                 this._removeMarker(position);
             }
             if (markerType) {
-                marker = new markerType({
+                marker = new markerType(deepExtend({}, options, {
                     position: position
-                });
+                }));
                 marker.positionMarker(path);
                 this.drawingContainer().append(marker.drawingElement);
 
@@ -64078,15 +62147,22 @@ kendo.PDFMixin = {
         },
 
         _redrawMarker: function(pathChange, position, options) {
+            this._normalizeMarkerOptions(options);
+
             var pathOptions = this.options;
             var cap = this._capMap[position];
+            var pathCapType = (pathOptions[cap] || {}).type;
             var optionsCap = options[cap];
             var created = false;
-            if (optionsCap && pathOptions[cap] != optionsCap) {
-                pathOptions[cap] = optionsCap;
-                this._removeMarker(position);
-                this._markers[position] = this._createMarker(optionsCap, position);
-                created  = true;
+            if (optionsCap) {
+                pathOptions[cap] = deepExtend({}, pathOptions[cap], optionsCap);
+                if (optionsCap.type && pathCapType != optionsCap.type) {
+                    this._removeMarker(position);
+                    this._markers[position] = this._createMarker(pathOptions[cap], position);
+                    created  = true;
+                } else if (this._markers[position]) {
+                   this._markers[position].redraw(optionsCap);
+                }
             } else if (pathChange && !this._markers[position] && pathOptions[cap]) {
                 this._markers[position] = this._createMarker(pathOptions[cap], position);
                 created = true;
@@ -64973,7 +63049,7 @@ kendo.PDFMixin = {
                 this.title = "Deletion";
             },
             undo: function () {
-                this.diagram._addShape(this.shape, { undoable: false });
+                this.diagram._addShape(this.shape, false);
                 this.shape.select(false);
             },
             redo: function () {
@@ -65489,11 +63565,16 @@ kendo.PDFMixin = {
             start: function (p, meta) {
                 var diagram = this.toolService.diagram,
                     connector = this.toolService._hoveredConnector,
-                    connection = diagram.connect(connector._c, p);
+                    connection = diagram._createConnection({}, connector._c, p);
 
-                this.toolService._connectionManipulation(connection, connector._c.shape, true);
-                this.toolService._removeHover();
-                selectSingle(this.toolService.activeConnection, meta);
+                if (diagram._addConnection(connection)) {
+                    this.toolService._connectionManipulation(connection, connector._c.shape, true);
+                    this.toolService._removeHover();
+                    selectSingle(this.toolService.activeConnection, meta);
+                } else {
+                    connection.source(null);
+                    this.toolService.end();
+                }
             },
             move: function (p) {
                 this.toolService.activeConnection.target(p);
@@ -65504,6 +63585,10 @@ kendo.PDFMixin = {
                     hoveredItem = this.toolService.hoveredItem,
                     connector = this.toolService._hoveredConnector,
                     target;
+
+                if (!connection) {
+                    return;
+                }
 
                 if (connector && connector._c != connection.sourceConnector) {
                     target = connector._c;
@@ -74207,6 +72292,7 @@ kendo.PDFMixin = {
         INVALIDMSG = "k-invalid-msg",
         invalidMsgRegExp = new RegExp(INVALIDMSG,'i'),
         INVALIDINPUT = "k-invalid",
+        VALIDINPUT = "k-valid",
         emailRegExp = /^((([a-z]|\d|[!#\$%&'\*\+\-\/=\?\^_`{\|}~]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])+(\.([a-z]|\d|[!#\$%&'\*\+\-\/=\?\^_`{\|}~]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])+)*)|((\x22)((((\x20|\x09)*(\x0d\x0a))?(\x20|\x09)+)?(([\x01-\x08\x0b\x0c\x0e-\x1f\x7f]|\x21|[\x23-\x5b]|[\x5d-\x7e]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(\\([\x01-\x09\x0b\x0c\x0d-\x7f]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF]))))*(((\x20|\x09)*(\x0d\x0a))?(\x20|\x09)+)?(\x22)))@((([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])*([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])))\.)+(([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])*([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])))$/i,
         urlRegExp = /^(https?|ftp):\/\/(((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:)*@)?(((\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5]))|((([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])*([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])))\.)+(([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])*([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])))\.?)(:\d*)?)(\/((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)+(\/(([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)*)*)?)?(\?((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)|[\uE000-\uF8FF]|\/|\?)*)?(\#((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)|\/|\?)*)?$/i,
         INPUTSELECTOR = ":input:not(:button,[type=submit],[type=reset],[disabled],[readonly])",
@@ -74526,8 +72612,13 @@ kendo.PDFMixin = {
                 messageText = that._extractMessage(input, result.key);
                 that._errors[fieldName] = messageText;
                 var messageLabel = parseHtml(template({ message: decode(messageText) }));
+                var lblId = lbl.attr('id');
 
                 that._decorateMessageContainer(messageLabel, fieldName);
+
+                if (lblId) {
+                    messageLabel.attr('id', lblId);
+                }
 
                 if (!lbl.replaceWith(messageLabel).length) {
                     messageLabel.insertAfter(input);
@@ -74540,6 +72631,7 @@ kendo.PDFMixin = {
             }
 
             input.toggleClass(INVALIDINPUT, !valid);
+            input.toggleClass(VALIDINPUT, valid);
 
             return valid;
         },
@@ -75021,7 +73113,7 @@ kendo.PDFMixin = {
                 options = that.options;
 
             if (options.isMaximized || options.isMinimized) {
-                return;
+                return that;
             }
 
             that.restoreOptions = {
@@ -76414,6 +74506,7 @@ kendo.PDFMixin = {
         support = kendo.support,
         htmlEncode = kendo.htmlEncode,
         activeElement = kendo._activeElement,
+        ObservableArray = kendo.data.ObservableArray,
         ID = "id",
         LI = "li",
         CHANGE = "change",
@@ -76430,6 +74523,7 @@ kendo.PDFMixin = {
         WIDTH = "width",
         extend = $.extend,
         proxy = $.proxy,
+        isArray = $.isArray,
         browser = support.browser,
         isIE8 = browser.msie && browser.version < 9,
         quotRegExp = /"/g,
@@ -76446,18 +74540,20 @@ kendo.PDFMixin = {
 
             Widget.fn.init.call(that, element, options);
             element = that.element;
+            options = that.options;
 
             that._isSelect = element.is(SELECT);
-            that._template();
+
+            if (that._isSelect && that.element[0].length) {
+                if (!options.dataSource) {
+                    options.dataTextField = options.dataTextField || "text";
+                    options.dataValueField = options.dataValueField || "value";
+                }
+            }
 
             that.ul = $('<ul unselectable="on" class="k-list k-reset"/>')
-                        .css({ overflow: support.kineticScrollNeeded ? "": "auto" })
-                        .on("mouseenter" + ns, LI, function() { $(this).addClass(HOVER); })
-                        .on("mouseleave" + ns, LI, function() { $(this).removeClass(HOVER); })
-                        .on("click" + ns, LI, proxy(that._click, that))
                         .attr({
                             tabIndex: -1,
-                            role: "listbox",
                             "aria-hidden": true
                         });
 
@@ -76470,7 +74566,6 @@ kendo.PDFMixin = {
             if (id) {
                 that.list.attr(ID, id + "-list");
                 that.ul.attr(ID, id + "_listbox");
-                that._optionID = id + "_option_selected";
             }
 
             that._header();
@@ -76590,50 +74685,27 @@ kendo.PDFMixin = {
             }
         },
 
+        _focus: function(candidate) {
+            return this.listView.focus(candidate);
+        },
+
+        current: function(candidate) {
+            return this._focus(candidate);
+        },
+
         items: function() {
             return this.ul[0].children;
         },
 
-        current: function(candidate) {
-            var that = this;
-            var focused = that._focused.add(that.filterInput);
-            var id = that._optionID;
-
-            if (candidate !== undefined) {
-                if (that._current) {
-                    that._current
-                        .removeClass(FOCUSED)
-                        .removeAttr("aria-selected")
-                        .removeAttr(ID);
-
-                    focused.removeAttr("aria-activedescendant");
-                }
-
-                if (candidate) {
-                    candidate.addClass(FOCUSED);
-                    that._scroll(candidate);
-
-                    if (id) {
-                        candidate.attr("id", id);
-                        focused.attr("aria-activedescendant", id);
-                    }
-                }
-
-                that._current = candidate;
-            } else {
-                return that._current;
-            }
-        },
-
         destroy: function() {
-            var that = this,
-                ns = that.ns;
+            var that = this;
+            var ns = that.ns;
 
             Widget.fn.destroy.call(that);
 
             that._unbindDataSource();
 
-            that.ul.off(ns);
+            that.listView.destroy();
             that.list.off(ns);
 
             if (that._touchScroller) {
@@ -76650,14 +74722,15 @@ kendo.PDFMixin = {
         dataItem: function(index) {
             var that = this;
 
-
             if (index === undefined) {
-                index = that.selectedIndex;
-            } else if (typeof index !== "number") {
+                return that.listView.selectedDataItems()[0];
+            }
+
+            if (typeof index !== "number") {
                 index = $(that.items()).index(index);
             }
 
-            return that._data()[index];
+            return that.listView.data()[index];
         },
 
         _accessors: function() {
@@ -76704,13 +74777,13 @@ kendo.PDFMixin = {
         },
 
         _change: function() {
-            var that = this,
-                index = that.selectedIndex,
-                optionValue = that.options.value,
-                value = that.value(),
-                trigger;
+            var that = this;
+            var index = that.selectedIndex;
+            var optionValue = that.options.value;
+            var value = that.value();
+            var trigger;
 
-            if (that._isSelect && !that._bound && optionValue) {
+            if (that._isSelect && !that.listView.isBound() && optionValue) {
                 value = optionValue;
             }
 
@@ -76728,12 +74801,6 @@ kendo.PDFMixin = {
                 that.element.trigger(CHANGE);
 
                 that.trigger(CHANGE);
-            }
-        },
-
-        _click: function(e) {
-            if (!e.isDefaultPrevented()) {
-                this._accept($(e.currentTarget));
             }
         },
 
@@ -76757,36 +74824,6 @@ kendo.PDFMixin = {
             }
         },
 
-        _focus: function(li) {
-            var that = this;
-            var userTriggered = true;
-
-            if (that.popup.visible() && li && that.trigger(SELECT, {item: li})) {
-                that.close();
-                return;
-            }
-
-            that._select(li);
-            that._triggerCascade(userTriggered);
-
-            that._blur();
-        },
-
-        _index: function(value) {
-            var that = this,
-                idx,
-                length,
-                data = that._data();
-
-            for (idx = 0, length = data.length; idx < length; idx++) {
-                if (that._dataValue(data[idx]) == value) {
-                    return idx;
-                }
-            }
-
-            return -1;
-        },
-
         _dataValue: function(dataItem) {
             var value = this._value(dataItem);
 
@@ -76798,14 +74835,14 @@ kendo.PDFMixin = {
         },
 
         _height: function(length) {
-            if (length) {
-                var that = this,
-                    list = that.list,
-                    height = that.options.height,
-                    visible = that.popup.visible(),
-                    offsetTop,
-                    popups;
+            var that = this;
+            var list = that.list;
+            var height = that.options.height;
+            var visible = that.popup.visible();
+            var offsetTop;
+            var popups;
 
+            if (length) {
                 popups = list.add(list.parent(".k-animation-container")).show();
 
                 height = that.ul[0].scrollHeight > height ? height : "auto";
@@ -76826,6 +74863,8 @@ kendo.PDFMixin = {
                     popups.hide();
                 }
             }
+
+            return height;
         },
 
         _adjustListWidth: function() {
@@ -76880,8 +74919,45 @@ kendo.PDFMixin = {
             }
         },
 
+        _focusItem: function() {
+            var listView = this.listView;
+            var focusedItem = listView.focus();
+            var index = listView.select();
+
+            index = index[index.length - 1];
+
+            if (index === undefined && this.options.highlightFirst && !focusedItem) {
+                index = 0;
+            }
+
+            if (index !== undefined) {
+                listView.focus(index);
+            } else {
+                listView.scrollToIndex(0);
+            }
+        },
+
+        _calculateGroupPadding: function(height) {
+            var ul = this.ul;
+            var li = $(ul[0].firstChild);
+            var groupHeader = ul.prev(".k-static-header");
+            var padding = 0;
+
+            if (groupHeader[0] && groupHeader[0].style.display !== "none") {
+                if (height !== "auto") {
+                    padding = kendo.support.scrollbar();
+                }
+
+                padding += parseFloat(li.css("border-right-width"), 10) + parseFloat(li.children(".k-group").css("right"), 10);
+
+                groupHeader.css("padding-right", padding);
+            }
+        },
+
+        //use length of the items in ListView
         _firstOpen: function() {
-            this._height(this._data().length);
+            var height = this._height(this.listView.data().length);
+            this._calculateGroupPadding(height);
         },
 
         _popup: function() {
@@ -76895,7 +74971,10 @@ kendo.PDFMixin = {
                 isRtl: support.isRtl(that.wrapper)
             }));
 
-            that.popup.one(OPEN, proxy(that._firstOpen, that));
+            if (!that.options.virtual) {
+                that.popup.one(OPEN, proxy(that._firstOpen, that));
+            }
+
             that._touchScroller = kendo.touchScroller(that.popup.element);
         },
 
@@ -76922,80 +75001,19 @@ kendo.PDFMixin = {
             that[open ? OPEN : CLOSE]();
         },
 
-        _scroll: function (item) {
+        _triggerCascade: function() {
+            var that = this;
 
-            if (!item) {
-                return;
-            }
-
-            if (item[0]) {
-                item = item[0];
-            }
-
-            var ul = this.ul[0],
-                itemOffsetTop = item.offsetTop,
-                itemOffsetHeight = item.offsetHeight,
-                ulScrollTop = ul.scrollTop,
-                ulOffsetHeight = ul.clientHeight,
-                bottomDistance = itemOffsetTop + itemOffsetHeight,
-                touchScroller = this._touchScroller,
-                yDimension, offsetHeight;
-
-            if (touchScroller) {
-                yDimension = touchScroller.dimensions.y;
-
-                if (yDimension.enabled && itemOffsetTop > yDimension.size) {
-                    itemOffsetTop = itemOffsetTop - yDimension.size + itemOffsetHeight + 4;
-
-                    touchScroller.scrollTo(0, -itemOffsetTop);
-                }
-            } else {
-                offsetHeight = this.header ? this.header.outerHeight() : 0;
-                offsetHeight += this.filterInput ? this.filterInput.outerHeight() : 0;
-
-                ul.scrollTop = ulScrollTop > itemOffsetTop ?
-                               (itemOffsetTop - offsetHeight) : bottomDistance > (ulScrollTop + ulOffsetHeight) ?
-                               (bottomDistance - ulOffsetHeight - offsetHeight) : ulScrollTop;
-            }
-        },
-
-        _template: function() {
-            var that = this,
-                options = that.options,
-                template = options.template,
-                hasDataSource = options.dataSource;
-
-            if (that._isSelect && that.element[0].length) {
-                if (!hasDataSource) {
-                    options.dataTextField = options.dataTextField || "text";
-                    options.dataValueField = options.dataValueField || "value";
-                }
-            }
-
-            if (!template) {
-                that.template = kendo.template('<li tabindex="-1" role="option" unselectable="on" class="k-item">${' + kendo.expr(options.dataTextField, "data") + "}</li>", { useWithBlock: false });
-            } else {
-                template = kendo.template(template);
-                that.template = function(data) {
-                    return '<li tabindex="-1" role="option" unselectable="on" class="k-item">' + template(data) + "</li>";
-                };
-            }
-        },
-
-        _triggerCascade: function(userTriggered) {
-            var that = this,
-                value = that.value();
-
-            if ((!that._bound && value) || that._old !== value) {
-                that.trigger("cascade", { userTriggered: userTriggered });
+            if (!that._bound || that._old !== that.value()) {
+                that._bound = true;
+                that.trigger("cascade", { userTriggered: that._userTriggered });
             }
         },
 
         _unbindDataSource: function() {
             var that = this;
 
-            that.dataSource.unbind(CHANGE, that._refreshHandler)
-                           .unbind(PROGRESS, that._progressHandler)
+            that.dataSource.unbind(PROGRESS, that._progressHandler)
                            .unbind(REQUESTEND, that._requestEndHandler)
                            .unbind("error", that._errorHandler);
         }
@@ -77033,6 +75051,8 @@ kendo.PDFMixin = {
             this._dataSource();
             this._bound = false;
 
+            this.listView.setDataSource(this.dataSource);
+
             if (this.options.autoBind) {
                 this.dataSource.fetch();
             }
@@ -77042,14 +75062,14 @@ kendo.PDFMixin = {
             this.popup.close();
         },
 
-        select: function(li) {
+        select: function(candidate) {
             var that = this;
 
-            if (li === undefined) {
+            if (candidate === undefined) {
                 return that.selectedIndex;
             } else {
-                that._select(li);
-                that._triggerCascade();
+                that._select(candidate);
+
                 that._old = that._accessor();
                 that._oldIndex = that.selectedIndex;
             }
@@ -77068,6 +75088,7 @@ kendo.PDFMixin = {
 
             if (!length || length >= options.minLength) {
                 that._state = "filter";
+                that.listView.filter(true);
                 if (filter === "none") {
                     that._filter(word);
                 } else {
@@ -77083,39 +75104,70 @@ kendo.PDFMixin = {
         },
 
         _accessor: function(value, idx) {
-            var element = this.element[0],
-                isSelect = this._isSelect,
-                selectedIndex = element.selectedIndex,
-                option;
+            return this[this._isSelect ? "_accessorSelect" : "_accessorInput"](value, idx);
+        },
+
+        _accessorInput: function(value) {
+            var element = this.element[0];
 
             if (value === undefined) {
-                if (isSelect) {
-                    if (selectedIndex > -1) {
-                        option = element.options[selectedIndex];
-
-                        if (option) {
-                            value = option.value;
-                        }
-                    }
-                } else {
-                    value = element.value;
-                }
-                return value;
+                return element.value;
             } else {
-                if (isSelect) {
-                    if (selectedIndex > -1) {
-                        element.options[selectedIndex].removeAttribute(SELECTED);
-                    }
+                element.value = value;
+            }
+        },
 
-                    element.selectedIndex = idx;
-                    option = element.options[idx];
-                    if (option) {
-                       option.setAttribute(SELECTED, SELECTED);
-                    }
-                } else {
-                    element.value = value;
+        _accessorSelect: function(value, idx) {
+            var element = this.element[0];
+            var selectedIndex = element.selectedIndex;
+            var option;
+
+            if (value === undefined) {
+                option = element.options[selectedIndex];
+
+                if (option) {
+                    value = option.value;
+                }
+                return value || "";
+            } else {
+                if (selectedIndex > -1) {
+                    element.options[selectedIndex].removeAttribute(SELECTED);
+                }
+
+                if (idx === undefined) {
+                    idx = -1;
+                }
+
+                if (idx == -1 && value !== "") {
+                    idx = this._custom(value);
+                }
+
+                element.selectedIndex = idx;
+                option = element.options[idx];
+                if (option) {
+                   option.setAttribute(SELECTED, SELECTED);
                 }
             }
+        },
+
+        _custom: function(value) {
+            var that = this;
+            var element = that.element;
+            var custom = that._customOption;
+            var idx = element[0].children.length - 1;
+
+            if (!custom) {
+                custom = $("<option/>");
+                that._customOption = custom;
+
+                element.append(custom);
+                idx += 1;
+            }
+
+            custom.text(value);
+            custom[0].selected = true;
+
+            return idx;
         },
 
         _hideBusy: function () {
@@ -77167,67 +75219,50 @@ kendo.PDFMixin = {
                                      { field: options.dataValueField }];
             }
 
-            if (that.dataSource && that._refreshHandler) {
+            if (that.dataSource) {
                 that._unbindDataSource();
             } else {
-                that._refreshHandler = proxy(that.refresh, that);
                 that._progressHandler = proxy(that._showBusy, that);
                 that._requestEndHandler = proxy(that._requestEnd, that);
                 that._errorHandler = proxy(that._hideBusy, that);
             }
 
             that.dataSource = kendo.data.DataSource.create(dataSource)
-                                   .bind(CHANGE, that._refreshHandler)
                                    .bind(PROGRESS, that._progressHandler)
                                    .bind(REQUESTEND, that._requestEndHandler)
                                    .bind("error", that._errorHandler);
         },
 
-        _get: function(li) {
-            var that = this,
-                data = that._data(),
-                idx, length;
+        _firstItem: function() {
+            this.listView.first();
+        },
 
-            if (typeof li === "function") {
-                for (idx = 0, length = data.length; idx < length; idx++) {
-                    if (li(data[idx])) {
-                        li = idx;
-                        break;
-                    }
-                }
-            }
+        _lastItem: function() {
+            this.listView.last();
+        },
 
-            if (typeof li === "number") {
-                if (li < 0) {
-                    return $();
-                }
+        _nextItem: function() {
+            this.listView.next();
+        },
 
-                li = $(that.ul[0].children[li]);
-            }
-
-            if (li && li.nodeType) {
-                li = $(li);
-            }
-
-            return li;
+        _prevItem: function() {
+            this.listView.prev();
         },
 
         _move: function(e) {
-            var that = this,
-                key = e.keyCode,
-                ul = that.ul[0],
-                methodName = that.popup.visible() ? "_select" : "_accept",
-                current = that._current,
-                down = key === keys.DOWN,
-                firstChild,
-                pressed;
+            var that = this;
+            var key = e.keyCode;
+            var ul = that.ul[0];
+            var down = key === keys.DOWN;
+            var dataItem;
+            var pressed;
+            var current;
 
             if (key === keys.UP || down) {
                 if (e.altKey) {
                     that.toggle(down);
                 } else {
-                    firstChild = ul.firstChild;
-                    if (!firstChild && !that._accessor() && that._state !== "filter") {
+                    if (!that.listView.isBound()) {
                         if (!that._fetch) {
                             that.dataSource.one(CHANGE, function() {
                                 that._move(e);
@@ -77243,24 +75278,34 @@ kendo.PDFMixin = {
                         return true; //pressed
                     }
 
-                    if (down) {
-                        if (!current || (that.selectedIndex === -1 && !that.value() && current[0] === firstChild)) {
-                            current = firstChild;
+                    current = that._focus();
+
+                    if (!that._fetch) {
+                        if (down) {
+                            that._nextItem();
+
+                            if (!that._focus()) {
+                                that._lastItem();
+                            }
                         } else {
-                            current = current[0].nextSibling;
-                            if (!current && firstChild === ul.lastChild) {
-                                current = firstChild;
+                            that._prevItem();
+
+                            if (!that._focus()) {
+                                that._firstItem();
                             }
                         }
+                    }
 
-                        that[methodName](current);
-                    } else {
-                        current = current ? current[0].previousSibling : ul.lastChild;
-                        if (!current && firstChild === ul.lastChild) {
-                            current = firstChild;
-                        }
+                    if (that.trigger(SELECT, { item: that.listView.focus() })) {
+                        that._focus(current); //revert focus
+                        return;
+                    }
 
-                        that[methodName](current);
+                    that._select(that._focus(), true);
+                    //that.listView.select(that.listView.focus());
+
+                    if (!that.popup.visible()) {
+                        that._blur();
                     }
                 }
 
@@ -77271,11 +75316,37 @@ kendo.PDFMixin = {
                     e.preventDefault();
                 }
 
-                if (!that.popup.visible() && (!current || !current.hasClass("k-state-selected"))) {
+                current = that._focus();
+                dataItem = that.dataItem();
+
+                if (!that.popup.visible() && (!dataItem || that.text() !== that._text(dataItem))) {
                     current = null;
                 }
 
-                that._accept(current, key);
+                var activeFilter = that.filterInput && that.filterInput[0] === activeElement();
+
+                if (current) {
+                    if (that.trigger(SELECT, { item: current })) {
+                        return;
+                    }
+
+                    that._select(current);
+                } else {
+                    that._accessor(that.input.val());
+                    that.listView.value(that.input.val());
+                }
+
+                if (that._focusElement) {
+                    that._focusElement(that.wrapper);
+                }
+
+                if (activeFilter && key === keys.TAB) {
+                    that.wrapper.focusout();
+                } else {
+                    that._blur();
+                }
+
+                that.close();
                 pressed = true;
             } else if (key === keys.ESC) {
                 if (that.popup.visible()) {
@@ -77288,50 +75359,20 @@ kendo.PDFMixin = {
             return pressed;
         },
 
-        _selectItem: function() {
-            var that = this,
-                notBound = that._bound === undefined,
-                options = that.options,
-                useOptionIndex,
-                value;
-
-            useOptionIndex = that._isSelect && !that._initial && !options.value && options.index && !that._bound;
-
-            if (!useOptionIndex) {
-                value = that._selectedValue || (notBound && options.value) || that._accessor();
-            }
-
-            if (value) {
-                that.value(value);
-            } else if (notBound) {
-                that.select(options.index);
-            }
-        },
-
-        _fetchItems: function(value) {
-            var that = this,
-                hasItems = that.ul[0].firstChild;
+        _fetchData: function() {
+            var that = this;
+            var hasItems = !!that.dataSource.view().length;
 
             //if request is started avoid datasource.fetch
-            if (that._request) {
-                return true;
+            if (that.element[0].disabled || that._request || that.options.cascadeFrom) {
+                return;
             }
 
-            if (!that._bound && !that._fetch && !hasItems) {
-                if (that.options.cascadeFrom) {
-                    return !hasItems;
-                }
-
-                that.dataSource.one(CHANGE, function() {
-                    that._old = undefined;
-                    that.value(value);
+            if (!that.listView.isBound() && !that._fetch && !hasItems) {
+                that._fetch = true;
+                that.dataSource.fetch().done(function() {
                     that._fetch = false;
                 });
-
-                that._fetch = true;
-                that.dataSource.fetch();
-
-                return true;
             }
         },
 
@@ -77347,7 +75388,6 @@ kendo.PDFMixin = {
                 idx = 0;
 
             if (optionLabel) {
-                idx = 1;
                 options = optionLabel;
             }
 
@@ -77406,8 +75446,6 @@ kendo.PDFMixin = {
                 change;
 
             if (cascade) {
-                that._selectedValue = options.value || that._accessor();
-
                 parentElement = $("#" + cascade);
                 parent = parentElement.data("kendo" + options.name);
 
@@ -77425,7 +75463,7 @@ kendo.PDFMixin = {
                 change = function() {
                     that.dataSource.unbind(CHANGE, change);
 
-                    var value = that._selectedValue || that.value();
+                    var value = that.listView.value()[0];
                     if (that._userTriggered) {
                         that._clearSelection(parent, true);
                     } else if (value) {
@@ -77433,12 +75471,12 @@ kendo.PDFMixin = {
                         if (!that.dataSource.view()[0] || that.selectedIndex === -1) {
                             that._clearSelection(parent, true);
                         }
-                    } else {
+                    } else if (that.listView.data().length) {
                         that.select(options.index);
                     }
 
                     that.enable();
-                    that._triggerCascade(that._userTriggered);
+                    that._triggerCascade();
                     that._userTriggered = false;
                 };
                 select = function() {
@@ -77469,7 +75507,7 @@ kendo.PDFMixin = {
                     } else {
                         that.enable(false);
                         that._clearSelection(parent);
-                        that._triggerCascade(that._userTriggered);
+                        that._triggerCascade();
                         that._userTriggered = false;
                     }
                 };
@@ -77480,7 +75518,7 @@ kendo.PDFMixin = {
                 });
 
                 //refresh was called
-                if (parent._bound) {
+                if (parent.listView.isBound()) {
                     select();
                 } else if (!parent.value()) {
                     that.enable(false);
@@ -77488,6 +75526,725 @@ kendo.PDFMixin = {
             }
         }
     });
+
+    var STATIC_LIST_NS = ".StaticList";
+
+    var StaticList = kendo.ui.DataBoundWidget.extend({
+        init: function(element, options) {
+            Widget.fn.init.call(this, element, options);
+
+            this.element.attr("role", "listbox")
+                        .css({ overflow: support.kineticScrollNeeded ? "": "auto" })
+                        .on("click" + STATIC_LIST_NS, "li", proxy(this._click, this))
+                        .on("mouseenter" + STATIC_LIST_NS, "li", function() { $(this).addClass(HOVER); })
+                        .on("mouseleave" + STATIC_LIST_NS, "li", function() { $(this).removeClass(HOVER); });
+
+
+            this.header = this.element.before('<div class="k-static-header" style="display:none"></div>').prev();
+
+            this.setDataSource(this.options.dataSource);
+
+            this._bound = false;
+
+            this._optionID = kendo.guid();
+
+            this._selectedIndices = [];
+
+            this._view = [];
+            this._dataItems = [];
+            this._values = [];
+
+            this._getter();
+            this._templates();
+
+            this._onScroll = proxy(function() {
+                var that = this;
+                clearTimeout(that._scrollId);
+
+                that._scrollId = setTimeout(function() {
+                    that._renderHeader();
+                }, 50);
+            }, this);
+
+            this._fixedHeader();
+
+            var value = this.options.value;
+            if (value) {
+                this._values = $.isArray(value) ? value.slice(0) : [value];
+            }
+        },
+
+        options: {
+            name: "StaticList",
+            dataValueField: null,
+            selectable: true,
+            template: null,
+            groupTemplate: null,
+            fixedGroupTemplate: null
+        },
+
+        events: [
+           "click",
+           "change",
+           "activate",
+           "deactivate",
+           "dataBinding",
+           "dataBound"
+        ],
+
+        setDataSource: function(source) {
+            var that = this;
+            var dataSource = source || {};
+
+            dataSource = $.isArray(dataSource) ? { data: dataSource } : dataSource;
+            dataSource = kendo.data.DataSource.create(dataSource);
+
+            if (that.dataSource) {
+                that.dataSource.unbind(CHANGE, that._refreshHandler);
+            } else {
+                that._refreshHandler = proxy(that.refresh, that);
+            }
+
+            that.dataSource = dataSource.bind(CHANGE, that._refreshHandler);
+        },
+
+        setOptions: function(options) {
+            Widget.fn.setOptions.call(this, options);
+
+            if (options.dataSource) {
+                this.setDataSource(options.dataSource);
+            }
+
+
+            this._fixedHeader();
+            this._getter();
+            this._templates();
+        },
+
+        destroy: function() {
+            this.element.off(STATIC_LIST_NS);
+
+            if (this._refreshHandler) {
+                this.dataSource.unbind(CHANGE, this._refreshHandler);
+            }
+
+            Widget.fn.destroy.call(this);
+        },
+
+        scrollToIndex: function(index) {
+            var item = this.element[0].children[index];
+
+            if (item) {
+                this.scroll(item);
+            }
+        },
+
+        _offsetHeight: function() {
+            var offsetHeight = 0;
+            var siblings = this.element.prevAll();
+
+            siblings.each(function() {
+                var element = $(this);
+                if (element.is(":visible")) {
+                    if (element.hasClass("k-list-filter")) {
+                        offsetHeight += element.children().height();
+                    } else {
+                        offsetHeight += element.outerHeight();
+                    }
+                }
+            });
+
+            return offsetHeight;
+        },
+
+        scroll: function (item) {
+            if (!item) {
+                return;
+            }
+
+            if (item[0]) {
+                item = item[0];
+            }
+
+            var ul = this.element[0],
+                itemOffsetTop = item.offsetTop,
+                itemOffsetHeight = item.offsetHeight,
+                ulScrollTop = ul.scrollTop,
+                ulOffsetHeight = ul.clientHeight,
+                bottomDistance = itemOffsetTop + itemOffsetHeight,
+                touchScroller = this._touchScroller,
+                yDimension, offsetHeight;
+
+            if (touchScroller) {
+                yDimension = touchScroller.dimensions.y;
+
+                if (yDimension.enabled && itemOffsetTop > yDimension.size) {
+                    itemOffsetTop = itemOffsetTop - yDimension.size + itemOffsetHeight + 4;
+
+                    touchScroller.scrollTo(0, -itemOffsetTop);
+                }
+            } else {
+                offsetHeight = this._offsetHeight();
+                if (ulScrollTop > (itemOffsetTop - offsetHeight)) {
+                    ulScrollTop = (itemOffsetTop - offsetHeight);
+                } else if (bottomDistance > (ulScrollTop + ulOffsetHeight + offsetHeight)) {
+                    ulScrollTop = (bottomDistance - ulOffsetHeight - offsetHeight);
+                }
+
+                ul.scrollTop = ulScrollTop;
+           }
+        },
+
+        selectedDataItems: function(dataItems) {
+            var getter = this._valueGetter;
+
+            if (dataItems === undefined) {
+                return this._dataItems.slice();
+            }
+
+            this._dataItems = dataItems;
+
+            this._values = $.map(dataItems, function(dataItem) {
+                return getter(dataItem);
+            });
+        },
+
+        next: function() {
+            var current = this.focus();
+
+            if (!current) {
+                current = 0;
+            } else {
+                current = current.next();
+            }
+
+            this.focus(current);
+        },
+
+        prev: function() {
+            var current = this.focus();
+
+            if (!current) {
+                current = this.element[0].children.length - 1;
+            } else {
+                current = current.prev();
+            }
+
+            this.focus(current);
+        },
+
+        first: function() {
+            this.focus(this.element[0].children[0]);
+        },
+
+        last: function() {
+            this.focus(this.element[0].children[this.element[0].children.length - 1]);
+        },
+
+        focus: function(candidate) {
+            var that = this;
+            var id = that._optionID;
+            var hasCandidate;
+
+            if (candidate === undefined) {
+                return that._current;
+            }
+
+            candidate = that._get(candidate);
+            candidate = candidate[candidate.length - 1];
+            candidate = $(this.element[0].children[candidate]);
+
+            if (that._current) {
+                that._current
+                    .removeClass(FOCUSED)
+                    .removeAttr("aria-selected")
+                    .removeAttr(ID);
+
+                that.trigger("deactivate");
+            }
+
+            hasCandidate = !!candidate[0];
+
+            if (hasCandidate) {
+                candidate.addClass(FOCUSED);
+                that.scroll(candidate);
+
+                candidate.attr("id", id);
+            }
+
+            that._current = hasCandidate ? candidate : null;
+            that.trigger("activate");
+        },
+
+        select: function(indices) {
+            var selectable = this.options.selectable;
+            var singleSelection = selectable !== "multiple" && selectable !== false;
+
+            var added = [];
+            var removed = [];
+            var result;
+
+            if (indices === undefined) {
+                return this._selectedIndices.slice();
+            }
+
+            indices = this._get(indices);
+
+            if (indices.length === 1 && indices[0] === -1) {
+                indices = [];
+            }
+
+            if (singleSelection && $.inArray(indices[indices.length - 1], this._selectedIndices) !== -1) {
+                return;
+            }
+
+            result = this._deselect(indices);
+
+            removed = result.removed;
+            indices = result.indices;
+
+            if (indices.length) {
+                if (singleSelection) {
+                    indices = [indices[indices.length - 1]];
+                }
+
+                added = this._select(indices);
+            }
+
+            if (added.length || removed.length) {
+                this.trigger("change", {
+                    added: added,
+                    removed: removed
+                });
+            }
+        },
+
+        value: function(value, silent) {
+            var indices;
+
+            if (value === undefined) {
+                return this._values.slice();
+            }
+
+            if (value === "" || value === null) {
+                value = [];
+            }
+
+            value = $.isArray(value) || value instanceof ObservableArray ? value.slice(0) : [value];
+
+            this._values = value;
+
+            if (silent) {
+                return;
+            }
+
+            if (this.isBound()) {
+                indices = this._valueIndices(value);
+
+                if (!indices.length) {
+                    this.select([]);
+                    return;
+                }
+
+                this._selectedIndices = [];
+                this._dataItems = [];
+                this._values = [];
+
+                this.select(indices);
+            }
+        },
+
+        data: function() {
+            var that = this;
+            var data = that._view;
+            var length = data.length;
+            var result = [];
+            var idx;
+
+            if (length) {
+                for (idx = 0; idx < length; idx++) {
+                    result.push(data[idx].item);
+                }
+            }
+
+            return result;
+        },
+
+        clearIndices: function() {
+            this._selectedIndices = [];
+        },
+
+        filter: function(isFilter) {
+            this._isFilter = isFilter;
+        },
+
+        _click: function(e) {
+            if (!e.isDefaultPrevented()) {
+                this.trigger("click", { item: $(e.currentTarget) });
+            }
+        },
+
+        _dataItemPosition: function(dataItem, values) {
+            var value = this._valueGetter(dataItem);
+            var index = -1;
+
+            for (var idx = 0; idx < values.length; idx++) {
+                if (value == values[idx]) {
+                    index = idx;
+                    break;
+                }
+            }
+
+            return index;
+        },
+
+        _valueIndices: function(values) {
+            var data = this._view;
+            var indices = [];
+            var idx = 0;
+            var index;
+
+            if (!values.length) {
+                return [];
+            }
+
+            for (; idx < data.length; idx++) {
+                index = this._dataItemPosition(data[idx].item, values);
+
+                if (index !== -1) {
+                    indices[index] = idx;
+                }
+            }
+
+            return this._normalizeIndices(indices);
+        },
+
+        _getter: function() {
+            this._valueGetter = kendo.getter(this.options.dataValueField);
+        },
+
+        _deselect: function(indices) {
+            var children = this.element[0].children;
+            var selectable = this.options.selectable;
+            var selectedIndices = this._selectedIndices;
+            var dataItems = this._dataItems;
+            var values = this._values;
+            var removed = [];
+            var i = 0;
+            var j;
+
+            indices = indices.slice();
+
+            if (selectable === true || !indices.length) {
+                for (; i < selectedIndices.length; i++) {
+                    $(children[selectedIndices[i]]).removeClass("k-state-selected");
+
+                    removed.push({
+                        position: i,
+                        dataItem: dataItems[i]
+                    });
+                }
+
+                this._values = [];
+                this._dataItems = [];
+                this._selectedIndices = [];
+            } else if (selectable === "multiple") {
+                var index, selectedIndex;
+                var removedIndices = 0;
+
+                for (; i < indices.length; i++) {
+                    index = indices[i];
+
+                    if (!$(children[index]).hasClass("k-state-selected")) {
+                        continue;
+                    }
+
+                    for (j = 0; j < selectedIndices.length; j++) {
+                        selectedIndex = selectedIndices[j];
+
+                        if (selectedIndex === index) {
+                            $(children[selectedIndex]).removeClass("k-state-selected");
+
+                            removed.push({
+                                position: j + removedIndices,
+                                dataItem: dataItems.splice(j, 1)[0]
+                            });
+
+                            selectedIndices.splice(j, 1);
+                            indices.splice(i, 1);
+                            values.splice(j, 1);
+
+                            removedIndices += 1;
+                            i -= 1;
+                            j -= 1;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            return {
+                indices: indices,
+                removed: removed
+            };
+        },
+
+        _select: function(indices) {
+            var children = this.element[0].children;
+            var data = this._view;
+            var dataItem, index;
+            var added = [];
+            var idx = 0;
+
+            if (indices[indices.length - 1] !== -1) {
+                this.focus(indices);
+            }
+
+            for (; idx < indices.length; idx++) {
+                index = indices[idx];
+                dataItem = data[index];
+
+                if (index === -1 || !dataItem) {
+                    continue;
+                }
+
+                dataItem = dataItem.item;
+
+                this._selectedIndices.push(index);
+                this._dataItems.push(dataItem);
+                this._values.push(this._valueGetter(dataItem));
+
+                $(children[index]).addClass("k-state-selected").attr("aria-selected", true);
+
+                added.push({
+                    dataItem: dataItem
+                });
+            }
+
+            return added;
+        },
+
+        _get: function(candidate) {
+            if (typeof candidate === "number") {
+                candidate = [candidate];
+            } else if (!isArray(candidate)) {
+                candidate = $(candidate).data("index");
+
+                if (candidate === undefined) {
+                    candidate = -1;
+                }
+
+                candidate = [candidate];
+            }
+
+            return candidate;
+        },
+
+        _template: function() {
+            var that = this;
+            var options = that.options;
+            var template = options.template;
+
+            if (!template) {
+                template = kendo.template('<li tabindex="-1" role="option" unselectable="on" class="k-item">${' + kendo.expr(options.dataTextField, "data") + "}</li>", { useWithBlock: false });
+            } else {
+                template = kendo.template(template);
+                template = function(data) {
+                    return '<li tabindex="-1" role="option" unselectable="on" class="k-item">' + template(data) + "</li>";
+                };
+            }
+
+            return template;
+        },
+
+        _templates: function() {
+            var template;
+            var templates = {
+                template: this.options.template,
+                groupTemplate: this.options.groupTemplate,
+                fixedGroupTemplate: this.options.fixedGroupTemplate
+            };
+
+            for (var key in templates) {
+                template = templates[key];
+                if (template && typeof template !== "function") {
+                    templates[key] = kendo.template(template);
+                }
+            }
+
+            this.templates = templates;
+        },
+
+        _normalizeIndices: function(indices) {
+            var newIndices = [];
+            var idx = 0;
+
+            for (; idx < indices.length; idx++) {
+                if (indices[idx] !== undefined) {
+                    newIndices.push(indices[idx]);
+                }
+            }
+
+            return newIndices;
+        },
+
+        _firstVisibleItem: function() {
+            var element = this.element[0];
+            var scrollTop = element.scrollTop;
+            var itemHeight = $(element.children[0]).height();
+            var itemIndex = Math.floor(scrollTop / itemHeight) || 0;
+            var item = element.children[itemIndex];
+            var forward = item.offsetTop < scrollTop;
+
+            while (item) {
+                if (forward) {
+                    if (item.offsetTop >= scrollTop || !item.nextSibling) {
+                        break;
+                    }
+
+                    item = item.nextSibling;
+                } else {
+                    if (item.offsetTop <= scrollTop || !item.previousSibling) {
+                        break;
+                    }
+
+                    item = item.previousSibling;
+                }
+            }
+
+            return this._view[$(item).data("index")];
+        },
+
+        _fixedHeader: function() {
+            if (this.dataSource.group().length && this.templates.fixedGroupTemplate) {
+                this.header.show();
+                this.element.scroll(this._onScroll);
+            } else {
+                this.header.hide();
+                this.element.off("scroll", this._onScroll);
+            }
+        },
+
+        _renderHeader: function() {
+            var template = this.templates.fixedGroupTemplate;
+            if (!template) {
+                return;
+            }
+
+            var visibleItem = this._firstVisibleItem();
+
+            if (visibleItem) {
+                this.header.html(template(visibleItem.group));
+            }
+        },
+
+        _renderItem: function(context, values) {
+            var item = '<li tabindex="-1" role="option" unselectable="on" class="k-item';
+
+            var dataItem = context.item;
+            var found = this._isFilter && this._dataItemPosition(dataItem, values) !== -1;
+
+            if (context.newGroup) {
+                item += ' k-first';
+            }
+
+            if (found) {
+                item += ' k-state-selected';
+            }
+
+            item += '"' + (found ? ' aria-selected="true"' : "") + ' data-index="' + context.index + '">';
+
+            item += this.templates.template(dataItem);
+
+            if (context.newGroup) {
+                item += '<div class="k-group">' + this.templates.groupTemplate(context.group) + '</div>';
+            }
+
+            return item + "</li>";
+        },
+
+        _render: function() {
+            var html = "";
+
+            var i = 0;
+            var idx = 0;
+            var context;
+            var dataContext = [];
+            var view = this.dataSource.view();
+            var values = this.value();
+
+            var group, newGroup, j;
+            var isGrouped = this.dataSource.group().length;
+
+            if (isGrouped) {
+                for (i = 0; i < view.length; i++) {
+                    group = view[i];
+                    newGroup = true;
+
+                    for (j = 0; j < group.items.length; j++) {
+                        context = { item: group.items[j], group: group.value, newGroup: newGroup, index: idx };
+                        dataContext[idx] = context;
+                        idx += 1;
+
+                        html += this._renderItem(context, values);
+                        newGroup = false;
+                    }
+                }
+            } else {
+                for (i = 0; i < view.length; i++) {
+                    context = { item: view[i], index: i };
+
+                    dataContext[i] = context;
+
+                    html += this._renderItem(context, values);
+                }
+            }
+
+            this._view = dataContext;
+
+            this.element[0].innerHTML = html;
+
+            if (isGrouped && dataContext.length) {
+                this._renderHeader();
+            }
+        },
+
+        refresh: function() {
+            this.trigger("dataBinding");
+
+            this._render();
+
+            this._bound = true;
+
+            this.trigger("dataBound");
+
+            if (!this._isFilter) {
+                this.value(this._values);
+            }
+        },
+
+        isBound: function() {
+            return this._bound;
+        }
+    });
+
+    ui.plugin(StaticList);
+
+    function inArray(node, parentNode) {
+        var idx, length, siblings = parentNode.children;
+
+        if (!node || node.parentNode !== parentNode) {
+            return -1;
+        }
+
+        for (idx = 0, length = siblings.length; idx < length; idx++) {
+            if (node === siblings[idx]) {
+                return idx;
+            }
+        }
+
+        return -1;
+    }
 
     function removeFiltersForField(expression, field) {
         var filters;
@@ -77543,9 +76300,9 @@ kendo.PDFMixin = {
 
     var DropDownList = Select.extend( {
         init: function(element, options) {
-            var that = this,
-                index = options && options.index,
-                optionLabel, useOptionLabel, text;
+            var that = this;
+            var index = options && options.index;
+            var optionLabel, useOptionLabel, text;
 
             that.ns = ns;
             options = $.isArray(options) ? { dataSource: options } : options;
@@ -77584,15 +76341,19 @@ kendo.PDFMixin = {
 
             that._oldIndex = that.selectedIndex = -1;
 
-            that._cascade();
-
             if (index !== undefined) {
                 options.index = index;
             }
 
+            that._initialIndex = options.index;
+            that._optionLabel();
+            that._initList();
+
+            that._cascade();
+
             if (options.autoBind) {
                 that.dataSource.fetch();
-            } else if (that.selectedIndex === -1) {
+            } else if (that.selectedIndex === -1) { //selectedIndex !== -1 when cascade functionality happens instantly
                 text = options.text || "";
                 if (!text) {
                     optionLabel = options.optionLabel;
@@ -77622,8 +76383,6 @@ kendo.PDFMixin = {
             index: 0,
             text: null,
             value: null,
-            template: "",
-            valueTemplate: "",
             delay: 500,
             height: 200,
             dataTextField: "",
@@ -77634,7 +76393,13 @@ kendo.PDFMixin = {
             ignoreCase: true,
             animation: {},
             filter: "none",
-            minLength: 1
+            minLength: 1,
+            virtual: false,
+            template: null,
+            valueTemplate: null,
+            optionLabelTemplate: null,
+            groupTemplate: null,
+            fixedGroupTemplate: null
         },
         events: [
             "open",
@@ -77650,7 +76415,8 @@ kendo.PDFMixin = {
         setOptions: function(options) {
             Select.fn.setOptions.call(this, options);
 
-            this._template();
+            this.listView.setOptions(options);
+
             this._inputTemplate();
             this._accessors();
             this._filterHeader();
@@ -77668,6 +76434,8 @@ kendo.PDFMixin = {
             that._arrow.off();
             that._arrow = null;
 
+            that.optionLabel.off();
+
             Select.fn.destroy.call(that);
         },
 
@@ -77678,9 +76446,10 @@ kendo.PDFMixin = {
                 return;
             }
 
-            if (!that.ul[0].firstChild || that._state === STATE_ACCEPT) {
+            if (!this.dataSource.view().length || that._state === STATE_ACCEPT) {
                 that._open = true;
                 that._state = "rebind";
+                //that.listView.focus(false);
 
                 if (that.filterInput) {
                     that.filterInput.val("");
@@ -77690,7 +76459,7 @@ kendo.PDFMixin = {
             } else {
                 that.popup.open();
                 that._focusElement(that.filterInput);
-                that._scroll(that._current);
+                that._focusItem();
             }
         },
 
@@ -77698,27 +76467,229 @@ kendo.PDFMixin = {
             this._toggle(toggle, true);
         },
 
-        refresh: function() {
-            var that = this,
-                data = that._data(),
-                length = data.length,
-                optionLabel = that.options.optionLabel,
-                filtered = that._state === STATE_FILTER,
-                element = that.element[0],
-                selectedIndex,
-                value;
+        _initList: function() {
+            var that = this;
+            var options = this.options;
+            var virtualOptions;
 
+            if (options.virtual) {
+                virtualOptions = {
+                    autoBind: false, //dropdownlist fetches the data
+                    dataValueField: options.dataValueField,
+                    dataSource: this.dataSource,
+                    selectable: true,
+                    height: this.options.height,
+                    groupTemplate: options.groupTemplate || "#:data#",
+                    fixedGroupTemplate: options.fixedGroupTemplate || "#:data#",
+                    template: options.template || "#:" + kendo.expr(options.dataTextField, "data") + "#",
+                    change: $.proxy(this._listChange, this),
+                    click: $.proxy(this._click, this),
+                    activate: function() {
+                        var current = this.focus();
+                        if (current) {
+                            that._focused.add(that.filterInput).attr("aria-activedescendant", current.attr("id"));
+                        }
+                    },
+                    deactivate: function() {
+                        that._focused.add(that.filterInput).removeAttr("aria-activedescendant");
+                    },
+                    listBound: $.proxy(this._listBound, this)
+                };
 
-            that.trigger("dataBinding");
-            if (that._current) {
-                that.current(null);
+                if (typeof options.virtual === "object") {
+                    $.extend(virtualOptions, options.virtual);
+                }
+
+                this.listView = new kendo.ui.VirtualList(this.ul, virtualOptions);
+            } else {
+                this.listView = new kendo.ui.StaticList(this.ul, {
+                    dataValueField: options.dataValueField,
+                    dataSource: this.dataSource,
+                    groupTemplate: options.groupTemplate || "#:data#",
+                    fixedGroupTemplate: options.fixedGroupTemplate || "#:data#",
+                    template: options.template || "#:" + kendo.expr(options.dataTextField, "data") + "#",
+                    activate: function() {
+                        var current = this.focus();
+                        if (current) {
+                            that._focused.add(that.filterInput).attr("aria-activedescendant", current.attr("id"));
+                        }
+                    },
+                    click: $.proxy(this._click, this),
+                    change: $.proxy(this._listChange, this),
+                    deactivate: function() {
+                        that._focused.add(that.filterInput).removeAttr("aria-activedescendant");
+                    },
+                    dataBinding: function() {
+                        that.trigger("dataBinding");
+                        that._angularItems("cleanup");
+                    },
+                    dataBound: $.proxy(this._listBound, this)
+                });
             }
 
-            that._angularItems("cleanup");
-            that.ul[0].innerHTML = kendo.render(that.template, data);
+            this.listView.value(this.options.value);
+        },
+
+        current: function(candidate) {
+            var current;
+
+            if (candidate === undefined) {
+                current = this.listView.focus();
+
+                if (!current && this.selectedIndex === 0 && this.optionLabel[0]) {
+                    return this.optionLabel;
+                }
+
+                return current;
+            }
+
+            this._focus(candidate);
+        },
+
+        dataItem: function(index) {
+            var that = this;
+            var dataItem;
+
+            if (index === undefined) {
+                dataItem = that.listView.selectedDataItems()[0];
+
+                if (!dataItem && this.optionLabel[0]) {
+                    dataItem = {};
+                    assign(dataItem, that.options.dataTextField.split("."), that._optionLabelText());
+                    assign(dataItem, that.options.dataValueField.split("."), "");
+                }
+
+                return dataItem;
+            }
+
+            if (typeof index !== "number") {
+                index = $(that.items()).index(index);
+            }
+
+            return that.listView.data()[index];
+        },
+
+        refresh: function() {
+            this.listView.refresh();
+        },
+
+        text: function (text) {
+            var that = this;
+            var dataItem, loweredText;
+            var ignoreCase = that.options.ignoreCase;
+
+            text = text === null ? "" : text;
+
+            if (text !== undefined) {
+                if (typeof text === "string") {
+                    loweredText = ignoreCase ? text.toLowerCase() : text;
+
+                    that._select(function(data) {
+                        data = that._text(data);
+
+                        if (ignoreCase) {
+                            data = (data + "").toLowerCase();
+                        }
+
+                        return data === loweredText;
+                    });
+
+                    dataItem = that.dataItem();
+
+                    if (dataItem) {
+                        text = dataItem;
+                    }
+                }
+
+                that._textAccessor(text);
+            } else {
+                return that._textAccessor();
+            }
+        },
+
+        value: function(value) {
+            var that = this;
+
+            if (value === undefined) {
+                value = that._accessor() || that.listView.value()[0];
+                return value === undefined || value === null ? "" : value;
+            }
+
+            if (value === null) {
+                value = "";
+            }
+
+            value = value.toString();
+
+            that.listView.one("change", function() {
+                that._old = that._accessor();
+                that._oldIndex = that.selectedIndex;
+            });
+
+            that.listView.value(value);
+
+            that._fetchData();
+        },
+
+        _optionLabel: function() {
+            var that = this;
+            var options = that.options;
+            var optionLabel = options.optionLabel;
+            var template = options.optionLabelTemplate;
+
+            if (!optionLabel) {
+                that.optionLabel = $();
+                return;
+            }
+
+            if (!template) {
+                template = "#:";
+
+                if (typeof optionLabel === "string") {
+                    template += "data";
+                } else {
+                    template += kendo.expr(options.dataTextField, "data");
+                }
+
+                template += "#";
+            }
+
+            if (typeof template !== "function") {
+                template = kendo.template(template);
+            }
+
+            that.optionLabelTemplate = template;
+            that.optionLabel = $('<div class="k-list-optionlabel">' + template(optionLabel) + '</div>')
+                                .prependTo(that.list)
+                                .click($.proxy(this._click, this));
+
+            that.angular("compile", function(){
+                return { elements: that.optionLabel };
+            });
+        },
+
+        _optionLabelText: function() {
+            var optionLabel = this.options.optionLabel;
+            return (typeof optionLabel === "string") ? optionLabel : this._text(optionLabel);
+        },
+
+        _listBound: function() {
+            var that = this;
+            var data = that.listView.data();
+            var length = data.length;
+            var optionLabel = that.options.optionLabel;
+            var filtered = that._state === STATE_FILTER;
+            var element = that.element[0];
+            var selectedIndex;
+            var height;
+            var value;
+
             that._angularItems("compile");
 
-            that._height(filtered ? (length || 1) : length);
+            if (!that.options.virtual) {
+                height = that._height(filtered ? (length || 1) : length);
+                that._calculateGroupPadding(height);
+            }
 
             if (that.popup.visible()) {
                 that.popup._position();
@@ -77730,7 +76701,7 @@ kendo.PDFMixin = {
 
                 if (length) {
                     if (optionLabel) {
-                        optionLabel = that._option("", that._optionLabelText(optionLabel));
+                        optionLabel = that._option("", this._optionLabelText());
                     }
                 } else if (value) {
                     selectedIndex = 0;
@@ -77753,72 +76724,28 @@ kendo.PDFMixin = {
 
                 if (!that._fetch) {
                     if (length) {
-                        that._selectItem();
-                    } else if (that._textAccessor() !== optionLabel) {
-                        that.element.val("");
-                        that._textAccessor("");
+                        if (!this.listView.value().length && this._initialIndex > -1 && this._initialIndex !== null) {
+                            this.select(this._initialIndex);
+                        }
+
+                        this._initialIndex = null;
+                    } else if (this._textAccessor() !== optionLabel) {
+                        this.listView.value("");
+                        this._selectValue(null);
                     }
                 }
             } else {
-                that.current($(that.ul[0].firstChild));
+                this.listView.first();
             }
 
-            that._bound = !!length;
             that.trigger("dataBound");
         },
 
-        text: function (text) {
-            var that = this;
-            var dataItem, loweredText;
-            var ignoreCase = that.options.ignoreCase;
+        _listChange: function() {
+            this._selectValue(this.listView.selectedDataItems()[0]);
 
-            text = text === null ? "" : text;
-
-            if (text !== undefined) {
-                if (typeof text === "string") {
-                    loweredText = ignoreCase ? text.toLowerCase() : text;
-
-                    dataItem = that._select(function(data) {
-                        data = that._text(data);
-
-                        if (ignoreCase) {
-                            data = (data + "").toLowerCase();
-                        }
-
-                        return data === loweredText;
-                    });
-
-                    if (dataItem) {
-                        text = dataItem;
-                    }
-                }
-
-                that._textAccessor(text);
-            } else {
-                return that._textAccessor();
-            }
-        },
-
-        value: function(value) {
-            var that = this,
-                idx, hasValue;
-
-            if (value !== undefined) {
-                if (value !== null) {
-                    value = value.toString();
-                }
-
-                that._selectedValue = value;
-
-                hasValue = value || (that.options.optionLabel && !that.element[0].disabled && value === "");
-                if (hasValue && that._fetchItems(value)) {
-                    return;
-                }
-
-                idx = that._index(value);
-                that.select(idx > -1 ? idx : 0);
-            } else {
-                return that._accessor();
+            if (this._old && this._oldIndex === -1) {
+                this._oldIndex = this.selectedIndex;
             }
         },
 
@@ -77837,12 +76764,14 @@ kendo.PDFMixin = {
             var isIFrame = window.self !== window.top;
 
             if (!that._prevent) {
+                clearTimeout(that._typing);
+
                 if (filtered) {
-                    that._select(that._current);
+                    that._select(that._focus(), !that.listView.dataItems()[0]);
                 }
 
                 if (!filtered || that.dataItem()) {
-                    that._triggerCascade();
+                    //that._triggerCascade();
                 }
 
                 if (kendo.support.mobileOS.ios && isIFrame) {
@@ -77869,12 +76798,12 @@ kendo.PDFMixin = {
         },
 
         _editable: function(options) {
-            var that = this,
-                element = that.element,
-                disable = options.disable,
-                readonly = options.readonly,
-                wrapper = that.wrapper.add(that.filterInput).off(ns),
-                dropDownWrapper = that._inputWrapper.off(HOVEREVENTS);
+            var that = this;
+            var element = that.element;
+            var disable = options.disable;
+            var readonly = options.readonly;
+            var wrapper = that.wrapper.add(that.filterInput).off(ns);
+            var dropDownWrapper = that._inputWrapper.off(HOVEREVENTS);
 
             if (!readonly && !disable) {
                 element.removeAttr(DISABLED).removeAttr(READONLY);
@@ -77921,75 +76850,8 @@ kendo.PDFMixin = {
                    .attr(ARIA_READONLY, readonly);
         },
 
-        _accept: function(li, key) {
-            var that = this;
-            var activeFilter = that.filterInput && that.filterInput[0] === activeElement();
-
-            that._focus(li);
-            that._focusElement(that.wrapper);
-
-            if (activeFilter && key === keys.TAB) {
-                that.wrapper.focusout();
-            }
-        },
-
         _option: function(value, text) {
             return '<option value="' + value + '">' + text + "</option>";
-        },
-
-        _optionLabelText: function() {
-            var options = this.options,
-                dataTextField = options.dataTextField,
-                optionLabel = options.optionLabel;
-
-            if (optionLabel && dataTextField && typeof optionLabel === "object") {
-                return this._text(optionLabel);
-            }
-
-            return optionLabel;
-        },
-
-        _data: function() {
-            var that = this,
-                options = that.options,
-                optionLabel = options.optionLabel,
-                textField = options.dataTextField,
-                valueField = options.dataValueField,
-                data = that.dataSource.view(),
-                length = data.length,
-                first = optionLabel,
-                idx = 0;
-
-            if (optionLabel && length) {
-                if (typeof optionLabel === "object") {
-                    first = optionLabel;
-                } else if (textField) {
-                    first = {};
-
-                    textField = textField.split(".");
-                    valueField = valueField.split(".");
-
-                    assign(first, valueField, "");
-                    assign(first, textField, optionLabel);
-                }
-
-                first = new kendo.data.ObservableArray([first]);
-
-                for (; idx < length; idx++) {
-                    first.push(data[idx]);
-                }
-                data = first;
-            }
-
-            return data;
-        },
-
-        _selectItem: function() {
-            Select.fn._selectItem.call(this);
-
-            if (!this.current()) {
-                this.select(0);
-            }
         },
 
         _keydown: function(e) {
@@ -78007,22 +76869,29 @@ kendo.PDFMixin = {
 
             e.keyCode = key;
 
+            if (altKey && key === keys.UP) {
+                that._focusElement(that.wrapper);
+            }
+
             handled = that._move(e);
+
+            if (handled) {
+                return;
+            }
 
             if (!that.popup.visible() || !that.filterInput) {
                 if (key === keys.HOME) {
                     handled = true;
-                    e.preventDefault();
-                    that._select(ul.firstChild);
+                    that._firstItem();
                 } else if (key === keys.END) {
                     handled = true;
-                    e.preventDefault();
-                    that._select(ul.lastChild);
+                    that._lastItem();
                 }
-            }
 
-            if (altKey && key === keys.UP) {
-                that._focusElement(that.wrapper);
+                if (handled) {
+                    that._select(that._focus());
+                    e.preventDefault();
+                }
             }
 
             if (!altKey && !handled && that.filterInput) {
@@ -78033,7 +76902,7 @@ kendo.PDFMixin = {
         _selectNext: function(word, index) {
             var that = this, text,
                 startIndex = index,
-                data = that._data(),
+                data = that.listView.data(),
                 length = data.length,
                 ignoreCase = that.options.ignoreCase,
                 action = function(text, index) {
@@ -78044,7 +76913,9 @@ kendo.PDFMixin = {
 
                     if (text.indexOf(word) === 0) {
                         that._select(index);
-                        that._triggerEvents();
+                        if (!that.popup.visible()) {
+                            that._change();
+                        }
                         return true;
                     }
                 };
@@ -78118,6 +76989,22 @@ kendo.PDFMixin = {
         _popup: function() {
             Select.fn._popup.call(this);
             this.popup.one("open", proxy(this._popupOpen, this));
+        },
+
+        _click: function(e) {
+            var item = e.item || $(e.currentTarget);
+
+            if (this.trigger("select", { item: item })) {
+                this.close();
+                return;
+            }
+
+            this._userTriggered = true;
+
+            this._select(item);
+            this._focusElement(this.wrapper);
+
+            this._blur();
         },
 
         _focusElement: function(element) {
@@ -78194,59 +77081,182 @@ kendo.PDFMixin = {
                 }
 
                 that._selectNext(word, index);
-                that._triggerEvents();
             }
         },
 
-        _select: function(li) {
-            var that = this,
-                current = that._current,
-                data = null,
-                value,
-                idx;
+        _get: function(candidate) {
+            var data, found, idx;
 
-            li = that._get(li);
-
-            if (li && li[0] && !li.hasClass(SELECTED)) {
-                if (that._state === STATE_FILTER) {
-                    that._state = STATE_ACCEPT;
-                }
-
-                if (current) {
-                    current.removeClass(SELECTED);
-                }
-
-                idx = ui.List.inArray(li[0], that.ul[0]);
-                if (idx > -1) {
-                    that.selectedIndex = idx;
-
-                    data = that._data()[idx];
-                    value = that._value(data);
-
-                    if (value === null) {
-                        value = "";
-                    }
-
-                    that._textAccessor(data);
-                    that._accessor(value !== undefined ? value : that._text(data), idx);
-                    that._selectedValue = that._accessor();
-
-                    that.current(li.addClass(SELECTED));
-
-                    if (that._optionID) {
-                        that._current.attr("aria-selected", true);
-                    }
+            if (this.optionLabel[0]) {
+                if (typeof candidate === "number") {
+                    candidate -= 1;
+                } else if (candidate instanceof jQuery && candidate.hasClass("k-list-optionlabel")) {
+                    candidate = -1;
                 }
             }
 
-            return data;
+            if (typeof candidate === "function") {
+                data = this.listView.data();
+
+                for (idx = 0; idx < data.length; idx++) {
+                    if (candidate(data[idx])) {
+                        candidate = idx;
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found) {
+                    candidate = -1;
+                }
+            }
+
+            return candidate;
         },
 
-        _triggerEvents: function() {
-            if (!this.popup.visible()) {
-                this._triggerCascade();
-                this._change();
+        _firstItem: function() {
+            if (this.optionLabel[0]) {
+                this._focus(this.optionLabel);
+            } else {
+                this.listView.first();
             }
+        },
+
+        _lastItem: function() {
+            this.optionLabel.removeClass("k-state-focused");
+            this.listView.last();
+        },
+
+        _nextItem: function() {
+            if (this.optionLabel.hasClass("k-state-focused")) {
+                this.optionLabel.removeClass("k-state-focused");
+                this.listView.first();
+            } else {
+                this.listView.next();
+            }
+        },
+
+        _prevItem: function() {
+            if (this.optionLabel.hasClass("k-state-focused")) {
+                return;
+            }
+
+            this.listView.prev();
+            if (!this.listView.focus()) {
+                this.optionLabel.addClass("k-state-focused");
+            }
+        },
+
+        _focusItem: function() {
+            var listView = this.listView;
+            var focusedItem = listView.focus();
+            var index = listView.select();
+
+            index = index[index.length - 1];
+
+            if (index === undefined && this.options.highlightFirst && !focusedItem) {
+                index = 0;
+            }
+
+            if (index !== undefined) {
+                listView.focus(index);
+            } else {
+                if (this.options.optionLabel) {
+                    this._focus(this.optionLabel);
+                    this._select(this.optionLabel);
+                } else {
+                    listView.scrollToIndex(0);
+                }
+            }
+        },
+
+        _focus: function(candidate) {
+            var listView = this.listView;
+            var optionLabel = this.optionLabel;
+
+            if (candidate === undefined) {
+                candidate = listView.focus();
+
+                if (!candidate && optionLabel.hasClass("k-state-focused")) {
+                    candidate = optionLabel;
+                }
+
+                return candidate;
+            }
+
+            optionLabel.removeClass("k-state-focused");
+
+            candidate = this._get(candidate);
+
+            listView.focus(candidate);
+
+            if (candidate === -1) {
+                //TODO: ARIA
+                optionLabel.addClass("k-state-focused");
+            }
+        },
+
+        _select: function(candidate, keepState) {
+            var optionLabel = this.optionLabel;
+
+            candidate = this._get(candidate);
+
+            if (!keepState && this._state === STATE_FILTER) {
+                this.listView.clearIndices();
+                this.listView.filter(false);
+
+                this._state = STATE_ACCEPT;
+            }
+
+            optionLabel.removeClass("k-state-focused k-state-selected");
+
+            this.listView.select(candidate);
+
+            if (candidate === -1) {
+                this._selectValue(null);
+                this._focus(optionLabel.addClass("k-state-selected"));
+            }
+        },
+
+        _selectValue: function(dataItem) {
+            var value = "";
+            var text = "";
+            var idx = this.listView.select();
+            var optionLabel = this.options.optionLabel;
+
+            idx = idx[idx.length - 1];
+            if (idx === undefined) {
+                idx = -1;
+            }
+
+            if (dataItem) {
+                text = dataItem;
+                value = this._dataValue(dataItem);
+                if (optionLabel) {
+                    idx += 1;
+                }
+            } else if (optionLabel) {
+                this._focus(this.optionLabel);
+                text = this._optionLabelText();
+                if (typeof optionLabel === "string") {
+                    value = "";
+                } else {
+                    value = this._value(optionLabel);
+                }
+
+                idx = 0;
+            }
+
+            this.selectedIndex = idx;
+
+            if (value === null) {
+                value = "";
+            }
+
+            this._textAccessor(text);
+            this._accessor(value, idx);
+
+            this._triggerCascade();
         },
 
         _mobile: function() {
@@ -78341,17 +77351,13 @@ kendo.PDFMixin = {
             var optionLabel = that.options.optionLabel;
 
             that.options.value = "";
-            that._selectedValue = "";
 
             if (that.dataSource.view()[0] && (optionLabel || that._userTriggered)) {
                 that.select(0);
-                return;
+            } else {
+                that.select(-1);
+                that._textAccessor(that.options.optionLabel);
             }
-
-            that.selectedIndex = -1;
-
-            that.element.val("");
-            that._textAccessor(that.options.optionLabel);
         },
 
         _inputTemplate: function() {
@@ -78369,14 +77375,21 @@ kendo.PDFMixin = {
         },
 
         _textAccessor: function(text) {
-            var dataItem = this.dataItem();
+            var dataItem = this.listView.selectedDataItems()[0];
+            var template = this.valueTemplate;
             var options = this.options;
+            var optionLabel = options.optionLabel;
             var span = this.span;
 
             if (text !== undefined) {
                 if ($.isPlainObject(text) || text instanceof kendo.data.ObservableObject) {
                     dataItem = text;
-                } else if (!dataItem || this._text(dataItem) !== text) {
+                } else if (optionLabel && this._optionLabelText() === text) {
+                    dataItem = optionLabel;
+                    template = this.optionLabelTemplate;
+                }
+
+                if (dataItem === undefined) {
                     if (options.dataTextField) {
                         dataItem = {};
                         assign(dataItem, options.dataTextField.split("."), text);
@@ -78393,7 +77406,7 @@ kendo.PDFMixin = {
                     };
                 };
                 this.angular("cleanup", getElements);
-                span.html(this.valueTemplate(dataItem));
+                span.html(template(dataItem));
                 this.angular("compile", getElements);
             } else {
                 return span.text();
@@ -78959,10 +77972,7 @@ kendo.PDFMixin = {
                 var diagram = this.diagram;
                 if (diagram && diagram._isEditable) {
                     var bounds = this._bounds;
-                    var model;
-                    if (this.dataItem) {
-                        model = diagram.dataSource.getByUid(this.dataItem.uid);
-                    }
+                    var model = this.dataItem;
 
                     if (model) {
                         diagram._suspendModelRefresh();
@@ -79257,6 +78267,11 @@ kendo.PDFMixin = {
                         boundsChange = true;
                     }
 
+                    if (options.connectors) {
+                        shapeOptions.connectors = options.connectors;
+                        this._updateConnectors();
+                    }
+
                     shapeOptions = deepExtend(shapeOptions, options);
 
                     if  (options.rotation || boundsChange) {
@@ -79266,6 +78281,27 @@ kendo.PDFMixin = {
                     if (shapeOptions.content) {
                         this.content(shapeOptions.content);
                     }
+                }
+            },
+
+            _updateConnectors: function() {
+                var connections = this.connections();
+                this.connectors = [];
+                this._createConnectors();
+                var connection;
+                var source;
+                var target;
+
+                for (var idx = 0; idx < connections.length; idx++) {
+                    connection = connections[idx];
+                    source = connection.source();
+                    target = connection.target();
+                    if (source.shape && source.shape === this) {
+                        connection.source(this.getConnector(source.options.name) || null);
+                    } else if (target.shape && target.shape === this) {
+                        connection.target(this.getConnector(target.options.name) || null);
+                    }
+                    connection.updateModel();
                 }
             },
 
@@ -79731,7 +78767,7 @@ kendo.PDFMixin = {
                             diagram._deferredConnectionUpdates.push(inactiveItem.onActivate(setNewTarget));
                         }
                     }
-                } else if (instance !== that[name]()) {
+                } else {
                     that[name](instance, false);
                 }
             },
@@ -80008,7 +79044,7 @@ kendo.PDFMixin = {
                 that._initTheme();
                 that._initElements();
                 that._extendLayoutOptions(that.options);
-                that._initShapeDefaults(userOptions);
+                that._initDefaults(userOptions);
 
                 that._initCanvas();
 
@@ -80118,50 +79154,80 @@ kendo.PDFMixin = {
             ],
 
             _createGlobalToolBar: function() {
-                var tools = this.options.editable.tools;
-                if (this._isEditable && tools.length === 0) {
-                    tools = ["createShape", "undo", "redo", "rotateClockwise", "rotateAnticlockwise"];
-                }
+                var editable = this.options.editable;
+                if (editable) {
+                    var tools = editable.tools;
+                    if (this._isEditable && tools.length === 0) {
+                        tools = ["createShape", "undo", "redo", "rotateClockwise", "rotateAnticlockwise"];
+                    }
 
-                if (tools && tools.length) {
-                    this.toolBar = new DiagramToolBar(this, {
-                        tools: tools || {},
-                        click: proxy(this._toolBarClick, this),
-                        modal: false
-                    });
+                    if (tools && tools.length) {
+                        this.toolBar = new DiagramToolBar(this, {
+                            tools: tools || {},
+                            click: proxy(this._toolBarClick, this),
+                            modal: false
+                        });
 
-                    this.toolBar.element.css({
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        width: this.element.width(),
-                        textAlign: "left"
-                    });
+                        this.toolBar.element.css({
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: this.element.width(),
+                            textAlign: "left"
+                        });
 
-                    this.element.append(this.toolBar.element);
+                        this.element.append(this.toolBar.element);
+                    }
                 }
             },
 
             createShape: function() {
-                var that = this;
-                if (((this.editor && this.editor.end()) || !this.editor) &&
-                    !this.trigger("add", { shape: {} })) {
-                    var view = this.dataSource.view() || [];
+                if ((this.editor && this.editor.end()) || !this.editor) {
+                    var dataSource = this.dataSource;
+                    var view = dataSource.view() || [];
                     var index = view.length;
-                    var model = this.dataSource.insert(index, {});
-                    that.editModel(model, "shape");
+                    var model = createModel(dataSource, {});
+                    var shape = this._createShape(model, {});
+
+                    if (!this.trigger("add", { shape: shape })) {
+                        dataSource.insert(index, model);
+                        var inactiveItem = this._inactiveShapeItems.getByUid(model.uid);
+                        inactiveItem.element = shape;
+                        this.edit(shape);
+                    }
                 }
             },
 
+            _createShape: function(dataItem, options) {
+                options = deepExtend({}, this.options.shapeDefaults, options);
+                options.dataItem = dataItem;
+                var shape = new Shape(options, this);
+                return shape;
+            },
+
             createConnection: function() {
-                if (((this.editor && this.editor.end()) || !this.editor) &&
-                    !this.trigger("add", { connection: {} })) {
-                    var view = this.connectionsDataSource.view() || [];
+                if (((this.editor && this.editor.end()) || !this.editor)) {
+                    var connectionsDataSource = this.connectionsDataSource;
+                    var view = connectionsDataSource.view() || [];
                     var index = view.length;
-                    var model = this.connectionsDataSource.insert(index, {});
-                    var connection = this._connectionsDataMap[model.uid];
-                    this.edit(connection);
+                    var model = createModel(connectionsDataSource, {});
+                    var connection = this._createConnection(model);
+                    if (!this.trigger("add", { connection: connection })) {
+                        this._connectionsDataMap[model.uid] = connection;
+                        connectionsDataSource.insert(index, model);
+                        this.addConnection(connection, false);
+                        this.edit(connection);
+                    }
                 }
+            },
+
+            _createConnection: function(dataItem, source, target) {
+                var options = deepExtend({}, this.options.connectionDefaults);
+                options.dataItem = dataItem;
+
+                var connection = new Connection(source || new Point(), target || new Point(), options);
+
+                return connection;
             },
 
             editModel: function(dataItem, editorType) {
@@ -80262,15 +79328,12 @@ kendo.PDFMixin = {
                 this.scrollable = $("<div />").appendTo(this.element);
             },
 
-            _initShapeDefaults: function(userOptions) {
+            _initDefaults: function(userOptions) {
                 var options = this.options;
                 var userShapeDefaults = (userOptions || {}).shapeDefaults;
                 if (options.editable === false) {
-                    deepExtend(options.shapeDefaults, {
-                        editable: {
-                            connect: false
-                        }
-                    });
+                    options.shapeDefaults.editable = false;
+                    options.connectionDefaults.editable = false;
                 }
 
                 if (userShapeDefaults && userShapeDefaults.connectors) {
@@ -80639,21 +79702,27 @@ kendo.PDFMixin = {
             },
 
             _addConnection: function (connection, undoable) {
-                var newConnection, newItem, dataItem;
-                if (this.connectionsDataSource && this._isEditable) {
-                    newItem = cloneDataItem(connection.dataItem);
-                    dataItem = this.connectionsDataSource.add(newItem);
-                    newConnection = this._connectionsDataMap[dataItem.uid];
-                    newConnection.redraw(connection.options);
-                    newConnection._updateConnector(connection.source(), "source");
-                    newConnection._updateConnector(connection.target(), "target");
-                } else {
-                    newConnection = this.addConnection(connection, undoable);
-                    newConnection.source(connection.source());
-                    newConnection.target(connection.target());
-                }
+                var connectionsDataSource = this.connectionsDataSource;
+                var dataItem;
+                if (connectionsDataSource && this._isEditable) {
+                    dataItem = createModel(connectionsDataSource, cloneDataItem(connection.dataItem));
+                    connection.dataItem = dataItem;
+                    connection.updateModel();
 
-                return newConnection;
+                    if (!this.trigger("add", { connection: connection })) {
+                        this._connectionsDataMap[dataItem.uid] = connection;
+
+                        connectionsDataSource.add(dataItem);
+                        this.addConnection(connection, undoable);
+                        connection._updateConnectors();
+
+                        return connection;
+                    }
+                } else if (!this.trigger("add", { connection: connection })) {
+                    this.addConnection(connection, undoable);
+                    connection._updateConnectors();
+                    return connection;
+                }
             },
 
             /**
@@ -80698,29 +79767,24 @@ kendo.PDFMixin = {
                 return shape;
             },
 
-            _addShape: function(shape, options) {
+            _addShape: function(shape, undoable) {
                 var that = this;
-                var newItem, dataItem;
-                if (this.dataSource && this._isEditable) {
-                    newItem = cloneDataItem(shape.dataItem);
-                    if (!this.trigger("add", { shape: newItem })) {
-                        dataItem = this.dataSource.add(newItem);
-                        var updateShape = function() {
-                            var element = that._dataMap[dataItem.id];
-                            element.redraw(shape.options);
-                        };
+                var dataSource = that.dataSource;
+                var dataItem;
+                if (dataSource && this._isEditable) {
+                    dataItem = createModel(dataSource, cloneDataItem(shape.dataItem));
+                    shape.dataItem = dataItem;
+                    shape.updateModel();
+
+                    if (!this.trigger("add", { shape: shape })) {
+                        this.dataSource.add(dataItem);
                         var inactiveItem = this._inactiveShapeItems.getByUid(dataItem.uid);
-                        shape.dataItem = dataItem;
-                        shape.updateModel();
-                        if (inactiveItem) {
-                            inactiveItem.onActivate(updateShape);
-                        } else {
-                            updateShape();
-                        }
-                        return that._dataMap[dataItem.id];
+                        inactiveItem.element = shape;
+                        inactiveItem.undoable = undoable;
+                        return shape;
                     }
-                } else {
-                    return this.addShape(shape, options);
+                } else if (!this.trigger("add", { shape: shape })) {
+                    return this.addShape(shape, { undoable: undoable });
                 }
             },
             /**
@@ -80780,25 +79844,21 @@ kendo.PDFMixin = {
             },
 
             _triggerRemove: function(items){
-                if (this._isEditable) {
-                    var toRemove = [];
-                    var item, args;
+                var toRemove = [];
+                var item, args;
 
-                    for (var idx = 0; idx < items.length; idx++) {
-                        item = items[idx];
-                        if (item instanceof Shape) {
-                            args = { shape: item.dataItem };
-                        } else {
-                            args = { connection: item.dataItem };
-                        }
-                        if (!this.trigger("remove", args)) {
-                            toRemove.push(item);
-                        }
+                for (var idx = 0; idx < items.length; idx++) {
+                    item = items[idx];
+                    if (item instanceof Shape) {
+                        args = { shape: item };
+                    } else {
+                        args = { connection: item };
                     }
-                    return toRemove;
-                } else {
-                    return items;
+                    if (!this.trigger("remove", args)) {
+                        toRemove.push(item);
+                    }
                 }
+                return toRemove;
             },
 
             /**
@@ -81664,7 +80724,7 @@ kendo.PDFMixin = {
 
                 if (!this.singleToolBar && diagram.select().length === 1) {
                     var element = diagram.select()[0];
-                    if (element) {
+                    if (element && element.options.editable !== false) {
                         var tools = element.options.editable.tools;
                         if (this._isEditable && tools.length === 0) {
                             if (element instanceof Shape) {
@@ -81932,8 +80992,15 @@ kendo.PDFMixin = {
                 var inactiveItems = diagram._inactiveShapeItems;
                 inactiveItems.forEach(function(inactiveItem) {
                     var dataItem = inactiveItem.dataItem;
+                    var shape = inactiveItem.element;
                     if (!dataItem.isNew()) {
-                        diagram._addDataItem(dataItem);
+                        if (shape) {
+                            shape._setOptionsFromModel();
+                            diagram.addShape(shape, { undoable: inactiveItem.undoable });
+                            diagram._dataMap[dataItem.id] = shape;
+                        } else {
+                            diagram._addDataItem(dataItem);
+                        }
                         inactiveItem.activate();
                         inactiveItems.remove(dataItem);
                     }
@@ -82321,23 +81388,11 @@ kendo.PDFMixin = {
             },
 
             createTool: function(tool) {
-                var toolName;
-                if (isPlainObject(tool)) {
-                    if (tool.name) {
-                        toolName = tool.name + "Tool";
-                        if (this[toolName]) {
-                            this[toolName](tool);
-                        }
-                    } else if (tool.template) {
-                        this._toolBar.add({
-                            template: tool.template
-                        });
-                    }
+                var toolName = (isPlainObject(tool) ? tool.name : tool) + "Tool";
+                if (this[toolName]) {
+                    this[toolName](tool);
                 } else {
-                    toolName = tool + "Tool";
-                    if (this[toolName]) {
-                        this[toolName]({});
-                    }
+                    this._tools.push(tool);
                 }
             },
 
@@ -82865,6 +81920,14 @@ kendo.PDFMixin = {
                 shapes: shapes,
                 connections: connections
             };
+        }
+
+        function createModel(dataSource, model) {
+            if (dataSource.reader.model) {
+                return new dataSource.reader.model(model);
+            }
+
+            return new kendo.data.ObservableObject(model);
         }
 
         dataviz.ui.plugin(Diagram);
@@ -83912,6 +82975,9 @@ kendo.PDFMixin = {
     }
 
     function createWidget(scope, element, attrs, widget, origAttr, controllers) {
+        if (!(element instanceof jQuery)) {
+            throw new Error("The Kendo UI directives require jQuery to be available before AngularJS. Please include jquery before angular in the document.");
+        }
         var kNgDelay = attrs.kNgDelay,
             delayValue = scope.$eval(kNgDelay);
 
@@ -83969,7 +83035,7 @@ kendo.PDFMixin = {
             var widgetEvents = ctor.widget.prototype.events;
 
             $.each(attrs, function(name, value) {
-                if (name === "source" || name === "kDataSource") {
+                if (name === "source" || name === "kDataSource" || name === "kScopeField") {
                     return;
                 }
 
@@ -84037,7 +83103,7 @@ kendo.PDFMixin = {
             var destroyRegister = destroyWidgetOnScopeDestroy(scope, object);
 
             if (attrs.kRebind) {
-                setupRebind(object, scope, element, originalElement, attrs.kRebind, destroyRegister);
+                setupRebind(object, scope, element, originalElement, attrs.kRebind, destroyRegister, attrs);
             }
 
             if (attrs.kNgDisabled) {
@@ -84344,7 +83410,7 @@ kendo.PDFMixin = {
         widget.first("destroy", suspend);
     }
 
-    function setupRebind(widget, scope, element, originalElement, rebindAttr, destroyRegister) {
+    function setupRebind(widget, scope, element, originalElement, rebindAttr, destroyRegister, attrs) {
         // watch for changes on the expression passed in the k-rebind attribute
         var unregister = scope.$watch(rebindAttr, function(newValue, oldValue) {
             if (newValue !== oldValue) {
@@ -84358,6 +83424,18 @@ kendo.PDFMixin = {
                 //
                 // kRebind is probably impossible to get right at the moment.
                 ****************************************************************/
+
+                var templateOptions = WIDGET_TEMPLATE_OPTIONS[widget.options.name];
+
+                if (templateOptions) {
+                    templateOptions.forEach(function(name) {
+                        var templateContents = scope.$eval(attrs["k" + name]);
+
+                        if (templateContents) {
+                            originalElement.append($(templateContents).attr(kendo.toHyphens("k" + name), ""));
+                        }
+                    });
+                }
 
                 var _wrapper = $(widget.wrapper)[0];
                 var _element = $(widget.element)[0];
@@ -84545,7 +83623,9 @@ kendo.PDFMixin = {
                         replace  : true,
                         template : function(element, attributes) {
                             var tag = TAGNAMES[className] || "div";
-                            return "<" + tag + " " + dashed + ">" + element.html() + "</" + tag + ">";
+                            var scopeField = attributes.kScopeField;
+
+                            return "<" + tag + " " + dashed + (scopeField ? ('="' + scopeField + '"') : "") + ">" + element.html() + "</" + tag + ">";
                         }
                     };
                 });
@@ -85495,6 +84575,13 @@ kendo.PDFMixin = {
             return true;
         },
 
+        triggerBeforeHide: function() {
+            if (this.trigger(BEFORE_HIDE, { view: this })) {
+                return false;
+            }
+            return true;
+        },
+
         showStart: function() {
             var element = this.element;
 
@@ -85519,10 +84606,6 @@ kendo.PDFMixin = {
         showEnd: function() {
             this.trigger(AFTER_SHOW, {view: this});
             this._padIfNativeScrolling();
-        },
-
-        hideStart: function() {
-            this.trigger(BEFORE_HIDE, {view: this});
         },
 
         hideEnd: function() {
@@ -86418,7 +85501,7 @@ kendo.PDFMixin = {
         _setupAppLinks: function() {
             var that = this;
             this.element.handler(this)
-                .on("down", roleSelector(linkRoles), "_mouseup")
+                .on("down", roleSelector(linkRoles)+",[data-navigate-on-press]", "_mouseup")
                 .on("click", roleSelector(linkRoles + " " + buttonRoles), "_appLinkClick");
 
             this.userEvents = new kendo.UserEvents(this.element, {
@@ -87442,6 +86525,8 @@ kendo.PDFMixin = {
                     }
                 });
                 that.trigger("init", {view: that});
+            } else {
+                this._invokeNgController();
             }
 
             that.trigger("show", {view: that});
@@ -88119,17 +87204,25 @@ kendo.PDFMixin = {
             var that = this;
 
             Widget.fn.init.call(that, element, options);
+            var useTap = that.options.clickOn === "up";
 
             that._wrap();
             that._style();
+
+            if (!useTap) {
+                that.element.attr("data-navigate-on-press", true);
+            }
 
             that.options.enable = that.options.enable && !that.element.attr(DISABLED);
             that.enable(that.options.enable);
 
             that._userEvents = new kendo.UserEvents(that.element, {
                 press: function(e) { that._activate(e); },
-                tap: function(e) { that._release(e); },
                 release: function(e) { highlightButton(that, e, false); }
+            });
+
+            that._userEvents.bind(useTap ? "tap" : "press", function(e) {
+                that._release(e);
             });
 
             if (ANDROID3UP) {
@@ -88151,6 +87244,7 @@ kendo.PDFMixin = {
             icon: "",
             style: "",
             badge: "",
+            clickOn: "up",
             enable: true
         },
 
@@ -88470,6 +87564,185 @@ kendo.PDFMixin = {
     });
 
     ui.plugin(ButtonGroup);
+})(window.kendo.jQuery);
+
+
+
+
+
+(function($, undefined) {
+    var kendo = window.kendo,
+        ui = kendo.mobile.ui,
+        Widget = ui.Widget,
+        COLLAPSIBLE = "km-collapsible",
+        HEADER = "km-collapsible-header",
+        CONTENT = "km-collapsible-content",
+        INSET = "km-collapsibleinset",
+        HEADER_WRAPPER = "<div data-role='collapsible-header' class='" + HEADER + "'></div>",
+        CONTENT_WRAPPER = "<div data-role='collapsible-content' class='" + CONTENT + "'></div>",
+
+        COLLAPSED = "km-collapsed",
+        EXPANDED = "km-expanded",
+        ANIMATED = "km-animated",
+
+        //icon position
+        LEFT = "left",
+        RIGHT = "right",
+        TOP = "top",
+
+        //events
+        EXAPND = "expand",
+        COLLAPSE = "collapse";
+
+    var Collapsible = Widget.extend({
+        init: function(element, options) {
+            var that = this,
+                container = $(element);
+
+            Widget.fn.init.call(that, container, options);
+
+            container.addClass(COLLAPSIBLE);
+
+            that._buildHeader();
+            that.content = container.children().not(that.header).wrapAll(CONTENT_WRAPPER).parent();
+
+            that._userEvents = new kendo.UserEvents(that.header, {
+                tap: function() { that.toggle(); }
+            });
+
+            container.addClass(that.options.collapsed ? COLLAPSED : EXPANDED);
+
+            if (that.options.inset) {
+                container.addClass(INSET);
+            }
+
+            if (that.options.animation) {
+                that.content.addClass(ANIMATED);
+                that.content.height(0);
+                if (that.options.collapsed) {
+                    that.content.hide();
+                }
+            } else if (that.options.collapsed) {
+                that.content.hide();
+            }
+        },
+
+        events: [
+            EXAPND,
+            COLLAPSE
+        ],
+
+        options: {
+            name: "Collapsible",
+            collapsed: true,
+            collapseIcon: "arrow-n",
+            expandIcon: "arrow-s",
+            iconPosition: LEFT,
+            animation: true,
+            inset: false
+        },
+
+        destroy: function() {
+            Widget.fn.destroy.call(this);
+            this._userEvents.destroy();
+        },
+
+        expand: function(instant) {
+            var icon = this.options.collapseIcon,
+                content = this.content,
+                ios = kendo.support.mobileOS.ios;
+
+            if (!this.trigger(EXAPND)) {
+                if (icon) {
+                    this.header.find(".km-icon").removeClass().addClass("km-icon km-" + icon);
+                }
+                this.element.removeClass(COLLAPSED).addClass(EXPANDED);
+
+                if (this.options.animation && !instant) {
+                    content.off("transitionend");
+                    content.show();
+                    if (ios) { content.removeClass(ANIMATED); } //required to get the height of the content on iOS
+                    content.height(this._getContentHeight());
+                    if (ios) { content.addClass(ANIMATED); }
+
+                    kendo.resize(content);
+                } else {
+                    content.show();
+                }
+            }
+        },
+
+        collapse: function(instant) {
+            var icon = this.options.expandIcon,
+                content = this.content;
+
+            if (!this.trigger(COLLAPSE)) {
+                if (icon) {
+                    this.header.find(".km-icon").removeClass().addClass("km-icon km-" + icon);
+                }
+                this.element.removeClass(EXPANDED).addClass(COLLAPSED);
+
+                if (this.options.animation && !instant) {
+                    content.one("transitionend", function() { content.hide(); });
+                    content.height(0);
+                } else {
+                    content.hide();
+                }
+            }
+        },
+
+        toggle: function(instant) {
+            if (this.isCollapsed()) {
+                this.expand(instant);
+            } else {
+                this.collapse(instant);
+            }
+        },
+
+        isCollapsed: function() {
+            return this.element.hasClass(COLLAPSED);
+        },
+
+        resize: function() {
+            if (!this.isCollapsed() && this.options.animation) {
+                this.content.height(this._getContentHeight());
+            }
+        },
+
+        _buildHeader: function() {
+            var header = this.element.children(":header").wrapAll(HEADER_WRAPPER),
+                iconSpan = $('<span class="km-icon"/>'),
+                icon = this.options.collapsed ? this.options.expandIcon : this.options.collapseIcon,
+                iconPosition = this.options.iconPosition;
+
+            if (icon) {
+                header.prepend(iconSpan);
+                iconSpan.addClass("km-" + icon);
+            }
+
+            this.header = header.parent();
+            this.header.addClass("km-icon-" + iconPosition);
+        },
+
+        _getContentHeight: function() {
+            var style = this.content.attr("style"),
+                height;
+
+            this.content.css({
+                position:   'absolute',
+                visibility: 'hidden',
+                height: "auto"
+            });
+
+            height = this.content.height();
+
+            this.content.attr("style", style ? style : "");
+
+            return height;
+        }
+    });
+
+    ui.plugin(Collapsible);
 })(window.kendo.jQuery);
 
 
@@ -89181,7 +88454,7 @@ kendo.PDFMixin = {
                 groupedMode = groups && groups[0],
                 item;
 
-            if (action === "itemchange") {
+            if (action === "itemchange" && !listView._hasBindingTarget()) {
                 item = listView.findByDataItem(dataItems)[0];
                 if (item) {
                     listView.setDataItem(item, dataItems[0]);
@@ -89329,7 +88602,7 @@ kendo.PDFMixin = {
                 value = this.searchInput.val(),
                 expr = value.length ? {
                     field: options.field,
-                    operator: options.operator || "startsWith",
+                    operator: options.operator || "startswith",
                     ignoreCase: options.ignoreCase,
                     value: value
                 } : null;

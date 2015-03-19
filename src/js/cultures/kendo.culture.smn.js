@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,13 +40,13 @@
         calendars: {
             standard: {
                 days: {
-                    names: ["pasepeivi","vuossargâ","majebargâ","koskokko","tuorâstâh","vástuppeivi","lávárdâh"],
-                    namesAbbr: ["pa","vu","ma","ko","tu","vá","lá"],
+                    names: ["pasepeivi","vuossargâ","majebargâ","koskokko","tuorâstâh","vástuppeivi","lávurdâh"],
+                    namesAbbr: ["pas","vuo","maj","kos","tuo","vás","láv"],
                     namesShort: ["p","v","m","k","t","v","l"]
                 },
                 months: {
                     names: ["uđđâivemáánu","kuovâmáánu","njuhčâmáánu","cuáŋuimáánu","vyesimáánu","kesimáánu","syeinimáánu","porgemáánu","čohčâmáánu","roovvâdmáánu","skammâmáánu","juovlâmáánu",""],
-                    namesAbbr: ["uđiv","kuov","njuh","cuoŋ","vyes","kesi","syei","porg","čoh","roov","ska","juov",""]
+                    namesAbbr: ["uđiv","kuov","njuh","cuáŋ","vyes","kesi","syei","porg","čohč","roov","skam","juov",""]
                 },
                 AM: [""],
                 PM: [""],

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -34,7 +34,7 @@
                 ",": ",",
                 ".": ".",
                 groupSize: [3],
-                symbol: "$"
+                symbol: "EC$"
             }
         },
         calendars: {
@@ -51,16 +51,16 @@
                 AM: ["AM","am","AM"],
                 PM: ["PM","pm","PM"],
                 patterns: {
-                    d: "MM/dd/yyyy",
-                    D: "dddd, MMMM dd, yyyy",
-                    F: "dddd, MMMM dd, yyyy h:mm:ss tt",
-                    g: "MM/dd/yyyy h:mm tt",
-                    G: "MM/dd/yyyy h:mm:ss tt",
-                    m: "MMMM dd",
-                    M: "MMMM dd",
+                    d: "dd/MM/yyyy",
+                    D: "dddd, dd MMMM yyyy",
+                    F: "dddd, dd MMMM yyyy HH:mm:ss",
+                    g: "dd/MM/yyyy HH:mm",
+                    G: "dd/MM/yyyy HH:mm:ss",
+                    m: "d MMMM",
+                    M: "d MMMM",
                     s: "yyyy'-'MM'-'dd'T'HH':'mm':'ss",
-                    t: "h:mm tt",
-                    T: "h:mm:ss tt",
+                    t: "HH:mm",
+                    T: "HH:mm:ss",
                     u: "yyyy'-'MM'-'dd HH':'mm':'ss'Z'",
                     y: "MMMM, yyyy",
                     Y: "MMMM, yyyy"

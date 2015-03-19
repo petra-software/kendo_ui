@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -34,7 +34,7 @@
                 ",": ".",
                 ".": ",",
                 groupSize: [3],
-                symbol: "$b"
+                symbol: "Bs."
             }
         },
         calendars: {
@@ -56,8 +56,8 @@
                     F: "dddd, dd' de 'MMMM' de 'yyyy hh:mm:ss tt",
                     g: "dd/MM/yyyy hh:mm tt",
                     G: "dd/MM/yyyy hh:mm:ss tt",
-                    m: "MMMM dd",
-                    M: "MMMM dd",
+                    m: "d' de 'MMMM",
+                    M: "d' de 'MMMM",
                     s: "yyyy'-'MM'-'dd'T'HH':'mm':'ss",
                     t: "hh:mm tt",
                     T: "hh:mm:ss tt",

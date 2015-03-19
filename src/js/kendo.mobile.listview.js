@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -715,7 +715,7 @@
                 groupedMode = groups && groups[0],
                 item;
 
-            if (action === "itemchange") {
+            if (action === "itemchange" && !listView._hasBindingTarget()) {
                 item = listView.findByDataItem(dataItems)[0];
                 if (item) {
                     listView.setDataItem(item, dataItems[0]);
@@ -863,7 +863,7 @@
                 value = this.searchInput.val(),
                 expr = value.length ? {
                     field: options.field,
-                    operator: options.operator || "startsWith",
+                    operator: options.operator || "startswith",
                     ignoreCase: options.ignoreCase,
                     value: value
                 } : null;

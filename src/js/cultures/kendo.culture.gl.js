@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -46,7 +46,7 @@
                 },
                 months: {
                     names: ["xaneiro","febreiro","marzo","abril","maio","xuño","xullo","agosto","setembro","outubro","novembro","decembro",""],
-                    namesAbbr: ["xan","feb","mar","abr","maio","xuñ","xull","ago","set","out","nov","dec",""]
+                    namesAbbr: ["xan","feb","mar","abr","maio","xuño","xul","ago","set","out","nov","dec",""]
                 },
                 AM: ["a.m.","a.m.","A.M."],
                 PM: ["p.m.","p.m.","P.M."],
@@ -56,8 +56,8 @@
                     F: "dddd, dd' de 'MMMM' de 'yyyy H:mm:ss",
                     g: "dd/MM/yyyy H:mm",
                     G: "dd/MM/yyyy H:mm:ss",
-                    m: "dd MMMM",
-                    M: "dd MMMM",
+                    m: "d' de 'MMMM",
+                    M: "d' de 'MMMM",
                     s: "yyyy'-'MM'-'dd'T'HH':'mm':'ss",
                     t: "H:mm",
                     T: "H:mm:ss",

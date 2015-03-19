@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -275,7 +275,7 @@
         _setupAppLinks: function() {
             var that = this;
             this.element.handler(this)
-                .on("down", roleSelector(linkRoles), "_mouseup")
+                .on("down", roleSelector(linkRoles)+",[data-navigate-on-press]", "_mouseup")
                 .on("click", roleSelector(linkRoles + " " + buttonRoles), "_appLinkClick");
 
             this.userEvents = new kendo.UserEvents(this.element, {

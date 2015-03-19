@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -17,13 +17,13 @@
         numberFormat: {
             pattern: ["-n"],
             decimals: 2,
-            ",": ".",
+            ",": " ",
             ".": ",",
             groupSize: [3],
             percent: {
                 pattern: ["-n%","n%"],
                 decimals: 2,
-                ",": ".",
+                ",": " ",
                 ".": ",",
                 groupSize: [3],
                 symbol: "%"
@@ -56,8 +56,8 @@
                     F: "dddd d MMMM yyyy H:mm:ss",
                     g: "d/MM/yyyy H:mm",
                     G: "d/MM/yyyy H:mm:ss",
-                    m: "dd MMMM",
-                    M: "dd MMMM",
+                    m: "d MMMM",
+                    M: "d MMMM",
                     s: "yyyy'-'MM'-'dd'T'HH':'mm':'ss",
                     t: "H:mm",
                     T: "H:mm:ss",

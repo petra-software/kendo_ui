@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,24 +40,24 @@
         calendars: {
             standard: {
                 days: {
-                    names: ["Latshipi","Mosupologo","Labobedi","Laboraro","Labone","Labotlhano","Lamatlhatso"],
-                    namesAbbr: ["Ltp.","Mos.","Lbd.","Lbr.","Lbn.","Lbt.","Lmt."],
-                    namesShort: ["Lp","Ms","Lb","Lr","Ln","Lt","Lm"]
+                    names: ["Sontaga","Mosupologo","Labobedi","Laboraro","Labone","Labotlhano","Matlhatso"],
+                    namesAbbr: ["Sont.","Mos.","Lab.","Labr.","Labn.","Labt.","Matlh."],
+                    namesShort: ["So","Ms","Lb","Lr","Ln","Lt","Ma"]
                 },
                 months: {
-                    names: ["Ferikgong","Tlhakole","Mopitloe","Moranang","Motsheganong","Seetebosigo","Phukwi","Phatwe","Lwetse","Diphalane","Ngwanatsele","Sedimothole",""],
-                    namesAbbr: ["Fer.","Tlhak.","Mop.","Mor.","Motsh.","Seet.","Phukw.","Phatw.","Lwets.","Diph.","Ngwan.","Sed.",""]
+                    names: ["Ferikgong","Tlhakole","Mopitlwe","Moranang","Motsheganong","Seetebosigo","Phukwi","Phatwe","Lwetse","Diphalane","Ngwanatsele","Sedimothole",""],
+                    namesAbbr: ["Fer.","Tlh.","Mop.","Mor.","Motsh.","Seet.","Phk.","Pht.","Lwetse.","Diph.","Ngwn.","Sed.",""]
                 },
-                AM: ["AM","am","AM"],
-                PM: ["PM","pm","PM"],
+                AM: ["Mo Mosong","mo mosong","MO MOSONG"],
+                PM: ["Mo Maitseboeng","mo maitseboeng","MO MAITSEBOENG"],
                 patterns: {
-                    d: "yyyy/MM/dd",
+                    d: "dd/MM/yy",
                     D: "dd MMMM yyyy",
                     F: "dd MMMM yyyy hh:mm:ss tt",
-                    g: "yyyy/MM/dd hh:mm tt",
-                    G: "yyyy/MM/dd hh:mm:ss tt",
-                    m: "dd MMMM",
-                    M: "dd MMMM",
+                    g: "dd/MM/yy hh:mm tt",
+                    G: "dd/MM/yy hh:mm:ss tt",
+                    m: "d MMMM",
+                    M: "d MMMM",
                     s: "yyyy'-'MM'-'dd'T'HH':'mm':'ss",
                     t: "hh:mm tt",
                     T: "hh:mm:ss tt",
@@ -67,7 +67,7 @@
                 },
                 "/": "/",
                 ":": ":",
-                firstDay: 0
+                firstDay: 1
             }
         }
     }

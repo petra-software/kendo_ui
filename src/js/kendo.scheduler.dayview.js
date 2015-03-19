@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -598,6 +598,7 @@
         options: {
             name: "MultiDayView",
             selectedDateFormat: "{0:D}",
+            selectedShortDateFormat: "{0:d}",
             allDaySlot: true,
             showWorkHours: false,
             title: "",
@@ -1644,7 +1645,8 @@
             options: {
                 name: "WeekView",
                 title: "Week",
-                selectedDateFormat: "{0:D} - {1:D}"
+                selectedDateFormat: "{0:D} - {1:D}",
+                selectedShortDateFormat: "{0:d} - {1:d}"
             },
             name: "week",
             calculateDateRange: function() {
@@ -1664,7 +1666,8 @@
             options: {
                 name: "WorkWeekView",
                 title: "Work Week",
-                selectedDateFormat: "{0:D} - {1:D}"
+                selectedDateFormat: "{0:D} - {1:D}",
+                selectedShortDateFormat: "{0:d} - {1:d}"
             },
             name: "workWeek",
             nextDate: function() {

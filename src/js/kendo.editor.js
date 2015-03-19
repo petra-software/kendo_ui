@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -7,7 +7,7 @@
 * If you do not own a commercial license, this file shall be governed by the trial license terms.
 */
 (function(f, define){
-    define([ "./kendo.combobox", "./kendo.dropdownlist", "./kendo.window", "./kendo.colorpicker", "./kendo.imagebrowser", "./kendo.filebrowser" ], f);
+    define([ "./kendo.combobox", "./kendo.dropdownlist", "./kendo.resizable", "./kendo.window", "./kendo.colorpicker", "./kendo.imagebrowser", "./kendo.filebrowser" ], f);
 })(function(){
 
 (function($,undefined) {
@@ -119,6 +119,7 @@
         backColor: "Background color",
         style: "Styles",
         emptyFolder: "Empty Folder",
+        editAreaTitle: "Editable area. Press F10 for toolbar.",
         uploadFile: "Upload",
         orderBy: "Arrange by:",
         orderBySize: "Size",
@@ -169,6 +170,8 @@
                 toolbarContainer,
                 toolbarOptions,
                 type;
+            var domElement;
+            var dom = editorNS.Dom;
 
             /* suppress initialization in mobile webkit devices (w/o proper contenteditable support) */
             if (!supportedBrowser) {
@@ -180,8 +183,9 @@
             that.options = deepExtend({}, that.options, options);
 
             element = that.element;
+            domElement = element[0];
 
-            type = editorNS.Dom.name(element[0]);
+            type = dom.name(domElement);
 
             element.closest("form").on("submit" + NS, function () {
                 that.update();
@@ -195,8 +199,8 @@
 
                 toolbarContainer = that.wrapper.find(".k-editor-toolbar");
 
-                if (element[0].id) {
-                    toolbarContainer.attr("aria-controls", element[0].id);
+                if (domElement.id) {
+                    toolbarContainer.attr("aria-controls", domElement.id);
                 }
             } else {
                 that.element.attr("contenteditable", true).addClass("k-widget k-editor k-editor-inline");
@@ -221,6 +225,7 @@
                 });
             }
 
+            that._resizable();
             that._initializeContentElement(that);
 
             that.keyboard = new editorNS.Keyboard([
@@ -237,9 +242,16 @@
                 value = options.value;
             } else if (that.textarea) {
                 // indented HTML introduces problematic ranges in IE
-                value = element.val().replace(/[\r\n\v\f\t ]+/ig, " ");
+                value = domElement.value;
+
+                // revert encoding of value when content is fetched from cache
+                if (that.options.encoded && $.trim(domElement.defaultValue).length) {
+                    value = domElement.defaultValue;
+                }
+
+                value = value.replace(/[\r\n\v\f\t ]+/ig, " ");
             } else {
-                value = element[0].innerHTML;
+                value = domElement.innerHTML;
             }
 
             that.value(value);
@@ -271,6 +283,35 @@
             this._selectionStarted = false;
             this.saveSelection();
             this.trigger("select", {});
+        },
+
+        _resizable: function() {
+            if (this.options.resizable && this.textarea) {
+                $("<div class='k-resize-handle'><span class='k-icon k-resize-se' /></div>")
+                    .insertAfter(this.textarea);
+
+                this.wrapper.kendoResizable(extend({}, this.options.resizable, {
+                    start: function(e) {
+                        var editor = this.editor = $(e.currentTarget).closest(".k-editor");
+                        this.initialSize = editor.height();
+                        editor.find("td:last").append("<div class='k-overlay' />");
+                    },
+                    resize: function(e) {
+                        var delta = e.y.initialDelta;
+                        var newSize = this.initialSize + delta;
+                        var min = this.options.min || 0;
+                        var max = this.options.max || Infinity;
+
+                        newSize = Math.min(max, Math.max(min, newSize));
+
+                        this.editor.height(newSize);
+                    },
+                    resizeend: function(e) {
+                        this.editor.find(".k-overlay").remove();
+                        this.editor = null;
+                    }
+                }));
+            }
         },
 
         _wrapTextarea: function() {
@@ -308,7 +349,7 @@
 
             textarea.hide();
 
-            iframe = $("<iframe />", { frameBorder: "0" })[0];
+            iframe = $("<iframe />", { title: editor.options.messages.editAreaTitle, frameBorder: "0" })[0];
 
             $(iframe)
                 .css("display", "")
@@ -556,6 +597,7 @@
             domain: null,
             serialization: {
                 entities: true,
+                semantic: true,
                 scripts: false
             },
             stylesheets: [],
@@ -904,6 +946,46 @@
             emptyElementContent: emptyElementContent
         }
     });
+
+    if (kendo.PDFMixin) {
+        kendo.PDFMixin.extend(Editor.prototype);
+        Editor.prototype._drawPDF = function() {
+            return kendo.drawing.drawDOM(this.body, this.options.pdf);
+        };
+        Editor.prototype.saveAsPDF = function() {
+            var progress = new $.Deferred();
+            var promise = progress.promise();
+            var args = { promise: promise };
+
+            if (this.trigger("pdfExport", args)) {
+                return;
+            }
+
+            var options = this.options.pdf;
+            var paperSize = options.paperSize;
+
+            this._drawPDF(progress)
+            .then(function(root) {
+                options.paperSize = "auto";
+                return kendo.drawing.exportPDF(root, options);
+            })
+            .done(function(dataURI) {
+                kendo.saveAs({
+                    dataURI: dataURI,
+                    fileName: options.fileName,
+                    proxyURL: options.proxyURL,
+                    forceProxy: options.forceProxy
+                });
+                options.paperSize = paperSize;
+                progress.resolve();
+            })
+            .fail(function(err) {
+                progress.reject(err);
+            });
+
+            return promise;
+        };
+    }
 
 })(window.jQuery);
 
@@ -1847,29 +1929,99 @@ var Serializer = {
 
     domToXhtml: function(root, options) {
         var result = [];
+
+        function semanticFilter(attributes) {
+            return $.grep(attributes, function(attr) {
+                return attr.name != "style";
+            });
+        }
+
         var tagMap = {
+            iframe: {
+                start: function (node) { result.push('<iframe'); attr(node); result.push('>'); },
+                end: function () { result.push('</iframe>'); }
+            },
             'k:script': {
                 start: function (node) { result.push('<script'); attr(node); result.push('>'); },
                 end: function () { result.push('</script>'); },
                 skipEncoding: true
             },
+            span: {
+                semantic: true,
+                start: function(node) {
+                    var style = node.style;
+                    var attributes = specifiedAttributes(node);
+                    var semanticAttributes = semanticFilter(attributes);
+
+                    if (semanticAttributes.length) {
+                        result.push("<span"); attr(node, semanticAttributes); result.push(">");
+                    }
+
+                    if (style.textDecoration == "underline") {
+                        result.push("<u>");
+                    }
+
+                    var font = [];
+                    if (style.color) {
+                        font.push('color="' + dom.toHex(style.color) + '"');
+                    }
+
+                    if (style.fontFamily) {
+                        font.push('face="' + style.fontFamily + '"');
+                    }
+
+                    if (style.fontSize) {
+                        var size = $.inArray(style.fontSize, fontSizeMappings);
+                        font.push('size="' + size + '"');
+                    }
+
+                    if (font.length) {
+                        result.push("<font " + font.join(" ") + ">");
+                    }
+                },
+                end: function(node) {
+                    var style = node.style;
+
+                    if (style.color || style.fontFamily || style.fontSize) {
+                        result.push("</font>");
+                    }
+
+                    if (style.textDecoration == "underline") {
+                        result.push("</u>");
+                    }
+
+                    if (semanticFilter(specifiedAttributes(node)).length) {
+                        result.push("</span>");
+                    }
+                }
+            },
+            strong: {
+                semantic: true,
+                start: function () { result.push('<b>'); },
+                end: function () { result.push('</b>'); }
+            },
+            em: {
+                semantic: true,
+                start: function () { result.push('<i>'); },
+                end: function () { result.push('</i>'); }
+            },
             b: {
+                semantic: false,
                 start: function () { result.push('<strong>'); },
                 end: function () { result.push('</strong>'); }
             },
             i: {
+                semantic: false,
                 start: function () { result.push('<em>'); },
                 end: function () { result.push('</em>'); }
             },
             u: {
+                semantic: false,
                 start: function () { result.push('<span style="text-decoration:underline;">'); },
                 end: function () { result.push('</span>'); }
             },
-            iframe: {
-                start: function (node) { result.push('<iframe'); attr(node); result.push('>'); },
-                end: function () { result.push('</iframe>'); }
-            },
             font: {
+                semantic: false,
                 start: function (node) {
                     result.push('<span style="');
 
@@ -1884,7 +2036,7 @@ var Serializer = {
                     }
 
                     if (face) {
-                        result.push('font-face:');
+                        result.push('font-family:');
                         result.push(face);
                         result.push(';');
                     }
@@ -1907,13 +2059,17 @@ var Serializer = {
 
         options = options || {};
 
-        function styleAttr(cssText) {
-            // In IE < 8 the style attribute does not return proper nodeValue
+        if (typeof options.semantic == "undefined") {
+            options.semantic = true;
+        }
+
+        function cssProperties(cssText) {
             var trim = $.trim;
             var css = trim(cssText).split(';');
-            var i, length = css.length;
             var match;
             var property, value;
+            var properties = [];
+            var i, length;
 
             for (i = 0, length = css.length; i < length; i++) {
                 if (!css[i].length) {
@@ -1942,34 +2098,29 @@ var Serializer = {
                     value = value.replace(quoteRe, "");
                 }
 
-                result.push(property);
+                properties.push({ property: property, value: value });
+            }
+
+            return properties;
+        }
+
+        function styleAttr(cssText) {
+            var properties = cssProperties(cssText);
+            var i, length = properties.length;
+
+            for (i = 0; i < properties.length; i++) {
+                result.push(properties[i].property);
                 result.push(':');
-                result.push(value);
+                result.push(properties[i].value);
                 result.push(';');
             }
         }
 
-        function attr(node) {
-            var specifiedAttributes = [];
+        function specifiedAttributes(node) {
+            var result = [];
             var attributes = node.attributes;
             var attribute, i, l;
             var name, value, specified;
-
-            if (dom.is(node, 'img')) {
-                var width = node.style.width,
-                    height = node.style.height,
-                    $node = $(node);
-
-                if (width && pixelRe.test(width)) {
-                    $node.attr('width', parseInt(width, 10));
-                    dom.unstyle(node, { width: undefined });
-                }
-
-                if (height && pixelRe.test(height)) {
-                    $node.attr('height', parseInt(height, 10));
-                    dom.unstyle(node, { height: undefined });
-                }
-            }
 
             for (i = 0, l = attributes.length; i < l; i++) {
                 attribute = attributes[i];
@@ -2000,20 +2151,44 @@ var Serializer = {
                 }
 
                 if (specified) {
-                    specifiedAttributes.push(attribute);
+                    result.push(attribute);
                 }
             }
 
-            if (!specifiedAttributes.length) {
+            return result;
+        }
+
+        function attr(node, attributes) {
+            var i, l, attribute, name, value;
+
+            attributes = attributes || specifiedAttributes(node);
+
+            if (dom.is(node, 'img')) {
+                var width = node.style.width,
+                    height = node.style.height,
+                    $node = $(node);
+
+                if (width && pixelRe.test(width)) {
+                    $node.attr('width', parseInt(width, 10));
+                    dom.unstyle(node, { width: undefined });
+                }
+
+                if (height && pixelRe.test(height)) {
+                    $node.attr('height', parseInt(height, 10));
+                    dom.unstyle(node, { height: undefined });
+                }
+            }
+
+            if (!attributes.length) {
                 return;
             }
 
-            specifiedAttributes.sort(function (a, b) {
+            attributes.sort(function (a, b) {
                 return a.nodeName > b.nodeName ? 1 : a.nodeName < b.nodeName ? -1 : 0;
             });
 
-            for (i = 0, l = specifiedAttributes.length; i < l; i++) {
-                attribute = specifiedAttributes[i];
+            for (i = 0, l = attributes.length; i < l; i++) {
+                attribute = attributes[i];
                 name = attribute.nodeName;
                 value = attribute.value;
 
@@ -2072,10 +2247,13 @@ var Serializer = {
                 mapper = tagMap[tagName];
 
                 if (mapper) {
-                    mapper.start(node);
-                    children(node, false, mapper.skipEncoding);
-                    mapper.end(node);
-                    return;
+                    if (typeof mapper.semantic == "undefined" ||
+                        (options.semantic ^ mapper.semantic)) {
+                        mapper.start(node);
+                        children(node, false, mapper.skipEncoding);
+                        mapper.end(node);
+                        return;
+                    }
                 }
 
                 result.push('<');
@@ -4400,6 +4578,38 @@ var WebkitFormatCleaner = Cleaner.extend({
     }
 });
 
+var PrintCommand = Command.extend({
+    init: function(options) {
+        Command.fn.init.call(this, options);
+
+        this.managesUndoRedo = true;
+    },
+
+    exec: function() {
+        var editor = this.editor;
+
+        if (kendo.support.browser.msie) {
+            editor.document.execCommand("print", false, null);
+        } else if (editor.window.print) {
+            editor.window.print();
+        }
+    }
+});
+
+var ExportPdfCommand = Command.extend({
+    init: function(options) {
+        this.async = true;
+        Command.fn.init.call(this, options);
+    },
+
+    exec: function() {
+        var that = this;
+        var range = this.lockRange(true);
+        this.editor.saveAsPDF().then(function() {
+            that.releaseRange(range);
+        });
+    }
+});
 extend(editorNS, {
     Command: Command,
     GenericCommand: GenericCommand,
@@ -4413,10 +4623,14 @@ extend(editorNS, {
     Clipboard: Clipboard,
     Cleaner: Cleaner,
     MSWordFormatCleaner: MSWordFormatCleaner,
-    WebkitFormatCleaner: WebkitFormatCleaner
+    WebkitFormatCleaner: WebkitFormatCleaner,
+    PrintCommand: PrintCommand,
+    ExportPdfCommand: ExportPdfCommand
 });
 
 registerTool("insertHtml", new InsertHtmlTool({template: new ToolTemplate({template: EditorUtils.dropDownListTemplate, title: "Insert HTML", initialValue: "Insert HTML"})}));
+registerTool("print", new Tool({ command: PrintCommand, template: new ToolTemplate({template: EditorUtils.buttonTemplate, title: "Print"})}));
+registerTool("pdf", new Tool({ command: ExportPdfCommand, template: new ToolTemplate({template: EditorUtils.buttonTemplate, title: "Export PDF"})}));
 
 })(window.kendo.jQuery);
 
@@ -6690,7 +6904,7 @@ var SelectBox = DropDownList.extend({
             this.bind("dataBound", $.proxy(this._initSelectOverlay, this));
         }
 
-        that.value(that.options.title);
+        that.text(that.options.title);
 
         that.bind("open", function() {
             if (that.options.autoSize) {
@@ -6717,7 +6931,8 @@ var SelectBox = DropDownList.extend({
         });
     },
     options: {
-        name: "SelectBox"
+        name: "SelectBox",
+        index: -1
     },
 
     _initSelectOverlay: function() {
@@ -6761,15 +6976,8 @@ var SelectBox = DropDownList.extend({
             return result;
         }
 
-        if (value !== DropDownList.fn.value.call(that)) {
+        if (!DropDownList.fn.value.call(that)) {
            that.text(that.options.title);
-
-           if (that._current) {
-               that._current.removeClass("k-state-selected");
-           }
-
-           that.current(null);
-           that._oldIndex = that.selectedIndex = -1;
         }
     },
 
@@ -7222,7 +7430,11 @@ var FormattingTool = DelayedExecutionTool.extend({
             title: editor.options.messages[toolName],
             autoSize: true,
             change: function () {
-                Tool.exec(editor, toolName, this.dataItem().toJSON());
+                var dataItem = this.dataItem();
+
+                if (dataItem) {
+                    Tool.exec(editor, toolName, dataItem.toJSON());
+                }
             },
             dataBound: function() {
                 var i, items = this.dataSource.data();
@@ -7381,7 +7593,7 @@ registerTool("cleanFormatting", new Tool({ command: CleanFormatCommand, template
             links: ["insertImage", "insertFile", "createLink", "unlink"],
             lists: ["insertUnorderedList", "insertOrderedList", "indent", "outdent"],
             tables: [ "createTable", "addColumnLeft", "addColumnRight", "addRowAbove", "addRowBelow", "deleteRow", "deleteColumn" ],
-            advanced: [ "viewHtml", "cleanFormatting" ]
+            advanced: [ "viewHtml", "cleanFormatting", "print", "pdf" ]
         },
 
         _initPopup: function() {

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2014.3.1516";
+    kendo.version = "2015.1.318";
 
     function Class() {}
 
@@ -4033,10 +4033,11 @@ function pad(number, digits, end) {
 
     // kendo.saveAs -----------------------------------------------
     (function() {
-        function postToProxy(dataURI, fileName, proxyURL) {
+        function postToProxy(dataURI, fileName, proxyURL, proxyTarget) {
             var form = $("<form>").attr({
                 action: proxyURL,
-                method: "POST"
+                method: "POST",
+                target: proxyTarget
             });
 
             var data = kendo.antiForgeryTokens();
@@ -4106,7 +4107,7 @@ function pad(number, digits, end) {
                 }
             }
 
-            save(options.dataURI, options.fileName, options.proxyURL);
+            save(options.dataURI, options.fileName, options.proxyURL, options.proxyTarget);
         };
     })();
 })(jQuery, window);
@@ -6231,6 +6232,8 @@ function pad(number, digits, end) {
 
 
 
+var A = 0;
+
 
 
 /*jshint eqnull: true, loopfunc: true, evil: true */
@@ -6410,7 +6413,7 @@ function pad(number, digits, end) {
                 });
 
                 for (i = 0, len = result.length; i < len; i++) {
-                    if (result[i].children) {
+                    if (result[i] && result[i].children) {
                         result[i].unbind(CHANGE);
                     }
                 }
@@ -8100,6 +8103,34 @@ function pad(number, digits, end) {
         }
     });
 
+    function cloneGroups(groups) {
+        var result = [];
+        var item;
+        var group;
+
+        for (var idx = 0, length = groups.length; idx < length; idx++) {
+            item = groups[idx];
+            if (!("field" in item && "items" in item && "value" in item)) {
+                break;
+            }
+
+            group = {};
+            for (var field in item) {
+                var shouldSerialize = item.shouldSerialize ? item.shouldSerialize : item.hasOwnProperty;
+                if (shouldSerialize.call(item, field)) {
+                    group[field] = item[field];
+                }
+            }
+
+            result.push(group);
+
+            if (group.hasSubgroups) {
+                result = result.concat(cloneGroups(group.items));
+            }
+        }
+        return result;
+    }
+
     function mergeGroups(target, dest, skip, take) {
         var group,
             idx = 0,
@@ -9709,7 +9740,6 @@ function pad(number, digits, end) {
             data = that._findRange(skip, math.min(skip + take, that.total()));
 
             if (data.length) {
-
                 that._skipRequestsInProgress = true;
                 that._pending = undefined;
 
@@ -9829,6 +9859,7 @@ function pad(number, digits, end) {
 
         _mergeGroups: function(data, range, skip, take) {
             if (this._isServerGrouped()) {
+                //var temp = cloneGroups(range),
                 var temp = range.toJSON(),
                     prevGroup;
 
@@ -9856,7 +9887,7 @@ function pad(number, digits, end) {
             return this._take || this._pageSize;
         },
 
-        _prefetchSuccessHandler: function (skip, size, callback) {
+        _prefetchSuccessHandler: function (skip, size, callback, force) {
             var that = this;
 
             return function(data) {
@@ -9892,7 +9923,7 @@ function pad(number, digits, end) {
                 that._ranges.sort( function(x, y) { return x.start - y.start; } );
                 that._total = that.reader.total(data);
 
-                if (!that._skipRequestsInProgress) {
+                if (force || !that._skipRequestsInProgress) {
                     if (callback && temp.length) {
                         callback();
                     } else {
@@ -9931,6 +9962,32 @@ function pad(number, digits, end) {
                         }
                     });
                 }, 100);
+            } else if (callback) {
+                callback();
+            }
+        },
+
+        _multiplePrefetch: function(skip, take, callback) {
+            var that = this,
+                size = math.min(skip + take, that.total()),
+                options = {
+                    take: take,
+                    skip: skip,
+                    page: skip / take + 1,
+                    pageSize: take,
+                    sort: that._sort,
+                    filter: that._filter,
+                    group: that._group,
+                    aggregate: that._aggregate
+                };
+
+            if (!that._rangeExists(skip, size)) {
+                if (!that.trigger(REQUESTSTART, { type: "read" })) {
+                    that.transport.read({
+                        data: that._params(options),
+                        success: that._prefetchSuccessHandler(skip, size, callback, true)
+                    });
+                }
             } else if (callback) {
                 callback();
             }
@@ -11195,6 +11252,35 @@ function pad(number, digits, end) {
         }
     });
 
+    var TypedBinder = Binder.extend({
+        dataType: function() {
+            var dataType = this.element.getAttribute("data-type") || this.element.type || "text"; 
+            return dataType.toLowerCase();
+        },
+
+        parsedValue: function() {
+            return this._parseValue(this.element.value, this.dataType());
+        },
+
+        _parseValue : function (value, dataType){
+            if (dataType == "date") {
+                value = kendo.parseDate(value, "yyyy-MM-dd");
+            } else if (dataType == "datetime-local") {
+                value = kendo.parseDate(value, ["yyyy-MM-ddTHH:mm:ss", "yyyy-MM-ddTHH:mm"] );
+            } else if (dataType == "number") {
+                value = kendo.parseFloat(value);
+            } else if (dataType == "boolean"){
+                value = value.toLowerCase();
+                if(kendo.parseFloat(value) !== null){
+                    value = Boolean(kendo.parseFloat(value));
+                }else{
+                    value = (value.toLowerCase() === "true");
+                }
+            }
+            return value;
+        }
+    });
+
     binders.attr = Binder.extend({
         refresh: function(key) {
             this.element.setAttribute(key, this.bindings.attr[key].get());
@@ -11297,7 +11383,7 @@ function pad(number, digits, end) {
                 this.element.style.display = "none";
             }
         }
-    });
+  });
 
     binders.html = Binder.extend({
         refresh: function() {
@@ -11305,9 +11391,9 @@ function pad(number, digits, end) {
         }
     });
 
-    binders.value = Binder.extend({
+    binders.value = TypedBinder.extend({
         init: function(element, bindings, options) {
-            Binder.fn.init.call(this, element, bindings, options);
+            TypedBinder.fn.init.call(this, element, bindings, options);
 
             this._change = proxy(this.change, this);
             this.eventName = options.valueUpdate || CHANGE;
@@ -11320,19 +11406,7 @@ function pad(number, digits, end) {
         change: function() {
             this._initChange = this.eventName != CHANGE;
 
-            var value = this.element.value;
-
-            var type = this.element.type;
-
-            if (type == "date") {
-                value = kendo.parseDate(value, "yyyy-MM-dd");
-            } else if (type == "datetime-local") {
-                value = kendo.parseDate(value, ["yyyy-MM-ddTHH:mm:ss", "yyyy-MM-ddTHH:mm"] );
-            } else if (type == "number") {
-                value = kendo.parseFloat(value);
-            }
-
-            this.bindings[VALUE].set(value);
+            this.bindings[VALUE].set(this.parsedValue());
 
             this._initChange = false;
         },
@@ -11345,7 +11419,7 @@ function pad(number, digits, end) {
                     value = "";
                 }
 
-                var type = this.element.type;
+                var type = this.dataType();
 
                 if (type == "date") {
                     value = kendo.toString(value, "yyyy-MM-dd");
@@ -11502,33 +11576,41 @@ function pad(number, digits, end) {
     });
 
     binders.input = {
-        checked: Binder.extend({
+        checked: TypedBinder.extend({
             init: function(element, bindings, options) {
-                Binder.fn.init.call(this, element, bindings, options);
+                TypedBinder.fn.init.call(this, element, bindings, options);
                 this._change = proxy(this.change, this);
 
                 $(this.element).change(this._change);
             },
+
             change: function() {
                 var element = this.element;
                 var value = this.value();
 
                 if (element.type == "radio") {
+                    value = this.parsedValue();
                     this.bindings[CHECKED].set(value);
                 } else if (element.type == "checkbox") {
                     var source = this.bindings[CHECKED].get();
                     var index;
 
                     if (source instanceof ObservableArray) {
-                        value = this.element.value;
-
-                        if (value !== "on" && value !== "off") {
-                            index = source.indexOf(value);
-                            if (index > -1) {
-                                source.splice(index, 1);
-                            } else {
-                                source.push(value);
+                        value = this.parsedValue();
+                        if (value instanceof Date) {
+                            for(var i = 0; i < source.length; i++){
+                                if(source[i] instanceof Date && +source[i] === +value){
+                                    index = i;
+                                    break;
+                                }
                             }
+                        }else{
+                            index = source.indexOf(value);
+                        }
+                        if (index > -1) {
+                            source.splice(index, 1);
+                        } else {
+                            source.push(value);
                         }
                     } else {
                         this.bindings[CHECKED].set(value);
@@ -11539,18 +11621,33 @@ function pad(number, digits, end) {
             refresh: function() {
                 var value = this.bindings[CHECKED].get(),
                     source = value,
+                    type = this.dataType(),
                     element = this.element;
 
                 if (element.type == "checkbox") {
                     if (source instanceof ObservableArray) {
-                        value = this.element.value;
-                        if (source.indexOf(value) >= 0) {
-                            value = true;
+                        var index = -1;
+                        value = this.parsedValue();
+                        if(value instanceof Date){
+                            for(var i = 0; i < source.length; i++){
+                                if(source[i] instanceof Date && +source[i] === +value){
+                                    index = i;
+                                    break;
+                                }
+                            }
+                        }else{
+                            index = source.indexOf(value);
                         }
+                        element.checked = (index >= 0);
+                    }else{
+                        element.checked = source;
                     }
-
-                    element.checked = value === true;
                 } else if (element.type == "radio" && value != null) {
+                    if (type == "date") {
+                        value = kendo.toString(value, "yyyy-MM-dd");
+                    } else if (type == "datetime-local") {
+                        value = kendo.toString(value, "yyyy-MM-ddTHH:mm:ss");
+                    }
                     if (element.value === value.toString()) {
                         element.checked = true;
                     }
@@ -11574,12 +11671,34 @@ function pad(number, digits, end) {
     };
 
     binders.select = {
-        value: Binder.extend({
+        value: TypedBinder.extend({
             init: function(target, bindings, options) {
-                Binder.fn.init.call(this, target, bindings, options);
+                TypedBinder.fn.init.call(this, target, bindings, options);
 
                 this._change = proxy(this.change, this);
                 $(this.element).change(this._change);
+            },
+
+            parsedValue : function() {
+                var dataType = this.dataType();
+                var values = [];
+                var value, option, idx, length;
+                for (idx = 0, length = this.element.options.length; idx < length; idx++) {
+                    option = this.element.options[idx];
+
+                    if (option.selected) {
+                        value = option.attributes.value;
+
+                        if (value && value.specified) {
+                            value = option.value;
+                        } else {
+                            value = option.text;
+                        }
+
+                        values.push(this._parseValue(value, dataType));
+                    }
+                }
+                return values;
             },
 
             change: function() {
@@ -11594,21 +11713,7 @@ function pad(number, digits, end) {
                     idx,
                     length;
 
-                for (idx = 0, length = element.options.length; idx < length; idx++) {
-                    option = element.options[idx];
-
-                    if (option.selected) {
-                        value = option.attributes.value;
-
-                        if (value && value.specified) {
-                            value = option.value;
-                        } else {
-                            value = option.text;
-                        }
-
-                        values.push(value);
-                    }
-                }
+                values = this.parsedValue();
 
                 if (field) {
                     source = this.bindings.source.get();
@@ -11618,7 +11723,8 @@ function pad(number, digits, end) {
 
                     for (valueIndex = 0; valueIndex < values.length; valueIndex++) {
                         for (idx = 0, length = source.length; idx < length; idx++) {
-                            if (source[idx].get(field) == values[valueIndex]) {
+                            var match = valuePrimitive ? (this._parseValue(values[valueIndex], this.dataType()) === source[idx].get(field)) : (this._parseValue(source[idx].get(field), this.dataType()).toString() === values[valueIndex]);
+                            if (match) {
                                 values[valueIndex] = source[idx];
                                 break;
                             }
@@ -11639,10 +11745,12 @@ function pad(number, digits, end) {
                 var optionIndex,
                     element = this.element,
                     options = element.options,
+                    valuePrimitive = this.options.valuePrimitive,
                     value = this.bindings[VALUE].get(),
                     values = value,
                     field = this.options.valueField || this.options.textField,
                     found = false,
+                    type = this.dataType(),
                     optionValue;
 
                 if (!(values instanceof ObservableArray)) {
@@ -11654,8 +11762,15 @@ function pad(number, digits, end) {
                 for (var valueIndex = 0; valueIndex < values.length; valueIndex++) {
                     value = values[valueIndex];
 
+
                     if (field && value instanceof ObservableObject) {
                         value = value.get(field);
+                    }
+
+                    if (type == "date") {
+                        value = kendo.toString(values[valueIndex], "yyyy-MM-dd");
+                    } else if (type == "datetime-local") {
+                        value = kendo.toString(values[valueIndex], "yyyy-MM-ddTHH:mm:ss");
                     }
 
                     for (optionIndex = 0; optionIndex < options.length; optionIndex++) {
@@ -11665,7 +11780,7 @@ function pad(number, digits, end) {
                             optionValue = options[optionIndex].text;
                         }
 
-                        if (optionValue == value) {
+                        if (value != null && optionValue == value.toString()) {
                             options[optionIndex].selected = true;
                             found = true;
                         }
@@ -12584,6 +12699,7 @@ function pad(number, digits, end) {
         INVALIDMSG = "k-invalid-msg",
         invalidMsgRegExp = new RegExp(INVALIDMSG,'i'),
         INVALIDINPUT = "k-invalid",
+        VALIDINPUT = "k-valid",
         emailRegExp = /^((([a-z]|\d|[!#\$%&'\*\+\-\/=\?\^_`{\|}~]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])+(\.([a-z]|\d|[!#\$%&'\*\+\-\/=\?\^_`{\|}~]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])+)*)|((\x22)((((\x20|\x09)*(\x0d\x0a))?(\x20|\x09)+)?(([\x01-\x08\x0b\x0c\x0e-\x1f\x7f]|\x21|[\x23-\x5b]|[\x5d-\x7e]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(\\([\x01-\x09\x0b\x0c\x0d-\x7f]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF]))))*(((\x20|\x09)*(\x0d\x0a))?(\x20|\x09)+)?(\x22)))@((([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])*([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])))\.)+(([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])*([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])))$/i,
         urlRegExp = /^(https?|ftp):\/\/(((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:)*@)?(((\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5]))|((([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])*([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])))\.)+(([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])*([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])))\.?)(:\d*)?)(\/((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)+(\/(([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)*)*)?)?(\?((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)|[\uE000-\uF8FF]|\/|\?)*)?(\#((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)|\/|\?)*)?$/i,
         INPUTSELECTOR = ":input:not(:button,[type=submit],[type=reset],[disabled],[readonly])",
@@ -12903,8 +13019,13 @@ function pad(number, digits, end) {
                 messageText = that._extractMessage(input, result.key);
                 that._errors[fieldName] = messageText;
                 var messageLabel = parseHtml(template({ message: decode(messageText) }));
+                var lblId = lbl.attr('id');
 
                 that._decorateMessageContainer(messageLabel, fieldName);
+
+                if (lblId) {
+                    messageLabel.attr('id', lblId);
+                }
 
                 if (!lbl.replaceWith(messageLabel).length) {
                     messageLabel.insertAfter(input);
@@ -12917,6 +13038,7 @@ function pad(number, digits, end) {
             }
 
             input.toggleClass(INVALIDINPUT, !valid);
+            input.toggleClass(VALIDINPUT, valid);
 
             return valid;
         },
@@ -13594,14 +13716,15 @@ function pad(number, digits, end) {
             return true;
         },
 
+        triggerBeforeHide: function() {
+            return true;
+        },
+
         showStart: function() {
             this.element.css("display", "");
         },
 
         showEnd: function() {
-        },
-
-        hideStart: function() {
         },
 
         hideEnd: function() {
@@ -13678,7 +13801,14 @@ function pad(number, digits, end) {
             } else {
                 element = content;
                 if (that._evalTemplate) {
-                    element.html(kendo.template(element.html())(that.model || {}));
+                    var result = $(kendo.template($("<div />").append(element.clone(true)).html())(that.model || {}));
+
+                    // template uses DOM
+                    if ($.contains(document, element[0])) {
+                        element.replaceWith(result);
+                    }
+
+                    element = result;
                 }
                 if (that._wrap) {
                     element = element.wrapAll(wrapper).parent();
@@ -13699,8 +13829,6 @@ function pad(number, digits, end) {
 
             view.element.parent().append(this.element);
         },
-
-        hideStart: $.noop,
 
         hideEnd: function() {
             this.element.remove();
@@ -13802,7 +13930,7 @@ function pad(number, digits, end) {
         },
 
         show: function(view, transition, locationID) {
-            if (!view.triggerBeforeShow()) {
+            if (!view.triggerBeforeShow() || (this.view && !this.view.triggerBeforeHide())) {
                 this.trigger("after");
                 return false;
             }
@@ -13844,8 +13972,6 @@ function pad(number, digits, end) {
                 that.after();
                 return true;
             }
-
-            current.hideStart();
 
             if (!theTransition || !kendo.effects.enabled) {
                 view.showStart();
@@ -15315,6 +15441,7 @@ function pad(number, digits, end) {
                     x: e.x,
                     y: e.y,
                     currentTarget: that.currentTarget,
+                    initialTarget: e.touch ? e.touch.initialTouch : null,
                     dropTarget: e.dropTarget
                 }
             ));
@@ -16998,6 +17125,13 @@ function pad(number, digits, end) {
             return true;
         },
 
+        triggerBeforeHide: function() {
+            if (this.trigger(BEFORE_HIDE, { view: this })) {
+                return false;
+            }
+            return true;
+        },
+
         showStart: function() {
             var element = this.element;
 
@@ -17022,10 +17156,6 @@ function pad(number, digits, end) {
         showEnd: function() {
             this.trigger(AFTER_SHOW, {view: this});
             this._padIfNativeScrolling();
-        },
-
-        hideStart: function() {
-            this.trigger(BEFORE_HIDE, {view: this});
         },
 
         hideEnd: function() {
@@ -17921,7 +18051,7 @@ function pad(number, digits, end) {
         _setupAppLinks: function() {
             var that = this;
             this.element.handler(this)
-                .on("down", roleSelector(linkRoles), "_mouseup")
+                .on("down", roleSelector(linkRoles)+",[data-navigate-on-press]", "_mouseup")
                 .on("click", roleSelector(linkRoles + " " + buttonRoles), "_appLinkClick");
 
             this.userEvents = new kendo.UserEvents(this.element, {
@@ -18945,6 +19075,8 @@ function pad(number, digits, end) {
                     }
                 });
                 that.trigger("init", {view: that});
+            } else {
+                this._invokeNgController();
             }
 
             that.trigger("show", {view: that});
@@ -19622,17 +19754,25 @@ function pad(number, digits, end) {
             var that = this;
 
             Widget.fn.init.call(that, element, options);
+            var useTap = that.options.clickOn === "up";
 
             that._wrap();
             that._style();
+
+            if (!useTap) {
+                that.element.attr("data-navigate-on-press", true);
+            }
 
             that.options.enable = that.options.enable && !that.element.attr(DISABLED);
             that.enable(that.options.enable);
 
             that._userEvents = new kendo.UserEvents(that.element, {
                 press: function(e) { that._activate(e); },
-                tap: function(e) { that._release(e); },
                 release: function(e) { highlightButton(that, e, false); }
+            });
+
+            that._userEvents.bind(useTap ? "tap" : "press", function(e) {
+                that._release(e);
             });
 
             if (ANDROID3UP) {
@@ -19654,6 +19794,7 @@ function pad(number, digits, end) {
             icon: "",
             style: "",
             badge: "",
+            clickOn: "up",
             enable: true
         },
 
@@ -19973,6 +20114,185 @@ function pad(number, digits, end) {
     });
 
     ui.plugin(ButtonGroup);
+})(window.kendo.jQuery);
+
+
+
+
+
+(function($, undefined) {
+    var kendo = window.kendo,
+        ui = kendo.mobile.ui,
+        Widget = ui.Widget,
+        COLLAPSIBLE = "km-collapsible",
+        HEADER = "km-collapsible-header",
+        CONTENT = "km-collapsible-content",
+        INSET = "km-collapsibleinset",
+        HEADER_WRAPPER = "<div data-role='collapsible-header' class='" + HEADER + "'></div>",
+        CONTENT_WRAPPER = "<div data-role='collapsible-content' class='" + CONTENT + "'></div>",
+
+        COLLAPSED = "km-collapsed",
+        EXPANDED = "km-expanded",
+        ANIMATED = "km-animated",
+
+        //icon position
+        LEFT = "left",
+        RIGHT = "right",
+        TOP = "top",
+
+        //events
+        EXAPND = "expand",
+        COLLAPSE = "collapse";
+
+    var Collapsible = Widget.extend({
+        init: function(element, options) {
+            var that = this,
+                container = $(element);
+
+            Widget.fn.init.call(that, container, options);
+
+            container.addClass(COLLAPSIBLE);
+
+            that._buildHeader();
+            that.content = container.children().not(that.header).wrapAll(CONTENT_WRAPPER).parent();
+
+            that._userEvents = new kendo.UserEvents(that.header, {
+                tap: function() { that.toggle(); }
+            });
+
+            container.addClass(that.options.collapsed ? COLLAPSED : EXPANDED);
+
+            if (that.options.inset) {
+                container.addClass(INSET);
+            }
+
+            if (that.options.animation) {
+                that.content.addClass(ANIMATED);
+                that.content.height(0);
+                if (that.options.collapsed) {
+                    that.content.hide();
+                }
+            } else if (that.options.collapsed) {
+                that.content.hide();
+            }
+        },
+
+        events: [
+            EXAPND,
+            COLLAPSE
+        ],
+
+        options: {
+            name: "Collapsible",
+            collapsed: true,
+            collapseIcon: "arrow-n",
+            expandIcon: "arrow-s",
+            iconPosition: LEFT,
+            animation: true,
+            inset: false
+        },
+
+        destroy: function() {
+            Widget.fn.destroy.call(this);
+            this._userEvents.destroy();
+        },
+
+        expand: function(instant) {
+            var icon = this.options.collapseIcon,
+                content = this.content,
+                ios = kendo.support.mobileOS.ios;
+
+            if (!this.trigger(EXAPND)) {
+                if (icon) {
+                    this.header.find(".km-icon").removeClass().addClass("km-icon km-" + icon);
+                }
+                this.element.removeClass(COLLAPSED).addClass(EXPANDED);
+
+                if (this.options.animation && !instant) {
+                    content.off("transitionend");
+                    content.show();
+                    if (ios) { content.removeClass(ANIMATED); } //required to get the height of the content on iOS
+                    content.height(this._getContentHeight());
+                    if (ios) { content.addClass(ANIMATED); }
+
+                    kendo.resize(content);
+                } else {
+                    content.show();
+                }
+            }
+        },
+
+        collapse: function(instant) {
+            var icon = this.options.expandIcon,
+                content = this.content;
+
+            if (!this.trigger(COLLAPSE)) {
+                if (icon) {
+                    this.header.find(".km-icon").removeClass().addClass("km-icon km-" + icon);
+                }
+                this.element.removeClass(EXPANDED).addClass(COLLAPSED);
+
+                if (this.options.animation && !instant) {
+                    content.one("transitionend", function() { content.hide(); });
+                    content.height(0);
+                } else {
+                    content.hide();
+                }
+            }
+        },
+
+        toggle: function(instant) {
+            if (this.isCollapsed()) {
+                this.expand(instant);
+            } else {
+                this.collapse(instant);
+            }
+        },
+
+        isCollapsed: function() {
+            return this.element.hasClass(COLLAPSED);
+        },
+
+        resize: function() {
+            if (!this.isCollapsed() && this.options.animation) {
+                this.content.height(this._getContentHeight());
+            }
+        },
+
+        _buildHeader: function() {
+            var header = this.element.children(":header").wrapAll(HEADER_WRAPPER),
+                iconSpan = $('<span class="km-icon"/>'),
+                icon = this.options.collapsed ? this.options.expandIcon : this.options.collapseIcon,
+                iconPosition = this.options.iconPosition;
+
+            if (icon) {
+                header.prepend(iconSpan);
+                iconSpan.addClass("km-" + icon);
+            }
+
+            this.header = header.parent();
+            this.header.addClass("km-icon-" + iconPosition);
+        },
+
+        _getContentHeight: function() {
+            var style = this.content.attr("style"),
+                height;
+
+            this.content.css({
+                position:   'absolute',
+                visibility: 'hidden',
+                height: "auto"
+            });
+
+            height = this.content.height();
+
+            this.content.attr("style", style ? style : "");
+
+            return height;
+        }
+    });
+
+    ui.plugin(Collapsible);
 })(window.kendo.jQuery);
 
 
@@ -20684,7 +21004,7 @@ function pad(number, digits, end) {
                 groupedMode = groups && groups[0],
                 item;
 
-            if (action === "itemchange") {
+            if (action === "itemchange" && !listView._hasBindingTarget()) {
                 item = listView.findByDataItem(dataItems)[0];
                 if (item) {
                     listView.setDataItem(item, dataItems[0]);
@@ -20832,7 +21152,7 @@ function pad(number, digits, end) {
                 value = this.searchInput.val(),
                 expr = value.length ? {
                     field: options.field,
-                    operator: options.operator || "startsWith",
+                    operator: options.operator || "startswith",
                     ignoreCase: options.ignoreCase,
                     value: value
                 } : null;
@@ -22710,6 +23030,9 @@ function pad(number, digits, end) {
     }
 
     function createWidget(scope, element, attrs, widget, origAttr, controllers) {
+        if (!(element instanceof jQuery)) {
+            throw new Error("The Kendo UI directives require jQuery to be available before AngularJS. Please include jquery before angular in the document.");
+        }
         var kNgDelay = attrs.kNgDelay,
             delayValue = scope.$eval(kNgDelay);
 
@@ -22767,7 +23090,7 @@ function pad(number, digits, end) {
             var widgetEvents = ctor.widget.prototype.events;
 
             $.each(attrs, function(name, value) {
-                if (name === "source" || name === "kDataSource") {
+                if (name === "source" || name === "kDataSource" || name === "kScopeField") {
                     return;
                 }
 
@@ -22835,7 +23158,7 @@ function pad(number, digits, end) {
             var destroyRegister = destroyWidgetOnScopeDestroy(scope, object);
 
             if (attrs.kRebind) {
-                setupRebind(object, scope, element, originalElement, attrs.kRebind, destroyRegister);
+                setupRebind(object, scope, element, originalElement, attrs.kRebind, destroyRegister, attrs);
             }
 
             if (attrs.kNgDisabled) {
@@ -23142,7 +23465,7 @@ function pad(number, digits, end) {
         widget.first("destroy", suspend);
     }
 
-    function setupRebind(widget, scope, element, originalElement, rebindAttr, destroyRegister) {
+    function setupRebind(widget, scope, element, originalElement, rebindAttr, destroyRegister, attrs) {
         // watch for changes on the expression passed in the k-rebind attribute
         var unregister = scope.$watch(rebindAttr, function(newValue, oldValue) {
             if (newValue !== oldValue) {
@@ -23156,6 +23479,18 @@ function pad(number, digits, end) {
                 //
                 // kRebind is probably impossible to get right at the moment.
                 ****************************************************************/
+
+                var templateOptions = WIDGET_TEMPLATE_OPTIONS[widget.options.name];
+
+                if (templateOptions) {
+                    templateOptions.forEach(function(name) {
+                        var templateContents = scope.$eval(attrs["k" + name]);
+
+                        if (templateContents) {
+                            originalElement.append($(templateContents).attr(kendo.toHyphens("k" + name), ""));
+                        }
+                    });
+                }
 
                 var _wrapper = $(widget.wrapper)[0];
                 var _element = $(widget.element)[0];
@@ -23343,7 +23678,9 @@ function pad(number, digits, end) {
                         replace  : true,
                         template : function(element, attributes) {
                             var tag = TAGNAMES[className] || "div";
-                            return "<" + tag + " " + dashed + ">" + element.html() + "</" + tag + ">";
+                            var scopeField = attributes.kScopeField;
+
+                            return "<" + tag + " " + dashed + (scopeField ? ('="' + scopeField + '"') : "") + ">" + element.html() + "</" + tag + ">";
                         }
                     };
                 });

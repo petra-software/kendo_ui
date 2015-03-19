@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -319,7 +319,7 @@ if (kendo.ui.Upload) {
 kendo.ui.Upload.prototype.options.localization =
 $.extend(true, kendo.ui.Upload.prototype.options.localization,{
   "cancel": "Beenden",
-  "dropFilesHere": "Dateien hier fallen lassen zum hochladen",
+  "dropFilesHere": "Dateien hier fallen lassen zum Hochladen",
   "remove": "Löschen",
   "retry": "Wiederholen",
   "select": "Wählen Sie...",
@@ -327,8 +327,8 @@ $.extend(true, kendo.ui.Upload.prototype.options.localization,{
   "statusUploaded": "hochgeladet",
   "statusUploading": "hochladen",
   "uploadSelectedFiles": "Dateien hochladen",
-  "headerStatusUploaded": "Done",
-  "headerStatusUploading": "Uploading..."
+  "headerStatusUploaded": "Abgeschlossen",
+  "headerStatusUploading": "Hochladen..."
 });
 }
 

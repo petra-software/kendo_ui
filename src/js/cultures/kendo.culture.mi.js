@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -45,7 +45,7 @@
                     namesShort: ["Ta","Hi","Tū","Aa","Pa","Me","Ho"]
                 },
                 months: {
-                    names: ["Kohi-tātea","Hui-tanguru","Poutū-te-rangi","Paenga-whāwhā","Haratua","Pipiri","Hōngongoi","Here-turi-kōkā","Mahuru","Whiringa-ā-nuku","Whiringa-ā-rangi","Hakihea",""],
+                    names: ["Kohitātea","Huitanguru","Poutūterangi","Paengawhāwhā","Haratua","Pipiri","Hōngongoi","Hereturikōkā","Mahuru","Whiringa ā-nuku","Whiringa ā-rangi","Hakihea",""],
                     namesAbbr: ["Kohi","Hui","Pou","Pae","Hara","Pipi","Hōngo","Here","Mahu","Nuku","Rangi","Haki",""]
                 },
                 AM: ["a.m.","a.m.","A.M."],
@@ -56,8 +56,8 @@
                     F: "dddd, dd MMMM, yyyy h:mm:ss tt",
                     g: "dd/MM/yyyy h:mm tt",
                     G: "dd/MM/yyyy h:mm:ss tt",
-                    m: "dd MMMM",
-                    M: "dd MMMM",
+                    m: "d MMMM",
+                    M: "d MMMM",
                     s: "yyyy'-'MM'-'dd'T'HH':'mm':'ss",
                     t: "h:mm tt",
                     T: "h:mm:ss tt",

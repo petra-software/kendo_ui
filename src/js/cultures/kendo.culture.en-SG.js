@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -52,8 +52,8 @@
                 PM: ["PM","pm","PM"],
                 patterns: {
                     d: "d/M/yyyy",
-                    D: "dddd, d MMMM, yyyy",
-                    F: "dddd, d MMMM, yyyy h:mm:ss tt",
+                    D: "dddd, d MMMM yyyy",
+                    F: "dddd, d MMMM yyyy h:mm:ss tt",
                     g: "d/M/yyyy h:mm tt",
                     G: "d/M/yyyy h:mm:ss tt",
                     m: "d MMMM",
@@ -62,8 +62,8 @@
                     t: "h:mm tt",
                     T: "h:mm:ss tt",
                     u: "yyyy'-'MM'-'dd HH':'mm':'ss'Z'",
-                    y: "MMMM, yyyy",
-                    Y: "MMMM, yyyy"
+                    y: "MMMM yyyy",
+                    Y: "MMMM yyyy"
                 },
                 "/": "/",
                 ":": ":",

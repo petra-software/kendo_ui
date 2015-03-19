@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,9 +40,9 @@
         calendars: {
             standard: {
                 days: {
-                    names: ["Sundàà","Mondàà","Dienschdàà","Mittwuch","Dunnerschdàà","Fridàà","Sàmschdàà"],
-                    namesAbbr: ["Su.","Mo.","Di.","Mi.","Du.","Fr.","Sà."],
-                    namesShort: ["Su","Mo","Di","Mi","Du","Fr","Sà"]
+                    names: ["Sundi","Manti","Zischti","Mettwuch","Dunnerschti","Friti","Sàmschti"],
+                    namesAbbr: ["Su.","Ma.","Zi.","Me.","Du.","Fr.","Sà."],
+                    namesShort: ["Su","Ma","Zi","Me","Du","Fr","Sà"]
                 },
                 months: {
                     names: ["Jänner","Feverje","März","Àpril","Mai","Jüni","Jüli","Augscht","September","Oktower","Nowember","Dezember",""],
@@ -56,8 +56,8 @@
                     F: "dddd d MMMM yyyy HH:mm:ss",
                     g: "dd/MM/yyyy HH:mm",
                     G: "dd/MM/yyyy HH:mm:ss",
-                    m: "d MMMM",
-                    M: "d MMMM",
+                    m: "d. MMMM",
+                    M: "d. MMMM",
                     s: "yyyy'-'MM'-'dd'T'HH':'mm':'ss",
                     t: "HH:mm",
                     T: "HH:mm:ss",

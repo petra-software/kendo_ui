@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -14,6 +14,7 @@
     // Imports ================================================================
     var each = $.each,
         isArray = $.isArray,
+        isPlainObject = $.isPlainObject,
         map = $.map,
         math = Math,
         noop = $.noop,
@@ -457,6 +458,44 @@
             }
         },
 
+        getAxis: function(name) {
+            var axes = this._plotArea.axes;
+
+            for (var idx = 0; idx < axes.length; idx++) {
+                if (axes[idx].options.name === name) {
+                    return new ChartAxis(axes[idx]);
+                }
+            }
+        },
+
+        toggleHighlight: function(show, options) {
+            var plotArea = this._plotArea;
+            var highlight = this._highlight;
+            var firstSeries = (plotArea.srcSeries || plotArea.series || [])[0];
+            var seriesName, categoryName, points;
+
+            if (isPlainObject(options)) {
+                seriesName = options.series;
+                categoryName = options.category;
+            }  else {
+                seriesName = categoryName = options;
+            }
+
+            if (firstSeries.type === DONUT) {
+                points = pointByCategoryName(plotArea.pointsBySeriesName(seriesName), categoryName);
+            } else if (firstSeries.type === PIE || firstSeries.type === FUNNEL) {
+                points = pointByCategoryName((plotArea.charts[0] || {}).points, categoryName);
+            } else {
+                points = plotArea.pointsBySeriesName(seriesName);
+            }
+
+            if (points) {
+               for (var idx = 0; idx < points.length; idx++) {
+                    highlight.togglePointHighlight(points[idx], show);
+               }
+            }
+        },
+
         _initSurface: function() {
             var surface = this.surface;
             var wrap = this._surfaceWrap();
@@ -526,10 +565,7 @@
         },
 
         exportVisual: function() {
-            var model = this._getModel();
-            model.renderVisual();
-
-            return model.visual;
+            return this.surface.exportVisual();
         },
 
         _sharedTooltip: function() {
@@ -1777,18 +1813,18 @@
         },
 
         createMarker: function() {
-            var item = this,
-                options = item.options,
-                markerColor = options.markerColor,
-                markers = options.markers,
-                markerOptions = deepExtend({}, markers, {
-                    background: markerColor,
-                    border: {
-                        color: markerColor
-                    }
-                });
+            this.container.append(new ShapeElement(this.markerOptions()));
+        },
 
-            item.container.append(new ShapeElement(markerOptions));
+        markerOptions: function() {
+            var options = this.options;
+            var markerColor = options.markerColor;
+            return deepExtend({}, options.markers, {
+                background: markerColor,
+                border: {
+                    color: markerColor
+                }
+            });
         },
 
         createLabel: function() {
@@ -1852,6 +1888,68 @@
             };
         },
 
+        renderVisual: function() {
+            var that = this;
+            var options = that.options;
+            var customVisual = options.visual;
+
+            if (customVisual) {
+                that.visual = customVisual({
+                    active: options.active,
+                    series: options.series,
+                    options: {
+                        markers: that.markerOptions(),
+                        labels: options.labels
+                    },
+                    createVisual: function() {
+                        ChartElement.fn.renderVisual.call(that);
+                        var defaultVisual = that.visual;
+                        delete that.visual;
+                        return defaultVisual;
+                    }
+                });
+                this.addVisual();
+            } else {
+                ChartElement.fn.renderVisual.call(that);
+            }
+        }
+    });
+
+    var LegendLayout = ChartElement.extend({
+        render: function() {
+            var legendItem, items = this.children;
+            var options = this.options;
+            var vertical = options.vertical;
+            var spacing = options.spacing;
+
+            var visual = this.visual = new draw.Layout(null, {
+                spacing: vertical ? 0 : options.spacing,
+                lineSpacing: vertical ? options.spacing : 0,
+                orientation: vertical ? "vertical" : "horizontal"
+            });
+
+            for (var idx = 0; idx < items.length; idx++) {
+                legendItem = items[idx];
+                legendItem.reflow(new Box2D());
+                legendItem.renderVisual();
+            }
+        },
+
+        reflow: function(box) {
+            this.visual.rect(box.toRect());
+            this.visual.reflow();
+            var bbox = this.visual.clippedBBox();
+            if (bbox) {
+                this.box = dataviz.rectToBox(bbox);
+            } else {
+                this.box = new Box2D();
+            }
+        },
+
+        renderVisual: function() {
+            this.addVisual();
+        },
+
         createVisual: noop
     });
 
@@ -1909,6 +2007,7 @@
         createContainer: function() {
             var legend = this,
                 options = legend.options,
+                userAlign = options.align,
                 position = options.position,
                 align = position,
                 vAlign = CENTER;
@@ -1916,8 +2015,20 @@
             if (position == CUSTOM) {
                 align = LEFT;
             } else if (inArray(position, [TOP, BOTTOM])) {
-                align = CENTER;
+                if (userAlign == "start") {
+                    align = LEFT;
+                } else if (userAlign == "end") {
+                    align = RIGHT;
+                } else {
+                    align = CENTER;
+                }
                 vAlign = position;
+            } else if (userAlign) {
+                 if (userAlign == "start") {
+                    vAlign = TOP;
+                 } else if (userAlign == "end") {
+                    vAlign = BOTTOM;
+                 }
             }
 
             legend.container = new BoxElement({
@@ -1942,7 +2053,7 @@
                 vertical = legend.isVertical(),
                 innerElement, i, item;
 
-            innerElement = new FloatElement({
+            innerElement = new LegendLayout({
                 vertical: vertical,
                 spacing: options.spacing
             });
@@ -1959,15 +2070,18 @@
                     labels: options.labels
                 }, options.item, item)));
             }
+            innerElement.render();
+
             legend.container.append(innerElement);
         },
 
         isVertical: function() {
             var legend = this,
                 options = legend.options,
+                orientation = options.orientation,
                 position = options.position,
-                vertical = inArray(position, [ LEFT, RIGHT ]) ||
-                    (position == CUSTOM && options.orientation != HORIZONTAL);
+                vertical = (position == CUSTOM && orientation != HORIZONTAL) ||
+                   (defined(orientation) ? orientation != HORIZONTAL : inArray(position, [ LEFT, RIGHT ]));
 
             return vertical;
         },
@@ -1979,24 +2093,19 @@
         reflow: function(targetBox) {
             var legend = this,
                 options = legend.options,
-                container = legend.container,
-                vertical = legend.isVertical(),
-                containerBox = targetBox.clone();
+                container = legend.container;
+
+            targetBox = targetBox.clone();
 
             if (!legend.hasItems()) {
-                legend.box = targetBox.clone();
+                legend.box = targetBox;
                 return;
             }
 
-            if (vertical) {
-                containerBox.y1 = 0;
-            }
-
             if (options.position === CUSTOM) {
-                legend.containerCustomReflow(containerBox);
-                legend.box = targetBox.clone();
+                legend.containerCustomReflow(targetBox);
+                legend.box = targetBox;
             } else {
-                container.reflow(containerBox);
                 legend.containerReflow(targetBox);
             }
         },
@@ -2004,10 +2113,31 @@
         containerReflow: function(targetBox) {
             var legend = this,
                 options = legend.options,
-                pos = options.position == TOP || options.position == BOTTOM ? X : Y,
-                containerBox = legend.container.box,
-                box = containerBox.clone();
+                position = options.position,
+                pos = position == TOP || position == BOTTOM ? X : Y,
+                containerBox = targetBox.clone(),
+                container = legend.container,
+                width = options.width,
+                height = options.height,
+                vertical = legend.isVertical(),
+                alignTarget = targetBox.clone(),
+                box;
 
+            if (position == LEFT || position == RIGHT) {
+                containerBox.y1 = alignTarget.y1 = 0;
+            }
+
+            if (vertical && height) {
+                containerBox.y2 = containerBox.y1 + height;
+                containerBox.align(alignTarget, Y, container.options.vAlign);
+            } else if (!vertical && width){
+                containerBox.x2 = containerBox.x1 + width;
+                containerBox.align(alignTarget, X, container.options.align);
+            }
+
+            container.reflow(containerBox);
+            containerBox = container.box;
+            box = containerBox.clone();
             if (options.offsetX || options.offsetY) {
                 containerBox.translate(options.offsetX, options.offsetY);
                 legend.container.reflow(containerBox);
@@ -3124,20 +3254,44 @@
         },
 
         createVisual: function() {
-            var box = this.box;
-            if (this.visible !== false) {
-                ChartElement.fn.createVisual.call(this);
-                if (box.width() > 0 && box.height() > 0) {
-                    this.createRect();
+            var bar = this;
+            var box = bar.box;
+            var options = bar.options;
+            var customVisual = options.visual;
+
+            if (bar.visible !== false) {
+                ChartElement.fn.createVisual.call(bar);
+                if (customVisual) {
+                    var visual = this.rectVisual = customVisual({
+                        category: bar.category,
+                        dataItem: bar.dataItem,
+                        value: bar.value,
+                        series: bar.series,
+                        percentage: bar.percentage,
+                        runningTotal: bar.runningTotal,
+                        total: bar.total,
+                        rect: box.toRect(),
+                        createVisual: function() {
+                            var group = new draw.Group();
+                            bar.createRect(group);
+                            return group;
+                        },
+                        options: options
+                    });
+                    if (visual) {
+                        bar.visual.append(visual);
+                    }
+                } else if (box.width() > 0 && box.height() > 0) {
+                    bar.createRect(bar.visual);
                 }
             }
         },
 
-        createRect: function(view) {
+        createRect: function(visual) {
             var options = this.options;
             var border = options.border;
             var strokeOpacity = defined(border.opacity) ? border.opacity : options.opacity;
-            var rect = draw.Path.fromRect(this.box.toRect(), {
+            var rect = this.rectVisual = draw.Path.fromRect(this.box.toRect(), {
                 fill: {
                     color: this.color,
                     opacity: options.opacity
@@ -3155,10 +3309,10 @@
                 alignPathToPixel(rect);
             }
 
-            this.visual.append(rect);
+            visual.append(rect);
 
             if (hasGradientOverlay(options)) {
-                this.visual.append(this.createGradientOverlay(rect, {
+                visual.append(this.createGradientOverlay(rect, {
                         baseColor: this.color
                     }, deepExtend({
                          end: !options.vertical ? [0, 1] : undefined
@@ -3171,6 +3325,18 @@
             var highlight = draw.Path.fromRect(this.box.toRect(), style);
 
             return alignPathToPixel(highlight);
+        },
+
+        highlightVisual: function() {
+            return this.rectVisual;
+        },
+
+        highlightVisualArgs: function() {
+            return {
+                options: this.options,
+                rect: this.box.toRect(),
+                visual: this.rectVisual
+            };
         },
 
         getBorderColor: function() {
@@ -3719,7 +3885,7 @@
         },
 
         evalPointOptions: function(options, value, category, categoryIx, series, seriesIx) {
-            var state = { defaults: series._defaults, excluded: ["data", "aggregate", "_events", "tooltip", "template"] };
+            var state = { defaults: series._defaults, excluded: ["data", "aggregate", "_events", "tooltip", "template", "visual", "toggle"] };
 
             var doEval = this._evalSeries[seriesIx];
             if (!defined(doEval)) {
@@ -3943,8 +4109,6 @@
 
         stackLimits: function(axisName, stackName) {
             var limits = CategoricalChart.fn.stackLimits.call(this, axisName, stackName);
-            limits.min = math.min(0, limits.min);
-            limits.max = math.max(0, limits.max);
 
             return limits;
         },
@@ -4522,6 +4686,19 @@
             return draw.Path.fromRect(this.box.toRect(), style);
         },
 
+        highlightVisual: function() {
+            return this.bodyVisual;
+        },
+
+        highlightVisualArgs: function() {
+            var options = this.options;
+            return {
+                rect: this.box.toRect(),
+                visual: this.bodyVisual,
+                options: this.options
+            };
+        },
+
         formatValue: function(format) {
             var bullet = this;
 
@@ -4584,6 +4761,7 @@
                         Point2D(capStart, valueBox.y2),
                         Point2D(capEnd, valueBox.y2));
                 }
+                errorBar.box = Box2D(capStart, valueBox.y1, capEnd, valueBox.y2);
             } else {
                 linePoints = [
                     Point2D(valueBox.x1, centerBox.y),
@@ -4595,6 +4773,7 @@
                         Point2D(valueBox.x2, capStart),
                         Point2D(valueBox.x2, capEnd));
                 }
+                errorBar.box = Box2D(valueBox.x1, capStart, valueBox.x2, capEnd);
             }
 
             errorBar.linePoints = linePoints;
@@ -4608,6 +4787,33 @@
         },
 
         createVisual: function() {
+            var that = this;
+            var options = that.options;
+            var visual = options.visual;
+
+            if (visual) {
+                that.visual = visual({
+                    low: that.low,
+                    high: that.high,
+                    rect: that.box.toRect(),
+                    options: {
+                        endCaps: options.endCaps,
+                        color: options.color,
+                        line: options.line
+                    },
+                    createVisual: function() {
+                        that.createDefaultVisual();
+                        var defaultVisual = that.visual;
+                        delete that.visual;
+                        return defaultVisual;
+                    }
+                });
+            } else {
+                that.createDefaultVisual();
+            }
+        },
+
+        createDefaultVisual: function() {
             var errorBar = this,
                 options = errorBar.options,
                 parent = errorBar.parent,
@@ -4776,7 +4982,13 @@
                 border: this.markerBorder(),
                 opacity: options.opacity,
                 zIndex: valueOrDefault(options.zIndex, this.series.zIndex),
-                animation: options.animation
+                animation: options.animation,
+                visual: options.visual
+            }, {
+                dataItem: this.dataItem,
+                value: this.value,
+                series: this.series,
+                category: this.category
             });
 
             return marker;
@@ -4880,6 +5092,31 @@
             shadow.reflow(this._childBox);
 
             return shadow.getElement();
+        },
+
+        highlightVisual: function() {
+            return (this.marker || {}).visual;
+        },
+
+        highlightVisualArgs: function() {
+            var marker = this.marker;
+            var visual;
+            var rect;
+            if (marker) {
+                rect = marker.paddingBox.toRect();
+                visual = marker.visual;
+            } else {
+                var size = this.options.markers.size;
+                var halfSize = size / 2;
+                var center = this.box.center();
+                rect = new geom.Rect([center.x - halfSize, center.y - halfSize], [size, size]);
+            }
+
+            return {
+                options: this.options,
+                rect: rect,
+                visual: visual
+            };
         },
 
         tooltipAnchor: function(tooltipWidth, tooltipHeight) {
@@ -5796,7 +6033,7 @@
         evalPointOptions: function(options, value, fields) {
             var series = fields.series;
             var seriesIx = fields.seriesIx;
-            var state = { defaults: series._defaults, excluded: ["data", "tooltip", "tempate"] };
+            var state = { defaults: series._defaults, excluded: ["data", "tooltip", "tempate", "visual", "toggle"] };
 
             var doEval = this._evalSeries[seriesIx];
             if (!defined(doEval)) {
@@ -6009,6 +6246,11 @@
     deepExtend(ScatterLineChart.fn, LineChartMixin);
 
     var BubbleChart = ScatterChart.extend({
+        init: function(plotArea, options) {
+            this._maxSize = MIN_VALUE;
+            ScatterChart.fn.init.call(this, plotArea, options);
+        },
+
         options: {
             tooltip: {
                 format: "{3}"
@@ -6020,6 +6262,7 @@
 
         addValue: function(value, fields) {
             if ((value.size !== null && value.size >= 0) || fields.series.negativeValues.visible) {
+                this._maxSize = math.max(this._maxSize, math.abs(value.size));
                 ScatterChart.fn.addValue.call(this, value, fields);
             }
         },
@@ -6097,7 +6340,6 @@
             for (seriesIx = 0; seriesIx < series.length; seriesIx++) {
                 var currentSeries = series[seriesIx],
                     seriesPoints = chart.seriesPoints[seriesIx],
-                    seriesMaxSize = chart.maxSize(seriesPoints),
                     minSize = currentSeries.minSize || math.max(boxSize * 0.02, 10),
                     maxSize = currentSeries.maxSize || boxSize * 0.2,
                     minR = minSize / 2,
@@ -6105,7 +6347,7 @@
                     minArea = math.PI * minR * minR,
                     maxArea = math.PI * maxR * maxR,
                     areaRange = maxArea - minArea,
-                    areaRatio = areaRange / seriesMaxSize;
+                    areaRatio = areaRange / chart._maxSize;
 
                 for (pointIx = 0; pointIx < seriesPoints.length; pointIx++) {
                     var point = seriesPoints[pointIx],
@@ -6126,20 +6368,6 @@
                     });
                 }
             }
-        },
-
-        maxSize: function(seriesPoints) {
-            var length = seriesPoints.length,
-                max = 0,
-                i,
-                size;
-
-            for (i = 0; i < length; i++) {
-                size = seriesPoints[i].value.size;
-                max = math.max(max, math.abs(size));
-            }
-
-            return max;
         },
 
         formatPointValue: function(point, format) {
@@ -6235,9 +6463,9 @@
 
         createVisual: function() {
             ChartElement.fn.createVisual.call(this);
-
+            this._mainVisual = this.mainVisual(this.options);
             this.visual.append(
-                this.mainVisual(this.options)
+                this._mainVisual
             );
 
             this.createOverlay();
@@ -6349,6 +6577,18 @@
             this.color = normalColor;
 
             return overlay;
+        },
+
+        highlightVisual: function() {
+            return this._mainVisual;
+        },
+
+        highlightVisualArgs: function() {
+            return {
+                options: this.options,
+                rect: this.box.toRect(),
+                visual: this._mainVisual
+            };
         },
 
         tooltipAnchor: function() {
@@ -7073,6 +7313,24 @@
             }));
         },
 
+        highlightVisual: function() {
+            return this.visual;
+        },
+
+        highlightVisualArgs: function() {
+            var sector = this.sector;
+
+            return {
+                options: this.options,
+                radius: sector.r,
+                innerRadius: sector.ir,
+                center: new geom.Point(sector.c.x, sector.c.y),
+                startAngle: sector.startAngle,
+                endAngle: sector.angle + sector.startAngle,
+                visual: this.visual
+            };
+        },
+
         tooltipAnchor: function(width, height) {
             var point = this,
                 box = point.sector.adjacentBox(TOOLTIP_OFFSET, width, height);
@@ -7242,7 +7500,7 @@
                 dataItem: fields.dataItem,
                 category: fields.category,
                 percentage: fields.percentage
-            }, { defaults: series._defaults, excluded: ["data", "template"] });
+            }, { defaults: series._defaults, excluded: ["data", "template", "visual", "toggle"] });
         },
 
         addValue: function(value, sector, fields) {
@@ -8889,6 +9147,25 @@
             return result;
         },
 
+        pointsBySeriesName: function(name) {
+            var charts = this.charts,
+                result = [],
+                points, point, i, j, chart;
+
+            for (i = 0; i < charts.length; i++) {
+                chart = charts[i];
+                points = chart.points;
+                for (j = 0; j < points.length; j++) {
+                    point = points[j];
+                    if (point && point.series.name === name) {
+                        result.push(point);
+                    }
+                }
+            }
+
+            return result;
+        },
+
         paneByPoint: function(point) {
             var plotArea = this,
                 panes = plotArea.panes,
@@ -9933,17 +10210,38 @@
 
             for (var i = 0; i < points.length; i++) {
                 var point = points[i];
-                if (point && point.toggleHighlight) {
-                    point.toggleHighlight(true);
+                if (point && point.toggleHighlight && point.hasHighlight()) {
+                    this.togglePointHighlight(point, true);
                     this._points.push(point);
                 }
+            }
+        },
+
+        togglePointHighlight: function(point, show) {
+            var toggleHandler = (point.options.highlight || {}).toggle;
+            if (toggleHandler) {
+                var eventArgs = {
+                    category: point.category,
+                    series: point.series,
+                    dataItem: point.dataItem,
+                    value: point.value,
+                    preventDefault: preventDefault,
+                    visual: point.highlightVisual(),
+                    show: show
+                };
+                toggleHandler(eventArgs);
+                if (!eventArgs._defaultPrevented) {
+                    point.toggleHighlight(show);
+                }
+            } else {
+                point.toggleHighlight(show);
             }
         },
 
         hide: function() {
             var points = this._points;
             while (points.length) {
-                points.pop().toggleHighlight(false);
+                this.togglePointHighlight(points.pop(), false);
             }
         },
 
@@ -11287,6 +11585,20 @@
         }
     };
 
+    var ChartAxis = Class.extend({
+        init: function(axis) {
+            this._axis = axis;
+        },
+
+        slot: function(from, to) {
+            return this._axis.slot(from, to);
+        },
+
+        range: function() {
+            return this._axis.range();
+        }
+    });
+
     function intersection(a1, a2, b1, b2) {
         var result,
             ua_t = (b2.x - b1.x) * (a1.y - b1.y) - (b2.y - b1.y) * (a1.x - b1.x),
@@ -11992,6 +12304,20 @@
         }
     }
 
+    function preventDefault() {
+        this._defaultPrevented = true;
+    }
+
+    function pointByCategoryName(points, name) {
+        if (points) {
+            for (var idx = 0; idx < points.length; idx++) {
+                if (points[idx].category === name) {
+                    return [points[idx]];
+                }
+            }
+        }
+    }
+
     // Exports ================================================================
     dataviz.ui.plugin(Chart);
 
@@ -12098,6 +12424,7 @@
         CategoricalErrorBar: CategoricalErrorBar,
         CategoricalPlotArea: CategoricalPlotArea,
         CategoryAxis: CategoryAxis,
+        ChartAxis: ChartAxis,
         ChartContainer: ChartContainer,
         ClipAnimation: ClipAnimation,
         ClusterLayout: ClusterLayout,
@@ -12115,6 +12442,7 @@
         SharedTooltip: SharedTooltip,
         Legend: Legend,
         LegendItem: LegendItem,
+        LegendLayout: LegendLayout,
         LineChart: LineChart,
         LinePoint: LinePoint,
         LineSegment: LineSegment,

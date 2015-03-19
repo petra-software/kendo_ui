@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -29,7 +29,7 @@
                 symbol: "%"
             },
             currency: {
-                pattern: ["$ -n","$ n"],
+                pattern: ["-n $","n $"],
                 decimals: 2,
                 ",": ".",
                 ".": ",",
@@ -51,11 +51,11 @@
                 AM: [""],
                 PM: [""],
                 patterns: {
-                    d: "d/MM/yyyy",
+                    d: "dd-MM-yy",
                     D: "dddd d MMMM yyyy",
                     F: "dddd d MMMM yyyy HH:mm:ss",
-                    g: "d/MM/yyyy HH:mm",
-                    G: "d/MM/yyyy HH:mm:ss",
+                    g: "dd-MM-yy HH:mm",
+                    G: "dd-MM-yy HH:mm:ss",
                     m: "d MMMM",
                     M: "d MMMM",
                     s: "yyyy'-'MM'-'dd'T'HH':'mm':'ss",
@@ -65,7 +65,7 @@
                     y: "MMMM yyyy",
                     Y: "MMMM yyyy"
                 },
-                "/": "/",
+                "/": "-",
                 ":": ":",
                 firstDay: 1
             }

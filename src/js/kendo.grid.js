@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1288,11 +1288,15 @@
 
             that._selectable();
 
+            that._clipboard();
+
             that._details();
 
             that._editable();
 
             that._attachCustomCommandsEvent();
+
+            that._minScreenSupport();
 
             if (that.options.autoBind) {
                 that.dataSource.fetch();
@@ -1381,6 +1385,7 @@
             scrollable: true,
             sortable: false,
             selectable: false,
+            allowCopy: false,
             navigatable: false,
             pageable: false,
             editable: false,
@@ -1445,6 +1450,20 @@
 
             if (that.selectable && that.selectable.element) {
                 that.selectable.destroy();
+
+                that.clearArea();
+
+                if (that.copyHandler) {
+                    that.wrapper.off("keydown", that.copyHandler);
+                    that.unbind(that.copyHandler);
+                }
+                if (that.updateClipBoardState) {
+                    that.unbind(that.updateClipBoardState);
+                    that.updateClipBoardState = null;
+                }
+                if (that.clearAreaHandler) {
+                    that.wrapper.off("keyup", that.clearAreaHandler);
+                }
             }
 
             that.selectable = null;
@@ -1496,6 +1515,10 @@
 
             if (that.pane) {
                 that.pane.destroy();
+            }
+
+            if (that.minScreenResizeHandler) {
+                $(window).off("resize", that.minScreenResizeHandler);
             }
 
             if (that._draggableInstance && that._draggableInstance.element) {
@@ -1568,6 +1591,12 @@
 
             this.destroy();
             this.options = null;
+            if (this._isMobile) {
+                var mobileWrapper = wrapper.closest(kendo.roleSelector("pane")).parent();
+                mobileWrapper.after(wrapper);
+                mobileWrapper.remove();
+                wrapper.removeClass("k-grid-mobile");
+            }
             if (wrapper[0] !== element[0]) {
                 wrapper.before(element);
                 wrapper.remove();
@@ -1698,7 +1727,7 @@
             var left;
 
             if (resizeHandle && that.lockedContent && resizeHandle.data("th")[0] !== th[0]) {
-                resizeHandle.remove();
+                resizeHandle.off(NS).remove();
                 resizeHandle = null;
             }
 
@@ -1746,6 +1775,10 @@
             })
             .data("th", th)
             .show();
+
+            resizeHandle.off("dblclick" + NS).on("dblclick" + NS, function () {
+                that._autoFitLeafColumn(th.data("index"));
+            });
         },
 
         _positionColumnResizeHandle: function(container) {
@@ -1790,7 +1823,7 @@
                     .removeClass("k-column-active");
 
                 if (this.lockedContent && !this._isMobile) {
-                    this.resizeHandle.remove();
+                    this.resizeHandle.off(NS).remove();
                     this.resizeHandle = null;
                 } else {
                     this.resizeHandle.hide();
@@ -2163,6 +2196,143 @@
             for (var idx = 0, length = rows.length; idx < length; idx += 1) {
                 reorder(elements(lockedRows[idx], rows[idx], ">td:not(.k-group-cell,.k-hierarchy-cell)"), sourceIndex, destIndex, before, sources.length);
             }
+        },
+
+        _autoFitLeafColumn: function (leafIndex) {
+            this.autoFitColumn(leafColumns(this.columns)[leafIndex]);
+        },
+
+        autoFitColumn: function (column) {
+            var that = this,
+                options = that.options,
+                columns = that.columns,
+                index,
+                th,
+                header,
+                headerTable,
+                isLocked,
+                visibleLocked = that.lockedHeader ? leafDataCells(that.lockedHeader.find(">table>thead")).filter(isCellVisible).length : 0,
+                col;
+
+            //  retrieve the column object, depending on the method argument
+            if (typeof column == "number") {
+                column = columns[column];
+            } else if (isPlainObject(column)) {
+                column = grep(flatColumns(columns), function (item) {
+                    return item === column;
+                })[0];
+            } else {
+                column = grep(flatColumns(columns), function (item) {
+                    return item.field === column;
+                })[0];
+            }
+
+            if (!column || !isVisible(column)) {
+                return;
+            }
+
+            index = inArray(column, leafColumns(columns));
+            isLocked = column.locked;
+
+            if (isLocked) {
+                headerTable = that.lockedHeader.children("table");
+            } else {
+                headerTable = that.thead.parent();
+            }
+
+            th = headerTable.find("[data-index='" + index + "']");
+
+            var contentTable = isLocked ? that.lockedTable : that.table,
+                footer = that.footer || $();
+
+            if (that.footer && that.lockedContent) {
+                footer = isLocked ? that.footer.children(".k-grid-footer-locked") : that.footer.children(".k-grid-footer-wrap");
+            }
+
+            var footerTable = footer.find("table").first();
+
+            if (that.lockedHeader && visibleLocked >= index && !isLocked) {
+                index -= visibleLocked;
+            }
+
+            // adjust column index, depending on previous hidden columns
+            for (var j = 0; j < columns.length; j++) {
+                if (columns[j] === column) {
+                    break;
+                } else {
+                    if (columns[j].hidden) {
+                        index--;
+                    }
+                }
+            }
+
+            // get col elements
+            if (options.scrollable) {
+                col = headerTable.find("col:not(.k-group-col):not(.k-hierarchy-col):eq(" + index + ")")
+                    .add(contentTable.children("colgroup").find("col:not(.k-group-col):not(.k-hierarchy-col):eq(" + index + ")"))
+                    .add(footerTable.find("colgroup").find("col:not(.k-group-col):not(.k-hierarchy-col):eq(" + index + ")"));
+            } else {
+                col = contentTable.children("colgroup").find("col:not(.k-group-col):not(.k-hierarchy-col):eq(" + index + ")");
+            }
+
+            var tables = headerTable.add(contentTable).add(footerTable);
+
+            var oldColumnWidth = th.outerWidth();
+
+            // reset the table and autofitted column widths
+            // if scrolling is disabled, we need some additional repainting of the table
+            col.width("");
+            tables.css("table-layout", "fixed");
+            col.width("auto");
+            tables.addClass("k-autofitting");
+            tables.css("table-layout", "");
+
+            var newTableWidth = Math.max(headerTable.width(), contentTable.width(), footerTable.width());
+            var newColumnWidth = Math.ceil(Math.max(th.outerWidth(), contentTable.find("tr").eq(0).children("td:visible").eq(index).outerWidth(), footerTable.find("tr").eq(0).children("td:visible").eq(index).outerWidth()));
+
+            col.width(newColumnWidth);
+            column.width = newColumnWidth;
+
+            // if all visible columns have widths, the table needs a pixel width as well
+            if (options.scrollable) {
+                var cols = headerTable.find("col"),
+                    colWidth,
+                    totalWidth = 0;
+                for (var idx = 0, length = cols.length; idx < length; idx += 1) {
+                    colWidth = cols[idx].style.width;
+                    if (colWidth && colWidth.indexOf("%") == -1) {
+                        totalWidth += parseInt(colWidth, 10);
+                    } else {
+                        totalWidth = 0;
+                        break;
+                    }
+                }
+
+                if (totalWidth) {
+                    tables.each(function () {
+                        this.style.width = totalWidth + "px";
+                    });
+                }
+            }
+
+            if (browser.msie && browser.version == 8) {
+                tables.css("display", "inline-table");
+                setTimeout(function () {
+                    tables.css("display", "table");
+                }, 1);
+            }
+
+            tables.removeClass("k-autofitting");
+
+            that.trigger(COLUMNRESIZE, {
+                column: column,
+                oldWidth: oldColumnWidth,
+                newWidth: newColumnWidth
+            });
+
+            that._applyLockedContainersWidth();
+            that._syncLockedContentHeight();
+            that._syncLockedHeaderHeight();
         },
 
         reorderColumn: function(destIndex, column, before) {
@@ -3158,7 +3328,7 @@
             for (idx = 0, length = columns.length; idx < length; idx++) {
                 column = columns[idx];
 
-                if (model && (!model.editable || model.editable(column.field)) && !column.command && column.field) {
+                if (model && (!model.editable || model.editable(column.field)) && !column.command && column.field && column.hidden !== true) {
                     return idx;
                 }
             }
@@ -3459,6 +3629,168 @@
                     });
                 }
             }
+        },
+
+        _clipboard: function() {
+            var options = this.options;
+            var selectable = options.selectable;
+            if (selectable && options.allowCopy) {
+                var grid = this;
+                if (!options.navigatable) {
+                    grid.table.add(grid.lockedTable)
+                        .attr("tabindex", 0)
+                        .on("mousedown" + NS + " keydown" + NS, ".k-detail-cell", function(e) {
+                            if (e.target !== e.currentTarget) {
+                                e.stopImmediatePropagation();
+                            }
+                        })
+                        .on("mousedown" + NS, NAVROW + ">" + NAVCELL, proxy(tableClick, grid));
+                }
+                grid.copyHandler = proxy(grid.copySelection, grid);
+                grid.updateClipBoardState = function () {
+                    if (grid.areaClipBoard) {
+                        grid.areaClipBoard.val(grid.getTSV()).focus().select();
+                    }
+                };
+                grid.bind("change",grid.updateClipBoardState);
+                grid.wrapper.on("keydown", grid.copyHandler);
+                grid.clearAreaHandler = proxy(grid.clearArea, grid);
+                grid.wrapper.on("keyup", grid.clearAreaHandler);
+            }
+        },
+
+        copySelection: function(e) {
+            if ((e instanceof jQuery.Event && !(e.ctrlKey || e.metaKey)) ||
+                $(e.target).is("input:visible,textarea:visible") ||
+                (window.getSelection && window.getSelection().toString()) ||
+                (document.selection && document.selection.createRange().text) ) {
+                return;
+            }
+
+
+            if (!this.areaClipBoard) {
+                this.areaClipBoard =
+                    $("<textarea />")
+                    .css({
+                        position: "fixed",
+                        top: "50%",
+                        left:"50%",
+                        opacity: 0,
+                        width: 0,
+                        height: 0
+                    })
+                    .appendTo(this.wrapper);
+            }
+
+            this.areaClipBoard.val(this.getTSV()).focus().select();
+
+        },
+
+        getTSV: function() {
+            var grid = this;
+            var selected = grid.select();
+            var delimeter = "\t";
+            var allowCopy = grid.options.allowCopy;
+            if ($.isPlainObject(allowCopy) && allowCopy.delimeter) {
+                delimeter = allowCopy.delimeter;
+            }
+            var text = "";
+            if (selected.length) {
+                if (selected.eq(0).is("tr")) {
+                    selected = selected.find("td:not(.k-group-cell)");
+                }
+
+                var result = [];
+                var cellsOffset = this.columns.length;
+                var lockedCols = grid._isLocked() && lockedColumns(grid.columns).length;
+                var inLockedArea = true;
+
+                $.each(selected, function (idx, cell) {
+                    cell = $(cell);
+                    var tr = cell.closest("tr");
+                    var rowIndex = tr.index();
+                    var cellIndex = cell.index();
+                    if (lockedCols && inLockedArea) {
+                        inLockedArea = $.contains(grid.lockedTable[0], cell[0]);
+                    }
+                    if (grid._groups() && inLockedArea) {
+                        cellIndex -= grid._groups();
+                    }
+                    cellIndex = inLockedArea ? cellIndex : (cellIndex + lockedCols );
+                    if (cellsOffset > cellIndex) {
+                        cellsOffset = cellIndex;
+                    }
+                    var cellText = cell.text();
+                    if (!result[rowIndex]) {
+                        result[rowIndex] = [];
+                    }
+                    result[rowIndex][cellIndex] = cellText;
+
+                });
+
+                var rowsOffset = result.length;
+                result = $.each(result, function (idx, val) {
+                    if (val) {
+                        result[idx] = val.slice(cellsOffset);
+                        if (rowsOffset > idx) {
+                            rowsOffset = idx;
+                        }
+                    }
+                });
+
+                $.each(result.slice(rowsOffset), function (idx, val) {
+                    if (val) {
+                        text += val.join(delimeter) + "\r\n";
+                    } else {
+                        text +=  "\r\n";
+                    }
+                });
+            }
+            return text;
+        },
+
+        clearArea: function(e) {
+            if (this.areaClipBoard && e && e.target === this.areaClipBoard[0]) {
+                if (this.options.navigatable) {
+                    $(this.current()).closest("table").focus();
+                } else {
+                    this.table.focus();
+                }
+            }
+
+            if (this.areaClipBoard) {
+                this.areaClipBoard.remove();
+                this.areaClipBoard = null;
+            }
+        },
+
+        _minScreenSupport: function() {
+            var any = this.hideMinScreenCols();
+
+            if (any) {
+                this.minScreenResizeHandler = proxy(this.hideMinScreenCols, this);
+                $(window).on("resize", this.minScreenResizeHandler);
+            }
+        },
+        hideMinScreenCols: function() {
+            var cols = this.columns,
+                any = false,
+                screenWidth = (window.innerWidth > 0) ? window.innerWidth : screen.width;
+
+            for (var i = 0; i < cols.length; i++) {
+                var col = cols[i];
+                //should provide px/em support
+                var minWidth = col.minScreenWidth;
+                if (minWidth !== undefined && minWidth !== null) {
+                    any = true;
+                    if (minWidth > screenWidth) {
+                        this.hideColumn(col);
+                    } else {
+                        this.showColumn(col);
+                    }
+                }
+            }
+            return any;
         },
 
         _relatedRow: function(row) {
@@ -4006,7 +4338,7 @@
             }
         },
 
-        _setContentWidth: function() {
+        _setContentWidth: function(scrollLeft) {
             var that = this,
                 hiddenDivClass = 'k-grid-content-expander',
                 hiddenDiv = '<div class="' + hiddenDivClass + '"></div>',
@@ -4025,6 +4357,9 @@
                     }
                     if (that.thead) {
                         expander.width(that.thead.width());
+                        if (scrollLeft) {
+                            that.content.scrollLeft(scrollLeft);
+                        }
                     }
                 } else if (expander[0]) {
                     expander.remove();
@@ -4471,7 +4806,17 @@
                             compare: (column.sortable || {}).compare
                         }) : false;
 
-                        filterable = options.filterable && column.filterable !== false && columnMenu.filterable !== false ? extend({ pane: that.pane }, column.filterable, options.filterable) : false;
+                        filterable = options.filterable && column.filterable !== false && columnMenu.filterable !== false ? extend({ pane: that.pane }, options.filterable, column.filterable) : false;
+
+                        if (column.filterable && column.filterable.dataSource) {
+                            filterable.forceUnique = false;
+                            filterable.checkSource = column.filterable.dataSource;
+                        }
+
+                        if (filterable) {
+                            filterable.format = column.format;
+                        }
+
                         menuOptions = {
                             dataSource: that.dataSource,
                             values: column.values,
@@ -4542,6 +4887,7 @@
                             {
                                 dataSource: that.dataSource,
                                 values: columns[idx].values,
+                                format: columns[idx].format,
                                 closeCallback: closeCallback,
                                 init: filterInit,
                                 pane: that.pane
@@ -4551,8 +4897,16 @@
                         if (columnFilterable && columnFilterable.messages) {
                             options.messages = extend(true, {}, filterable.messages, columnFilterable.messages);
                         }
+                        if (columnFilterable && columnFilterable.dataSource) {
+                            options.forceUnique = false;
+                            options.checkSource = columnFilterable.dataSource;
+                        }
 
-                        cell.kendoFilterMenu(options);
+                        if (columnFilterable && columnFilterable.multi) {
+                            cell.kendoFilterMultiCheck(options);
+                        } else {
+                            cell.kendoFilterMenu(options);
+                        }
                     }
                 }
             }
@@ -5405,6 +5759,12 @@
                     filterRow.prepend('<th class="k-hierarchy-cell">&nbsp;</th>');
                 }
 
+                var existingFilterRow = thead.find(".k-filter-row");
+                if (existingFilterRow.length) {
+                    kendo.destroy(existingFilterRow);
+                    existingFilterRow.remove();
+                }
+
                 thead.append(filterRow);
             }
 
@@ -6168,6 +6528,7 @@
                 current = $(that.current()),
                 isCurrentInHeader = false,
                 groups = (that.dataSource.group() || []).length,
+                offsetLeft = that.content && that.content.scrollLeft(),
                 colspan = groups + visibleLeafColumns(visibleColumns(that.columns)).length;
 
             if (e && e.action === "itemchange" && that.editable) { // skip rebinding if editing is in progress
@@ -6221,12 +6582,14 @@
 
             that._setContentHeight();
 
-            that._setContentWidth();
+            that._setContentWidth(offsetLeft);
 
             if (that.lockedTable) {
                 //requires manual trigger of scroll to sync both tables
                 if (that.options.scrollable.virtual) {
                     that.content.find(">.k-virtual-scrollable-wrap").trigger("scroll");
+                } else if (that.touchScroller) {
+                    that.touchScroller.movable.trigger("change");
                 } else {
                     that.content.trigger("scroll");
                 }
@@ -6399,6 +6762,95 @@
 
    if (kendo.PDFMixin) {
        kendo.PDFMixin.extend(Grid.prototype);
+
+       Grid.prototype._drawPDF = function(progress) {
+           var result = new $.Deferred();
+           var grid = this;
+           var dataSource = grid.dataSource;
+           var allPages = grid.options.pdf.allPages;
+
+           this._initPDFProgress(progress);
+
+           // This group will be our document containing all pages
+           var doc = new kendo.drawing.Group();
+           var startingPage = dataSource.page();
+
+           function resolve() {
+               if (allPages) {
+                   dataSource.unbind("change", exportPage);
+                   dataSource.one("change", function() {
+                       result.resolve(doc);
+                   });
+
+                   dataSource.page(startingPage);
+               } else {
+                   result.resolve(doc);
+               }
+           }
+
+           function exportPage() {
+                grid._drawPDFShadow()
+                .done(function(group) {
+                    var pageNum = dataSource.page();
+                    var totalPages = allPages ? dataSource.totalPages() : 1;
+
+                    var args = {
+                        page: group,
+                        pageNumber: pageNum,
+                        progress: pageNum / totalPages,
+                        totalPages: totalPages
+                    };
+
+                    progress.notify(args);
+                    doc.append(args.page);
+
+                    if (pageNum < totalPages) {
+                        dataSource.page(pageNum + 1);
+                    } else {
+                        resolve();
+                    }
+                })
+                .fail(function(err) {
+                    result.reject(err);
+                });
+            }
+
+            if (allPages) {
+                dataSource.bind("change", exportPage);
+                dataSource.page(1);
+            } else {
+                exportPage();
+            }
+
+            return result.promise();
+        };
+
+        Grid.prototype._initPDFProgress = function(deferred) {
+           var loading = $("<div class='k-loading-pdf-mask'><div class='k-loading-color'/></div>");
+           loading.prepend(this.wrapper.clone().css({
+               position: "absolute", top: 0, left: 0
+           }));
+
+           this.wrapper.append(loading);
+
+           var pb = $("<div class='k-loading-pdf-progress'>")
+           .appendTo(loading)
+           .kendoProgressBar({
+               type: "chunk",
+               chunkCount: 10,
+               min: 0,
+               max: 1,
+               value: 0
+           }).data("kendoProgressBar");
+
+           deferred.progress(function(e) {
+               pb.value(e.progress);
+           })
+           .always(function() {
+               kendo.destroy(loading);
+               loading.remove();
+           });
+        };
    }
 
    function syncTableHeight(table1, table2) {
@@ -6512,7 +6964,12 @@
            isInput = $(e.target).is(":button,a,:input,a>.k-icon,textarea,span.k-icon,span.k-link,.k-input,.k-multiselect-wrap"),
            currentTable = currentTarget.closest("table")[0];
 
-       if (kendo.support.touch || (isInput && currentTarget.find(kendo.roleSelector("filtercell")).length)) {
+       if (kendo.support.touch) {
+           return;
+       }
+
+       if (isInput && currentTarget.find(kendo.roleSelector("filtercell")).length) {
+           this.current(currentTarget);
            return;
        }
 
@@ -6524,7 +6981,9 @@
            return;
        }
 
-       this.current(currentTarget);
+       if (this.options.navigatable) {
+           this.current(currentTarget);
+       }
 
        if (isHeader || !isInput) {
            setTimeout(function() {

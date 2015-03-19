@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -192,6 +192,10 @@
 
         dateForTitle: function() {
             return kendo.format(this.options.selectedDateFormat, this._firstDayOfMonth, this._lastDayOfMonth);
+        },
+
+        shortDateForTitle: function() {
+            return kendo.format(this.options.selectedShortDateFormat, this._firstDayOfMonth, this._lastDayOfMonth);
         },
 
         nextDate: function() {
@@ -604,7 +608,7 @@
                     end: slotRange.end
                 });
 
-                this.content[0].appendChild(element[0]);
+                element.appendTo(this.content);
             }
         },
 
@@ -894,6 +898,7 @@
             moreButtonHeight: 13,
             editable: true,
             selectedDateFormat: "{0:y}",
+            selectedShortDateFormat: "{0:y}",
             groupHeaderTemplate: "#=text#",
             dayTemplate: DAY_TEMPLATE,
             eventTemplate: EVENT_TEMPLATE

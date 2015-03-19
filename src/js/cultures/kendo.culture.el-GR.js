@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -42,7 +42,7 @@
                 days: {
                     names: ["Κυριακή","Δευτέρα","Τρίτη","Τετάρτη","Πέμπτη","Παρασκευή","Σάββατο"],
                     namesAbbr: ["Κυρ","Δευ","Τρι","Τετ","Πεμ","Παρ","Σαβ"],
-                    namesShort: ["Κυ","Δε","Τρ","Τε","Πε","Πα","Σά"]
+                    namesShort: ["Κυ","Δε","Τρ","Τε","Πε","Πα","Σα"]
                 },
                 months: {
                     names: ["Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος","Ιούλιος","Αύγουστος","Σεπτέμβριος","Οκτώβριος","Νοέμβριος","Δεκέμβριος",""],
@@ -56,8 +56,8 @@
                     F: "dddd, d MMMM yyyy h:mm:ss tt",
                     g: "d/M/yyyy h:mm tt",
                     G: "d/M/yyyy h:mm:ss tt",
-                    m: "dd MMMM",
-                    M: "dd MMMM",
+                    m: "d MMMM",
+                    M: "d MMMM",
                     s: "yyyy'-'MM'-'dd'T'HH':'mm':'ss",
                     t: "h:mm tt",
                     T: "h:mm:ss tt",

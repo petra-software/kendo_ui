@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -53,7 +53,7 @@
     var BUTTON_TEMPLATE = '<button class="#=styles.button# #=className#" '+
             '#if (action) {#' +
                 'data-action="#=action#"' +
-            '#}#' + 
+            '#}#' +
         '><span class="#=iconClass#"></span>#=text#</button>';
     var COMMAND_BUTTON_TEMPLATE = '<a class="#=className#" #=attr# href="\\#">#=text#</a>';
     var HEADER_VIEWS_TEMPLATE = kendo.template('<ul class="#=styles.viewsWrapper#">' +
@@ -619,7 +619,7 @@
                 field: "parentId",
                 operator: "eq",
                 value: null
-            }; 
+            };
             var order = this._sort || {
                 field: "orderId",
                 dir: "asc"
@@ -1100,7 +1100,7 @@
             var ganttStyles = Gantt.styles;
             var popupStyles = ganttStyles.popup;
 
-            var html = kendo.format('<div {0}="{1}" class="{2} {3}"><div class="{4}">', 
+            var html = kendo.format('<div {0}="{1}" class="{2} {3}"><div class="{4}">',
                 kendo.attr("uid"), task.uid, popupStyles.form, popupStyles.editForm, popupStyles.formContainer);
 
             var fields = this.fields(editors.desktop, task);
@@ -1333,7 +1333,7 @@
                         model: {
                             id: "id",
                             fields: {
-                                id: { from: "id", type: "number" },
+                                id: { from: "id" },
                                 name: { from: "name", type: "string", editable: false},
                                 value: { from: "value", type: "number", defaultValue: "" },
                                 format: { from: "format", type: "string" }
@@ -1522,7 +1522,7 @@
 
         destroy: function() {
             Widget.fn.destroy.call(this);
-            
+
             if (this.dataSource) {
                 this.dataSource.unbind("change", this._refreshHandler);
                 this.dataSource.unbind("progress", this._progressHandler);
@@ -1692,7 +1692,7 @@
             var messages = this.options.messages.actions;
             var commandName = typeof command === STRING ? command : command.name || command.text;
             var className = defaultCommands[commandName] ? defaultCommands[commandName].className : "k-gantt-" + (commandName || "").replace(/\s/g, "");
-            var options = { 
+            var options = {
                 iconClass: "",
                 action: "",
                 text: commandName,
@@ -1923,7 +1923,7 @@
                     var task = e.task;
                     var start = e.start;
                     var end = new Date(start.getTime() + task.duration());
-                    
+
                     if (!that.trigger("moveEnd", { task: task, start: start, end: end })) {
                         that._updateTask(that.dataSource.getByUid(task.uid), {
                             start: start,
@@ -1950,7 +1950,7 @@
                     } else {
                         updateInfo.end = e.end;
                     }
-                    
+
                     if (!that.trigger("resizeEnd", { task: task, start: e.start, end: e.end })) {
                         that._updateTask(that.dataSource.getByUid(task.uid), updateInfo);
                     }
@@ -2134,7 +2134,7 @@
 
         _createPopupButton: function(command) {
             var commandName = command.name || command.text;
-            var options = { 
+            var options = {
                 className: Gantt.styles.popup.button + " k-gantt-" + (commandName || "").replace(/\s/g, ""),
                 text: commandName,
                 attr: ""
@@ -2200,7 +2200,6 @@
             var dataSource = this.assignments.dataSource;
             var taskId = this.assignments.dataTaskIdField;
             var resourceId = this.assignments.dataResourceIdField;
-            var resourceValue = this.assignments.dataValueField;
             var hasMatch = false;
             var assignments = new Query(dataSource.view())
                 .filter({
@@ -2220,7 +2219,7 @@
 
                     if (assignment.get(resourceId) === resource.get("id")) {
                         value = resources[i].get("value");
-                        assignment.set(resourceValue, value);
+                        this._updateAssignment(assignment, value);
                         resources.splice(i, 1);
                         hasMatch = true;
                         break;
@@ -2228,7 +2227,7 @@
                 }
 
                 if (!hasMatch) {
-                    dataSource.remove(assignment);
+                    this._removeAssignment(assignment);
                 }
 
                 hasMatch = false;
@@ -2238,11 +2237,7 @@
 
             for (var j = 0, newLength = resources.length; j < newLength; j++) {
                 resource = resources[j];
-                assignment = dataSource._createNewModel();
-                assignment[taskId] = id;
-                assignment[resourceId] = resource.get("id");
-                assignment[resourceValue] = resource.get("value");
-                dataSource.add(assignment);
+                this._createAssignment(resource, id);
             }
 
             dataSource.sync();
@@ -2302,6 +2297,12 @@
             }
         },
 
+        _updateAssignment: function(assignment, value) {
+            var resourceValueField = this.assignments.dataValueField;
+
+            assignment.set(resourceValueField, value);
+        },
+
         removeTask: function(uid) {
             var that = this;
             var task = typeof uid === "string" ? this.dataSource.getByUid(uid) : uid;
@@ -2353,6 +2354,21 @@
             }
         },
 
+        _createAssignment: function(resource, id) {
+            var assignments = this.assignments;
+            var dataSource = assignments.dataSource;
+            var taskId = assignments.dataTaskIdField;
+            var resourceId = assignments.dataResourceIdField;
+            var resourceValue = assignments.dataValueField;
+            var assignment = dataSource._createNewModel();
+
+            assignment[taskId] = id;
+            assignment[resourceId] = resource.get("id");
+            assignment[resourceValue] = resource.get("value");
+
+            dataSource.add(assignment);
+        },
+
         removeDependency: function(uid) {
             var that = this;
             var dependency = typeof uid === "string" ? this.dependencies.getByUid(uid) : uid;
@@ -2380,7 +2396,7 @@
             this.dependencies.sync();
         },
 
-        _removeResourceAssignments: function(task) {
+        _removeTaskAssignments: function(task) {
             var dataSource = this.assignments.dataSource;
             var assignments = dataSource.view();
             var filter = {
@@ -2410,7 +2426,7 @@
                 dependencies: dependencies
             })) {
                 this._removeTaskDependencies(task, dependencies);
-                this._removeResourceAssignments(task);
+                this._removeTaskAssignments(task);
 
                 this._preventRefresh = true;
 
@@ -2431,6 +2447,10 @@
                     this.dependencies.sync();
                 }
             }
+        },
+
+        _removeAssignment: function(assignment) {
+            this.assignments.dataSource.remove(assignment);
         },
 
         _taskConfirm: function(callback, task) {
@@ -2645,6 +2665,7 @@
         },
 
         _resizable: function() {
+            var that = this;
             var wrapper = this.wrapper;
             var ganttStyles = Gantt.styles;
             var contentSelector = DOT + ganttStyles.gridContent;
@@ -2674,6 +2695,10 @@
                     "resize": function(e) {
                         var delta = e.x.initialDelta;
 
+                        if (kendo.support.isRtl(wrapper)) {
+                            delta *= -1;
+                        }
+
                         if (treeListWidth + delta < 0 || timelineWidth - delta < 0) {
                             return;
                         }
@@ -2681,6 +2706,8 @@
                         treeListWrapper.width(treeListWidth + delta);
                         timelineWrapper.width(timelineWidth - delta);
                         timelineWrapper.find(contentSelector).scrollLeft(timelineScroll + delta);
+
+                        that.timeline.view()._renderCurrentTime();
                     }
                 }).data("kendoResizable");
         },
@@ -2723,6 +2750,7 @@
             var headerTable = this.list.header.find("table");
             var contentTable = this.list.content.find("table");
             var ganttStyles = Gantt.styles;
+            var isRtl = kendo.support.isRtl(this.wrapper);
             var timelineContent = this.timeline.element.find(DOT + ganttStyles.gridContent);
             var tables = headerTable.add(contentTable);
             var attr = selector();
@@ -2856,9 +2884,9 @@
                             if (e.altKey) {
                                 scroll();
                             } else if (e.ctrlKey) {
-                                toggleExpandedState(expandState.expand);
+                                toggleExpandedState(isRtl ? expandState.collapse : expandState.expand);
                             } else {
-                                moveHorizontal("next");
+                                moveHorizontal(isRtl ? "prev" : "next");
                             }
                             break;
                         case keys.LEFT:
@@ -2866,9 +2894,9 @@
                             if (e.altKey) {
                                 scroll(true);
                             } else if (e.ctrlKey) {
-                                toggleExpandedState(expandState.collapse);
+                                toggleExpandedState(isRtl ? expandState.expand : expandState.collapse);
                             } else {
-                                moveHorizontal("prev");
+                                moveHorizontal(isRtl ? "next" : "prev");
                             }
                             break;
                         case keys.UP:
@@ -2974,12 +3002,23 @@
         _resize: function() {
             this._adjustDimensions();
             this.timeline.view()._adjustHeight();
+            this.timeline.view()._renderCurrentTime();
             this.list._adjustHeight();
         }
     });
-    
+
     if (kendo.PDFMixin) {
-        kendo.PDFMixin.extend(Gantt.prototype);
+        kendo.PDFMixin.extend(Gantt.fn);
+
+        Gantt.fn._drawPDF = function() {
+            var listClass = "." + ganttStyles.list;
+            var listWidth = this.wrapper.find(listClass).width();
+
+            var content = this.wrapper.clone();
+            content.find(listClass).css("width", listWidth);
+
+            return this._drawPDFShadow(content);
+        };
     }
 
     kendo.ui.plugin(Gantt);

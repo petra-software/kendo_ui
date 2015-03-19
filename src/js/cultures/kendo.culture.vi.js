@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -41,7 +41,7 @@
             standard: {
                 days: {
                     names: ["Chủ Nhật","Thứ Hai","Thứ Ba","Thứ Tư","Thứ Năm","Thứ Sáu","Thứ Bảy"],
-                    namesAbbr: ["CN","Hai","Ba","Tư","Năm","Sáu","Bảy"],
+                    namesAbbr: ["CN","T2","T3","Tư","Năm","Sáu","Bảy"],
                     namesShort: ["C","H","B","T","N","S","B"]
                 },
                 months: {

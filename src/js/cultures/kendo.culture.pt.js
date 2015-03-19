@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -56,8 +56,8 @@
                     F: "dddd, d' de 'MMMM' de 'yyyy HH:mm:ss",
                     g: "dd/MM/yyyy HH:mm",
                     G: "dd/MM/yyyy HH:mm:ss",
-                    m: "dd' de 'MMMM",
-                    M: "dd' de 'MMMM",
+                    m: "d' de 'MMMM",
+                    M: "d' de 'MMMM",
                     s: "yyyy'-'MM'-'dd'T'HH':'mm':'ss",
                     t: "HH:mm",
                     T: "HH:mm:ss",

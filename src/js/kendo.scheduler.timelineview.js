@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -343,6 +343,7 @@
             name: "TimelineView",
             title: "Timeline",
             selectedDateFormat: "{0:D}",
+            selectedShortDateFormat: "{0:d}",
             date: kendo.date.today(),
             startTime: kendo.date.today(),
             endTime: kendo.date.today(),
@@ -355,6 +356,7 @@
             workWeekEnd: 5,
             majorTick: 60,
             eventHeight: 25,
+            eventMinWidth: 0,
             columnWidth: 100,
             groupHeaderTemplate: "#=text#",
             majorTimeHeaderTemplate: "#=kendo.toString(date, 't')#",
@@ -930,15 +932,27 @@
 
             var rect = eventObject.slotRange.innerRect(eventObject.start, eventObject.end, false);
 
+            var left = rect.left;
+            if (this._isRtl) {
+                left -= (this.content[0].scrollWidth - this.content[0].offsetWidth);
+            }
+
             var width = rect.right - rect.left - 2;
 
             if (width < 0) {
                 width = 0;
             }
 
-            var left = rect.left;
-            if (this._isRtl) {
-                left -= (this.content[0].scrollWidth - this.content[0].offsetWidth);
+            if (width < this.options.eventMinWidth) {
+                var slotsCollection = eventObject.slotRange.collection;
+                var lastSlot = slotsCollection._slots[slotsCollection._slots.length-1];
+                var offsetRight = lastSlot.offsetLeft + lastSlot.offsetWidth;
+
+                width = this.options.eventMinWidth;
+
+                if (offsetRight < left + width) {
+                    width = offsetRight - rect.left - 2;
+                }
             }
 
             eventObject.element.css({
@@ -1189,15 +1203,16 @@
             var endIndex = slotRange.end.index;
 
             var rect = eventObject.slotRange.innerRect(eventObject.start, eventObject.end, false);
+            var rectRight = rect.right + this.options.eventMinWidth;
 
-            var events = collidingEvents(slotRange.events(), rect.left, rect.right);
+            var events = collidingEvents(slotRange.events(), rect.left, rectRight);
 
             slotRange.addEvent({
                 slotIndex: startIndex,
                 start: startIndex,
                 end: endIndex,
                 rectLeft: rect.left,
-                rectRight: rect.right,
+                rectRight: rectRight,
                 element: eventObject.element,
                 uid: eventObject.uid
             });
@@ -1569,6 +1584,7 @@
                 name: "TimelineWeekView",
                 title: "Timeline Week",
                 selectedDateFormat: "{0:D} - {1:D}",
+                selectedShortDateFormat: "{0:d} - {1:d}",
                 majorTick: 120
             },
             name: "timelineWeek",
@@ -1590,6 +1606,7 @@
                 name: "TimelineWorkWeekView",
                 title: "Timeline Work Week",
                 selectedDateFormat: "{0:D} - {1:D}",
+                selectedShortDateFormat: "{0:d} - {1:d}",
                 majorTick: 120
             },
             name: "timelineWorkWeek",
@@ -1617,6 +1634,7 @@
                 name: "TimelineMonthView",
                 title: "Timeline Month",
                 selectedDateFormat: "{0:D} - {1:D}",
+                selectedShortDateFormat: "{0:d} - {1:d}",
                 workDayStart: new Date(1980, 1, 1, 0, 0, 0),
                 workDayEnd: new Date(1980, 1, 1, 0, 0, 0),
                 footer: false,

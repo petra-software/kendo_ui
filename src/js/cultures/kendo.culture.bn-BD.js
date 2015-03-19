@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -21,7 +21,7 @@
             ".": ".",
             groupSize: [3,2],
             percent: {
-                pattern: ["-%n","%n"],
+                pattern: ["-n%","n %"],
                 decimals: 2,
                 ",": ",",
                 ".": ".",
@@ -41,8 +41,8 @@
             standard: {
                 days: {
                     names: ["রবিবার","সোমবার","মঙ্গলবার","বুধবার","বৃহস্পতিবার","শুক্রবার","শনিবার"],
-                    namesAbbr: ["রবি.","সোম.","মঙ্গল.","বুধ.","বৃহস্পতি.","শুক্র.","শনি."],
-                    namesShort: ["র","স","ম","ব","ব","শ","শ"]
+                    namesAbbr: ["রবি.","সোম.","মঙ্গল.","বুধ.","বৃহ.","শুক্র.","শনি."],
+                    namesShort: ["র","সো","ম","বু","বৃ","শু","শ"]
                 },
                 months: {
                     names: ["জানুয়ারী","ফেব্রুয়ারী","মার্চ","এপ্রিল","মে","জুন","জুলাই","আগস্ট","সেপ্টেম্বর","অক্টোবর","নভেম্বর","ডিসেম্বর",""],
@@ -67,7 +67,7 @@
                 },
                 "/": "-",
                 ":": ".",
-                firstDay: 1
+                firstDay: 0
             }
         }
     }

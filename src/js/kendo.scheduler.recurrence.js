@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1938,8 +1938,9 @@
         },
 
         value: function(value) {
-            var that = this,
-                timezone = that.options.timezone;
+            var that = this;
+            var timezone = that.options.timezone;
+            var freq;
 
             if (value === undefined) {
                 if (!that._value.freq) {
@@ -1951,7 +1952,14 @@
 
             that._value = parseRule(value, timezone) || {};
 
-            that._frequency.value(that._value.freq || "");
+            freq = that._value.freq;
+
+            if (freq) {
+                that._frequency.value(freq);
+            } else {
+                that._frequency.select(0);
+            }
+
             that._initView(that._frequency.value());
         },
 

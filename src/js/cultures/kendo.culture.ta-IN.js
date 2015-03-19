@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -34,13 +34,13 @@
                 ",": ",",
                 ".": ".",
                 groupSize: [3,2],
-                symbol: "ரூ"
+                symbol: "₹"
             }
         },
         calendars: {
             standard: {
                 days: {
-                    names: ["ஞாயிற்றுக்கிழமை","திங்கள்கிழமை","செவ்வாய்கிழமை","புதன்கிழமை","வியாழக்கிழமை","வெள்ளிக்கிழமை","சனிக்கிழமை"],
+                    names: ["ஞாயிற்றுக்கிழமை","திங்கள்கிழமை","செவ்வாய்க்கிழமை","புதன்கிழமை","வியாழக்கிழமை","வெள்ளிக்கிழமை","சனிக்கிழமை"],
                     namesAbbr: ["ஞாயிறு","திங்கள்","செவ்வாய்","புதன்","வியாழன்","வெள்ளி","சனி"],
                     namesShort: ["ஞா","தி","செ","பு","வி","வெ","ச"]
                 },
@@ -56,8 +56,8 @@
                     F: "dd MMMM yyyy HH:mm:ss",
                     g: "dd-MM-yyyy HH:mm",
                     G: "dd-MM-yyyy HH:mm:ss",
-                    m: "dd MMMM",
-                    M: "dd MMMM",
+                    m: "d MMMM",
+                    M: "d MMMM",
                     s: "yyyy'-'MM'-'dd'T'HH':'mm':'ss",
                     t: "HH:mm",
                     T: "HH:mm:ss",

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -41,7 +41,7 @@
             standard: {
                 days: {
                     names: ["søndag","måndag","tysdag","onsdag","torsdag","fredag","laurdag"],
-                    namesAbbr: ["sø","må","ty","on","to","fr","la"],
+                    namesAbbr: ["søn","mån","tys","ons","tor","fre","lau"],
                     namesShort: ["sø","må","ty","on","to","fr","la"]
                 },
                 months: {

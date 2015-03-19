@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -146,10 +146,10 @@ var WORKSHEET = kendo.template(
    '<sheetData>' +
    '# for (var ri = 0; ri < data.length; ri++) { #' +
        '# var row = data[ri]; #' +
-       '<row r="${ri + 1}">' +
+       '<row r="#=ri + 1#">' +
        '# for (var ci = 0; ci < row.data.length; ci++) { #' +
            '# var cell = row.data[ci];#' +
-           '<c r="${cell.ref}"# if (cell.style) { # s="${cell.style}" # } ## if (cell.type) { # t="${cell.type}"# } #>' +
+           '<c r="#=cell.ref#"# if (cell.style) { # s="#=cell.style#" # } ## if (cell.type) { # t="#=cell.type#"# } #>' +
            '# if (cell.value != null) { #' +
                '<v>${cell.value}</v>' +
            '# } #' +
@@ -327,10 +327,16 @@ var Worksheet = kendo.Class.extend({
 
         this._maxCellIndex = 0;
 
+        var data = [];
+
+        for (var i = 0; i < rows.length; i++) {
+            data.push(this._row(rows, spans, rows[i], i));
+        }
+
         return WORKSHEET({
             freezePane: this.options.freezePane,
             columns: this.options.columns,
-            data: $.map(rows, $.proxy(this._row, this, rows, spans)),
+            data: data,
             mergeCells: this._mergeCells,
             filter: filter ? { from: ref(filterRowIndex(this.options), filter.from), to: ref(filterRowIndex(this.options), filter.to) } : null
         });
@@ -350,7 +356,7 @@ var Worksheet = kendo.Class.extend({
             cell = this._cell(cells[idx], spans, rowIndex);
 
             if (cell) {
-                data = data.concat(cell);
+                data.push.apply(data, cell);
             }
         }
 
@@ -624,6 +630,7 @@ var Workbook = kendo.Class.extend({
 
         var worksheets = xl.folder("worksheets");
 
+        var start = new Date();
         for (var idx = 0; idx < sheetCount; idx++) {
             worksheets.file(kendo.format("sheet{0}.xml", idx+1), this._sheets[idx].toXML());
         }

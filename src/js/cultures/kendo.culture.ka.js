@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -34,15 +34,15 @@
                 ",": " ",
                 ".": ",",
                 groupSize: [3],
-                symbol: "Lari"
+                symbol: "ლ."
             }
         },
         calendars: {
             standard: {
                 days: {
                     names: ["კვირა","ორშაბათი","სამშაბათი","ოთხშაბათი","ხუთშაბათი","პარასკევი","შაბათი"],
-                    namesAbbr: ["კვირა","ორშაბათი","სამშაბათი","ოთხშაბათი","ხუთშაბათი","პარასკევი","შაბათი"],
-                    namesShort: ["კ","ო","ს","ო","ხ","პ","შ"]
+                    namesAbbr: ["კვ.","ორშ.","სამშ.","ოთხშ.","ხუთშ.","პარ.","შაბ."],
+                    namesShort: ["კვ","ორ","სმ","ოთ","ხთ","პრ","შბ"]
                 },
                 months: {
                     names: ["იანვარი","თებერვალი","მარტი","აპრილი","მაისი","ივნისი","ივლისი","აგვისტო","სექტემბერი","ოქტომბერი","ნოემბერი","დეკემბერი",""],
@@ -52,12 +52,12 @@
                 PM: [""],
                 patterns: {
                     d: "dd.MM.yyyy",
-                    D: "yyyy 'წლის' dd MM, dddd",
-                    F: "yyyy 'წლის' dd MM, dddd H:mm:ss",
+                    D: "dddd, d MMMM, yyyy 'წელი'",
+                    F: "dddd, d MMMM, yyyy 'წელი' H:mm:ss",
                     g: "dd.MM.yyyy H:mm",
                     G: "dd.MM.yyyy H:mm:ss",
-                    m: "dd MM",
-                    M: "dd MM",
+                    m: "d MMMM",
+                    M: "d MMMM",
                     s: "yyyy'-'MM'-'dd'T'HH':'mm':'ss",
                     t: "H:mm",
                     T: "H:mm:ss",

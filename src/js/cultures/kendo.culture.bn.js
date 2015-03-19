@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -21,7 +21,7 @@
             ".": ".",
             groupSize: [3,2],
             percent: {
-                pattern: ["-%n","%n"],
+                pattern: ["-n%","n %"],
                 decimals: 2,
                 ",": ",",
                 ".": ".",
@@ -34,7 +34,7 @@
                 ",": ",",
                 ".": ".",
                 groupSize: [3,2],
-                symbol: "টা"
+                symbol: "₹"
             }
         },
         calendars: {
@@ -42,22 +42,22 @@
                 days: {
                     names: ["রবিবার","সোমবার","মঙ্গলবার","বুধবার","বৃহস্পতিবার","শুক্রবার","শনিবার"],
                     namesAbbr: ["রবি.","সোম.","মঙ্গল.","বুধ.","বৃহস্পতি.","শুক্র.","শনি."],
-                    namesShort: ["র","স","ম","ব","ব","শ","শ"]
+                    namesShort: ["র","স","ম","বু","বৃ","শু","শ"]
                 },
                 months: {
                     names: ["জানুয়ারী","ফেব্রুয়ারী","মার্চ","এপ্রিল","মে","জুন","জুলাই","আগস্ট","সেপ্টেম্বর","অক্টোবর","নভেম্বর","ডিসেম্বর",""],
                     namesAbbr: ["জানু.","ফেব্রু.","মার্চ","এপ্রিল","মে","জুন","জুলাই","আগ.","সেপ্টে.","অক্টো.","নভে.","ডিসে.",""]
                 },
-                AM: ["পুর্বাহ্ন","পুর্বাহ্ন","পুর্বাহ্ন"],
-                PM: ["অপরাহ্ন","অপরাহ্ন","অপরাহ্ন"],
+                AM: ["AM","am","AM"],
+                PM: ["PM","pm","PM"],
                 patterns: {
                     d: "dd-MM-yy",
                     D: "dd MMMM yyyy",
                     F: "dd MMMM yyyy HH.mm.ss",
                     g: "dd-MM-yy HH.mm",
                     G: "dd-MM-yy HH.mm.ss",
-                    m: "dd MMMM",
-                    M: "dd MMMM",
+                    m: "d MMMM",
+                    M: "d MMMM",
                     s: "yyyy'-'MM'-'dd'T'HH':'mm':'ss",
                     t: "HH.mm",
                     T: "HH.mm.ss",

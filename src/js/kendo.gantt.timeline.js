@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -20,6 +20,7 @@
     var proxy = $.proxy;
     var browser = kendo.support.browser;
     var mobileOS = kendo.support.mobileOS;
+    var isRtl = false;
     var keys = kendo.keys;
     var Query = kendo.data.Query;
     var NS = ".kendoGanttTimeline";
@@ -113,9 +114,11 @@
         gridHeader: "k-grid-header",
         gridHeaderWrap: "k-grid-header-wrap",
         gridContent: "k-grid-content",
+        tasksWrapper: "k-gantt-tables",
         rowsTable: "k-gantt-rows",
         columnsTable: "k-gantt-columns",
         tasksTable: "k-gantt-tasks",
+        dependenciesWrapper: "k-gantt-dependencies",
         resource: "k-resource",
         resourceAlt: "k-resource k-alt",
         task: "k-task",
@@ -228,6 +231,8 @@
             this._slotDimensions();
 
             this._adjustHeight();
+
+            this.content.find(DOT + GanttView.styles.dependenciesWrapper).width(this._tableWidth);
         },
 
         _adjustHeight: function() {
@@ -357,6 +362,7 @@
             var resourcesPosition;
             var resourcesMargin = this._calculateResourcesMargin();
             var taskBorderWidth = this._calculateTaskBorderWidth();
+            var resourceStyle;
 
             var addCoordinates = function(rowIndex) {
                 var taskLeft;
@@ -388,14 +394,25 @@
                 cell = kendoDomElement("td", null, [this._renderTask(tasks[i], position)]);
 
                 if (task[resourcesField] && task[resourcesField].length) {
-                    resourcesPosition = Math.max((position.width || size.clientWidth), 0) + position.left;
+                    if (isRtl) {
+                        resourcesPosition = this._tableWidth - position.left;
+                    } else {
+                        resourcesPosition = Math.max((position.width || size.clientWidth), 0) + position.left;
+                    }
+
+                    resourceStyle = {
+                        width: (this._tableWidth - (resourcesPosition + resourcesMargin)) + "px"
+                    };
+
+                    resourceStyle[isRtl ? "right" : "left"] = resourcesPosition + "px";
 
                     cell.children.push(kendoDomElement("div",
                         {
                             className: styles.resourcesWrap,
-                            style: { left: resourcesPosition + "px", width: (this._tableWidth - (resourcesPosition + resourcesMargin)) + "px" }
+                            style: resourceStyle
                         },
-                        this._renderResources(task[resourcesField], className[i % 2])));
+                        this._renderResources(task[resourcesField], className[i % 2]))
+                    );
                 }
 
                 row.children.push(cell);
@@ -475,7 +492,7 @@
 
             this.content.append(wrapper);
 
-            margin = parseInt(wrapper.css("margin-left"), 10);
+            margin = parseInt(wrapper.css(isRtl ? "margin-right" : "margin-left"), 10);
 
             wrapper.remove();
 
@@ -503,10 +520,11 @@
             var taskWrapper;
             var taskElement;
             var editable = this.options.editable;
-            var progressHandleLeft;
+            var progressHandleOffset;
             var taskLeft = position.left;
             var styles = GanttView.styles;
             var wrapClassName = styles.taskWrap;
+            var dragHandleStyle = {};
 
             if (task.summary) {
                 taskElement = this._renderSummary(task, position);
@@ -527,9 +545,10 @@
             }
 
             if (!task.summary && !task.isMilestone() && editable) {
-                progressHandleLeft = Math.round(position.width * task.percentComplete);
+                progressHandleOffset = Math.round(position.width * task.percentComplete);
 
-                taskWrapper.children.push(kendoDomElement("div", { className: styles.taskDragHandle, style: { left: progressHandleLeft + "px" } }));
+                dragHandleStyle[isRtl ? "right" : "left"] = progressHandleOffset + "px";
+                taskWrapper.children.push(kendoDomElement("div", { className: styles.taskDragHandle, style: dragHandleStyle }));
             }
 
             return taskWrapper;
@@ -599,13 +618,18 @@
                 }, [kendoTextElement(resource.get("name"))]));
             }
 
+            if (isRtl) {
+                children.reverse();
+            }
+
             return children;
         },
 
         _taskPosition: function(task) {
             var round = Math.round;
-            var startLeft = round(this._offset(task.start));
-            var endLeft = round(this._offset(task.end));
+
+            var startLeft = round(this._offset(isRtl ? task.end : task.start));
+            var endLeft = round(this._offset(isRtl ? task.start : task.end));
 
             return { left: startLeft, width: endLeft - startLeft };
         },
@@ -615,7 +639,7 @@
             var slot;
             var startOffset;
             var slotDuration;
-            var slotOffset;
+            var slotOffset = 0;
             var startIndex;
 
             if (!slots.length) {
@@ -627,25 +651,29 @@
             slot = slots[startIndex];
 
             if (slot.end < date) {
-                return slot.offsetLeft + slot.offsetWidth;
+                slotOffset = slot.offsetWidth;
+            } else if (slot.start <= date) {
+                startOffset = date - slot.start;
+                slotDuration = slot.end - slot.start;
+                slotOffset = (startOffset / slotDuration) * slot.offsetWidth;
             }
 
-            if (slot.start > date) {
-                return slot.offsetLeft;
+            if (isRtl) {
+                slotOffset = (slot.offsetWidth + 1) - slotOffset; // Add one pixel for border
             }
-
-            startOffset = date - slot.start;
-            slotDuration = slot.end - slot.start;
-            slotOffset = (startOffset / slotDuration) * slot.offsetWidth;
 
             return slot.offsetLeft + slotOffset;
         },
 
-        _slotIndex: function(field, value) {
+        _slotIndex: function(field, value, reverse) {
             var slots = this._timeSlots();
             var startIdx = 0;
             var endIdx = slots.length - 1;
             var middle;
+
+            if (reverse) {
+                slots = [].slice.call(slots).reverse();
+            }
 
             do {
                 middle = Math.ceil((endIdx + startIdx) / 2);
@@ -661,6 +689,10 @@
                 }
             } while (startIdx !== endIdx);
 
+            if (reverse) {
+                startIdx = (slots.length - 1) - startIdx;
+            }
+
             return startIdx;
         },
 
@@ -671,16 +703,20 @@
                 return snapToEnd ? slot.end : slot.start;
             }
 
-            var offsetLeft = x - (this.content.offset().left - this.content.scrollLeft());
+            var offsetLeft = x - $(DOT + GanttView.styles.tasksTable).offset().left;
             var duration = slot.end - slot.start;
-            var slotOffset = duration * ((offsetLeft - slot.offsetLeft) / slot.offsetWidth);
+            var slotOffset = offsetLeft - slot.offsetLeft;
 
-            return new Date(slot.start.getTime() + slotOffset);
+            if (isRtl) {
+                slotOffset = slot.offsetWidth - slotOffset;
+            }
+
+            return new Date(slot.start.getTime() + (duration * (slotOffset / slot.offsetWidth)));
         },
 
         _slotByPosition: function(x) {
-            var offsetLeft = x - (this.content.offset().left - this.content.scrollLeft());
-            var slotIndex = this._slotIndex("offsetLeft", offsetLeft);
+            var offsetLeft = x - $(DOT + GanttView.styles.tasksTable).offset().left;
+            var slotIndex = this._slotIndex("offsetLeft", offsetLeft, isRtl);
 
             return this._timeSlots()[slotIndex];
         },
@@ -707,7 +743,8 @@
                 return [];
             }
 
-            method = "_render" + ["FF", "FS", "SF", "SS"][dependency.type];
+            method = "_render" + ["FF", "FS", "SF", "SS"][isRtl ? 3 - dependency.type : dependency.type];
+
             elements = this[method](predecessor, successor);
 
             for (var i = 0, length = elements.length; i < length; i++) {
@@ -996,14 +1033,19 @@
         },
 
         _updateResizeHint: function(start, end, resizeStart) {
-            var left = this._offset(start);
-            var right = this._offset(end);
+            var left = this._offset(isRtl ? end : start);
+            var right = this._offset(isRtl ? start : end);
             var width = right - left;
-            var tooltipLeft = resizeStart ? left : right;
-            var tablesWidth = this._tableWidth - 17;
+            var tooltipLeft = (resizeStart !== isRtl) ? left : right;
+            var tablesWidth = this._tableWidth - kendo.support.scrollbar();
             var tooltipWidth = this._resizeTooltipWidth;
             var options = this.options;
             var messages = options.messages;
+            var tableOffset = $(DOT + GanttView.styles.tasksTable).offset().left - $(DOT + GanttView.styles.tasksWrapper).offset().left;
+
+            if (isRtl) {
+                left += tableOffset;
+            }
 
             this._resizeHint
                 .css({
@@ -1023,6 +1065,10 @@
                 tooltipLeft = tablesWidth - tooltipWidth;
             }
 
+            if (isRtl) {
+                tooltipLeft += tableOffset;
+            }
+
             this._resizeTooltip = $(RESIZE_TOOLTIP_TEMPLATE({
                 styles: GanttView.styles,
                 start: start,
@@ -1034,9 +1080,8 @@
                 "top": this._resizeTooltipTop,
                 "left": tooltipLeft,
                 "min-width": tooltipWidth
-            });
-
-            this.content.append(this._resizeTooltip);
+            })
+            .appendTo(this.content);
         },
 
         _removeResizeHint: function() {
@@ -1112,7 +1157,7 @@
         },
 
         _creteVmlDependencyDragHint: function(from, to) {
-            var hint = $("<kvml:line class='" + GanttView.styles.dependencyHint + "' style='position:absolute; top: 0px;' strokecolor='black' strokeweight='2px' from='" +
+            var hint = $("<kvml:line class='" + GanttView.styles.dependencyHint + "' style='position:absolute; top: 0px; left: 0px;' strokecolor='black' strokeweight='2px' from='" +
                 from.x + "px," + from.y + "px' to='" + to.x + "px," + to.y + "px'" + "></kvml:line>")
                 .appendTo(this.content);
 
@@ -1442,6 +1487,9 @@
             var currentTime = this._getCurrentTime();
             var timeOffset = this._offset(currentTime);
             var element = $("<div class='k-current-time'></div>");
+            var viewStyles = GanttView.styles;
+            var tablesWrap = $(DOT + viewStyles.tasksWrapper);
+            var tasksTable = $(DOT + viewStyles.tasksTable);
             var slot;
 
             if (!this.content || !this._timeSlots().length) {
@@ -1456,14 +1504,17 @@
                 return;
             }
 
+            if (tablesWrap.length && tasksTable.length) {
+                timeOffset += tasksTable.offset().left - tablesWrap.offset().left;
+            }
+
             element.css({
                 left: timeOffset + "px",
                 top: "0px",
                 width: "1px",
                 height: this._contentHeight + "px"
-            });
-
-            this.content.append(element);
+            })
+            .appendTo(this.content);
         },
 
         _getCurrentTime: function() {
@@ -1685,6 +1736,8 @@
             if (!this.options.views || !this.options.views.length) {
                 this.options.views = ["day", "week", "month"];
             }
+
+            isRtl = kendo.support.isRtl(element);
 
             this._wrapper();
 
@@ -2008,11 +2061,16 @@
 
                     var view = that.view();
                     var date = new Date(view._timeByPosition(e.x.location, snap) - startOffset);
+                    var updateHintDate = date;
 
                     if (!that.trigger("move", { task: task, start: date })) {
                         currentStart = date;
 
-                        view._updateDragHint(currentStart);
+                        if (isRtl) {
+                            updateHintDate = new Date(currentStart.getTime() + task.duration());
+                        }
+
+                        view._updateDragHint(updateHintDate);
                     }
                 }, 15))
                 .bind("dragend", function(e) {
@@ -2059,6 +2117,10 @@
                 .bind("dragstart", function(e) {
                     resizeStart = e.currentTarget.hasClass(styles.taskResizeHandleWest);
 
+                    if (isRtl) {
+                        resizeStart = !resizeStart;
+                    }
+
                     element = e.currentTarget.closest(DOT + styles.task);
 
                     task = that._taskByUid(element.attr("data-uid"));
@@ -2103,8 +2165,6 @@
                     }
                 }, 15))
                 .bind("dragend", function(e) {
-                    var date = resizeStart ? currentStart : currentEnd;
-
                     that.trigger("resizeEnd", { task: task, resizeStart: resizeStart, start: currentStart, end: currentEnd });
 
                     cleanUp();
@@ -2129,6 +2189,7 @@
             var tooltipTop;
             var tooltipLeft;
             var styles = GanttTimeline.styles;
+            var delta;
 
             var cleanUp = function() {
                 that.view()._removePercentCompleteTooltip();
@@ -2143,7 +2204,7 @@
                     .width(width)
                     .end()
                     .siblings(DOT + styles.taskDragHandle)
-                    .css("left", width);
+                    .css(isRtl ? "right" : "left", width);
             };
 
             if (!this.options.editable) {
@@ -2178,7 +2239,9 @@
                         return;
                     }
 
-                    var currentWidth = Math.max(0, Math.min(maxPercentWidth, originalPercentWidth + e.x.initialDelta));
+                    delta = isRtl ? -e.x.initialDelta : e.x.initialDelta;
+
+                    var currentWidth = Math.max(0, Math.min(maxPercentWidth, originalPercentWidth + delta));
 
                     currentPercentComplete = Math.round((currentWidth / maxPercentWidth) * 100);
 
@@ -2186,6 +2249,10 @@
 
                     tooltipTop = taskElementOffset.top - timelineOffset.top;
                     tooltipLeft = taskElementOffset.left + currentWidth - timelineOffset.left;
+
+                    if (isRtl) {
+                        tooltipLeft += (maxPercentWidth - 2 * currentWidth);
+                    }
 
                     that.view()._updatePercentCompleteTooltip(tooltipTop, tooltipLeft, currentPercentComplete);
                 }, 15))
@@ -2211,8 +2278,6 @@
             var hoveredTask = $();
             var startX;
             var startY;
-            var content;
-            var contentOffset;
             var useVML = browser.msie && browser.version < 9;
             var styles = GanttTimeline.styles;
 
@@ -2264,12 +2329,10 @@
                     originalHandle.parent().addClass(styles.origin);
 
                     var elementOffset = originalHandle.offset();
+					var tablesOffset = $(DOT + styles.tasksWrapper).offset();
 
-                    content = that.view().content;
-                    contentOffset = content.offset();
-
-                    startX = Math.round(elementOffset.left + content.scrollLeft() - contentOffset.left + (originalHandle.outerHeight() / 2));
-                    startY = Math.round(elementOffset.top + content.scrollTop() - contentOffset.top + (originalHandle.outerWidth() / 2));
+                    startX = Math.round(elementOffset.left - tablesOffset.left + (originalHandle.outerHeight() / 2));
+                    startY = Math.round(elementOffset.top - tablesOffset.top + (originalHandle.outerWidth() / 2));
 
                     clearTimeout(that._tooltipTimeout);
                     that.dragInProgress = true;
@@ -2282,8 +2345,9 @@
                     that.view()._removeDependencyDragHint();
 
                     var target = $(kendo.elementUnderCursor(e));
-                    var currentX = e.x.location + content.scrollLeft() - contentOffset.left;
-                    var currentY = e.y.location + content.scrollTop() - contentOffset.top;
+					var tablesOffset = $(DOT + styles.tasksWrapper).offset();
+                    var currentX = e.x.location - tablesOffset.left;
+                    var currentY = e.y.location - tablesOffset.top;
 
                     that.view()._updateDependencyDragHint({ x: startX, y: startY }, { x: currentX, y: currentY }, useVML);
 

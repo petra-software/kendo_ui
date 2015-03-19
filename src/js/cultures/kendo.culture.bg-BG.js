@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -42,25 +42,25 @@
                 days: {
                     names: ["неделя","понеделник","вторник","сряда","четвъртък","петък","събота"],
                     namesAbbr: ["нед","пон","вт","ср","четв","пет","съб"],
-                    namesShort: ["н","п","в","с","ч","п","с"]
+                    namesShort: ["нд","пн","вт","ср","чт","пт","сб"]
                 },
                 months: {
                     names: ["януари","февруари","март","април","май","юни","юли","август","септември","октомври","ноември","декември",""],
-                    namesAbbr: ["ян","февр","март","апр","май","юни","юли","авг","септ","окт","ноември","дек",""]
+                    namesAbbr: ["яну","фев","мар","апр","май","юни","юли","авг","сеп","окт","ное","дек",""]
                 },
                 AM: [""],
                 PM: [""],
                 patterns: {
                     d: "d.M.yyyy 'г.'",
                     D: "dd MMMM yyyy 'г.'",
-                    F: "dd MMMM yyyy 'г.' HH:mm:ss 'ч.'",
-                    g: "d.M.yyyy 'г.' HH:mm 'ч.'",
-                    G: "d.M.yyyy 'г.' HH:mm:ss 'ч.'",
-                    m: "dd MMMM",
-                    M: "dd MMMM",
+                    F: "dd MMMM yyyy 'г.' H:mm:ss",
+                    g: "d.M.yyyy 'г.' H:mm",
+                    G: "d.M.yyyy 'г.' H:mm:ss",
+                    m: "d MMMM",
+                    M: "d MMMM",
                     s: "yyyy'-'MM'-'dd'T'HH':'mm':'ss",
-                    t: "HH:mm 'ч.'",
-                    T: "HH:mm:ss 'ч.'",
+                    t: "H:mm",
+                    T: "H:mm:ss",
                     u: "yyyy'-'MM'-'dd HH':'mm':'ss'Z'",
                     y: "MMMM yyyy 'г.'",
                     Y: "MMMM yyyy 'г.'"

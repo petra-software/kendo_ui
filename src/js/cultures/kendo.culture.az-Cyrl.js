@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,12 +40,12 @@
         calendars: {
             standard: {
                 days: {
-                    names: ["Базар","Базар ертәси","Чәршәнбә ахшамы","Чәршәнбә","Ҹүмә ахшамы","Ҹүмә","Шәнбә"],
+                    names: ["базар","базар ертәси","чәршәнбә ахшамы","чәршәнбә","ҹүмә ахшамы","ҹүмә","шәнбә"],
                     namesAbbr: ["Б","Бе","Ча","Ч","Ҹа","Ҹ","Ш"],
                     namesShort: ["Б","Бе","Ча","Ч","Ҹа","Ҹ","Ш"]
                 },
                 months: {
-                    names: ["Јанвар","Феврал","Март","Апрел","Мај","Ијун","Ијул","Август","Сентјабр","Октјабр","Нојабр","Декабр",""],
+                    names: ["jанвар","феврал","март","апрел","мај","ијун","ијул","август","сентјабр","октјабр","нојабр","декабр",""],
                     namesAbbr: ["Јан","Фев","Мар","Апр","Мај","Ијун","Ијул","Авг","Сен","Окт","Ноя","Дек",""]
                 },
                 AM: [""],
@@ -53,14 +53,14 @@
                 patterns: {
                     d: "dd.MM.yyyy",
                     D: "d MMMM yyyy",
-                    F: "d MMMM yyyy H:mm:ss",
+                    F: "d MMMM yyyy HH:mm:ss",
                     g: "dd.MM.yyyy H:mm",
-                    G: "dd.MM.yyyy H:mm:ss",
+                    G: "dd.MM.yyyy HH:mm:ss",
                     m: "d MMMM",
                     M: "d MMMM",
                     s: "yyyy'-'MM'-'dd'T'HH':'mm':'ss",
                     t: "H:mm",
-                    T: "H:mm:ss",
+                    T: "HH:mm:ss",
                     u: "yyyy'-'MM'-'dd HH':'mm':'ss'Z'",
                     y: "MMMM yyyy",
                     Y: "MMMM yyyy"

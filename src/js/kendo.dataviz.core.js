@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -386,6 +386,29 @@
 
         toRect: function() {
             return new geom.Rect([this.x1, this.y1], [this.width(), this.height()]);
+        },
+
+        hasSize: function() {
+            return this.width() !== 0 && this.height() !== 0;
+        },
+
+        align: function(targetBox, axis, alignment) {
+            var box = this,
+                c1 = axis + 1,
+                c2 = axis + 2,
+                sizeFunc = axis === X ? WIDTH : HEIGHT,
+                size = box[sizeFunc]();
+
+            if (inArray(alignment, [LEFT, TOP])) {
+                box[c1] = targetBox[c1];
+                box[c2] = box[c1] + size;
+            } else if (inArray(alignment, [RIGHT, BOTTOM])) {
+                box[c2] = targetBox[c2];
+                box[c1] = box[c2] - size;
+            } else if (alignment == CENTER) {
+                box[c1] = targetBox[c1] + (targetBox[sizeFunc]() - size) / 2;
+                box[c2] = box[c1] + size;
+            }
         }
     };
 
@@ -652,6 +675,15 @@
 
             this.createVisual();
 
+            this.addVisual();
+
+            this.renderChildren();
+
+            this.createAnimation();
+            this.renderComplete();
+        },
+
+        addVisual: function() {
             if (this.visual) {
                 this.visual.chartElement = this;
 
@@ -659,14 +691,13 @@
                     this.parent.appendVisual(this.visual);
                 }
             }
+        },
 
+        renderChildren: function() {
             var children = this.children;
             for (var i = 0; i < children.length; i++) {
                 children[i].renderVisual();
             }
-
-            this.createAnimation();
-            this.renderComplete();
         },
 
         createVisual: function() {
@@ -764,16 +795,19 @@
 
         renderComplete: $.noop,
 
-        toggleHighlight: function(show) {
-            var highlight = this._highlight;
-            var options = this.options.highlight;
+        hasHighlight: function() {
+            var options = (this.options || {}).highlight;
+            return !(!this.createHighlight || (options && options.visible === false));
+        },
 
-            if (!this.createHighlight || (options && options.visible === false)) {
-                return;
-            }
+        toggleHighlight: function(show) {
+            var that = this;
+            var highlight = that._highlight;
+            var options = (that.options || {}).highlight;
+            var customVisual = (options || {}).visual;
 
             if (!highlight) {
-                highlight = this._highlight = this.createHighlight({
+                var highlightOptions = {
                     fill: {
                         color: WHITE,
                         opacity: 0.2
@@ -783,10 +817,29 @@
                         width: 1,
                         opacity: 0.2
                     }
-                });
+                };
+                if (customVisual) {
+                    highlight = that._highlight = customVisual(deepExtend(that.highlightVisualArgs(), {
+                        createVisual: function() {
+                            return that.createHighlight(highlightOptions);
+                        },
+                        series: that.series,
+                        dataItem: that.dataItem,
+                        category: that.category,
+                        value: that.value,
+                        percentage: that.percentage,
+                        runningTotal: that.runningTotal,
+                        total: that.total
+                    }));
+                    if (!highlight) {
+                        return;
+                    }
+                } else {
+                    highlight = that._highlight = that.createHighlight(highlightOptions);
+                }
 
-                highlight.options.zIndex = this.options.zIndex;
-                this.appendVisual(highlight);
+                highlight.options.zIndex = that.options.zIndex;
+                that.appendVisual(highlight);
             }
 
             highlight.visible(show);
@@ -977,23 +1030,7 @@
         },
 
         align: function(targetBox, axis, alignment) {
-            var element = this,
-                box = element.box,
-                c1 = axis + 1,
-                c2 = axis + 2,
-                sizeFunc = axis === X ? WIDTH : HEIGHT,
-                size = box[sizeFunc]();
-
-            if (inArray(alignment, [LEFT, TOP])) {
-                box[c1] = targetBox[c1];
-                box[c2] = box[c1] + size;
-            } else if (inArray(alignment, [RIGHT, BOTTOM])) {
-                box[c2] = targetBox[c2];
-                box[c1] = box[c2] - size;
-            } else if (alignment == CENTER) {
-                box[c1] = targetBox[c1] + (targetBox[sizeFunc]() - size) / 2;
-                box[c2] = box[c1] + size;
-            }
+            this.box.align(targetBox, axis, alignment);
         },
 
         hasBox: function() {
@@ -1299,18 +1336,40 @@
         reflow: function(targetBox) {
             var textbox = this;
             var options = textbox.options;
+            var visual = options.visual;
             var align = options.align;
             var rotation = options.rotation;
             textbox.container.options.align = align;
-            BoxElement.fn.reflow.call(textbox, targetBox);
-            if (rotation) {
-                var margin = options.margin;
-                var box = textbox.box.unpad(margin);
-                textbox.normalBox = box.clone();
-                box.rotate(rotation);
-                box.pad(margin);
-                textbox.align(targetBox, X, align);
-                textbox.align(targetBox, Y, options.vAlign);
+
+            if (visual && !textbox._boxReflow && targetBox.hasSize()) {
+                textbox.visual = visual({
+                    text: textbox.content,
+                    rect: targetBox.toRect(),
+                    options: textbox.visualOptions(),
+                    createVisual: function() {
+                        textbox._boxReflow = true;
+                        textbox.reflow(targetBox);
+                        textbox._boxReflow = false;
+                        return textbox.getDefaultVisual();
+                    }
+                });
+                var visualBox = targetBox;
+                if (textbox.visual) {
+                    visualBox = rectToBox(textbox.visual.clippedBBox() || new geom.Rect());
+                }
+                textbox.box = textbox.contentBox = textbox.paddingBox = visualBox;
+            } else {
+                BoxElement.fn.reflow.call(textbox, targetBox);
+
+                if (rotation) {
+                    var margin = options.margin;
+                    var box = textbox.box.unpad(margin);
+                    textbox.normalBox = box.clone();
+                    box.rotate(rotation);
+                    box.pad(margin);
+                    textbox.align(targetBox, X, align);
+                    textbox.align(targetBox, Y, options.vAlign);
+                }
             }
         },
 
@@ -1331,6 +1390,35 @@
                 var box = draw.Path.fromRect(this.paddingBox.toRect(), this.visualStyle());
                 this.visual.append(box);
             }
+        },
+
+        renderVisual: function() {
+            if (this.options.visual) {
+                this.addVisual();
+            } else {
+                BoxElement.fn.renderVisual.call(this);
+            }
+        },
+
+        visualOptions: function() {
+            var options = this.options;
+            return {
+                background: options.background,
+                border: options.border,
+                color: options.color,
+                font: options.font,
+                margin: options.margin,
+                padding: options.padding,
+                visible: options.visible
+            };
+        },
+
+        getDefaultVisual: function() {
+            this.createVisual();
+            this.renderChildren();
+            var visual = this.visual;
+            delete this.visual;
+            return visual;
         },
 
         rotationTransform: function() {
@@ -1650,7 +1738,8 @@
                 titleOptions = deepExtend({
                     rotation: options.vertical ? -90 : 0,
                     text: "",
-                    zIndex: 1
+                    zIndex: 1,
+                    visualSize: true
                 }, options.title),
                 title;
 
@@ -2105,6 +2194,13 @@
             }
 
             return text;
+        },
+
+        slot: function(from , to) {
+            var slot = this.getSlot(from, to);
+            if (slot) {
+                return slot.toRect();
+            }
         }
     });
 
@@ -2281,6 +2377,7 @@
                     }
                 }
                 note.contentBox = contentBox;
+                note.targetBox = targetBox;
                 note.box = box || contentBox;
             }
         },
@@ -2290,6 +2387,42 @@
 
             if (this.options.visible) {
                 this.createLine();
+            }
+        },
+
+        renderVisual: function() {
+            var that = this;
+            var options = that.options;
+            var customVisual = options.visual;
+            if (options.visible && customVisual) {
+                var targetPoint = that.targetPoint;
+                that.visual = customVisual({
+                    dataItem: that.dataItem,
+                    category: that.category,
+                    value: that.value,
+                    text: that.text,
+                    series: that.series,
+                    rect: that.targetBox.toRect(),
+                    options: {
+                        background: options.background,
+                        border: options.background,
+                        icon: options.icon,
+                        label: options.label,
+                        line: options.line,
+                        position: options.position,
+                        visible: options.visible
+                    },
+                    createVisual: function() {
+                        that.createVisual();
+                        that.renderChildren();
+                        var defaultVisual = that.visual;
+                        delete that.visual;
+                        return defaultVisual;
+                    }
+                });
+                that.addVisual();
+            } else {
+                BoxElement.fn.renderVisual.call(that);
             }
         },
 
@@ -2345,6 +2478,11 @@
     });
 
     var ShapeElement = BoxElement.extend({
+        init: function(options, pointData) {
+            this.pointData = pointData;
+            BoxElement.fn.init.call(this, options);
+        },
+
         options: {
             type: CIRCLE,
             align: CENTER,
@@ -2402,8 +2540,45 @@
             return element;
         },
 
+        createElement: function() {
+            var that = this;
+            var customVisual = that.options.visual;
+            var pointData = that.pointData || {};
+            var visual;
+            if (customVisual) {
+                visual = customVisual({
+                    value: pointData.value,
+                    dataItem: pointData.dataItem,
+                    series: pointData.series,
+                    category: pointData.category,
+                    rect: that.paddingBox.toRect(),
+                    options: that.visualOptions(),
+                    createVisual: function() {
+                        return that.getElement();
+                    }
+                });
+            } else {
+                visual = that.getElement();
+            }
+
+            return visual;
+        },
+
+        visualOptions: function() {
+            var options = this.options;
+            return {
+                background: options.background,
+                border: options.border,
+                margin: options.margin,
+                padding: options.padding,
+                type: options.type,
+                size: options.width,
+                visible: options.visible
+            };
+        },
+
         createVisual: function() {
-            this.visual = this.getElement();
+            this.visual = this.createElement();
         }
     });
 
@@ -2501,7 +2676,7 @@
                 max = min == max ? 0 : max;
 
                 diff = math.abs((max - min) / max);
-                if(!narrow && diff > ZERO_THRESHOLD) {
+                if(narrow === false || (!narrow && diff > ZERO_THRESHOLD)) {
                     return 0;
                 }
 
@@ -2526,7 +2701,7 @@
                 min = min == max ? 0 : min;
 
                 diff = (max - min) / max;
-                if(!narrow && diff > ZERO_THRESHOLD) {
+                if(narrow === false || (!narrow && diff > ZERO_THRESHOLD)) {
                     return 0;
                 }
 
@@ -3776,6 +3951,12 @@
         return currentStops;
     }
 
+    function rectToBox(rect) {
+        var origin = rect.origin;
+        var bottomRight = rect.bottomRight();
+        return new Box2D(origin.x, origin.y, bottomRight.x, bottomRight.y);
+    }
+
     decodeEntities._element = document.createElement("span");
 
     // Exports ================================================================
@@ -3822,6 +4003,7 @@
         inArray: inArray,
         interpolateValue: interpolateValue,
         mwDelta: mwDelta,
+        rectToBox: rectToBox,
         rotatePoint: rotatePoint,
         round: round,
         ceil: ceil,

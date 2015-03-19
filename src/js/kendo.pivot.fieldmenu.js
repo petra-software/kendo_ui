@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -102,6 +102,7 @@
         },
 
         _setFilterForm: function(expression) {
+            var filterOperator = this._filterOperator;
             var operator = "";
             var value = "";
 
@@ -110,7 +111,11 @@
                 value = expression.value;
             }
 
-            this._filterOperator.value(operator);
+            filterOperator.value(operator);
+            if (!filterOperator.value()) {
+                filterOperator.select(0);
+            }
+
             this._filterValue.val(value);
         },
 

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         calendars: {
             standard: {
                 days: {
-                    names: ["njeźela","ponjeźele","wałtora","srjoda","stwortk","pětk","sobota"],
+                    names: ["njeźela","ponjeźele","wałtora","srjoda","stwórtk","pětk","sobota"],
                     namesAbbr: ["nje","pon","wał","srj","stw","pět","sob"],
                     namesShort: ["n","p","w","s","s","p","s"]
                 },
@@ -52,15 +52,15 @@
                 PM: [""],
                 patterns: {
                     d: "d. M. yyyy",
-                    D: "dddd, 'dnja' d. MMMM yyyy",
-                    F: "dddd, 'dnja' d. MMMM yyyy H:mm:ss",
-                    g: "d. M. yyyy H.mm 'goź.'",
-                    G: "d. M. yyyy H:mm:ss",
+                    D: "dddd, d. MMMM yyyy",
+                    F: "dddd, d. MMMM yyyy HH:mm:ss",
+                    g: "d. M. yyyy HH:mm",
+                    G: "d. M. yyyy HH:mm:ss",
                     m: "d. MMMM",
                     M: "d. MMMM",
                     s: "yyyy'-'MM'-'dd'T'HH':'mm':'ss",
-                    t: "H.mm 'goź.'",
-                    T: "H:mm:ss",
+                    t: "HH:mm",
+                    T: "HH:mm:ss",
                     u: "yyyy'-'MM'-'dd HH':'mm':'ss'Z'",
                     y: "MMMM yyyy",
                     Y: "MMMM yyyy"

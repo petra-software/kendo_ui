@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -348,6 +348,10 @@
                 return;
             }
 
+            if (cell.is(".k-task")) {
+                cell = cell.closest("td");
+            }
+
             if (this._isMobile()) {
                 var parent = cell.parent();
                 index = parent.parent().children()
@@ -441,6 +445,7 @@
             name: "agenda",
             editable: true,
             selectedDateFormat: "{0:D}-{1:D}",
+            selectedShortDateFormat: "{0:d} - {1:d}",
             eventTemplate: "#:title#",
             eventTimeTemplate: "#if(data.isAllDay) {#" +
                             '#=this.options.messages.allDay#' +

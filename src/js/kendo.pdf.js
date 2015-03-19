@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -7,7 +7,7 @@
 * If you do not own a commercial license, this file shall be governed by the trial license terms.
 */
 (function(f, define){
-    define([ "./kendo.core" ], f);
+    define([ "./kendo.core", "./kendo.color", "./kendo.drawing" ], f);
 })(function(){
 
 (function(global, parseFloat, undefined){
@@ -37,48 +37,48 @@
             decode: function(str) {
                 var input = str.replace(/[^A-Za-z0-9\+\/\=]/g, ""), i = 0, n = input.length, output = [];
 
-	        while (i < n) {
-		    var enc1 = keyStr.indexOf(input.charAt(i++));
-		    var enc2 = keyStr.indexOf(input.charAt(i++));
-		    var enc3 = keyStr.indexOf(input.charAt(i++));
-		    var enc4 = keyStr.indexOf(input.charAt(i++));
+                while (i < n) {
+                    var enc1 = keyStr.indexOf(input.charAt(i++));
+                    var enc2 = keyStr.indexOf(input.charAt(i++));
+                    var enc3 = keyStr.indexOf(input.charAt(i++));
+                    var enc4 = keyStr.indexOf(input.charAt(i++));
 
-		    var chr1 = (enc1 << 2) | (enc2 >>> 4);
-		    var chr2 = ((enc2 & 15) << 4) | (enc3 >>> 2);
-		    var chr3 = ((enc3 & 3) << 6) | enc4;
+                    var chr1 = (enc1 << 2) | (enc2 >>> 4);
+                    var chr2 = ((enc2 & 15) << 4) | (enc3 >>> 2);
+                    var chr3 = ((enc3 & 3) << 6) | enc4;
 
-		    output.push(chr1);
-		    if (enc3 != 64) {
+                    output.push(chr1);
+                    if (enc3 != 64) {
                         output.push(chr2);
                     }
-		    if (enc4 != 64) {
+                    if (enc4 != 64) {
                         output.push(chr3);
                     }
-	        }
+                }
 
-	        return output;
+                return output;
             },
             encode: function(bytes) {
                 var i = 0, n = bytes.length;
                 var output = "";
 
-	        while (i < n) {
-		    var chr1 = bytes[i++];
-		    var chr2 = bytes[i++];
-		    var chr3 = bytes[i++];
+                while (i < n) {
+                    var chr1 = bytes[i++];
+                    var chr2 = bytes[i++];
+                    var chr3 = bytes[i++];
 
-		    var enc1 = chr1 >>> 2;
-		    var enc2 = ((chr1 & 3) << 4) | (chr2 >>> 4);
-		    var enc3 = ((chr2 & 15) << 2) | (chr3 >>> 6);
-		    var enc4 = chr3 & 63;
+                    var enc1 = chr1 >>> 2;
+                    var enc2 = ((chr1 & 3) << 4) | (chr2 >>> 4);
+                    var enc3 = ((chr2 & 15) << 2) | (chr3 >>> 6);
+                    var enc4 = chr3 & 63;
 
-		    if (i - n == 2) {
-			enc3 = enc4 = 64;
-		    } else if (i - n == 1) {
-			enc4 = 64;
-		    }
+                    if (i - n == 2) {
+                        enc3 = enc4 = 64;
+                    } else if (i - n == 1) {
+                        enc4 = 64;
+                    }
 
-		    output += keyStr.charAt(enc1) + keyStr.charAt(enc2) + keyStr.charAt(enc3) + keyStr.charAt(enc4);
+                    output += keyStr.charAt(enc1) + keyStr.charAt(enc2) + keyStr.charAt(enc3) + keyStr.charAt(enc4);
                 }
                 return output;
             }
@@ -219,6 +219,49 @@
         };
     }
 
+    function getPaperOptions(getOption) {
+        var paperSize = getOption("paperSize", PAPER_SIZE.a4);
+        if (!paperSize) {
+            return {};
+        }
+        if (typeof paperSize == "string") {
+            paperSize = PAPER_SIZE[paperSize.toLowerCase()];
+            if (paperSize == null) {
+                throw new Error("Unknown paper size");
+            }
+        }
+
+        paperSize[0] = unitsToPoints(paperSize[0]);
+        paperSize[1] = unitsToPoints(paperSize[1]);
+
+        if (getOption("landscape", false)) {
+            paperSize = [
+                Math.max(paperSize[0], paperSize[1]),
+                Math.min(paperSize[0], paperSize[1])
+            ];
+        }
+
+        var margin = getOption("margin");
+        if (margin) {
+            if (typeof margin == "string" || typeof margin == "number") {
+                margin = unitsToPoints(margin, 0);
+                margin = { left: margin, top: margin, right: margin, bottom: margin };
+            } else {
+                margin = {
+                    left   : unitsToPoints(margin.left, 0),
+                    top    : unitsToPoints(margin.top, 0),
+                    right  : unitsToPoints(margin.right, 0),
+                    bottom : unitsToPoints(margin.bottom, 0)
+                };
+            }
+            if (getOption("addMargin")) {
+                paperSize[0] += margin.left + margin.right;
+                paperSize[1] += margin.top + margin.bottom;
+            }
+        }
+        return { paperSize: paperSize, margin: margin };
+    }
+
     function PDFDocument(options) {
         var self = this;
         var out = makeOutput();
@@ -247,47 +290,6 @@
         self.GRAD_OPC_FUNCTIONS = {}; // cache for opacity gradient functions
         self.GRAD_COL = {};     // cache for whole color gradient objects
         self.GRAD_OPC = {};     // cache for whole opacity gradient objects
-
-        function getPaperOptions(getOption) {
-            var paperSize = getOption("paperSize", PAPER_SIZE.a4);
-            if (!paperSize) {
-                return {};
-            }
-            if (typeof paperSize == "string") {
-                paperSize = PAPER_SIZE[paperSize.toLowerCase()];
-                if (paperSize == null) {
-                    throw new Error("Unknown paper size");
-                }
-            }
-
-            paperSize[0] = unitsToPoints(paperSize[0]);
-            paperSize[1] = unitsToPoints(paperSize[1]);
-
-            if (getOption("landscape", false)) {
-                paperSize = [
-                    Math.max(paperSize[0], paperSize[1]),
-                    Math.min(paperSize[0], paperSize[1])
-                ];
-            }
-
-            var margin = getOption("margin");
-            if (margin) {
-                if (typeof margin == "string") {
-                    margin = unitsToPoints(margin, 0);
-                    margin = { left: margin, top: margin, right: margin, bottom: margin };
-                } else {
-                    margin.left = unitsToPoints(margin.left, 0);
-                    margin.top = unitsToPoints(margin.top, 0);
-                    margin.right = unitsToPoints(margin.right, 0);
-                    margin.bottom = unitsToPoints(margin.bottom, 0);
-                }
-                if (getOption("addMargin")) {
-                    paperSize[0] += margin.left + margin.right;
-                    paperSize[1] += margin.top + margin.bottom;
-                }
-            }
-            return { paperSize: paperSize, margin: margin };
-        }
 
         var catalog = self.attach(new PDFCatalog());
         var pageTree = self.attach(new PDFPageTree());
@@ -356,7 +358,7 @@
                 Size: objects.length + 1,
                 Root: catalog,
                 Info: new PDFDictionary({
-                    Producer     : new PDFString("Kendo UI PDF Generator"),
+                    Producer     : new PDFString(getOption("producer", "Kendo UI PDF Generator")),
                     Title        : new PDFString(getOption("title", "")),
                     Author       : new PDFString(getOption("author", "")),
                     Subject      : new PDFString(getOption("subject", "")),
@@ -963,6 +965,14 @@
         encodeText: function(text) {
             return new PDFHexString(this._sub.encodeText(text+""));
         },
+        getTextWidth: function(fontSize, text) {
+            var width = 0, codeMap = this._font.cmap.getUnicodeEntry().codeMap;
+            for (var i = 0; i < text.length; ++i) {
+                var glyphId = codeMap[text.charCodeAt(i)];
+                width += this._font.widthOfGlyph(glyphId || 0);
+            }
+            return width * fontSize / 1000;
+        },
         beforeRender: function() {
             var self = this;
             var font = self._font;
@@ -1310,6 +1320,7 @@
         this._shResources = {};
         this._opacity = 1;
         this._matrix = [ 1, 0, 0, 1, 0, 0 ];
+        this._annotations = [];
 
         this._font = null;
         this._fontSize = null;
@@ -1332,13 +1343,14 @@
             Pattern   : new PDFDictionary(this._patResources),
             Shading   : new PDFDictionary(this._shResources)
         });
+        props.Annots = this._annotations;
     }, {
         _out: function() {
             this._content.data.apply(null, arguments);
         },
         transform: function(a, b, c, d, e, f) {
             if (!isIdentityMatrix(arguments)) {
-                this._matrix = mmul(this._matrix, arguments);
+                this._matrix = mmul(arguments, this._matrix);
                 this._out(a, " ", b, " ", c, " ", d, " ", e, " ", f, " cm");
                 // XXX: debug
                 // this._out(" % current matrix: ", this._matrix);
@@ -1396,13 +1408,33 @@
             this._requireTextMode();
             this._out(mode, " Tr", NL);
         },
-        showText: function(text) {
+        showText: function(text, requestedWidth) {
             this._requireFont();
+            if (text.length > 1 && requestedWidth && this._font instanceof PDFFont) {
+                var outputWidth = this._font.getTextWidth(this._fontSize, text);
+                var scale = requestedWidth / outputWidth * 100;
+                this._out(scale, " Tz ");
+            }
             this._out(this._font.encodeText(text), " Tj", NL);
         },
         showTextNL: function(text) {
             this._requireFont();
             this._out(this._font.encodeText(text), " '", NL);
+        },
+        addLink: function(uri, box) {
+            var ll = this._toPage({ x: box.left, y: box.bottom });
+            var ur = this._toPage({ x: box.right, y: box.top });
+            this._annotations.push(new PDFDictionary({
+                Type    : _("Annot"),
+                Subtype : _("Link"),
+                Rect    : [ ll.x, ll.y, ur.x, ur.y ],
+                Border  : [ 0, 0, 0 ],
+                A       : new PDFDictionary({
+                    Type : _("Action"),
+                    S    : _("URI"),
+                    URI  : new PDFString(uri)
+                })
+            }));
         },
         setStrokeColor: function(r, g, b) {
             this._out(r, " ", g, " ", b, " RG", NL);
@@ -1572,6 +1604,15 @@
                     matrix: this._matrix
                 };
             }
+        },
+
+        _toPage: function(p) {
+            var m = this._matrix;
+            var a = m[0], b = m[1], c = m[2], d = m[3], e = m[4], f = m[5];
+            return {
+                x: a*p.x + c*p.y + e,
+                y: b*p.x + d*p.y + f
+            };
         }
     }, PDFDictionary);
 
@@ -1908,13 +1949,14 @@
     /// exports.
 
     kendo.pdf = {
-        Document      : PDFDocument,
-        BinaryStream  : BinaryStream,
-        defineFont    : defineFont,
-        parseFontDef  : parseFontDef,
-        getFontURL    : getFontURL,
-        loadFonts     : loadFonts,
-        loadImages    : loadImages,
+        Document        : PDFDocument,
+        BinaryStream    : BinaryStream,
+        defineFont      : defineFont,
+        parseFontDef    : parseFontDef,
+        getFontURL      : getFontURL,
+        loadFonts       : loadFonts,
+        loadImages      : loadImages,
+        getPaperOptions : getPaperOptions,
 
         TEXT_RENDERING_MODE : {
             fill           : 0,
@@ -3036,6 +3078,673 @@ PDF.TTFFont = TTFFont;
 
 })(this);
 
+(function(kendo, $){
+
+    "use strict";
+
+    // WARNING: removing the following jshint declaration and turning
+    // == into === to make JSHint happy will break functionality.
+    /*jshint eqnull:true  */
+
+    var drawing     = kendo.drawing;
+    var geo         = kendo.geometry;
+    var Color       = drawing.Color;
+
+    var TEXT_RENDERING_MODE = kendo.pdf.TEXT_RENDERING_MODE;
+
+    var DASH_PATTERNS = {
+        dash           : [ 4 ],
+        dashDot        : [ 4, 2, 1, 2 ],
+        dot            : [ 1, 2 ],
+        longDash       : [ 8, 2 ],
+        longDashDot    : [ 8, 2, 1, 2 ],
+        longDashDotDot : [ 8, 2, 1, 2, 1, 2 ],
+        solid          : []
+    };
+
+    var LINE_CAP = {
+        butt   : 0,
+        round  : 1,
+        square : 2
+    };
+
+    var LINE_JOIN = {
+        miter : 0,
+        round : 1,
+        bevel : 2
+    };
+
+    function render(group, callback) {
+        var fonts = [], images = [], options = group.options;
+
+        function getOption(name, defval, hash) {
+            if (!hash) {
+                hash = options;
+            }
+            if (hash.pdf && hash.pdf[name] != null) {
+                return hash.pdf[name];
+            }
+            return defval;
+        }
+
+        var multiPage = getOption("multiPage");
+
+        group.traverse(function(element){
+            dispatch({
+                Image: function(element) {
+                    if (images.indexOf(element.src()) < 0) {
+                        images.push(element.src());
+                    }
+                },
+                Text: function(element) {
+                    var style = kendo.pdf.parseFontDef(element.options.font);
+                    var url = kendo.pdf.getFontURL(style);
+                    if (fonts.indexOf(url) < 0) {
+                        fonts.push(url);
+                    }
+                }
+            }, element);
+        });
+
+        function doIt() {
+            if (--count > 0) {
+                return;
+            }
+
+            var pdf = new (kendo.pdf.Document)({
+                producer  : getOption("producer"),
+                title     : getOption("title"),
+                author    : getOption("author"),
+                subject   : getOption("subject"),
+                keywords  : getOption("keywords"),
+                creator   : getOption("creator"),
+                date      : getOption("date")
+            });
+
+            function drawPage(group) {
+                var options = group.options;
+
+                var tmp = optimize(group);
+                var bbox = tmp.bbox;
+                group = tmp.root;
+
+                var paperSize = getOption("paperSize", getOption("paperSize", "auto"), options), addMargin = false;
+                if (paperSize == "auto") {
+                    if (bbox) {
+                        var size = bbox.getSize();
+                        paperSize = [ size.width, size.height ];
+                        addMargin = true;
+                        var origin = bbox.getOrigin();
+                        tmp = new drawing.Group();
+                        tmp.transform(new geo.Matrix(1, 0, 0, 1, -origin.x, -origin.y));
+                        tmp.append(group);
+                        group = tmp;
+                    }
+                    else {
+                        paperSize = "A4";
+                    }
+                }
+
+                var page;
+                page = pdf.addPage({
+                    paperSize : paperSize,
+                    margin    : getOption("margin", getOption("margin"), options),
+                    addMargin : addMargin,
+                    landscape : getOption("landscape", getOption("landscape", false), options)
+                });
+                drawElement(group, page, pdf);
+            }
+
+            if (multiPage) {
+                group.children.forEach(drawPage);
+            } else {
+                drawPage(group);
+            }
+
+            callback(pdf.render(), pdf);
+        }
+
+        var count = 2;
+        kendo.pdf.loadFonts(fonts, doIt);
+        kendo.pdf.loadImages(images, doIt);
+    }
+
+    function toDataURL(group, callback) {
+        render(group, function(data){
+            callback("data:application/pdf;base64," + data.base64());
+        });
+    }
+
+    function toBlob(group, callback) {
+        render(group, function(data){
+            callback(new Blob([ data.get() ], { type: "application/pdf" }));
+        });
+    }
+
+    function saveAs(group, filename, proxy, callback) {
+        // XXX: Safari has Blob, but does not support the download attribute
+        //      so we'd end up converting to dataURL and using the proxy anyway.
+        if (window.Blob && !kendo.support.browser.safari) {
+            toBlob(group, function(blob){
+                kendo.saveAs({ dataURI: blob, fileName: filename });
+                if (callback) {
+                    callback(blob);
+                }
+            });
+        } else {
+            toDataURL(group, function(dataURL){
+                kendo.saveAs({ dataURI: dataURL, fileName: filename, proxyURL: proxy });
+                if (callback) {
+                    callback(dataURL);
+                }
+            });
+        }
+    }
+
+    function dispatch(handlers, element) {
+        var handler = handlers[element.nodeType];
+        if (handler) {
+            return handler.call.apply(handler, arguments);
+        }
+        return element;
+    }
+
+    function drawElement(element, page, pdf) {
+        if (element.DEBUG) {
+            page.comment(element.DEBUG);
+        }
+
+        var transform = element.transform();
+        var opacity = element.opacity();
+
+        page.save();
+
+        if (opacity != null && opacity < 1) {
+            page.setOpacity(opacity);
+        }
+
+        setStrokeOptions(element, page, pdf);
+        setFillOptions(element, page, pdf);
+        setClipping(element, page, pdf);
+
+        if (transform) {
+            var m = transform.matrix();
+            page.transform(m.a, m.b, m.c, m.d, m.e, m.f);
+        }
+
+        dispatch({
+            Path      : drawPath,
+            MultiPath : drawMultiPath,
+            Circle    : drawCircle,
+            Arc       : drawArc,
+            Text      : drawText,
+            Image     : drawImage,
+            Group     : drawGroup
+        }, element, page, pdf);
+
+        page.restore();
+    }
+
+    function setStrokeOptions(element, page, pdf) {
+        var stroke = element.stroke && element.stroke();
+        if (!stroke) {
+            return;
+        }
+
+        var color = stroke.color;
+        if (color) {
+            color = parseColor(color);
+            if (color == null) {
+                return; // no stroke
+            }
+            page.setStrokeColor(color.r, color.g, color.b);
+            if (color.a != 1) {
+                page.setStrokeOpacity(color.a);
+            }
+        }
+
+        var width = stroke.width;
+        if (width != null) {
+            if (width === 0) {
+                return; // no stroke
+            }
+            page.setLineWidth(width);
+        }
+
+        var dashType = stroke.dashType;
+        if (dashType) {
+            page.setDashPattern(DASH_PATTERNS[dashType], 0);
+        }
+
+        var lineCap = stroke.lineCap;
+        if (lineCap) {
+            page.setLineCap(LINE_CAP[lineCap]);
+        }
+
+        var lineJoin = stroke.lineJoin;
+        if (lineJoin) {
+            page.setLineJoin(LINE_JOIN[lineJoin]);
+        }
+
+        var opacity = stroke.opacity;
+        if (opacity != null) {
+            page.setStrokeOpacity(opacity);
+        }
+    }
+
+    function setFillOptions(element, page, pdf) {
+        var fill = element.fill && element.fill();
+        if (!fill) {
+            return;
+        }
+
+        if (fill instanceof drawing.Gradient) {
+            return;
+        }
+
+        var color = fill.color;
+        if (color) {
+            color = parseColor(color);
+            if (color == null) {
+                return; // no fill
+            }
+            page.setFillColor(color.r, color.g, color.b);
+            if (color.a != 1) {
+                page.setFillOpacity(color.a);
+            }
+        }
+
+        var opacity = fill.opacity;
+        if (opacity != null) {
+            page.setFillOpacity(opacity);
+        }
+    }
+
+    function setClipping(element, page, pdf) {
+        // XXX: only Path supported at the moment.
+        var clip = element.clip();
+        if (clip) {
+            _drawPath(clip, page, pdf);
+            page.clip();
+            // page.setStrokeColor(Math.random(), Math.random(), Math.random());
+            // page.setLineWidth(1);
+            // page.stroke();
+        }
+    }
+
+    function shouldDraw(thing) {
+        return (thing &&
+                (thing instanceof drawing.Gradient ||
+                 (thing.color && !/^(none|transparent)$/i.test(thing.color) &&
+                  (thing.width == null || thing.width > 0) &&
+                  (thing.opacity == null || thing.opacity > 0))));
+    }
+
+    function maybeGradient(element, page, pdf, stroke) {
+        var fill = element.fill();
+        if (fill instanceof drawing.Gradient) {
+            if (stroke) {
+                page.clipStroke();
+            } else {
+                page.clip();
+            }
+            var isRadial = fill instanceof drawing.RadialGradient;
+            var start, end;
+            if (isRadial) {
+                start = { x: fill.center().x , y: fill.center().y , r: 0 };
+                end   = { x: fill.center().x , y: fill.center().y , r: fill.radius() };
+            } else {
+                start = { x: fill.start().x , y: fill.start().y };
+                end   = { x: fill.end().x   , y: fill.end().y   };
+            }
+            var gradient = {
+                type: isRadial ? "radial" : "linear",
+                start: start,
+                end: end,
+                userSpace: fill.userSpace(),
+                stops: fill.stops.elements().map(function(stop){
+                    var offset = stop.offset();
+                    if (/%$/.test(offset)) {
+                        offset = parseFloat(offset) / 100;
+                    } else {
+                        offset = parseFloat(offset);
+                    }
+                    var color = parseColor(stop.color());
+                    color.a *= stop.opacity();
+                    return {
+                        offset: offset,
+                        color: color
+                    };
+                })
+            };
+            var box = element.rawBBox();
+            var tl = box.topLeft(), size = box.getSize();
+            box = {
+                left   : tl.x,
+                top    : tl.y,
+                width  : size.width,
+                height : size.height
+            };
+            page.gradient(gradient, box);
+            return true;
+        }
+    }
+
+    function maybeFillStroke(element, page, pdf) {
+        if (shouldDraw(element.fill()) && shouldDraw(element.stroke())) {
+            if (!maybeGradient(element, page, pdf, true)) {
+                page.fillStroke();
+            }
+        } else if (shouldDraw(element.fill())) {
+            if (!maybeGradient(element, page, pdf, false)) {
+                page.fill();
+            }
+        } else if (shouldDraw(element.stroke())) {
+            page.stroke();
+        } else {
+            // we should not get here; the path should have been
+            // optimized away.  but let's be prepared.
+            page.nop();
+        }
+    }
+
+    function maybeDrawRect(path, page, pdf) {
+        var segments = path.segments;
+        if (segments.length == 4 && path.options.closed) {
+            // detect if this path looks like a rectangle parallel to the axis
+            var a = [];
+            for (var i = 0; i < segments.length; ++i) {
+                if (segments[i].controlIn()) { // has curve?
+                    return false;
+                }
+                a[i] = segments[i].anchor();
+            }
+            // it's a rectangle if the y/x/y/x or x/y/x/y coords of
+            // consecutive points are the same.
+            var isRect = (
+                a[0].y == a[1].y && a[1].x == a[2].x && a[2].y == a[3].y && a[3].x == a[0].x
+            ) || (
+                a[0].x == a[1].x && a[1].y == a[2].y && a[2].x == a[3].x && a[3].y == a[0].y
+            );
+            if (isRect) {
+                // this saves a bunch of instructions in PDF:
+                // moveTo, lineTo, lineTo, lineTo, close -> rect.
+                page.rect(a[0].x, a[0].y,
+                          a[2].x - a[0].x /*width*/,
+                          a[2].y - a[0].y /*height*/);
+                return true;
+            }
+        }
+    }
+
+    function _drawPath(element, page, pdf) {
+        var segments = element.segments;
+        if (segments.length === 0) {
+            return;
+        }
+        if (!maybeDrawRect(element, page, pdf)) {
+            for (var prev, i = 0; i < segments.length; ++i) {
+                var seg = segments[i];
+                var anchor = seg.anchor();
+                if (!prev) {
+                    page.moveTo(anchor.x, anchor.y);
+                } else {
+                    var prevOut = prev.controlOut();
+                    var controlIn = seg.controlIn();
+                    if (prevOut && controlIn) {
+                        page.bezier(
+                            prevOut.x   , prevOut.y,
+                            controlIn.x , controlIn.y,
+                            anchor.x    , anchor.y
+                        );
+                    } else {
+                        page.lineTo(anchor.x, anchor.y);
+                    }
+                }
+                prev = seg;
+            }
+            if (element.options.closed) {
+                page.close();
+            }
+        }
+    }
+
+    function drawPath(element, page, pdf) {
+        _drawPath(element, page, pdf);
+        maybeFillStroke(element, page, pdf);
+    }
+
+    function drawMultiPath(element, page, pdf) {
+        var paths = element.paths;
+        for (var i = 0; i < paths.length; ++i) {
+            _drawPath(paths[i], page, pdf);
+        }
+        maybeFillStroke(element, page, pdf);
+    }
+
+    function drawCircle(element, page, pdf) {
+        var g = element.geometry();
+        page.circle(g.center.x, g.center.y, g.radius);
+        maybeFillStroke(element, page, pdf);
+    }
+
+    function drawArc(element, page, pdf) {
+        var points = element.geometry().curvePoints();
+        page.moveTo(points[0].x, points[0].y);
+        for (var i = 1; i < points.length;) {
+            page.bezier(
+                points[i].x, points[i++].y,
+                points[i].x, points[i++].y,
+                points[i].x, points[i++].y
+            );
+        }
+        maybeFillStroke(element, page, pdf);
+    }
+
+    function drawText(element, page, pdf) {
+        var style = kendo.pdf.parseFontDef(element.options.font);
+        var pos = element._position;
+        var mode;
+        if (element.fill() && element.stroke()) {
+            mode = TEXT_RENDERING_MODE.fillAndStroke;
+        } else if (element.fill()) {
+            mode = TEXT_RENDERING_MODE.fill;
+        } else if (element.stroke()) {
+            mode = TEXT_RENDERING_MODE.stroke;
+        }
+
+        page.transform(1, 0, 0, -1, pos.x, pos.y + style.fontSize);
+        page.beginText();
+        page.setFont(kendo.pdf.getFontURL(style), style.fontSize);
+        page.setTextRenderingMode(mode);
+        page.showText(element.content(), element._pdfRect ? element._pdfRect.width() : null);
+        page.endText();
+    }
+
+    function drawGroup(element, page, pdf) {
+        if (element._pdfLink) {
+            page.addLink(element._pdfLink.url, element._pdfLink);
+        }
+        var children = element.children;
+        for (var i = 0; i < children.length; ++i) {
+            drawElement(children[i], page, pdf);
+        }
+    }
+
+    function drawImage(element, page, pdf) {
+        var url = element.src();
+        var rect = element.rect();
+        var tl = rect.getOrigin();
+        var sz = rect.getSize();
+        page.transform(sz.width, 0, 0, -sz.height, tl.x, tl.y + sz.height);
+        page.drawImage(url);
+    }
+
+    function exportPDF(group, options) {
+        var defer = $.Deferred();
+
+        for (var i in options) {
+            group.options.set("pdf." + i, options[i]);
+        }
+
+        drawing.pdf.toDataURL(group, defer.resolve);
+
+        return defer.promise();
+    }
+
+    function parseColor(x) {
+        var color = kendo.parseColor(x, true);
+        return color ? color.toRGB() : null;
+    }
+
+    function optimize(root) {
+        var clipbox = false;
+        var matrix = geo.Matrix.unit();
+        var currentBox = null;
+        var changed;
+        do {
+            changed = false;
+            root = opt(root);
+        } while (root && changed);
+        return { root: root, bbox: currentBox };
+
+        function change(newShape) {
+            changed = true;
+            return newShape;
+        }
+
+        function visible(shape) {
+            return (shape.visible() && shape.opacity() > 0 &&
+                    ( shouldDraw(shape.fill()) ||
+                      shouldDraw(shape.stroke()) ));
+        }
+
+        function optArray(a) {
+            var b = [];
+            for (var i = 0; i < a.length; ++i) {
+                var el = opt(a[i]);
+                if (el != null) {
+                    b.push(el);
+                }
+            }
+            return b;
+        }
+
+        function withClipping(shape, f) {
+            var saveclipbox = clipbox;
+            var savematrix = matrix;
+
+            if (shape.transform()) {
+                matrix = matrix.multiplyCopy(shape.transform().matrix());
+            }
+
+            var clip = shape.clip();
+            if (clip) {
+                clip = clip.bbox();
+                if (clip) {
+                    clip = clip.bbox(matrix);
+                    clipbox = clipbox ? geo.Rect.intersect(clipbox, clip) : clip;
+                }
+            }
+
+            try {
+                return f();
+            }
+            finally {
+                clipbox = saveclipbox;
+                matrix = savematrix;
+            }
+        }
+
+        function inClipbox(shape) {
+            if (clipbox == null) {
+                return false;
+            }
+            var box = shape.rawBBox().bbox(matrix);
+            if (clipbox && box) {
+                box = geo.Rect.intersect(box, clipbox);
+            }
+            return box;
+        }
+
+        function opt(shape) {
+            return withClipping(shape, function(){
+                if (!(shape instanceof drawing.Group || shape instanceof drawing.MultiPath)) {
+                    var box = inClipbox(shape);
+                    if (!box) {
+                        return change(null);
+                    }
+                    currentBox = currentBox ? geo.Rect.union(currentBox, box) : box;
+                }
+                return dispatch({
+                    Path: function(shape) {
+                        if (shape.segments.length === 0 || !visible(shape)) {
+                            return change(null);
+                        }
+                        return shape;
+                    },
+                    MultiPath: function(shape) {
+                        if (!visible(shape)) {
+                            return change(null);
+                        }
+                        var el = new drawing.MultiPath(shape.options);
+                        el.paths = optArray(shape.paths);
+                        if (el.paths.length === 0) {
+                            return change(null);
+                        }
+                        return el;
+                    },
+                    Circle: function(shape) {
+                        if (!visible(shape)) {
+                            return change(null);
+                        }
+                        return shape;
+                    },
+                    Arc: function(shape) {
+                        if (!visible(shape)) {
+                            return change(null);
+                        }
+                        return shape;
+                    },
+                    Text: function(shape) {
+                        if (!/\S/.test(shape.content()) || !visible(shape)) {
+                            return change(null);
+                        }
+                        return shape;
+                    },
+                    Image: function(shape) {
+                        if (!(shape.visible() && shape.opacity() > 0)) {
+                            return change(null);
+                        }
+                        return shape;
+                    },
+                    Group: function(shape) {
+                        var el = new drawing.Group(shape.options);
+                        el.children = optArray(shape.children);
+                        el._pdfLink = shape._pdfLink;
+                        if (shape !== root && el.children.length === 0 && !shape._pdfLink) {
+                            return change(null);
+                        }
+                        return el;
+                    }
+                }, shape);
+            });
+        }
+    }
+
+    kendo.deepExtend(drawing, {
+        exportPDF: exportPDF,
+
+        pdf: {
+            toDataURL  : toDataURL,
+            toBlob     : toBlob,
+            saveAs     : saveAs,
+            toStream   : render
+        }
+    });
+
+})(window.kendo, window.kendo.jQuery);
+
 
 
 (function(kendo){
@@ -3045,6 +3754,8 @@ kendo.PDFMixin = {
         proto.events.push("pdfExport");
         proto.options.pdf = this.options;
         proto.saveAsPDF = this.saveAsPDF;
+        proto._drawPDF = this._drawPDF;
+        proto._drawPDFShadow = this._drawPDFShadow;
     },
     options: {
         fileName  : "Export.pdf",
@@ -3056,30 +3767,39 @@ kendo.PDFMixin = {
         // by content.
         paperSize : "auto",
 
-        // pass true to reverse the paper dimensions if needed such that width is the larger edge.
-        // doesn't make much sense with "auto" paperSize.
+        // Export all pages, if applicable
+        allPages: false,
+
+        // True to reverse the paper dimensions if needed such that width is the larger edge.
         landscape : false,
 
-        // pass an object containing { left, top, bottom, right } margins (numbers of strings with
-        // units).
+        // An object containing { left, top, bottom, right } margins with units.
         margin    : null,
 
-        // optional information for the PDF Info dictionary; all strings except for the date.
+        // Optional information for the PDF Info dictionary; all strings except for the date.
         title     : null,
         author    : null,
         subject   : null,
         keywords  : null,
         creator   : "Kendo UI PDF Generator",
-        date      : null        // CreationDate; must be a Date object, defaults to new Date()
+
+        // Creation Date; defaults to new Date()
+        date      : null
     },
+
     saveAsPDF: function() {
-        if (this.trigger("pdfExport")) {
+        var progress = new $.Deferred();
+        var promise = progress.promise();
+        var args = { promise: promise };
+
+        if (this.trigger("pdfExport", args)) {
             return;
         }
 
         var options = this.options.pdf;
+        options.multiPage = options.allPages;
 
-        kendo.drawing.drawDOM(this.wrapper[0])
+        this._drawPDF(progress)
         .then(function(root) {
             return kendo.drawing.exportPDF(root, options);
         })
@@ -3090,7 +3810,34 @@ kendo.PDFMixin = {
                 proxyURL: options.proxyURL,
                 forceProxy: options.forceProxy
             });
+
+            progress.resolve();
+        })
+        .fail(function(err) {
+            progress.reject(err);
         });
+
+        return promise;
+    },
+
+    _drawPDF: function() {
+        return kendo.drawing.drawDOM(this.wrapper);
+    },
+
+    _drawPDFShadow: function(content) {
+        var wrapper = this.wrapper;
+        var shadow = $("<div class='k-pdf-export-shadow'>")
+                     .css("width", wrapper.width());
+
+        wrapper.before(shadow);
+        shadow.append(content || wrapper.clone());
+
+        var promise = kendo.drawing.drawDOM(shadow);
+        promise.done(function() {
+            shadow.remove();
+        });
+
+        return promise;
     }
 };
 

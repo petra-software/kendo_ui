@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2014.3.1516 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -34,19 +34,19 @@
                 ",": " ",
                 ".": ",",
                 groupSize: [3],
-                symbol: "XOF"
+                symbol: "CFA"
             }
         },
         calendars: {
             standard: {
                 days: {
-                    names: ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"],
-                    namesAbbr: ["dim.","lun.","mar.","mer.","jeu.","ven.","sam."],
-                    namesShort: ["di","lu","ma","me","je","ve","sa"]
+                    names: ["Dibéer","Altine","Talaata","Àllarba","Alxames","Àjjuma","Gaawu"],
+                    namesAbbr: ["Dib.","Alt.","Tal.","Àll.","Alx.","Àjj.","Gaa."],
+                    namesShort: ["Di","Al","Ta","Àl","Ax","Àj","Ga"]
                 },
                 months: {
-                    names: ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre",""],
-                    namesAbbr: ["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc.",""]
+                    names: ["Samwiye","Fewriye","Maars","Awril","Me","Suwe","Sullet","Ut","Septàmbar","Oktoobar","Noowàmbar","Desàmbar",""],
+                    namesAbbr: ["Sam.","Few.","Maa","Awr.","Me","Suw","Sul.","Ut","Sept.","Okt.","Now.","Des.",""]
                 },
                 AM: [""],
                 PM: [""],
