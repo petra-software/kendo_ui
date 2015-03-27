@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.318";
+    kendo.version = "2015.1.327";
 
     function Class() {}
 
@@ -12260,7 +12260,14 @@ var A = 0;
                     dataSource = widget[fieldName],
                     view,
                     parents,
-                    groups = dataSource.group() || [];
+                    groups = dataSource.group() || [],
+                    hds = kendo.data.HierarchicalDataSource;
+
+                if (hds && dataSource instanceof hds) {
+                    // suppress binding of HDS items, because calling view() on root
+                    // will return only root items, and widget.items() returns all items
+                    return;
+                }
 
                 if (items.length) {
                     view = e.addedDataItems || dataSource.flatView();
@@ -25349,7 +25356,9 @@ var A = 0;
                 group = tmp;
                 updateClipbox(clipPath);
             }
-            if (/^(hidden|auto|scroll)/.test(getPropertyValue(style, "overflow"))) {
+            if (isFormField(element)) {
+                clipit();
+            } else if (/^(hidden|auto|scroll)/.test(getPropertyValue(style, "overflow"))) {
                 clipit();
             } else if (/^(hidden|auto|scroll)/.test(getPropertyValue(style, "overflow-x"))) {
                 clipit();
@@ -26106,6 +26115,56 @@ var A = 0;
         return parseFloat(za) - parseFloat(zb);
     }
 
+    function isFormField(element) {
+        return /^(?:textarea|select|input)$/i.test(element.tagName);
+    }
+
+    function getSelectedOption(element) {
+        if (element.selectedOptions && element.selectedOptions.length > 0) {
+            return element.selectedOptions[0];
+        }
+        return element.options[element.selectedIndex];
+    }
+
+    function renderFormField(element, group) {
+        var tag = element.tagName.toLowerCase();
+        var p = element.parentNode;
+        var doc = element.ownerDocument;
+        var el = doc.createElement(KENDO_PSEUDO_ELEMENT);
+        var option;
+        el.style.cssText = getCssText(getComputedStyle(element));
+        el.style.display = "inline-block";
+        if (tag == "input") {
+            el.style.whiteSpace = "pre";
+        }
+        if (tag == "select" || tag == "textarea") {
+            el.style.overflow = "auto";
+        }
+        if (tag == "select") {
+            if (element.multiple) {
+                for (var i = 0; i < element.options.length; ++i) {
+                    option = doc.createElement(KENDO_PSEUDO_ELEMENT);
+                    option.style.cssText = getCssText(getComputedStyle(element.options[i]));
+                    option.style.display = "block"; // IE9 messes up without this
+                    option.textContent = element.options[i].textContent;
+                    el.appendChild(option);
+                }
+            } else {
+                option = getSelectedOption(element);
+                if (option) {
+                    el.textContent = option.textContent;
+                }
+            }
+        } else {
+            el.textContent = element.value;
+        }
+        p.insertBefore(el, element);
+        el.scrollLeft = element.scrollLeft;
+        el.scrollTop = element.scrollTop;
+        renderContents(el, group);
+        p.removeChild(el);
+    }
+
     function renderContents(element, group) {
         switch (element.tagName.toLowerCase()) {
           case "img":
@@ -26122,6 +26181,8 @@ var A = 0;
 
           case "textarea":
           case "input":
+          case "select":
+            renderFormField(element, group);
             break;
 
           default:
@@ -26183,11 +26244,6 @@ var A = 0;
             return; // whitespace-only node
         }
 
-        var range = element.ownerDocument.createRange();
-        var align = getPropertyValue(style, "text-align");
-        var isJustified = align == "justify";
-        var whiteSpace = getPropertyValue(style, "white-space");
-
         var fontSize = getPropertyValue(style, "font-size");
         var lineHeight = getPropertyValue(style, "line-height");
 
@@ -26208,6 +26264,10 @@ var A = 0;
         }
 
         var color = getPropertyValue(style, "color");
+        var range = element.ownerDocument.createRange();
+        var align = getPropertyValue(style, "text-align");
+        var isJustified = align == "justify";
+        var whiteSpace = getPropertyValue(style, "white-space");
 
         // A line of 500px, with a font of 12px, contains an average of 80 characters, but since we
         // err, we'd like to guess a bigger number rather than a smaller one.  Multiplying by 5
@@ -28362,7 +28422,7 @@ var A = 0;
                     align: align,
                     zIndex: options.zIndex
                 }),
-                step = labelOptions.step;
+                step = math.max(1, labelOptions.step);
 
             axis.labels = [];
 
@@ -28617,15 +28677,15 @@ var A = 0;
                 to = valueOrDefault(item.to, MAX_VALUE);
                 var element = [];
 
-                if (isInRange(from, range) || isInRange(to, range)) {
-                    if (vertical) {
-                        slotX = (altAxis || plotArea.axisX).lineBox();
-                        slotY = axis.getSlot(item.from, item.to, true);
-                    } else {
-                        slotX = axis.getSlot(item.from, item.to, true);
-                        slotY = (altAxis || plotArea.axisY).lineBox();
-                    }
+                if (vertical) {
+                    slotX = (altAxis || plotArea.axisX).lineBox();
+                    slotY = axis.getSlot(item.from, item.to, true);
+                } else {
+                    slotX = axis.getSlot(item.from, item.to, true);
+                    slotY = (altAxis || plotArea.axisY).lineBox();
+                }
 
+                if (slotX.width() !== 0 && slotY.height() !== 0) {
                     var bandRect = new geom.Rect(
                         [slotX.x1, slotY.y1],
                         [slotX.width(), slotY.height()]
@@ -28694,35 +28754,30 @@ var A = 0;
                 vertical = options.vertical,
                 labels = axis.labels,
                 count = labels.length,
-                space = axis.getActualTickSize() + options.margin,
-                maxLabelHeight = 0,
-                maxLabelWidth = 0,
                 title = axis.title,
-                label, i;
+                sizeFn = vertical ? WIDTH : HEIGHT,
+                titleSize = title ? title.box[sizeFn]() : 0,
+                space = axis.getActualTickSize() + options.margin + titleSize,
+                maxLabelSize = 0,
+                boxSize = box[sizeFn](),
+                labelSize, i;
 
             for (i = 0; i < count; i++) {
-                label = labels[i];
-                maxLabelHeight = math.max(maxLabelHeight, label.box.height());
-                maxLabelWidth = math.max(maxLabelWidth, label.box.width());
-            }
-
-            if (title) {
-                if (vertical) {
-                    maxLabelWidth += title.box.width();
-                } else {
-                    maxLabelHeight += title.box.height();
+                labelSize = labels[i].box[sizeFn]();
+                if (labelSize + space <= boxSize) {
+                    maxLabelSize = math.max(maxLabelSize, labelSize);
                 }
             }
 
             if (vertical) {
                 axis.box = Box2D(
                     box.x1, box.y1,
-                    box.x1 + maxLabelWidth + space, box.y2
+                    box.x1 + maxLabelSize + space, box.y2
                 );
             } else {
                 axis.box = Box2D(
                     box.x1, box.y1,
-                    box.x2, box.y1 + maxLabelHeight + space
+                    box.x2, box.y1 + maxLabelSize + space
                 );
             }
 
@@ -30592,10 +30647,6 @@ var A = 0;
         }
     }
 
-    function isInRange(value, range) {
-        return value >= range.min && value <= range.max;
-    }
-
     function alignPathToPixel(path) {
         if (!kendo.support.vml) {
             for (var i = 0; i < path.segments.length; i++) {
@@ -30689,7 +30740,7 @@ var A = 0;
 
 
 
-(function () {
+(function ($) {
 
     // Imports ================================================================
     var kendo = window.kendo,
@@ -34274,7 +34325,7 @@ var A = 0;
             }
         });
     })();
-    
+
     function fuse(arr1, arr2) {
         return $.map(arr1, function(item, index) {
             return [
@@ -34778,6 +34829,15 @@ var A = 0;
         _initSurface: function() {
             var surface = this.surface;
             var wrap = this._surfaceWrap();
+
+            var chartArea = this.options.chartArea;
+            if (chartArea.width) {
+                wrap.css("width", chartArea.width);
+            }
+            if (chartArea.height) {
+                wrap.css("height", chartArea.height);
+            }
+
             if (!surface || surface.options.type !== this.options.renderAs) {
                 if (surface) {
                     surface.destroy();
@@ -34788,14 +34848,7 @@ var A = 0;
                 });
             } else {
                 this.surface.clear();
-            }
-
-            var chartArea = this.options.chartArea;
-            if (chartArea.width) {
-                wrap.css("width", chartArea.width);
-            }
-            if (chartArea.height) {
-                wrap.css("height", chartArea.height);
+                this.surface.resize();
             }
         },
 
@@ -37941,7 +37994,7 @@ var A = 0;
             if (this.options.isStacked) {
                 startValue = startValue || 0;
                 var plotValue = this.plotValue(point);
-                var positive = plotValue > 0;
+                var positive = plotValue >= 0;
                 var prevValue = startValue;
                 var isStackedBar = false;
 
@@ -37965,7 +38018,7 @@ var A = 0;
                     }
 
                     var otherValue = this.plotValue(other);
-                    if ((otherValue > 0 && positive) ||
+                    if ((otherValue >= 0 && positive) ||
                         (otherValue < 0 && !positive)) {
                         prevValue += otherValue;
                         plotValue += otherValue;
@@ -38003,7 +38056,7 @@ var A = 0;
                     if (point) {
                         if (point.series.stack === stackName || point.series.axis === axisName) {
                             var to = this.plotRange(point, 0)[1];
-                            if (defined(to)) {
+                            if (defined(to) && isFinite(to)) {
                                 max = math.max(max, to);
                                 min = math.min(min, to);
                             }
@@ -38742,11 +38795,17 @@ var A = 0;
                 invertAxes: options.invertAxes
             }, series);
 
+            var color = data.fields.color || series.color;
             bulletOptions = chart.evalPointOptions(
                 bulletOptions, value, category, categoryIx, series, seriesIx
             );
 
+            if (kendo.isFunction(series.color)) {
+                color = bulletOptions.color;
+            }
+
             bullet = new Bullet(value, bulletOptions);
+            bullet.color = color;
 
             cluster = children[categoryIx];
             if (!cluster) {
@@ -38815,12 +38874,12 @@ var A = 0;
 
             ChartElement.fn.init.call(bullet, options);
 
-            bullet.value = value;
             bullet.aboveAxis = bullet.options.aboveAxis;
+            bullet.color = options.color || WHITE;
+            bullet.value = value;
         },
 
         options: {
-            color: WHITE,
             border: {
                 width: 1
             },
@@ -38851,7 +38910,7 @@ var A = 0;
                 if (defined(bullet.value.target)) {
                     bullet.target = new Target({
                         type: options.target.shape,
-                        background: options.target.color || options.color,
+                        background: options.target.color || bullet.color,
                         opacity: options.opacity,
                         zIndex: options.zIndex,
                         border: options.target.border,
@@ -38904,7 +38963,7 @@ var A = 0;
             var options = this.options;
             var body = draw.Path.fromRect(this.box.toRect(), {
                 fill: {
-                    color: options.color,
+                    color: this.color,
                     opacity: options.opacity
                 },
                 stroke: null
@@ -38912,7 +38971,7 @@ var A = 0;
 
             if (options.border.width > 0) {
                 body.options.set("stroke", {
-                    color: options.border.color || options.color,
+                    color: options.border.color || this.color,
                     width: options.border.width,
                     dashType: options.border.dashType,
                     opacity: valueOrDefault(options.border.opacity, options.opacity)
@@ -39573,11 +39632,12 @@ var A = 0;
                     this._addSegment(lastSegment);
                 }
             }
+
+            this.children.unshift.apply(this.children, this._segments);
         },
 
         _addSegment: function(segment) {
             this._segments.push(segment);
-            this.children.unshift(segment);
             segment.parent = this;
         },
 
@@ -40258,22 +40318,34 @@ var A = 0;
                 x = value.x,
                 y = value.y,
                 seriesIx = fields.seriesIx,
-                seriesPoints = chart.seriesPoints[seriesIx];
+                series = this.options.series[seriesIx],
+                missingValues = this.seriesMissingValues(series),
+                seriesPoints = chart.seriesPoints[seriesIx],
+                missingValue;
 
-            chart.updateRange(value, fields.series);
+            if (!(hasValue(x) && hasValue(y))) {
+                value = this.createMissingValue(value, missingValues);
+            }
 
-            if (defined(x) && x !== null && defined(y) && y !== null) {
+            if (value) {
                 point = chart.createPoint(value, fields);
                 if (point) {
                     extend(point, fields);
                     chart.addErrorBar(point, X, fields);
                     chart.addErrorBar(point, Y, fields);
                 }
+                chart.updateRange(value, fields.series);
             }
 
             chart.points.push(point);
             seriesPoints.push(point);
         },
+
+        seriesMissingValues: function(series) {
+            return series.missingValues;
+        },
+
+        createMissingValue: noop,
 
         updateRange: function(value, series) {
             var chart = this,
@@ -40284,7 +40356,7 @@ var A = 0;
                 xAxisRange = chart.xAxisRanges[xAxisName],
                 yAxisRange = chart.yAxisRanges[yAxisName];
 
-            if (defined(x) && x !== null) {
+            if (hasValue(x)) {
                 xAxisRange = chart.xAxisRanges[xAxisName] =
                     xAxisRange || { min: MAX_VALUE, max: MIN_VALUE };
 
@@ -40296,7 +40368,7 @@ var A = 0;
                 xAxisRange.max = math.max(xAxisRange.max, x);
             }
 
-            if (defined(y) && y !== null) {
+            if (hasValue(y)) {
                 yAxisRange = chart.yAxisRanges[yAxisName] =
                     yAxisRange || { min: MAX_VALUE, max: MIN_VALUE };
 
@@ -40520,6 +40592,22 @@ var A = 0;
         animationPoints: function() {
             var points = ScatterChart.fn.animationPoints.call(this);
             return points.concat(this._segments);
+        },
+
+        createMissingValue: function(value, missingValues) {
+            if (missingValues === ZERO) {
+                var missingValue = {
+                    x: value.x,
+                    y: value.y
+                };
+                if (!hasValue(missingValue.x)) {
+                    missingValue.x = 0;
+                }
+                if (!hasValue(missingValue.y)) {
+                    missingValue.y = 0;
+                }
+                return missingValue;
+            }
         }
     });
     deepExtend(ScatterLineChart.fn, LineChartMixin);
@@ -41753,7 +41841,7 @@ var A = 0;
                         series: currentSeries,
                         seriesIx: seriesIx,
                         dataItem: data[i],
-                        percentage: plotValue / total,
+                        percentage: total !== 0 ? plotValue / total : 0,
                         explode: explode,
                         visibleInLegend: fields.visibleInLegend,
                         visible: fields.visible,
@@ -42532,6 +42620,8 @@ var A = 0;
         },
 
         stackRoot: returnSelf,
+
+        clipRoot: returnSelf,
 
         createGridLines: function() {
             var pane = this,
@@ -43364,10 +43454,17 @@ var A = 0;
             var options = this.options.plotArea;
             var border = options.border || {};
 
+            var background = options.background;
+            var opacity = options.opacity;
+            if (util.isTransparent(background)) {
+                background = WHITE;
+                opacity = 0;
+            }
+
             var bg = this._bgVisual = draw.Path.fromRect(bgBox.toRect(), {
                 fill: {
-                    color: options.background,
-                    opacity: options.opacity
+                    color: background,
+                    opacity: opacity
                 },
                 stroke: {
                     color: border.width ? border.color : "",
@@ -43526,64 +43623,61 @@ var A = 0;
 
         createCharts: function(panes) {
             var plotArea = this,
-                seriesByPane = plotArea.groupSeriesByPane(),
-                i, pane, paneSeries, filteredSeries;
+                seriesByPane = this.groupSeriesByPane();
 
-            for (i = 0; i < panes.length; i++) {
-                pane = panes[i];
-                paneSeries = seriesByPane[pane.options.name || "default"] || [];
-                plotArea.addToLegend(paneSeries);
-                filteredSeries = plotArea.filterVisibleSeries(paneSeries);
+            for (var i = 0; i < panes.length; i++) {
+                var pane = panes[i];
+                var paneSeries = seriesByPane[pane.options.name || "default"] || [];
+                this.addToLegend(paneSeries);
 
-                if (!filteredSeries) {
+                var visibleSeries = this.filterVisibleSeries(paneSeries);
+                if (!visibleSeries) {
                     continue;
                 }
 
-                plotArea.createAreaChart(
-                    filterSeriesByType(filteredSeries, [AREA, VERTICAL_AREA]),
-                    pane
-                );
-
-                plotArea.createBarChart(
-                    filterSeriesByType(filteredSeries, [COLUMN, BAR]),
-                    pane
-                );
-
-                plotArea.createRangeBarChart(
-                    filterSeriesByType(filteredSeries, [RANGE_COLUMN, RANGE_BAR]),
-                    pane
-                );
-
-                plotArea.createBulletChart(
-                    filterSeriesByType(filteredSeries, [BULLET, VERTICAL_BULLET]),
-                    pane
-                );
-
-                plotArea.createCandlestickChart(
-                    filterSeriesByType(filteredSeries, CANDLESTICK),
-                    pane
-                );
-
-                plotArea.createBoxPlotChart(
-                    filterSeriesByType(filteredSeries, BOX_PLOT),
-                    pane
-                );
-
-                plotArea.createOHLCChart(
-                    filterSeriesByType(filteredSeries, OHLC),
-                    pane
-                );
-
-                plotArea.createWaterfallChart(
-                    filterSeriesByType(filteredSeries, [WATERFALL, HORIZONTAL_WATERFALL]),
-                    pane
-                );
-
-                plotArea.createLineChart(
-                    filterSeriesByType(filteredSeries, [LINE, VERTICAL_LINE]),
-                    pane
-                );
+                var groups = this.groupSeriesByCategoryAxis(visibleSeries);
+                for (var groupIx = 0; groupIx < groups.length; groupIx++) {
+                    this.createChartGroup(groups[groupIx], pane);
+                }
             }
+        },
+
+        createChartGroup: function(series, pane) {
+            this.createAreaChart(
+                filterSeriesByType(series, [AREA, VERTICAL_AREA]), pane
+            );
+
+            this.createBarChart(
+                filterSeriesByType(series, [COLUMN, BAR]), pane
+            );
+
+            this.createRangeBarChart(
+                filterSeriesByType(series, [RANGE_COLUMN, RANGE_BAR]), pane
+            );
+
+            this.createBulletChart(
+                filterSeriesByType(series, [BULLET, VERTICAL_BULLET]), pane
+            );
+
+            this.createCandlestickChart(
+                filterSeriesByType(series, CANDLESTICK), pane
+            );
+
+            this.createBoxPlotChart(
+                filterSeriesByType(series, BOX_PLOT), pane
+            );
+
+            this.createOHLCChart(
+                filterSeriesByType(series, OHLC), pane
+            );
+
+            this.createWaterfallChart(
+                filterSeriesByType(series, [WATERFALL, HORIZONTAL_WATERFALL]), pane
+            );
+
+            this.createLineChart(
+                filterSeriesByType(series, [LINE, VERTICAL_LINE]), pane
+            );
         },
 
         aggregateCategories: function(panes) {
@@ -43717,6 +43811,36 @@ var A = 0;
                 isStacked100: isStacked100,
                 clip: clip
             };
+        },
+
+        groupSeriesByCategoryAxis: function(series, callback) {
+            var unique = {};
+            var categoryAxes = $.map(series, function(s) {
+                var name = s.categoryAxis || "$$default$$";
+                if (!unique.hasOwnProperty(name)) {
+                    unique[name] = true;
+                    return name;
+                }
+            });
+
+            function groupSeries(axis, axisIx) {
+                return $.grep(series, function(s) {
+                    return (axisIx === 0 && !s.categoryAxis) || (s.categoryAxis == axis);
+                });
+            }
+
+            var groups = [];
+            for (var axisIx = 0; axisIx < categoryAxes.length; axisIx++) {
+                var axis = categoryAxes[axisIx];
+                var axisSeries = groupSeries(axis, axisIx);
+                if (axisSeries.length === 0) {
+                    continue;
+                }
+
+                groups.push(axisSeries);
+            }
+
+            return groups;
         },
 
         createBarChart: function(series, pane) {
@@ -46405,6 +46529,12 @@ var A = 0;
             dataLength = data.length,
             seriesClone;
 
+        if (dataLength === 0) {
+            seriesClone = deepExtend({}, series);
+            seriesClone.visibleInLegend = false;
+            return [seriesClone];
+        }
+
         if (defined(legacyTemplate)) {
             kendo.logToConsole(
                 "'groupNameTemplate' is obsolete and will be removed in future versions. " +
@@ -46597,6 +46727,10 @@ var A = 0;
         }
     }
 
+    function hasValue(value) {
+        return defined(value) && value !== null;
+    }
+
     // Exports ================================================================
     dataviz.ui.plugin(Chart);
 
@@ -46765,6 +46899,7 @@ var A = 0;
         isNumber: isNumber,
         floorDate: floorDate,
         filterSeriesByType: filterSeriesByType,
+        hasValue: hasValue,
         lteDateIndex: lteDateIndex,
         evalOptions: evalOptions,
         seriesTotal: seriesTotal,
@@ -46832,6 +46967,8 @@ var A = 0;
         COORD_PRECISION = dataviz.COORD_PRECISION,
         DEFAULT_PADDING = 0.15,
         DEG_TO_RAD = math.PI / 180,
+        GAP = "gap",
+        INTERPOLATE = "interpolate",
         LOGARITHMIC = "log",
         PLOT_AREA_CLICK = "plotAreaClick",
         POLAR_AREA = "polarArea",
@@ -46909,12 +47046,14 @@ var A = 0;
 
         gridLineAngles: function(altAxis, step, skipStep) {
             var axis = this,
-                divs = axis.intervals(step, skipStep);
+                divs = axis.intervals(step, skipStep),
+                options = altAxis.options,
+                altAxisVisible = options.visible && (options.line || {}).visible !== false;
 
             return $.map(divs, function(d) {
                 var alpha = axis.intervalAngle(d);
 
-                if (!altAxis.options.visible || alpha !== 90) {
+                if (!altAxisVisible || alpha !== 90) {
                     return alpha;
                 }
             });
@@ -47403,6 +47542,9 @@ var A = 0;
 
         reflowLabels: function() {
             var axis = this,
+                labelOptions = axis.options.labels,
+                skip = labelOptions.skip || 0,
+                step = labelOptions.step || 1,
                 measureBox = new Box2D(),
                 divs = axis.majorIntervals(),
                 labels = axis.labels,
@@ -47413,7 +47555,7 @@ var A = 0;
                 labels[i].reflow(measureBox);
                 labelBox = labels[i].box;
 
-                labels[i].reflow(axis.getSlot(divs[i]).adjacentBox(
+                labels[i].reflow(axis.getSlot(divs[skip + i * step]).adjacentBox(
                     0, labelBox.width(), labelBox.height()
                 ));
             }
@@ -47835,12 +47977,54 @@ var A = 0;
             return segment;
         },
 
+        createMissingValue: function(value, missingValues) {
+            var missingValue;
+
+            if (dataviz.hasValue(value.x) && missingValues != INTERPOLATE) {
+                missingValue = {
+                    x: value.x,
+                    y: value.y
+                };
+                if (missingValues == ZERO) {
+                    missingValue.y = 0;
+                }
+            }
+
+            return missingValue;
+        },
+
         seriesMissingValues: function(series) {
             return series.missingValues || ZERO;
         },
 
+        _hasMissingValuesGap: function() {
+            var series = this.options.series;
+
+            for (var idx = 0; idx < series.length; idx++) {
+                if (this.seriesMissingValues(series[idx]) === GAP) {
+                   return true;
+                }
+            }
+        },
+
         sortPoints: function(points) {
-            return points.sort(xComparer);
+            var missingValues, value, point;
+            points.sort(xComparer);
+
+            if (this._hasMissingValuesGap()) {
+                for (var idx = 0; idx < points.length; idx++)  {
+                    point = points[idx];
+                    if (point) {
+                        value = point.value;
+                        if (!dataviz.hasValue(value.y) &&
+                            this.seriesMissingValues(point.series) === GAP) {
+                            delete points[idx];
+                        }
+                    }
+                }
+            }
+
+            return points;
         }
     });
 
@@ -56742,7 +56926,10 @@ var A = 0;
                 }
 
                 this._addAttribution();
-                this.reset();
+
+                if (this.element.css("display") !== "none") {
+                    this.reset();
+                }
             }
         },
 
@@ -69246,6 +69433,11 @@ var A = 0;
                             overflowElement.removeAttr(KENDO_UID_ATTR);
                             overflowElement = overflowElement.wrap("<li></li>").parent();
                             overflowElement.attr(KENDO_UID_ATTR, options.uid);
+
+                            if (options.type === "button" && options.enable === false) {
+                                overflowElement.find("." + BUTTON).removeClass(STATE_DISABLED);
+                                overflowElement.addClass(STATE_DISABLED);
+                            }
                         }
                         that._attributes(overflowElement, options);
                         overflowElement.addClass(itemClasses).appendTo(that.popup.container);
@@ -69266,10 +69458,11 @@ var A = 0;
                         element = isFunction(template) ? template(options) : template;
 
                         if (!(element instanceof jQuery)) {
-                            element = $(element.replace(/^\s+|\s+$/g, ''));
+                            element = $("<div></div>").html(element);
+                        } else {
+                            element = element.wrap("<div></div>").parent();
                         }
 
-                        element = element.wrap("<div></div>").parent();
                         if (options.id) {
                            element.attr("id", options.id);
                         }
@@ -74730,7 +74923,7 @@ var A = 0;
                 index = $(that.items()).index(index);
             }
 
-            return that.listView.data()[index];
+            return that.dataSource.flatView()[index];
         },
 
         _accessors: function() {
@@ -74954,9 +75147,8 @@ var A = 0;
             }
         },
 
-        //use length of the items in ListView
         _firstOpen: function() {
-            var height = this._height(this.listView.data().length);
+            var height = this._height(this.dataSource.flatView().length);
             this._calculateGroupPadding(height);
         },
 
@@ -75004,8 +75196,8 @@ var A = 0;
         _triggerCascade: function() {
             var that = this;
 
-            if (!that._bound || that._old !== that.value()) {
-                that._bound = true;
+            if (!that._cascadeTriggered || that._old !== that.value()) {
+                that._cascadeTriggered = true;
                 that.trigger("cascade", { userTriggered: that._userTriggered });
             }
         },
@@ -75049,7 +75241,6 @@ var A = 0;
             this.options.dataSource = dataSource;
 
             this._dataSource();
-            this._bound = false;
 
             this.listView.setDataSource(this.dataSource);
 
@@ -75123,7 +75314,9 @@ var A = 0;
             var option;
 
             if (value === undefined) {
-                option = element.options[selectedIndex];
+                if (selectedIndex > -1) {
+                    option = element.options[selectedIndex];
+                }
 
                 if (option) {
                     value = option.value;
@@ -75138,14 +75331,22 @@ var A = 0;
                     idx = -1;
                 }
 
-                if (idx == -1 && value !== "") {
-                    idx = this._custom(value);
-                }
+                if (value !== "" && idx == -1) {
+                    this._custom(value);
+                } else {
+                    if (value) {
+                        element.value = value;
+                    } else {
+                        element.selectedIndex = idx;
+                    }
 
-                element.selectedIndex = idx;
-                option = element.options[idx];
-                if (option) {
-                   option.setAttribute(SELECTED, SELECTED);
+                    if (element.selectedIndex > -1) {
+                        option = element.options[element.selectedIndex];
+                    }
+
+                    if (option) {
+                       option.setAttribute(SELECTED, SELECTED);
+                    }
                 }
             }
         },
@@ -75154,20 +75355,16 @@ var A = 0;
             var that = this;
             var element = that.element;
             var custom = that._customOption;
-            var idx = element[0].children.length - 1;
 
             if (!custom) {
                 custom = $("<option/>");
                 that._customOption = custom;
 
                 element.append(custom);
-                idx += 1;
             }
 
             custom.text(value);
-            custom[0].selected = true;
-
-            return idx;
+            custom[0].setAttribute(SELECTED, SELECTED);
         },
 
         _hideBusy: function () {
@@ -75280,7 +75477,7 @@ var A = 0;
 
                     current = that._focus();
 
-                    if (!that._fetch) {
+                    if (!that._fetch && (!current || current.hasClass("k-state-selected"))) {
                         if (down) {
                             that._nextItem();
 
@@ -75297,12 +75494,11 @@ var A = 0;
                     }
 
                     if (that.trigger(SELECT, { item: that.listView.focus() })) {
-                        that._focus(current); //revert focus
+                        that._focus(current);
                         return;
                     }
 
                     that._select(that._focus(), true);
-                    //that.listView.select(that.listView.focus());
 
                     if (!that.popup.visible()) {
                         that._blur();
@@ -75376,7 +75572,7 @@ var A = 0;
             }
         },
 
-        _options: function(data, optionLabel) {
+        _options: function(data, optionLabel, value) {
             var that = this,
                 element = that.element,
                 length = data.length,
@@ -75418,6 +75614,10 @@ var A = 0;
             }
 
             element.html(options);
+
+            if (value !== undefined) {
+                element.val(value);
+            }
         },
 
         _reset: function() {
@@ -75463,15 +75663,19 @@ var A = 0;
                 change = function() {
                     that.dataSource.unbind(CHANGE, change);
 
-                    var value = that.listView.value()[0];
+                    var value = that._accessor();
+
                     if (that._userTriggered) {
                         that._clearSelection(parent, true);
                     } else if (value) {
-                        that.value(value);
+                        if (value !== that.listView.value()[0]) {
+                            that.value(value);
+                        }
+
                         if (!that.dataSource.view()[0] || that.selectedIndex === -1) {
                             that._clearSelection(parent, true);
                         }
-                    } else if (that.listView.data().length) {
+                    } else if (that.dataSource.flatView().length) {
                         that.select(options.index);
                     }
 
@@ -75542,8 +75746,6 @@ var A = 0;
 
             this.header = this.element.before('<div class="k-static-header" style="display:none"></div>').prev();
 
-            this.setDataSource(this.options.dataSource);
-
             this._bound = false;
 
             this._optionID = kendo.guid();
@@ -75553,6 +75755,14 @@ var A = 0;
             this._view = [];
             this._dataItems = [];
             this._values = [];
+
+            var value = this.options.value;
+
+            if (value) {
+                this._values = $.isArray(value) ? value.slice(0) : [value];
+            }
+
+            this.setDataSource(this.options.dataSource);
 
             this._getter();
             this._templates();
@@ -75567,11 +75777,6 @@ var A = 0;
             }, this);
 
             this._fixedHeader();
-
-            var value = this.options.value;
-            if (value) {
-                this._values = $.isArray(value) ? value.slice(0) : [value];
-            }
         },
 
         options: {
@@ -75595,12 +75800,20 @@ var A = 0;
         setDataSource: function(source) {
             var that = this;
             var dataSource = source || {};
+            var value;
 
             dataSource = $.isArray(dataSource) ? { data: dataSource } : dataSource;
             dataSource = kendo.data.DataSource.create(dataSource);
 
             if (that.dataSource) {
                 that.dataSource.unbind(CHANGE, that._refreshHandler);
+
+                value = that.value();
+
+                that.value([]);
+                that._bound = false;
+
+                that.value(value);
             } else {
                 that._refreshHandler = proxy(that.refresh, that);
             }
@@ -75610,11 +75823,6 @@ var A = 0;
 
         setOptions: function(options) {
             Widget.fn.setOptions.call(this, options);
-
-            if (options.dataSource) {
-                this.setDataSource(options.dataSource);
-            }
-
 
             this._fixedHeader();
             this._getter();
@@ -75776,6 +75984,14 @@ var A = 0;
             that.trigger("activate");
         },
 
+        filter: function(filter) {
+            if (filter === undefined) {
+                return this._filtered;
+            }
+
+            this._filtered = filter;
+        },
+
         select: function(indices) {
             var selectable = this.options.selectable;
             var singleSelection = selectable !== "multiple" && selectable !== false;
@@ -75794,7 +76010,11 @@ var A = 0;
                 indices = [];
             }
 
-            if (singleSelection && $.inArray(indices[indices.length - 1], this._selectedIndices) !== -1) {
+            if (this.filter() && !singleSelection && this._deselectFiltered(indices)) {
+                return;
+            }
+
+            if (singleSelection && !this._filtered && $.inArray(indices[indices.length - 1], this._selectedIndices) !== -1) {
                 return;
             }
 
@@ -75819,11 +76039,23 @@ var A = 0;
             }
         },
 
-        value: function(value, silent) {
+        removeAt: function(position) {
+            this._selectedIndices.splice(position, 1);
+            this._values.splice(position, 1);
+
+            return {
+                position: position,
+                dataItem: this._dataItems.splice(position, 1)[0]
+            };
+        },
+
+        value: function(value) {
+            var that = this;
+            var deferred = that._valueDeferred;
             var indices;
 
             if (value === undefined) {
-                return this._values.slice();
+                return that._values.slice();
             }
 
             if (value === "" || value === null) {
@@ -75832,50 +76064,25 @@ var A = 0;
 
             value = $.isArray(value) || value instanceof ObservableArray ? value.slice(0) : [value];
 
-            this._values = value;
+            that._values = value;
 
-            if (silent) {
-                return;
+            if (!deferred || deferred.state() === "resolved") {
+                that._valueDeferred = deferred = $.Deferred();
             }
 
-            if (this.isBound()) {
-                indices = this._valueIndices(value);
+            if (that.isBound()) {
+                indices = that._valueIndices(value);
 
-                if (!indices.length) {
-                    this.select([]);
-                    return;
+                if (that.options.selectable === "multiple") {
+                    that.select(-1);
                 }
 
-                this._selectedIndices = [];
-                this._dataItems = [];
-                this._values = [];
+                that.select(indices);
 
-                this.select(indices);
-            }
-        },
-
-        data: function() {
-            var that = this;
-            var data = that._view;
-            var length = data.length;
-            var result = [];
-            var idx;
-
-            if (length) {
-                for (idx = 0; idx < length; idx++) {
-                    result.push(data[idx].item);
-                }
+                deferred.resolve();
             }
 
-            return result;
-        },
-
-        clearIndices: function() {
-            this._selectedIndices = [];
-        },
-
-        filter: function(isFilter) {
-            this._isFilter = isFilter;
+            return deferred;
         },
 
         _click: function(e) {
@@ -75924,14 +76131,18 @@ var A = 0;
         },
 
         _deselect: function(indices) {
-            var children = this.element[0].children;
-            var selectable = this.options.selectable;
-            var selectedIndices = this._selectedIndices;
-            var dataItems = this._dataItems;
-            var values = this._values;
+            var that = this;
+            var children = that.element[0].children;
+            var selectable = that.options.selectable;
+            var selectedIndices = that._selectedIndices;
+            var dataItems = that._dataItems;
+            var values = that._values;
             var removed = [];
             var i = 0;
             var j;
+
+            var index, selectedIndex;
+            var removedIndices = 0;
 
             indices = indices.slice();
 
@@ -75945,13 +76156,10 @@ var A = 0;
                     });
                 }
 
-                this._values = [];
-                this._dataItems = [];
-                this._selectedIndices = [];
+                that._values = [];
+                that._dataItems = [];
+                that._selectedIndices = [];
             } else if (selectable === "multiple") {
-                var index, selectedIndex;
-                var removedIndices = 0;
-
                 for (; i < indices.length; i++) {
                     index = indices[i];
 
@@ -75989,15 +76197,45 @@ var A = 0;
             };
         },
 
-        _select: function(indices) {
+        _deselectFiltered: function(indices) {
             var children = this.element[0].children;
-            var data = this._view;
+            var dataItem, index, position;
+            var removed = [];
+            var idx = 0;
+
+            for (; idx < indices.length; idx++) {
+                index = indices[idx];
+                dataItem = this._view[index].item;
+                position = this._dataItemPosition(dataItem, this._values);
+
+                if (position > -1) {
+                    removed.push(this.removeAt(position));
+                    $(children[index]).removeClass("k-state-selected");
+                }
+            }
+
+            if (removed.length) {
+                this.trigger("change", {
+                    added: [],
+                    removed: removed
+                });
+
+                return true;
+            }
+
+            return false;
+        },
+
+        _select: function(indices) {
+            var that = this;
+            var children = that.element[0].children;
+            var data = that._view;
             var dataItem, index;
             var added = [];
             var idx = 0;
 
             if (indices[indices.length - 1] !== -1) {
-                this.focus(indices);
+                that.focus(indices);
             }
 
             for (; idx < indices.length; idx++) {
@@ -76010,9 +76248,9 @@ var A = 0;
 
                 dataItem = dataItem.item;
 
-                this._selectedIndices.push(index);
-                this._dataItems.push(dataItem);
-                this._values.push(this._valueGetter(dataItem));
+                that._selectedIndices.push(index);
+                that._dataItems.push(dataItem);
+                that._values.push(that._valueGetter(dataItem));
 
                 $(children[index]).addClass("k-state-selected").attr("aria-selected", true);
 
@@ -76142,7 +76380,7 @@ var A = 0;
             var item = '<li tabindex="-1" role="option" unselectable="on" class="k-item';
 
             var dataItem = context.item;
-            var found = this._isFilter && this._dataItemPosition(dataItem, values) !== -1;
+            var found = this._filtered && this._dataItemPosition(dataItem, values) !== -1;
 
             if (context.newGroup) {
                 item += ' k-first';
@@ -76209,18 +76447,26 @@ var A = 0;
             }
         },
 
-        refresh: function() {
-            this.trigger("dataBinding");
+        refresh: function(e) {
+            var that = this;
 
-            this._render();
+            that.trigger("dataBinding");
 
-            this._bound = true;
+            that._render();
 
-            this.trigger("dataBound");
+            that._bound = true;
 
-            if (!this._isFilter) {
-                this.value(this._values);
+            if (that._filtered) {
+                that.focus(0);
+            } else if (!e || !e.action) {
+                that.value(that._values);
             }
+
+            if (that._valueDeferred) {
+                that._valueDeferred.resolve();
+            }
+
+            that.trigger("dataBound");
         },
 
         isBound: function() {
@@ -76312,6 +76558,7 @@ var A = 0;
             options = that.options;
             element = that.element.on("focus" + ns, proxy(that._focusHandler, that));
 
+            that._focusInputHandler = $.proxy(that._focusInput, that);
             that._inputTemplate();
 
             that._reset();
@@ -76446,25 +76693,43 @@ var A = 0;
                 return;
             }
 
-            if (!this.dataSource.view().length || that._state === STATE_ACCEPT) {
+            if (!that.listView.isBound() || that._state === STATE_ACCEPT) {
                 that._open = true;
                 that._state = "rebind";
-                //that.listView.focus(false);
 
                 if (that.filterInput) {
                     that.filterInput.val("");
                 }
 
                 that._filterSource();
-            } else {
+            } else if (that._allowOpening()) {
+                that.popup.one("activate", that._focusInputHandler);
                 that.popup.open();
-                that._focusElement(that.filterInput);
                 that._focusItem();
             }
         },
 
+        _focusInput: function () {
+            this._focusElement(this.filterInput);
+        },
+
         toggle: function(toggle) {
             this._toggle(toggle, true);
+        },
+
+        _allowOpening: function(length) {
+            return this.optionLabel[0] || this.filterInput || this.dataSource.view().length;
+        },
+
+        _activateItem: function() {
+            var current = this.listView.focus();
+            if (current) {
+                this._focused.add(this.filterInput).attr("aria-activedescendant", current.attr("id"));
+            }
+        },
+
+        _deactivateItem: function() {
+            this._focused.add(this.filterInput).removeAttr("aria-activedescendant");
         },
 
         _initList: function() {
@@ -76482,52 +76747,38 @@ var A = 0;
                     groupTemplate: options.groupTemplate || "#:data#",
                     fixedGroupTemplate: options.fixedGroupTemplate || "#:data#",
                     template: options.template || "#:" + kendo.expr(options.dataTextField, "data") + "#",
-                    change: $.proxy(this._listChange, this),
-                    click: $.proxy(this._click, this),
-                    activate: function() {
-                        var current = this.focus();
-                        if (current) {
-                            that._focused.add(that.filterInput).attr("aria-activedescendant", current.attr("id"));
-                        }
-                    },
-                    deactivate: function() {
-                        that._focused.add(that.filterInput).removeAttr("aria-activedescendant");
-                    },
-                    listBound: $.proxy(this._listBound, this)
+                    click: $.proxy(that._click, that),
+                    change: $.proxy(that._listChange, that),
+                    activate: $.proxy(that._activateItem, that),
+                    deactivate: $.proxy(that._deactivateItem, that),
+                    listBound: $.proxy(that._listBound, that)
                 };
 
                 if (typeof options.virtual === "object") {
                     $.extend(virtualOptions, options.virtual);
                 }
 
-                this.listView = new kendo.ui.VirtualList(this.ul, virtualOptions);
+                that.listView = new kendo.ui.VirtualList(that.ul, virtualOptions);
             } else {
-                this.listView = new kendo.ui.StaticList(this.ul, {
+                that.listView = new kendo.ui.StaticList(that.ul, {
                     dataValueField: options.dataValueField,
-                    dataSource: this.dataSource,
+                    dataSource: that.dataSource,
                     groupTemplate: options.groupTemplate || "#:data#",
                     fixedGroupTemplate: options.fixedGroupTemplate || "#:data#",
                     template: options.template || "#:" + kendo.expr(options.dataTextField, "data") + "#",
-                    activate: function() {
-                        var current = this.focus();
-                        if (current) {
-                            that._focused.add(that.filterInput).attr("aria-activedescendant", current.attr("id"));
-                        }
-                    },
-                    click: $.proxy(this._click, this),
-                    change: $.proxy(this._listChange, this),
-                    deactivate: function() {
-                        that._focused.add(that.filterInput).removeAttr("aria-activedescendant");
-                    },
+                    click: $.proxy(that._click, that),
+                    change: $.proxy(that._listChange, that),
+                    activate: $.proxy(that._activateItem, that),
+                    deactivate: $.proxy(that._deactivateItem, that),
                     dataBinding: function() {
                         that.trigger("dataBinding");
                         that._angularItems("cleanup");
                     },
-                    dataBound: $.proxy(this._listBound, this)
+                    dataBound: $.proxy(that._listBound, that)
                 });
             }
 
-            this.listView.value(this.options.value);
+            that.listView.value(that.options.value);
         },
 
         current: function(candidate) {
@@ -76566,7 +76817,7 @@ var A = 0;
                 index = $(that.items()).index(index);
             }
 
-            return that.listView.data()[index];
+            return that.dataSource.flatView()[index];
         },
 
         refresh: function() {
@@ -76619,14 +76870,12 @@ var A = 0;
                 value = "";
             }
 
-            value = value.toString();
+            that.listView.value(value.toString()).done(function() {
+                that._triggerCascade();
 
-            that.listView.one("change", function() {
                 that._old = that._accessor();
                 that._oldIndex = that.selectedIndex;
             });
-
-            that.listView.value(value);
 
             that._fetchData();
         },
@@ -76661,7 +76910,8 @@ var A = 0;
             that.optionLabelTemplate = template;
             that.optionLabel = $('<div class="k-list-optionlabel">' + template(optionLabel) + '</div>')
                                 .prependTo(that.list)
-                                .click($.proxy(this._click, this));
+                                .click($.proxy(that._click, that))
+                                .on(HOVEREVENTS, that._toggleHover);
 
             that.angular("compile", function(){
                 return { elements: that.optionLabel };
@@ -76675,12 +76925,14 @@ var A = 0;
 
         _listBound: function() {
             var that = this;
-            var data = that.listView.data();
-            var length = data.length;
+            var initialIndex = that._initialIndex;
             var optionLabel = that.options.optionLabel;
             var filtered = that._state === STATE_FILTER;
             var element = that.element[0];
-            var selectedIndex;
+
+            var data = that.dataSource.flatView();
+            var length = data.length;
+
             var height;
             var value;
 
@@ -76696,20 +76948,20 @@ var A = 0;
             }
 
             if (that._isSelect) {
-                selectedIndex = element.selectedIndex;
                 value = that.value();
 
                 if (length) {
                     if (optionLabel) {
-                        optionLabel = that._option("", this._optionLabelText());
+                        optionLabel = that._option("", that._optionLabelText());
                     }
                 } else if (value) {
-                    selectedIndex = 0;
                     optionLabel = that._option(value, that.text());
                 }
 
-                that._options(data, optionLabel);
-                element.selectedIndex = selectedIndex === -1 ? 0 : selectedIndex;
+                that._options(data, optionLabel, value);
+                if (element.selectedIndex === -1) {
+                    element.selectedIndex = 0;
+                }
             }
 
             that._hideBusy();
@@ -76717,25 +76969,23 @@ var A = 0;
 
             if (!filtered) {
                 if (that._open) {
-                    that.toggle(!!length);
+                    that.toggle(that._allowOpening());
                 }
 
                 that._open = false;
 
                 if (!that._fetch) {
                     if (length) {
-                        if (!this.listView.value().length && this._initialIndex > -1 && this._initialIndex !== null) {
-                            this.select(this._initialIndex);
+                        if (!that.listView.value().length && initialIndex > -1 && initialIndex !== null) {
+                            that.select(initialIndex);
                         }
 
-                        this._initialIndex = null;
-                    } else if (this._textAccessor() !== optionLabel) {
-                        this.listView.value("");
-                        this._selectValue(null);
+                        that._initialIndex = null;
+                    } else if (that._textAccessor() !== optionLabel) {
+                        that.listView.value("");
+                        that._selectValue(null);
                     }
                 }
-            } else {
-                this.listView.first();
             }
 
             that.trigger("dataBound");
@@ -76766,12 +77016,8 @@ var A = 0;
             if (!that._prevent) {
                 clearTimeout(that._typing);
 
-                if (filtered) {
-                    that._select(that._focus(), !that.listView.dataItems()[0]);
-                }
-
-                if (!filtered || that.dataItem()) {
-                    //that._triggerCascade();
+                if (filtered && that._focus()) {
+                    that._select(that._focus(), !that.dataSource.view().length);
                 }
 
                 if (kendo.support.mobileOS.ios && isIFrame) {
@@ -76793,6 +77039,7 @@ var A = 0;
 
         _wrapperClick: function(e) {
             e.preventDefault();
+            this.popup.unbind("activate", this._focusInputHandler);
             this._focused = this.wrapper;
             this._toggle();
         },
@@ -76899,30 +77146,44 @@ var A = 0;
             }
         },
 
-        _selectNext: function(word, index) {
-            var that = this, text,
-                startIndex = index,
-                data = that.listView.data(),
-                length = data.length,
-                ignoreCase = that.options.ignoreCase,
-                action = function(text, index) {
-                    text = text + "";
-                    if (ignoreCase) {
-                        text = text.toLowerCase();
-                    }
+        _matchText: function(text, index) {
+            var that = this;
+            var ignoreCase = that.options.ignoreCase;
+            var found = false;
 
-                    if (text.indexOf(word) === 0) {
-                        that._select(index);
-                        if (!that.popup.visible()) {
-                            that._change();
-                        }
-                        return true;
-                    }
-                };
+            text = text + "";
+
+            if (ignoreCase) {
+                text = text.toLowerCase();
+            }
+
+            if (text.indexOf(that._word) === 0) {
+                if (that.optionLabel[0]) {
+                    index += 1;
+                }
+
+                that._select(index);
+                if (!that.popup.visible()) {
+                    that._change();
+                }
+
+                found = true;
+            }
+
+            return found;
+        },
+
+        _selectNext: function(index) {
+            var that = this;
+            var startIndex = index;
+            var data = that.dataSource.flatView();
+            var length = data.length;
+            var text;
 
             for (; index < length; index++) {
                 text = that._text(data[index]);
-                if (text && action(text, index)) {
+
+                if (text && that._matchText(text, index) && !(that._word.length === 1 && startIndex === that.selectedIndex)) {
                     return true;
                 }
             }
@@ -76931,7 +77192,7 @@ var A = 0;
                 index = 0;
                 for (; index <= startIndex; index++) {
                     text = that._text(data[index]);
-                    if (text && action(text, index)) {
+                    if (text && that._matchText(text, index)) {
                         return true;
                     }
                 }
@@ -76949,7 +77210,7 @@ var A = 0;
 
             var character = String.fromCharCode(e.charCode || e.keyCode);
             var index = that.selectedIndex;
-            var word = that._word;
+            var length = that._word.length;
 
             if (that.options.ignoreCase) {
                 character = character.toLowerCase();
@@ -76959,17 +77220,20 @@ var A = 0;
                 e.preventDefault();
             }
 
-            if (that._last === character && word.length <= 1 && index > -1) {
-                if (!word) {
-                    word = character;
-                }
+            if (!length) {
+                that._word = character;
+            }
 
-                if (that._selectNext(word, index + 1)) {
+            if (that._last === character && length <= 1 && index > -1) {
+                if (that._selectNext(index)) {
                     return;
                 }
             }
 
-            that._word = word + character;
+            if (length) {
+                that._word += character;
+            }
+
             that._last = character;
 
             that._search();
@@ -76991,7 +77255,7 @@ var A = 0;
             this.popup.one("open", proxy(this._popupOpen, this));
         },
 
-        _click: function(e) {
+        _click: function (e) {
             var item = e.item || $(e.currentTarget);
 
             if (this.trigger("select", { item: item })) {
@@ -77044,10 +77308,9 @@ var A = 0;
         },
 
         _search: function() {
-            var that = this,
-                dataSource = that.dataSource,
-                index = that.selectedIndex,
-                word = that._word;
+            var that = this;
+            var dataSource = that.dataSource;
+            var index = that.selectedIndex;
 
             clearTimeout(that._typing);
 
@@ -77072,15 +77335,15 @@ var A = 0;
                 }
 
                 if (!that.ul[0].firstChild) {
-                    dataSource.one(CHANGE, function () {
+                    dataSource.fetch().done(function () {
                         if (dataSource.data()[0] && index > -1) {
-                            that._selectNext(word, index);
+                            that._selectNext(index);
                         }
-                    }).fetch();
+                    });
                     return;
                 }
 
-                that._selectNext(word, index);
+                that._selectNext(index);
             }
         },
 
@@ -77096,7 +77359,7 @@ var A = 0;
             }
 
             if (typeof candidate === "function") {
-                data = this.listView.data();
+                data = this.dataSource.flatView();
 
                 for (idx = 0; idx < data.length; idx++) {
                     if (candidate(data[idx])) {
@@ -77197,66 +77460,67 @@ var A = 0;
         },
 
         _select: function(candidate, keepState) {
-            var optionLabel = this.optionLabel;
+            var that = this;
+            var optionLabel = that.optionLabel;
 
-            candidate = this._get(candidate);
+            candidate = that._get(candidate);
 
-            if (!keepState && this._state === STATE_FILTER) {
-                this.listView.clearIndices();
-                this.listView.filter(false);
+            that.listView.select(candidate);
 
-                this._state = STATE_ACCEPT;
+            if (!keepState && that._state === STATE_FILTER) {
+                that.listView.filter(false);
+                that._state = STATE_ACCEPT;
             }
 
-            optionLabel.removeClass("k-state-focused k-state-selected");
-
-            this.listView.select(candidate);
-
             if (candidate === -1) {
-                this._selectValue(null);
-                this._focus(optionLabel.addClass("k-state-selected"));
+                that._selectValue(null);
             }
         },
 
         _selectValue: function(dataItem) {
+            var that = this;
+            var optionLabel = that.options.optionLabel;
+            var labelElement = that.optionLabel;
+            var idx = that.listView.select();
+
             var value = "";
             var text = "";
-            var idx = this.listView.select();
-            var optionLabel = this.options.optionLabel;
 
             idx = idx[idx.length - 1];
             if (idx === undefined) {
                 idx = -1;
             }
 
+            labelElement.removeClass("k-state-focused k-state-selected");
+
             if (dataItem) {
                 text = dataItem;
-                value = this._dataValue(dataItem);
+                value = that._dataValue(dataItem);
                 if (optionLabel) {
                     idx += 1;
                 }
             } else if (optionLabel) {
-                this._focus(this.optionLabel);
-                text = this._optionLabelText();
+                that._focus(labelElement.addClass("k-state-selected"));
+                text = that._optionLabelText();
                 if (typeof optionLabel === "string") {
                     value = "";
                 } else {
-                    value = this._value(optionLabel);
+                    value = that._value(optionLabel);
                 }
 
                 idx = 0;
             }
 
-            this.selectedIndex = idx;
+            that.selectedIndex = idx;
 
             if (value === null) {
                 value = "";
             }
 
-            this._textAccessor(text);
-            this._accessor(value, idx);
+            that._textAccessor(text);
+            that._accessor(value, idx);
 
-            this._triggerCascade();
+            that._triggerCascade();
         },
 
         _mobile: function() {
@@ -77346,18 +77610,8 @@ var A = 0;
                               });
         },
 
-        _clearSelection: function() {
-            var that = this;
-            var optionLabel = that.options.optionLabel;
-
-            that.options.value = "";
-
-            if (that.dataSource.view()[0] && (optionLabel || that._userTriggered)) {
-                that.select(0);
-            } else {
-                that.select(-1);
-                that._textAccessor(that.options.optionLabel);
-            }
+        _clearSelection: function(parent) {
+            this.select(parent.value() ? 0 : -1);
         },
 
         _inputTemplate: function() {

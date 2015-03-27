@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -570,6 +570,11 @@
                             overflowElement.removeAttr(KENDO_UID_ATTR);
                             overflowElement = overflowElement.wrap("<li></li>").parent();
                             overflowElement.attr(KENDO_UID_ATTR, options.uid);
+
+                            if (options.type === "button" && options.enable === false) {
+                                overflowElement.find("." + BUTTON).removeClass(STATE_DISABLED);
+                                overflowElement.addClass(STATE_DISABLED);
+                            }
                         }
                         that._attributes(overflowElement, options);
                         overflowElement.addClass(itemClasses).appendTo(that.popup.container);
@@ -590,10 +595,11 @@
                         element = isFunction(template) ? template(options) : template;
 
                         if (!(element instanceof jQuery)) {
-                            element = $(element.replace(/^\s+|\s+$/g, ''));
+                            element = $("<div></div>").html(element);
+                        } else {
+                            element = element.wrap("<div></div>").parent();
                         }
 
-                        element = element.wrap("<div></div>").parent();
                         if (options.id) {
                            element.attr("id", options.id);
                         }

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -364,7 +364,7 @@ $.extend(true, kendo.ui.Scheduler.prototype.options.messages,{
     "deleteWindowOccurrence": "Diesen Termin löschen",
     "deleteWindowSeries": "Alle Wiederholungen des Termins löschen",
     "deleteWindowTitle": "Diesen Termin und alle Wiederholungen löschen",
-    "editRecurring": "Möchten Sie nur diesen Termin oder alle Wiederholungen löschen?",
+    "editRecurring": "Möchten Sie nur diesen Termin oder alle Wiederholungen bearbeiten?",
     "editWindowOccurrence": "Aktuelles Ereignis bearbeiten",
     "editWindowSeries": "Serie bearbeiten",
     "editWindowTitle": "Wiederholungs-Eintrag bearbeiten"

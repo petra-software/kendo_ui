@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -417,6 +417,35 @@
             }
         },
 
+        _spellCorrect: function(editor) {
+            var beforeCorrection;
+            var falseTrigger = false;
+
+            $(editor.body)
+                .on("contextmenu" + NS, function(e) {
+                    editor.one("select", function() {
+                        beforeCorrection = null;
+                    });
+
+                    editor._spellCorrectTimeout = setTimeout(function() {
+                        beforeCorrection = new kendo.ui.editor.RestorePoint(editor.getRange());
+                        falseTrigger = false;
+                    }, 10);
+                })
+                .on("input" + NS, function(e) {
+                    if (!beforeCorrection) {
+                        return;
+                    }
+
+                    if (kendo.support.browser.mozilla && !falseTrigger) {
+                        falseTrigger = true;
+                        return;
+                    }
+
+                    kendo.ui.editor._finishUpdate(editor, beforeCorrection);
+                });
+        },
+
         _initializeContentElement: function() {
             var editor = this;
             var doc;
@@ -456,7 +485,10 @@
                       });
             }
 
+            this._spellCorrect(editor);
+
             $(editor.body)
+                .on("dragstart" + NS, false)
                 .on("keydown" + NS, function (e) {
                     var range;
 
@@ -661,6 +693,8 @@
             $(document).off("mousedown", proxy(that._endTyping, that))
                        .off("mouseup", proxy(that._mouseup, that));
 
+            clearTimeout(this._spellCorrectTimeout);
+
             that._focusOutside();
 
             that.toolbar.destroy();
@@ -823,6 +857,10 @@
 
             if (!name) {
                 throw new Error("kendoEditor.exec(): `name` parameter cannot be empty");
+            }
+
+            if (that.body.getAttribute("contenteditable") !== "true") {
+                return false;
             }
 
             name = name.toLowerCase();
@@ -1278,13 +1316,15 @@ var Dom = {
 
     significantNodes: function(nodes) {
         return $.grep(nodes, function(child) {
-            if (Dom.is(child, 'br')) {
+            var name = Dom.name(child);
+
+            if (name == 'br') {
                 return false;
             } else if (Dom.insignificant(child)) {
                 return false;
             } else if (child.nodeType == 3 && whitespaceOrBom.test(child.nodeValue)) {
                 return false;
-            } else if (Dom.is(child, 'p') && Dom.emptyNode(child)) {
+            } else if (child.nodeType == 1 && !empty[name] && Dom.emptyNode(child)) {
                 return false;
             }
 
@@ -4240,6 +4280,13 @@ var Clipboard = Class.extend({
         dom.restoreScrollTop(editor.document);
         dom.scrollTo(caret);
         marker.removeCaret(range);
+
+        var rangeEnd = range.commonAncestorContainer.parentNode;
+        if (range.collapsed && dom.name(rangeEnd) == "tbody") {
+            range.setStartAfter($(rangeEnd).closest("table")[0]);
+            range.collapse(true);
+        }
+
         editor.selectRange(range);
     }
 });
@@ -4611,6 +4658,7 @@ var ExportPdfCommand = Command.extend({
     }
 });
 extend(editorNS, {
+    _finishUpdate: finishUpdate,
     Command: Command,
     GenericCommand: GenericCommand,
     InsertHtmlCommand: InsertHtmlCommand,
@@ -6702,9 +6750,7 @@ var ImageCommand = Command.extend({
 
             if (!img) {
                 img = dom.create(doc, "img", attributes);
-                img.onload = img.onerror = function () {
-                    removeIEAttributes();
-                };
+                img.onload = img.onerror = removeIEAttributes;
 
                 range.deleteContents();
                 range.insertNode(img);
@@ -6720,6 +6766,7 @@ var ImageCommand = Command.extend({
                 RangeUtils.selectRange(range);
                 return true;
             } else {
+                img.onload = img.onerror = removeIEAttributes;
                 dom.attr(img, attributes);
                 removeIEAttributes();
             }
@@ -7516,8 +7563,9 @@ var FormattingTool = DelayedExecutionTool.extend({
 
 var CleanFormatCommand = Command.extend({
     exec: function() {
+        var listFormatter = new Editor.ListFormatter('ul');
         var range = this.lockRange(true);
-        var remove = this.options.remove || "strong,em,span".split(",");
+        var remove = this.options.remove || "strong,em,span,sup,sub,del".split(",");
 
         RangeUtils.wrapSelectedElements(range);
 
@@ -7528,7 +7576,21 @@ var CleanFormatCommand = Command.extend({
                 return;
             }
 
-            if (node.nodeType == 1 && !dom.insignificant(node)) {
+            var name = dom.name(node);
+
+            if (name == "ul" || name == "ol") {
+                var prev = node.previousSibling;
+                var next = node.nextSibling;
+
+                listFormatter.unwrap(node);
+
+                // clean contents
+                for (; prev && prev != next; prev = prev.nextSibling) {
+                    clean(prev);
+                }
+            } else if (name == "blockquote") {
+                dom.changeTag(node, "p");
+            } else if (node.nodeType == 1 && !dom.insignificant(node)) {
                 for (var i = node.childNodes.length-1; i >= 0; i--) {
                     clean(node.childNodes[i]);
                 }
@@ -7537,7 +7599,7 @@ var CleanFormatCommand = Command.extend({
                 node.removeAttribute("class");
             }
 
-            if ($.inArray(dom.name(node), remove) > -1) {
+            if ($.inArray(name, remove) > -1) {
                 dom.unwrap(node);
             }
         });
@@ -8160,7 +8222,8 @@ var TableCommand = InsertHtmlCommand.extend({
     postProcess: function(editor, range) {
         var insertedTable = $("table[data-last]", editor.document).removeAttr("data-last");
 
-        range.selectNodeContents(insertedTable.find("td")[0]);
+        range.setStart(insertedTable.find("td")[0], 0);
+        range.collapse(true);
 
         editor.selectRange(range);
     },

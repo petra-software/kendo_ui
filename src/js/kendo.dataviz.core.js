@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1689,7 +1689,7 @@
                     align: align,
                     zIndex: options.zIndex
                 }),
-                step = labelOptions.step;
+                step = math.max(1, labelOptions.step);
 
             axis.labels = [];
 
@@ -1944,15 +1944,15 @@
                 to = valueOrDefault(item.to, MAX_VALUE);
                 var element = [];
 
-                if (isInRange(from, range) || isInRange(to, range)) {
-                    if (vertical) {
-                        slotX = (altAxis || plotArea.axisX).lineBox();
-                        slotY = axis.getSlot(item.from, item.to, true);
-                    } else {
-                        slotX = axis.getSlot(item.from, item.to, true);
-                        slotY = (altAxis || plotArea.axisY).lineBox();
-                    }
+                if (vertical) {
+                    slotX = (altAxis || plotArea.axisX).lineBox();
+                    slotY = axis.getSlot(item.from, item.to, true);
+                } else {
+                    slotX = axis.getSlot(item.from, item.to, true);
+                    slotY = (altAxis || plotArea.axisY).lineBox();
+                }
 
+                if (slotX.width() !== 0 && slotY.height() !== 0) {
                     var bandRect = new geom.Rect(
                         [slotX.x1, slotY.y1],
                         [slotX.width(), slotY.height()]
@@ -2021,35 +2021,30 @@
                 vertical = options.vertical,
                 labels = axis.labels,
                 count = labels.length,
-                space = axis.getActualTickSize() + options.margin,
-                maxLabelHeight = 0,
-                maxLabelWidth = 0,
                 title = axis.title,
-                label, i;
+                sizeFn = vertical ? WIDTH : HEIGHT,
+                titleSize = title ? title.box[sizeFn]() : 0,
+                space = axis.getActualTickSize() + options.margin + titleSize,
+                maxLabelSize = 0,
+                boxSize = box[sizeFn](),
+                labelSize, i;
 
             for (i = 0; i < count; i++) {
-                label = labels[i];
-                maxLabelHeight = math.max(maxLabelHeight, label.box.height());
-                maxLabelWidth = math.max(maxLabelWidth, label.box.width());
-            }
-
-            if (title) {
-                if (vertical) {
-                    maxLabelWidth += title.box.width();
-                } else {
-                    maxLabelHeight += title.box.height();
+                labelSize = labels[i].box[sizeFn]();
+                if (labelSize + space <= boxSize) {
+                    maxLabelSize = math.max(maxLabelSize, labelSize);
                 }
             }
 
             if (vertical) {
                 axis.box = Box2D(
                     box.x1, box.y1,
-                    box.x1 + maxLabelWidth + space, box.y2
+                    box.x1 + maxLabelSize + space, box.y2
                 );
             } else {
                 axis.box = Box2D(
                     box.x1, box.y1,
-                    box.x2, box.y1 + maxLabelHeight + space
+                    box.x2, box.y1 + maxLabelSize + space
                 );
             }
 
@@ -3917,10 +3912,6 @@
             element.innerHTML = text;
             return element.textContent || element.innerText;
         }
-    }
-
-    function isInRange(value, range) {
-        return value >= range.min && value <= range.max;
     }
 
     function alignPathToPixel(path) {

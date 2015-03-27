@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1426,6 +1426,9 @@ html .k-error-colored {
 .k-loading-text {
   position: absolute;
 }
+.k-loading-mask {
+  z-index: 100;
+}
 .k-loading-text {
   text-indent: -4000px;
   text-align: center;
@@ -2669,6 +2672,7 @@ div.k-grid-footer {
 .k-pager-wrap {
   clear: both;
   overflow: hidden;
+  position: relative;
   border-style: solid;
   border-width: 1px;
   line-height: 2.0em;
@@ -4541,6 +4545,9 @@ body .k-datetimepicker .k-select {
 }
 .k-textbox {
   outline: 0;
+}
+input.k-textbox,
+textarea.k-textbox {
   padding: 2px .3em;
 }
 input.k-textbox {
@@ -9371,7 +9378,7 @@ html .k-upload-empty {
   margin: 0;
   padding: 0;
 }
-.k-virtual-list {
+.k-virtual-content {
   overflow-y: scroll;
   /* has to be scroll, not auto */
   -webkit-overflow-scrolling: touch;
@@ -9405,16 +9412,25 @@ html .k-upload-empty {
 .k-popup .k-item.k-first {
   position: relative;
 }
+.k-popup .k-item > .k-group,
+.k-popup > .k-static-header {
+  text-transform: uppercase;
+  font-size: .857em;
+}
 .k-popup .k-item > .k-group {
   background: none;
   position: absolute;
-  top: 0;
-  right: .3em;
+  top: .1em;
+  right: 4px;
 }
-.k-popup .k-item.k-first,
+.k-popup .k-state-hover > .k-group {
+  right: 3px;
+}
+.k-static-header + .k-list > .k-item.k-first,
 .k-virtual-item.k-first {
-  border-bottom-style: solid;
-  border-bottom-width: 1px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  padding-top: 0;
 }
 .k-popup > .k-static-header {
   text-align: right;

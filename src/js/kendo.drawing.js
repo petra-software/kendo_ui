@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -8217,7 +8217,9 @@
                 group = tmp;
                 updateClipbox(clipPath);
             }
-            if (/^(hidden|auto|scroll)/.test(getPropertyValue(style, "overflow"))) {
+            if (isFormField(element)) {
+                clipit();
+            } else if (/^(hidden|auto|scroll)/.test(getPropertyValue(style, "overflow"))) {
                 clipit();
             } else if (/^(hidden|auto|scroll)/.test(getPropertyValue(style, "overflow-x"))) {
                 clipit();
@@ -8974,6 +8976,56 @@
         return parseFloat(za) - parseFloat(zb);
     }
 
+    function isFormField(element) {
+        return /^(?:textarea|select|input)$/i.test(element.tagName);
+    }
+
+    function getSelectedOption(element) {
+        if (element.selectedOptions && element.selectedOptions.length > 0) {
+            return element.selectedOptions[0];
+        }
+        return element.options[element.selectedIndex];
+    }
+
+    function renderFormField(element, group) {
+        var tag = element.tagName.toLowerCase();
+        var p = element.parentNode;
+        var doc = element.ownerDocument;
+        var el = doc.createElement(KENDO_PSEUDO_ELEMENT);
+        var option;
+        el.style.cssText = getCssText(getComputedStyle(element));
+        el.style.display = "inline-block";
+        if (tag == "input") {
+            el.style.whiteSpace = "pre";
+        }
+        if (tag == "select" || tag == "textarea") {
+            el.style.overflow = "auto";
+        }
+        if (tag == "select") {
+            if (element.multiple) {
+                for (var i = 0; i < element.options.length; ++i) {
+                    option = doc.createElement(KENDO_PSEUDO_ELEMENT);
+                    option.style.cssText = getCssText(getComputedStyle(element.options[i]));
+                    option.style.display = "block"; // IE9 messes up without this
+                    option.textContent = element.options[i].textContent;
+                    el.appendChild(option);
+                }
+            } else {
+                option = getSelectedOption(element);
+                if (option) {
+                    el.textContent = option.textContent;
+                }
+            }
+        } else {
+            el.textContent = element.value;
+        }
+        p.insertBefore(el, element);
+        el.scrollLeft = element.scrollLeft;
+        el.scrollTop = element.scrollTop;
+        renderContents(el, group);
+        p.removeChild(el);
+    }
+
     function renderContents(element, group) {
         switch (element.tagName.toLowerCase()) {
           case "img":
@@ -8990,6 +9042,8 @@
 
           case "textarea":
           case "input":
+          case "select":
+            renderFormField(element, group);
             break;
 
           default:
@@ -9051,11 +9105,6 @@
             return; // whitespace-only node
         }
 
-        var range = element.ownerDocument.createRange();
-        var align = getPropertyValue(style, "text-align");
-        var isJustified = align == "justify";
-        var whiteSpace = getPropertyValue(style, "white-space");
-
         var fontSize = getPropertyValue(style, "font-size");
         var lineHeight = getPropertyValue(style, "line-height");
 
@@ -9076,6 +9125,10 @@
         }
 
         var color = getPropertyValue(style, "color");
+        var range = element.ownerDocument.createRange();
+        var align = getPropertyValue(style, "text-align");
+        var isJustified = align == "justify";
+        var whiteSpace = getPropertyValue(style, "white-space");
 
         // A line of 500px, with a font of 12px, contains an average of 80 characters, but since we
         // err, we'd like to guess a bigger number rather than a smaller one.  Multiplying by 5

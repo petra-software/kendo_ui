@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -10,7 +10,7 @@
     define([ "./kendo.core", "./kendo.color", "./kendo.drawing" ], f);
 })(function(){
 
-(function(global, parseFloat, undefined){
+(function(window, parseFloat, undefined){
 
     "use strict";
 
@@ -22,10 +22,10 @@
     /* jshint newcap:false */
     /* global VBArray */
 
-    var kendo = global.kendo;
+    var kendo = window.kendo;
 
     // XXX: remove this junk (assume `true`) when we no longer have to support IE < 10
-    var HAS_TYPED_ARRAYS = !!global.Uint8Array;
+    var HAS_TYPED_ARRAYS = !!window.Uint8Array;
 
     var NL = "\n";
 
@@ -395,11 +395,11 @@
 
     function loadBinary(url, cont) {
         function error() {
-            if (global.console) {
-                if (global.console.error) {
-                    global.console.error("Cannot load URL: %s", url);
+            if (window.console) {
+                if (window.console.error) {
+                    window.console.error("Cannot load URL: %s", url);
                 } else {
-                    global.console.log("Cannot load URL: %s", url);
+                    window.console.log("Cannot load URL: %s", url);
                 }
             }
             cont(null);
@@ -444,7 +444,7 @@
     var IMAGE_CACHE = {};
 
     function loadImage(url, cont) {
-        var img = IMAGE_CACHE[url];
+        var img = IMAGE_CACHE[url], bloburl, blob;
         if (img) {
             cont(img);
         } else {
@@ -452,69 +452,118 @@
             if (!(/^data:/i.test(url))) {
                 img.crossOrigin = "Anonymous";
             }
-            img.src = url;
-
-            var onload = function() {
-                var canvas = document.createElement("canvas");
-                canvas.width = img.width;
-                canvas.height = img.height;
-                var ctx = canvas.getContext("2d");
-
-                ctx.drawImage(img, 0, 0);
-
-                var imgdata;
-                try {
-                    imgdata = ctx.getImageData(0, 0, img.width, img.height);
-                } catch(ex) {
-                    // it tainted the canvas -- can't draw it.
-                    return cont(IMAGE_CACHE[url] = "TAINTED");
-                }
-
-                // in case it contains transparency, we must separate rgb data from the alpha
-                // channel and create a PDFRawImage image with opacity.  otherwise we can use a
-                // PDFJpegImage.
+            if (HAS_TYPED_ARRAYS) {
+                // IE10 fails to load images from another domain even when the server sends the
+                // proper CORS headers.  a XHR, however, will be able to load the data.
+                // http://stackoverflow.com/a/19734516/154985
                 //
-                // to do this in one step, we create the rgb and alpha streams anyway, even if
-                // we might end up not using them if hasAlpha remains false.
-
-                var hasAlpha = false, rgb = BinaryStream(), alpha = BinaryStream();
-                var rawbytes = imgdata.data;
-                var i = 0;
-                while (i < rawbytes.length) {
-                    rgb.writeByte(rawbytes[i++]);
-                    rgb.writeByte(rawbytes[i++]);
-                    rgb.writeByte(rawbytes[i++]);
-                    var a = rawbytes[i++];
-                    if (a < 255) {
-                        hasAlpha = true;
-                    }
-                    alpha.writeByte(a);
-                }
-
-                if (hasAlpha) {
-                    img = new PDFRawImage(img.width, img.height, rgb, alpha);
-                } else {
-                    // no transparency, encode as JPEG.
-                    var data = canvas.toDataURL("image/jpeg");
-                    data = data.substr(data.indexOf(";base64,") + 8);
-
-                    var stream = BinaryStream();
-                    stream.writeBase64(data);
-                    stream.offset(0);
-                    img = new PDFJpegImage(img.width, img.height, stream);
-                }
-
-                cont(IMAGE_CACHE[url] = img);
-            };
-
-            if (img.complete) {
-                onload();
-            } else {
-                img.onload = onload;
-                img.onerror = function(ev) {
-                    cont(IMAGE_CACHE[url] = "TAINTED");
+                // On the other hand, it's worth doing it this way for all browsers which support
+                // responseType = "blob" (HAS_TYPED_ARRAYS will be true), because we can inspect the
+                // mime type and if it's a JPEG (very common case) we can save a lot of time in
+                // _load below.
+                var xhr = new XMLHttpRequest();
+                xhr.onload = function() {
+                    blob = xhr.response;
+                    bloburl = URL.createObjectURL(blob);
+                    _load(bloburl);
                 };
+                xhr.onerror = _onerror;
+                xhr.open("GET", url, true);
+                xhr.responseType = "blob";
+                xhr.send();
+            } else {
+                _load(url);
             }
+        }
+
+        function _load(url) {
+            img.src = url;
+            if (img.complete) {
+                _onload();
+            } else {
+                img.onload = _onload;
+                img.onerror = _onerror;
+            }
+        }
+
+        function _onerror() {
+            cont(IMAGE_CACHE[url] = "TAINTED");
+        }
+
+        function _onload() {
+            if (blob && /^image\/jpe?g$/i.test(blob.type)) {
+                // If we know we got a JPEG, we can skip the process of rendering it to a
+                // canvas, getting the pixel data, searching for transparency we know we won't
+                // find, getting back a data URI and then decoding the BASE64 to finally get the
+                // binary we already have.  Also, we avoid downgrading the image quality, with
+                // the possible drawback of making a bigger PDF; still, seems legit.
+                //
+                // Besides saving a lot of work, this also reuses the buffer memory
+                // (BinaryStream does not create a copy), potentially saving some GC cycles.
+                var reader = new FileReader();
+                reader.onload = function() {
+                    img = new PDFJpegImage(img.width, img.height, BinaryStream(new Uint8Array(this.result)));
+                    URL.revokeObjectURL(bloburl);
+                    cont(IMAGE_CACHE[url] = img);
+                };
+                reader.readAsArrayBuffer(blob);
+                return;
+            }
+
+            var canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+            var ctx = canvas.getContext("2d");
+
+            ctx.drawImage(img, 0, 0);
+
+            var imgdata;
+            try {
+                imgdata = ctx.getImageData(0, 0, img.width, img.height);
+            } catch(ex) {
+                // it tainted the canvas -- can't draw it.
+                return _onerror();
+            } finally {
+                if (bloburl) {
+                    URL.revokeObjectURL(bloburl);
+                }
+            }
+
+            // in case it contains transparency, we must separate rgb data from the alpha
+            // channel and create a PDFRawImage image with opacity.  otherwise we can use a
+            // PDFJpegImage.
+            //
+            // to do this in one step, we create the rgb and alpha streams anyway, even if
+            // we might end up not using them if hasAlpha remains false.
+
+            var hasAlpha = false, rgb = BinaryStream(), alpha = BinaryStream();
+            var rawbytes = imgdata.data;
+            var i = 0;
+            while (i < rawbytes.length) {
+                rgb.writeByte(rawbytes[i++]);
+                rgb.writeByte(rawbytes[i++]);
+                rgb.writeByte(rawbytes[i++]);
+                var a = rawbytes[i++];
+                if (a < 255) {
+                    hasAlpha = true;
+                }
+                alpha.writeByte(a);
+            }
+
+            if (hasAlpha) {
+                img = new PDFRawImage(img.width, img.height, rgb, alpha);
+            } else {
+                // no transparency, encode as JPEG.
+                var data = canvas.toDataURL("image/jpeg");
+                data = data.substr(data.indexOf(";base64,") + 8);
+
+                var stream = BinaryStream();
+                stream.writeBase64(data);
+                stream.offset(0);
+                img = new PDFJpegImage(img.width, img.height, stream);
+            }
+
+            cont(IMAGE_CACHE[url] = img);
         }
     }
 
@@ -817,14 +866,14 @@
     }, {
         render: function(out) {
             var data = this.data.get(), props = this.props;
-            if (this.compress && global.pako && typeof global.pako.deflate == "function") {
+            if (this.compress && window.pako && typeof window.pako.deflate == "function") {
                 if (!props.Filter) {
                     props.Filter = [];
                 } else if (!(props.Filter instanceof Array)) {
                     props.Filter = [ props.Filter ];
                 }
                 props.Filter.unshift(_("FlateDecode"));
-                data = global.pako.deflate(data);
+                data = window.pako.deflate(data);
             }
             props.Length = data.length;
             out(new PDFDictionary(props), " stream", NL);
@@ -1984,9 +2033,9 @@
         return m[0] === 1 && m[1] === 0 && m[2] === 0 && m[3] === 1 && m[4] === 0 && m[5] === 0;
     }
 
-})(this, parseFloat);
+})(window, parseFloat);
 
-(function(global){
+(function(window){
 
 /*****************************************************************************\
  *
@@ -2014,7 +2063,7 @@ function sortedKeys(obj) {
     return Object.keys(obj).sort(function(a, b){ return a - b; }).map(parseFloat);
 }
 
-var PDF = global.kendo.pdf;
+var PDF = window.kendo.pdf;
 var BinaryStream = PDF.BinaryStream;
 
 ///
@@ -3076,7 +3125,7 @@ TTFFont.prototype = {
 
 PDF.TTFFont = TTFFont;
 
-})(this);
+})(window);
 
 (function(kendo, $){
 

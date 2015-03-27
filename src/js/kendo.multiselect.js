@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -323,18 +323,16 @@
             var that = this;
             var position = tag.index();
             var listView = that.listView;
-            var value = listView.value();
-
-            var customIndex = that._customOptions[value[position]];
+            var customIndex = that._customOptions[listView.value()[position]];
             var option;
 
             if (customIndex !== undefined) {
-                value.splice(position, 1);
-                listView.value(value, true);
-
                 option = that.element[0].children[customIndex];
                 option.removeAttribute("selected");
                 option.selected = false;
+
+                listView.removeAt(position);
+                tag.remove();
             } else {
                 listView.select(listView.select()[position]);
             }
@@ -410,12 +408,12 @@
                 that._retrieveData = false;
             }
 
-            if (that._retrieveData || !this.listView.isBound() || that._state === ACCEPT) {
-                that.listView.filter(false);
-
+            if (that._retrieveData || !that.listView.isBound() || that._state === ACCEPT) {
                 that._open = true;
                 that._state = REBIND;
                 that._retrieveData = false;
+                that.listView.filter(false);
+
                 that._filterSource();
             } else if (that._allowSelection()) {
                 that.popup.open();
@@ -435,7 +433,7 @@
 
         _listBound: function() {
             var that = this;
-            var data = this.listView.data();
+            var data = this.dataSource.flatView();
             var length = data.length;
 
             that._angularItems("compile");
@@ -518,14 +516,6 @@
 
             if (maxSelectedItems !== null && value.length > maxSelectedItems) {
                 value = value.slice(0, maxSelectedItems);
-            }
-
-            if (value.length && oldValue.length) {
-                for (idx = 0; idx < oldValue.length; idx++) {
-                    that._setOption(oldValue[idx], false);
-                }
-
-                that.tagList.html("");
             }
 
             that.listView.value(value);
@@ -846,7 +836,7 @@
             }
 
             if (selected) {
-                option += ' selected="selected"';
+                option += ' selected';
             }
 
             option += ">";
@@ -880,7 +870,7 @@
                     value = values[idx];
                     custom[value] = idx + length;
                     optionsMap[value] = idx + length;
-                    options += this._option(value, true);
+                    options += '<option selected="selected" value="' + value + '"></option>';
                 }
             }
 

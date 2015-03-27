@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -473,11 +473,14 @@
             var size;
             var className = GanttView.styles.task + " " + GanttView.styles.taskMilestone;
             var milestone = $("<div class='" + className + "' style='visibility: hidden; position: absolute'>");
+            var boundingClientRect;
 
             this.content.append(milestone);
 
+            boundingClientRect = milestone[0].getBoundingClientRect();
+
             size = {
-                "width": milestone[0].getBoundingClientRect().width,
+                "width": boundingClientRect.right - boundingClientRect.left,
                 "clientWidth": milestone[0].clientWidth
             };
 

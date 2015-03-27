@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -10,7 +10,7 @@
     define([ "./kendo.dataviz.core" ], f);
 })(function(){
 
-(function () {
+(function ($) {
 
     // Imports ================================================================
     var kendo = window.kendo,
@@ -3595,7 +3595,7 @@
             }
         });
     })();
-    
+
     function fuse(arr1, arr2) {
         return $.map(arr1, function(item, index) {
             return [

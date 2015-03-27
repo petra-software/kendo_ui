@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -92,7 +92,7 @@
             '<div data-#=ns#role="view" data-#=ns#init-widgets="false" class="k-grid-filter-menu">'+
                 '<div data-#=ns#role="header" class="k-header">'+
                     '<button class="k-button k-cancel">#=messages.cancel#</button>'+
-                    '#=field#'+
+                    '#=title#'+
                     '<button type="submit" class="k-button k-submit">#=messages.filter#</button>'+
                 '</div>'+
                 '<form class="k-filter-menu k-mobile-list">'+
@@ -158,7 +158,7 @@
             '<div data-#=ns#role="view" data-#=ns#init-widgets="false" class="k-grid-filter-menu">'+
                 '<div data-#=ns#role="header" class="k-header">'+
                     '<button class="k-button k-cancel">#=messages.cancel#</button>'+
-                    '#=field#'+
+                    '#=title#'+
                     '<button type="submit" class="k-button k-submit">#=messages.filter#</button>'+
                 '</div>'+
                 '<form class="k-filter-menu k-mobile-list">'+
@@ -406,6 +406,7 @@
             that.form = $("<div />")
                 .html(kendo.template(type === "boolean" ? booleanMobileTemplate : defaultMobileTemplate)({
                     field: that.field,
+                    title: options.title || that.field,
                     format: options.format,
                     ns: kendo.ns,
                     messages: options.messages,

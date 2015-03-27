@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -224,7 +224,7 @@
                for (var slotIndex = 0; slotIndex < collection.count(); slotIndex++) {
                    var slot = collection.at(slotIndex);
 
-                   if (x >= slot.offsetLeft && x < slot.offsetLeft + slot.clientWidth &&
+                   if (x >= slot.offsetLeft && x < slot.offsetLeft + slot.offsetWidth &&
                        y >= slot.offsetTop && y <= slot.offsetTop + slot.clientHeight) {
                        return slot;
                    }

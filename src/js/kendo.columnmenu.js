@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -532,13 +532,18 @@
 
                 if (options.filterable.multi) {
                     widget = "kendoFilterMultiCheck";
+                    if (options.filterable.dataSource) {
+                        options.filterable.checkSource = options.filterable.dataSource;
+                        delete options.filterable.dataSource;
+                    }
                 }
                 that.filterMenu = that.wrapper.find(".k-filterable")[widget](
                     extend(true, {}, {
                         appendToElement: true,
                         dataSource: options.dataSource,
                         values: options.values,
-                        field: that.field
+                        field: that.field,
+                        title: that.title
                     },
                     options.filterable)
                     ).data(widget);

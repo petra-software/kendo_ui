@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.318";
+    kendo.version = "2015.1.327";
 
     function Class() {}
 
@@ -11838,7 +11838,14 @@ var A = 0;
                     dataSource = widget[fieldName],
                     view,
                     parents,
-                    groups = dataSource.group() || [];
+                    groups = dataSource.group() || [],
+                    hds = kendo.data.HierarchicalDataSource;
+
+                if (hds && dataSource instanceof hds) {
+                    // suppress binding of HDS items, because calling view() on root
+                    // will return only root items, and widget.items() returns all items
+                    return;
+                }
 
                 if (items.length) {
                     view = e.addedDataItems || dataSource.flatView();

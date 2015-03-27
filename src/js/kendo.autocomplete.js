@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -254,6 +254,7 @@
             if (!length || length >= options.minLength) {
                 that._open = true;
 
+                that.listView.filter(true);
                 that._filterSource({
                     value: ignoreCase ? word.toLowerCase() : word,
                     operator: options.filter,
@@ -401,12 +402,18 @@
             var that = this;
             var popup = that.popup;
             var options = that.options;
-            var data = that.listView.data();
+            var data = that.dataSource.flatView();
             var length = data.length;
             var isActive = that.element[0] === activeElement();
             var action;
 
             that._angularItems("compile");
+
+            //reset list value
+            that.listView.value([]);
+            that.listView.focus(-1);
+
+            that.listView.filter(false);
 
             that._calculateGroupPadding(that._height(length));
 
@@ -443,13 +450,15 @@
             }
 
             that._makeUnselectable();
-
             that._hideBusy();
+
             that.trigger("dataBound");
         },
 
         _listChange: function() {
-            this._selectValue(this.listView.selectedDataItems()[0]);
+            if (!this.listView.filter()) {
+                this._selectValue(this.listView.selectedDataItems()[0]);
+            }
         },
 
         _selectValue: function(dataItem) {

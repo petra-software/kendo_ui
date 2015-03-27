@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -499,6 +499,15 @@
         _initSurface: function() {
             var surface = this.surface;
             var wrap = this._surfaceWrap();
+
+            var chartArea = this.options.chartArea;
+            if (chartArea.width) {
+                wrap.css("width", chartArea.width);
+            }
+            if (chartArea.height) {
+                wrap.css("height", chartArea.height);
+            }
+
             if (!surface || surface.options.type !== this.options.renderAs) {
                 if (surface) {
                     surface.destroy();
@@ -509,14 +518,7 @@
                 });
             } else {
                 this.surface.clear();
-            }
-
-            var chartArea = this.options.chartArea;
-            if (chartArea.width) {
-                wrap.css("width", chartArea.width);
-            }
-            if (chartArea.height) {
-                wrap.css("height", chartArea.height);
+                this.surface.resize();
             }
         },
 
@@ -3662,7 +3664,7 @@
             if (this.options.isStacked) {
                 startValue = startValue || 0;
                 var plotValue = this.plotValue(point);
-                var positive = plotValue > 0;
+                var positive = plotValue >= 0;
                 var prevValue = startValue;
                 var isStackedBar = false;
 
@@ -3686,7 +3688,7 @@
                     }
 
                     var otherValue = this.plotValue(other);
-                    if ((otherValue > 0 && positive) ||
+                    if ((otherValue >= 0 && positive) ||
                         (otherValue < 0 && !positive)) {
                         prevValue += otherValue;
                         plotValue += otherValue;
@@ -3724,7 +3726,7 @@
                     if (point) {
                         if (point.series.stack === stackName || point.series.axis === axisName) {
                             var to = this.plotRange(point, 0)[1];
-                            if (defined(to)) {
+                            if (defined(to) && isFinite(to)) {
                                 max = math.max(max, to);
                                 min = math.min(min, to);
                             }
@@ -4463,11 +4465,17 @@
                 invertAxes: options.invertAxes
             }, series);
 
+            var color = data.fields.color || series.color;
             bulletOptions = chart.evalPointOptions(
                 bulletOptions, value, category, categoryIx, series, seriesIx
             );
 
+            if (kendo.isFunction(series.color)) {
+                color = bulletOptions.color;
+            }
+
             bullet = new Bullet(value, bulletOptions);
+            bullet.color = color;
 
             cluster = children[categoryIx];
             if (!cluster) {
@@ -4536,12 +4544,12 @@
 
             ChartElement.fn.init.call(bullet, options);
 
-            bullet.value = value;
             bullet.aboveAxis = bullet.options.aboveAxis;
+            bullet.color = options.color || WHITE;
+            bullet.value = value;
         },
 
         options: {
-            color: WHITE,
             border: {
                 width: 1
             },
@@ -4572,7 +4580,7 @@
                 if (defined(bullet.value.target)) {
                     bullet.target = new Target({
                         type: options.target.shape,
-                        background: options.target.color || options.color,
+                        background: options.target.color || bullet.color,
                         opacity: options.opacity,
                         zIndex: options.zIndex,
                         border: options.target.border,
@@ -4625,7 +4633,7 @@
             var options = this.options;
             var body = draw.Path.fromRect(this.box.toRect(), {
                 fill: {
-                    color: options.color,
+                    color: this.color,
                     opacity: options.opacity
                 },
                 stroke: null
@@ -4633,7 +4641,7 @@
 
             if (options.border.width > 0) {
                 body.options.set("stroke", {
-                    color: options.border.color || options.color,
+                    color: options.border.color || this.color,
                     width: options.border.width,
                     dashType: options.border.dashType,
                     opacity: valueOrDefault(options.border.opacity, options.opacity)
@@ -5294,11 +5302,12 @@
                     this._addSegment(lastSegment);
                 }
             }
+
+            this.children.unshift.apply(this.children, this._segments);
         },
 
         _addSegment: function(segment) {
             this._segments.push(segment);
-            this.children.unshift(segment);
             segment.parent = this;
         },
 
@@ -5979,22 +5988,34 @@
                 x = value.x,
                 y = value.y,
                 seriesIx = fields.seriesIx,
-                seriesPoints = chart.seriesPoints[seriesIx];
+                series = this.options.series[seriesIx],
+                missingValues = this.seriesMissingValues(series),
+                seriesPoints = chart.seriesPoints[seriesIx],
+                missingValue;
 
-            chart.updateRange(value, fields.series);
+            if (!(hasValue(x) && hasValue(y))) {
+                value = this.createMissingValue(value, missingValues);
+            }
 
-            if (defined(x) && x !== null && defined(y) && y !== null) {
+            if (value) {
                 point = chart.createPoint(value, fields);
                 if (point) {
                     extend(point, fields);
                     chart.addErrorBar(point, X, fields);
                     chart.addErrorBar(point, Y, fields);
                 }
+                chart.updateRange(value, fields.series);
             }
 
             chart.points.push(point);
             seriesPoints.push(point);
         },
+
+        seriesMissingValues: function(series) {
+            return series.missingValues;
+        },
+
+        createMissingValue: noop,
 
         updateRange: function(value, series) {
             var chart = this,
@@ -6005,7 +6026,7 @@
                 xAxisRange = chart.xAxisRanges[xAxisName],
                 yAxisRange = chart.yAxisRanges[yAxisName];
 
-            if (defined(x) && x !== null) {
+            if (hasValue(x)) {
                 xAxisRange = chart.xAxisRanges[xAxisName] =
                     xAxisRange || { min: MAX_VALUE, max: MIN_VALUE };
 
@@ -6017,7 +6038,7 @@
                 xAxisRange.max = math.max(xAxisRange.max, x);
             }
 
-            if (defined(y) && y !== null) {
+            if (hasValue(y)) {
                 yAxisRange = chart.yAxisRanges[yAxisName] =
                     yAxisRange || { min: MAX_VALUE, max: MIN_VALUE };
 
@@ -6241,6 +6262,22 @@
         animationPoints: function() {
             var points = ScatterChart.fn.animationPoints.call(this);
             return points.concat(this._segments);
+        },
+
+        createMissingValue: function(value, missingValues) {
+            if (missingValues === ZERO) {
+                var missingValue = {
+                    x: value.x,
+                    y: value.y
+                };
+                if (!hasValue(missingValue.x)) {
+                    missingValue.x = 0;
+                }
+                if (!hasValue(missingValue.y)) {
+                    missingValue.y = 0;
+                }
+                return missingValue;
+            }
         }
     });
     deepExtend(ScatterLineChart.fn, LineChartMixin);
@@ -7474,7 +7511,7 @@
                         series: currentSeries,
                         seriesIx: seriesIx,
                         dataItem: data[i],
-                        percentage: plotValue / total,
+                        percentage: total !== 0 ? plotValue / total : 0,
                         explode: explode,
                         visibleInLegend: fields.visibleInLegend,
                         visible: fields.visible,
@@ -8253,6 +8290,8 @@
         },
 
         stackRoot: returnSelf,
+
+        clipRoot: returnSelf,
 
         createGridLines: function() {
             var pane = this,
@@ -9085,10 +9124,17 @@
             var options = this.options.plotArea;
             var border = options.border || {};
 
+            var background = options.background;
+            var opacity = options.opacity;
+            if (util.isTransparent(background)) {
+                background = WHITE;
+                opacity = 0;
+            }
+
             var bg = this._bgVisual = draw.Path.fromRect(bgBox.toRect(), {
                 fill: {
-                    color: options.background,
-                    opacity: options.opacity
+                    color: background,
+                    opacity: opacity
                 },
                 stroke: {
                     color: border.width ? border.color : "",
@@ -9247,64 +9293,61 @@
 
         createCharts: function(panes) {
             var plotArea = this,
-                seriesByPane = plotArea.groupSeriesByPane(),
-                i, pane, paneSeries, filteredSeries;
+                seriesByPane = this.groupSeriesByPane();
 
-            for (i = 0; i < panes.length; i++) {
-                pane = panes[i];
-                paneSeries = seriesByPane[pane.options.name || "default"] || [];
-                plotArea.addToLegend(paneSeries);
-                filteredSeries = plotArea.filterVisibleSeries(paneSeries);
+            for (var i = 0; i < panes.length; i++) {
+                var pane = panes[i];
+                var paneSeries = seriesByPane[pane.options.name || "default"] || [];
+                this.addToLegend(paneSeries);
 
-                if (!filteredSeries) {
+                var visibleSeries = this.filterVisibleSeries(paneSeries);
+                if (!visibleSeries) {
                     continue;
                 }
 
-                plotArea.createAreaChart(
-                    filterSeriesByType(filteredSeries, [AREA, VERTICAL_AREA]),
-                    pane
-                );
-
-                plotArea.createBarChart(
-                    filterSeriesByType(filteredSeries, [COLUMN, BAR]),
-                    pane
-                );
-
-                plotArea.createRangeBarChart(
-                    filterSeriesByType(filteredSeries, [RANGE_COLUMN, RANGE_BAR]),
-                    pane
-                );
-
-                plotArea.createBulletChart(
-                    filterSeriesByType(filteredSeries, [BULLET, VERTICAL_BULLET]),
-                    pane
-                );
-
-                plotArea.createCandlestickChart(
-                    filterSeriesByType(filteredSeries, CANDLESTICK),
-                    pane
-                );
-
-                plotArea.createBoxPlotChart(
-                    filterSeriesByType(filteredSeries, BOX_PLOT),
-                    pane
-                );
-
-                plotArea.createOHLCChart(
-                    filterSeriesByType(filteredSeries, OHLC),
-                    pane
-                );
-
-                plotArea.createWaterfallChart(
-                    filterSeriesByType(filteredSeries, [WATERFALL, HORIZONTAL_WATERFALL]),
-                    pane
-                );
-
-                plotArea.createLineChart(
-                    filterSeriesByType(filteredSeries, [LINE, VERTICAL_LINE]),
-                    pane
-                );
+                var groups = this.groupSeriesByCategoryAxis(visibleSeries);
+                for (var groupIx = 0; groupIx < groups.length; groupIx++) {
+                    this.createChartGroup(groups[groupIx], pane);
+                }
             }
+        },
+
+        createChartGroup: function(series, pane) {
+            this.createAreaChart(
+                filterSeriesByType(series, [AREA, VERTICAL_AREA]), pane
+            );
+
+            this.createBarChart(
+                filterSeriesByType(series, [COLUMN, BAR]), pane
+            );
+
+            this.createRangeBarChart(
+                filterSeriesByType(series, [RANGE_COLUMN, RANGE_BAR]), pane
+            );
+
+            this.createBulletChart(
+                filterSeriesByType(series, [BULLET, VERTICAL_BULLET]), pane
+            );
+
+            this.createCandlestickChart(
+                filterSeriesByType(series, CANDLESTICK), pane
+            );
+
+            this.createBoxPlotChart(
+                filterSeriesByType(series, BOX_PLOT), pane
+            );
+
+            this.createOHLCChart(
+                filterSeriesByType(series, OHLC), pane
+            );
+
+            this.createWaterfallChart(
+                filterSeriesByType(series, [WATERFALL, HORIZONTAL_WATERFALL]), pane
+            );
+
+            this.createLineChart(
+                filterSeriesByType(series, [LINE, VERTICAL_LINE]), pane
+            );
         },
 
         aggregateCategories: function(panes) {
@@ -9438,6 +9481,36 @@
                 isStacked100: isStacked100,
                 clip: clip
             };
+        },
+
+        groupSeriesByCategoryAxis: function(series, callback) {
+            var unique = {};
+            var categoryAxes = $.map(series, function(s) {
+                var name = s.categoryAxis || "$$default$$";
+                if (!unique.hasOwnProperty(name)) {
+                    unique[name] = true;
+                    return name;
+                }
+            });
+
+            function groupSeries(axis, axisIx) {
+                return $.grep(series, function(s) {
+                    return (axisIx === 0 && !s.categoryAxis) || (s.categoryAxis == axis);
+                });
+            }
+
+            var groups = [];
+            for (var axisIx = 0; axisIx < categoryAxes.length; axisIx++) {
+                var axis = categoryAxes[axisIx];
+                var axisSeries = groupSeries(axis, axisIx);
+                if (axisSeries.length === 0) {
+                    continue;
+                }
+
+                groups.push(axisSeries);
+            }
+
+            return groups;
         },
 
         createBarChart: function(series, pane) {
@@ -12126,6 +12199,12 @@
             dataLength = data.length,
             seriesClone;
 
+        if (dataLength === 0) {
+            seriesClone = deepExtend({}, series);
+            seriesClone.visibleInLegend = false;
+            return [seriesClone];
+        }
+
         if (defined(legacyTemplate)) {
             kendo.logToConsole(
                 "'groupNameTemplate' is obsolete and will be removed in future versions. " +
@@ -12318,6 +12397,10 @@
         }
     }
 
+    function hasValue(value) {
+        return defined(value) && value !== null;
+    }
+
     // Exports ================================================================
     dataviz.ui.plugin(Chart);
 
@@ -12486,6 +12569,7 @@
         isNumber: isNumber,
         floorDate: floorDate,
         filterSeriesByType: filterSeriesByType,
+        hasValue: hasValue,
         lteDateIndex: lteDateIndex,
         evalOptions: evalOptions,
         seriesTotal: seriesTotal,

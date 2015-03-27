@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.318";
+    kendo.version = "2015.1.327";
 
     function Class() {}
 
@@ -10688,7 +10688,14 @@ var A = 0;
                     dataSource = widget[fieldName],
                     view,
                     parents,
-                    groups = dataSource.group() || [];
+                    groups = dataSource.group() || [],
+                    hds = kendo.data.HierarchicalDataSource;
+
+                if (hds && dataSource instanceof hds) {
+                    // suppress binding of HDS items, because calling view() on root
+                    // will return only root items, and widget.items() returns all items
+                    return;
+                }
 
                 if (items.length) {
                     view = e.addedDataItems || dataSource.flatView();
@@ -13853,7 +13860,7 @@ var WORKBOOK = kendo.template(
   '<definedNames>' +
   ' # for (var di = 0; di < definedNames.length; di++) { #' +
   '<definedName name="_xlnm._FilterDatabase" hidden="1" localSheetId="${definedNames[di].localSheetId}">' +
-  '${definedNames[di].name}!$${definedNames[di].from.split("").join("$")}:$${definedNames[di].to.split("").join("$")}' +
+  '${definedNames[di].name}!$${definedNames[di].from}:$${definedNames[di].to}' +
   '</definedName>' +
   ' # } #' +
   '</definedNames>' +
@@ -13866,7 +13873,7 @@ var WORKSHEET = kendo.template(
 '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" mc:Ignorable="x14ac">' +
    '<dimension ref="A1" />' +
    '<sheetViews>' +
-       '<sheetView tabSelected="1" workbookViewId="0">' +
+       '<sheetView #if(index==0) {# tabSelected="1" #}# workbookViewId="0">' +
        '# if (freezePane) { #' +
        '<pane state="frozen"' +
        '# if (freezePane.colSplit) { #' +
@@ -14061,6 +14068,10 @@ function ref(rowIndex, colIndex) {
     return numChar(colIndex) + (rowIndex + 1);
 }
 
+function $ref(rowIndex, colIndex) {
+    return numChar(colIndex) + "$" + (rowIndex + 1);
+}
+
 function filterRowIndex(options) {
     return ((options.freezePane || {}).rowSplit || 1) - 1;
 }
@@ -14074,7 +14085,7 @@ var Worksheet = kendo.Class.extend({
         this._styles = styles;
         this._mergeCells = [];
     },
-    toXML: function() {
+    toXML: function(index) {
         var rows = this.options.rows || [];
         var filter = this.options.filter;
         var spans = {};
@@ -14091,6 +14102,7 @@ var Worksheet = kendo.Class.extend({
             freezePane: this.options.freezePane,
             columns: this.options.columns,
             data: data,
+            index: index,
             mergeCells: this._mergeCells,
             filter: filter ? { from: ref(filterRowIndex(this.options), filter.from), to: ref(filterRowIndex(this.options), filter.to) } : null
         });
@@ -14375,8 +14387,8 @@ var Workbook = kendo.Class.extend({
                     return {
                         localSheetId: index,
                         name: (options.title || "Sheet" + (index + 1)),
-                        from: ref(filterRowIndex(options), filter.from),
-                        to: ref(filterRowIndex(options), filter.to)
+                        from: $ref(filterRowIndex(options), filter.from),
+                        to: $ref(filterRowIndex(options), filter.to)
                     };
                 }
             })
@@ -14386,7 +14398,7 @@ var Workbook = kendo.Class.extend({
 
         var start = new Date();
         for (var idx = 0; idx < sheetCount; idx++) {
-            worksheets.file(kendo.format("sheet{0}.xml", idx+1), this._sheets[idx].toXML());
+            worksheets.file(kendo.format("sheet{0}.xml", idx+1), this._sheets[idx].toXML(idx));
         }
 
         var styles = $.map(this._styles, $.parseJSON);
@@ -23609,7 +23621,9 @@ kendo.ExcelMixin = {
                 group = tmp;
                 updateClipbox(clipPath);
             }
-            if (/^(hidden|auto|scroll)/.test(getPropertyValue(style, "overflow"))) {
+            if (isFormField(element)) {
+                clipit();
+            } else if (/^(hidden|auto|scroll)/.test(getPropertyValue(style, "overflow"))) {
                 clipit();
             } else if (/^(hidden|auto|scroll)/.test(getPropertyValue(style, "overflow-x"))) {
                 clipit();
@@ -24366,6 +24380,56 @@ kendo.ExcelMixin = {
         return parseFloat(za) - parseFloat(zb);
     }
 
+    function isFormField(element) {
+        return /^(?:textarea|select|input)$/i.test(element.tagName);
+    }
+
+    function getSelectedOption(element) {
+        if (element.selectedOptions && element.selectedOptions.length > 0) {
+            return element.selectedOptions[0];
+        }
+        return element.options[element.selectedIndex];
+    }
+
+    function renderFormField(element, group) {
+        var tag = element.tagName.toLowerCase();
+        var p = element.parentNode;
+        var doc = element.ownerDocument;
+        var el = doc.createElement(KENDO_PSEUDO_ELEMENT);
+        var option;
+        el.style.cssText = getCssText(getComputedStyle(element));
+        el.style.display = "inline-block";
+        if (tag == "input") {
+            el.style.whiteSpace = "pre";
+        }
+        if (tag == "select" || tag == "textarea") {
+            el.style.overflow = "auto";
+        }
+        if (tag == "select") {
+            if (element.multiple) {
+                for (var i = 0; i < element.options.length; ++i) {
+                    option = doc.createElement(KENDO_PSEUDO_ELEMENT);
+                    option.style.cssText = getCssText(getComputedStyle(element.options[i]));
+                    option.style.display = "block"; // IE9 messes up without this
+                    option.textContent = element.options[i].textContent;
+                    el.appendChild(option);
+                }
+            } else {
+                option = getSelectedOption(element);
+                if (option) {
+                    el.textContent = option.textContent;
+                }
+            }
+        } else {
+            el.textContent = element.value;
+        }
+        p.insertBefore(el, element);
+        el.scrollLeft = element.scrollLeft;
+        el.scrollTop = element.scrollTop;
+        renderContents(el, group);
+        p.removeChild(el);
+    }
+
     function renderContents(element, group) {
         switch (element.tagName.toLowerCase()) {
           case "img":
@@ -24382,6 +24446,8 @@ kendo.ExcelMixin = {
 
           case "textarea":
           case "input":
+          case "select":
+            renderFormField(element, group);
             break;
 
           default:
@@ -24443,11 +24509,6 @@ kendo.ExcelMixin = {
             return; // whitespace-only node
         }
 
-        var range = element.ownerDocument.createRange();
-        var align = getPropertyValue(style, "text-align");
-        var isJustified = align == "justify";
-        var whiteSpace = getPropertyValue(style, "white-space");
-
         var fontSize = getPropertyValue(style, "font-size");
         var lineHeight = getPropertyValue(style, "line-height");
 
@@ -24468,6 +24529,10 @@ kendo.ExcelMixin = {
         }
 
         var color = getPropertyValue(style, "color");
+        var range = element.ownerDocument.createRange();
+        var align = getPropertyValue(style, "text-align");
+        var isJustified = align == "justify";
+        var whiteSpace = getPropertyValue(style, "white-space");
 
         // A line of 500px, with a font of 12px, contains an average of 80 characters, but since we
         // err, we'd like to guess a bigger number rather than a smaller one.  Multiplying by 5
@@ -31549,7 +31614,7 @@ kendo.ExcelMixin = {
                 index = $(that.items()).index(index);
             }
 
-            return that.listView.data()[index];
+            return that.dataSource.flatView()[index];
         },
 
         _accessors: function() {
@@ -31773,9 +31838,8 @@ kendo.ExcelMixin = {
             }
         },
 
-        //use length of the items in ListView
         _firstOpen: function() {
-            var height = this._height(this.listView.data().length);
+            var height = this._height(this.dataSource.flatView().length);
             this._calculateGroupPadding(height);
         },
 
@@ -31823,8 +31887,8 @@ kendo.ExcelMixin = {
         _triggerCascade: function() {
             var that = this;
 
-            if (!that._bound || that._old !== that.value()) {
-                that._bound = true;
+            if (!that._cascadeTriggered || that._old !== that.value()) {
+                that._cascadeTriggered = true;
                 that.trigger("cascade", { userTriggered: that._userTriggered });
             }
         },
@@ -31868,7 +31932,6 @@ kendo.ExcelMixin = {
             this.options.dataSource = dataSource;
 
             this._dataSource();
-            this._bound = false;
 
             this.listView.setDataSource(this.dataSource);
 
@@ -31942,7 +32005,9 @@ kendo.ExcelMixin = {
             var option;
 
             if (value === undefined) {
-                option = element.options[selectedIndex];
+                if (selectedIndex > -1) {
+                    option = element.options[selectedIndex];
+                }
 
                 if (option) {
                     value = option.value;
@@ -31957,14 +32022,22 @@ kendo.ExcelMixin = {
                     idx = -1;
                 }
 
-                if (idx == -1 && value !== "") {
-                    idx = this._custom(value);
-                }
+                if (value !== "" && idx == -1) {
+                    this._custom(value);
+                } else {
+                    if (value) {
+                        element.value = value;
+                    } else {
+                        element.selectedIndex = idx;
+                    }
 
-                element.selectedIndex = idx;
-                option = element.options[idx];
-                if (option) {
-                   option.setAttribute(SELECTED, SELECTED);
+                    if (element.selectedIndex > -1) {
+                        option = element.options[element.selectedIndex];
+                    }
+
+                    if (option) {
+                       option.setAttribute(SELECTED, SELECTED);
+                    }
                 }
             }
         },
@@ -31973,20 +32046,16 @@ kendo.ExcelMixin = {
             var that = this;
             var element = that.element;
             var custom = that._customOption;
-            var idx = element[0].children.length - 1;
 
             if (!custom) {
                 custom = $("<option/>");
                 that._customOption = custom;
 
                 element.append(custom);
-                idx += 1;
             }
 
             custom.text(value);
-            custom[0].selected = true;
-
-            return idx;
+            custom[0].setAttribute(SELECTED, SELECTED);
         },
 
         _hideBusy: function () {
@@ -32099,7 +32168,7 @@ kendo.ExcelMixin = {
 
                     current = that._focus();
 
-                    if (!that._fetch) {
+                    if (!that._fetch && (!current || current.hasClass("k-state-selected"))) {
                         if (down) {
                             that._nextItem();
 
@@ -32116,12 +32185,11 @@ kendo.ExcelMixin = {
                     }
 
                     if (that.trigger(SELECT, { item: that.listView.focus() })) {
-                        that._focus(current); //revert focus
+                        that._focus(current);
                         return;
                     }
 
                     that._select(that._focus(), true);
-                    //that.listView.select(that.listView.focus());
 
                     if (!that.popup.visible()) {
                         that._blur();
@@ -32195,7 +32263,7 @@ kendo.ExcelMixin = {
             }
         },
 
-        _options: function(data, optionLabel) {
+        _options: function(data, optionLabel, value) {
             var that = this,
                 element = that.element,
                 length = data.length,
@@ -32237,6 +32305,10 @@ kendo.ExcelMixin = {
             }
 
             element.html(options);
+
+            if (value !== undefined) {
+                element.val(value);
+            }
         },
 
         _reset: function() {
@@ -32282,15 +32354,19 @@ kendo.ExcelMixin = {
                 change = function() {
                     that.dataSource.unbind(CHANGE, change);
 
-                    var value = that.listView.value()[0];
+                    var value = that._accessor();
+
                     if (that._userTriggered) {
                         that._clearSelection(parent, true);
                     } else if (value) {
-                        that.value(value);
+                        if (value !== that.listView.value()[0]) {
+                            that.value(value);
+                        }
+
                         if (!that.dataSource.view()[0] || that.selectedIndex === -1) {
                             that._clearSelection(parent, true);
                         }
-                    } else if (that.listView.data().length) {
+                    } else if (that.dataSource.flatView().length) {
                         that.select(options.index);
                     }
 
@@ -32361,8 +32437,6 @@ kendo.ExcelMixin = {
 
             this.header = this.element.before('<div class="k-static-header" style="display:none"></div>').prev();
 
-            this.setDataSource(this.options.dataSource);
-
             this._bound = false;
 
             this._optionID = kendo.guid();
@@ -32372,6 +32446,14 @@ kendo.ExcelMixin = {
             this._view = [];
             this._dataItems = [];
             this._values = [];
+
+            var value = this.options.value;
+
+            if (value) {
+                this._values = $.isArray(value) ? value.slice(0) : [value];
+            }
+
+            this.setDataSource(this.options.dataSource);
 
             this._getter();
             this._templates();
@@ -32386,11 +32468,6 @@ kendo.ExcelMixin = {
             }, this);
 
             this._fixedHeader();
-
-            var value = this.options.value;
-            if (value) {
-                this._values = $.isArray(value) ? value.slice(0) : [value];
-            }
         },
 
         options: {
@@ -32414,12 +32491,20 @@ kendo.ExcelMixin = {
         setDataSource: function(source) {
             var that = this;
             var dataSource = source || {};
+            var value;
 
             dataSource = $.isArray(dataSource) ? { data: dataSource } : dataSource;
             dataSource = kendo.data.DataSource.create(dataSource);
 
             if (that.dataSource) {
                 that.dataSource.unbind(CHANGE, that._refreshHandler);
+
+                value = that.value();
+
+                that.value([]);
+                that._bound = false;
+
+                that.value(value);
             } else {
                 that._refreshHandler = proxy(that.refresh, that);
             }
@@ -32429,11 +32514,6 @@ kendo.ExcelMixin = {
 
         setOptions: function(options) {
             Widget.fn.setOptions.call(this, options);
-
-            if (options.dataSource) {
-                this.setDataSource(options.dataSource);
-            }
-
 
             this._fixedHeader();
             this._getter();
@@ -32595,6 +32675,14 @@ kendo.ExcelMixin = {
             that.trigger("activate");
         },
 
+        filter: function(filter) {
+            if (filter === undefined) {
+                return this._filtered;
+            }
+
+            this._filtered = filter;
+        },
+
         select: function(indices) {
             var selectable = this.options.selectable;
             var singleSelection = selectable !== "multiple" && selectable !== false;
@@ -32613,7 +32701,11 @@ kendo.ExcelMixin = {
                 indices = [];
             }
 
-            if (singleSelection && $.inArray(indices[indices.length - 1], this._selectedIndices) !== -1) {
+            if (this.filter() && !singleSelection && this._deselectFiltered(indices)) {
+                return;
+            }
+
+            if (singleSelection && !this._filtered && $.inArray(indices[indices.length - 1], this._selectedIndices) !== -1) {
                 return;
             }
 
@@ -32638,11 +32730,23 @@ kendo.ExcelMixin = {
             }
         },
 
-        value: function(value, silent) {
+        removeAt: function(position) {
+            this._selectedIndices.splice(position, 1);
+            this._values.splice(position, 1);
+
+            return {
+                position: position,
+                dataItem: this._dataItems.splice(position, 1)[0]
+            };
+        },
+
+        value: function(value) {
+            var that = this;
+            var deferred = that._valueDeferred;
             var indices;
 
             if (value === undefined) {
-                return this._values.slice();
+                return that._values.slice();
             }
 
             if (value === "" || value === null) {
@@ -32651,50 +32755,25 @@ kendo.ExcelMixin = {
 
             value = $.isArray(value) || value instanceof ObservableArray ? value.slice(0) : [value];
 
-            this._values = value;
+            that._values = value;
 
-            if (silent) {
-                return;
+            if (!deferred || deferred.state() === "resolved") {
+                that._valueDeferred = deferred = $.Deferred();
             }
 
-            if (this.isBound()) {
-                indices = this._valueIndices(value);
+            if (that.isBound()) {
+                indices = that._valueIndices(value);
 
-                if (!indices.length) {
-                    this.select([]);
-                    return;
+                if (that.options.selectable === "multiple") {
+                    that.select(-1);
                 }
 
-                this._selectedIndices = [];
-                this._dataItems = [];
-                this._values = [];
+                that.select(indices);
 
-                this.select(indices);
-            }
-        },
-
-        data: function() {
-            var that = this;
-            var data = that._view;
-            var length = data.length;
-            var result = [];
-            var idx;
-
-            if (length) {
-                for (idx = 0; idx < length; idx++) {
-                    result.push(data[idx].item);
-                }
+                deferred.resolve();
             }
 
-            return result;
-        },
-
-        clearIndices: function() {
-            this._selectedIndices = [];
-        },
-
-        filter: function(isFilter) {
-            this._isFilter = isFilter;
+            return deferred;
         },
 
         _click: function(e) {
@@ -32743,14 +32822,18 @@ kendo.ExcelMixin = {
         },
 
         _deselect: function(indices) {
-            var children = this.element[0].children;
-            var selectable = this.options.selectable;
-            var selectedIndices = this._selectedIndices;
-            var dataItems = this._dataItems;
-            var values = this._values;
+            var that = this;
+            var children = that.element[0].children;
+            var selectable = that.options.selectable;
+            var selectedIndices = that._selectedIndices;
+            var dataItems = that._dataItems;
+            var values = that._values;
             var removed = [];
             var i = 0;
             var j;
+
+            var index, selectedIndex;
+            var removedIndices = 0;
 
             indices = indices.slice();
 
@@ -32764,13 +32847,10 @@ kendo.ExcelMixin = {
                     });
                 }
 
-                this._values = [];
-                this._dataItems = [];
-                this._selectedIndices = [];
+                that._values = [];
+                that._dataItems = [];
+                that._selectedIndices = [];
             } else if (selectable === "multiple") {
-                var index, selectedIndex;
-                var removedIndices = 0;
-
                 for (; i < indices.length; i++) {
                     index = indices[i];
 
@@ -32808,15 +32888,45 @@ kendo.ExcelMixin = {
             };
         },
 
-        _select: function(indices) {
+        _deselectFiltered: function(indices) {
             var children = this.element[0].children;
-            var data = this._view;
+            var dataItem, index, position;
+            var removed = [];
+            var idx = 0;
+
+            for (; idx < indices.length; idx++) {
+                index = indices[idx];
+                dataItem = this._view[index].item;
+                position = this._dataItemPosition(dataItem, this._values);
+
+                if (position > -1) {
+                    removed.push(this.removeAt(position));
+                    $(children[index]).removeClass("k-state-selected");
+                }
+            }
+
+            if (removed.length) {
+                this.trigger("change", {
+                    added: [],
+                    removed: removed
+                });
+
+                return true;
+            }
+
+            return false;
+        },
+
+        _select: function(indices) {
+            var that = this;
+            var children = that.element[0].children;
+            var data = that._view;
             var dataItem, index;
             var added = [];
             var idx = 0;
 
             if (indices[indices.length - 1] !== -1) {
-                this.focus(indices);
+                that.focus(indices);
             }
 
             for (; idx < indices.length; idx++) {
@@ -32829,9 +32939,9 @@ kendo.ExcelMixin = {
 
                 dataItem = dataItem.item;
 
-                this._selectedIndices.push(index);
-                this._dataItems.push(dataItem);
-                this._values.push(this._valueGetter(dataItem));
+                that._selectedIndices.push(index);
+                that._dataItems.push(dataItem);
+                that._values.push(that._valueGetter(dataItem));
 
                 $(children[index]).addClass("k-state-selected").attr("aria-selected", true);
 
@@ -32961,7 +33071,7 @@ kendo.ExcelMixin = {
             var item = '<li tabindex="-1" role="option" unselectable="on" class="k-item';
 
             var dataItem = context.item;
-            var found = this._isFilter && this._dataItemPosition(dataItem, values) !== -1;
+            var found = this._filtered && this._dataItemPosition(dataItem, values) !== -1;
 
             if (context.newGroup) {
                 item += ' k-first';
@@ -33028,18 +33138,26 @@ kendo.ExcelMixin = {
             }
         },
 
-        refresh: function() {
-            this.trigger("dataBinding");
+        refresh: function(e) {
+            var that = this;
 
-            this._render();
+            that.trigger("dataBinding");
 
-            this._bound = true;
+            that._render();
 
-            this.trigger("dataBound");
+            that._bound = true;
 
-            if (!this._isFilter) {
-                this.value(this._values);
+            if (that._filtered) {
+                that.focus(0);
+            } else if (!e || !e.action) {
+                that.value(that._values);
             }
+
+            if (that._valueDeferred) {
+                that._valueDeferred.resolve();
+            }
+
+            that.trigger("dataBound");
         },
 
         isBound: function() {
@@ -35309,6 +35427,7 @@ kendo.ExcelMixin = {
             if (!length || length >= options.minLength) {
                 that._open = true;
 
+                that.listView.filter(true);
                 that._filterSource({
                     value: ignoreCase ? word.toLowerCase() : word,
                     operator: options.filter,
@@ -35456,12 +35575,18 @@ kendo.ExcelMixin = {
             var that = this;
             var popup = that.popup;
             var options = that.options;
-            var data = that.listView.data();
+            var data = that.dataSource.flatView();
             var length = data.length;
             var isActive = that.element[0] === activeElement();
             var action;
 
             that._angularItems("compile");
+
+            //reset list value
+            that.listView.value([]);
+            that.listView.focus(-1);
+
+            that.listView.filter(false);
 
             that._calculateGroupPadding(that._height(length));
 
@@ -35498,13 +35623,15 @@ kendo.ExcelMixin = {
             }
 
             that._makeUnselectable();
-
             that._hideBusy();
+
             that.trigger("dataBound");
         },
 
         _listChange: function() {
-            this._selectValue(this.listView.selectedDataItems()[0]);
+            if (!this.listView.filter()) {
+                this._selectValue(this.listView.selectedDataItems()[0]);
+            }
         },
 
         _selectValue: function(dataItem) {
@@ -35756,6 +35883,7 @@ kendo.ExcelMixin = {
             options = that.options;
             element = that.element.on("focus" + ns, proxy(that._focusHandler, that));
 
+            that._focusInputHandler = $.proxy(that._focusInput, that);
             that._inputTemplate();
 
             that._reset();
@@ -35890,25 +36018,43 @@ kendo.ExcelMixin = {
                 return;
             }
 
-            if (!this.dataSource.view().length || that._state === STATE_ACCEPT) {
+            if (!that.listView.isBound() || that._state === STATE_ACCEPT) {
                 that._open = true;
                 that._state = "rebind";
-                //that.listView.focus(false);
 
                 if (that.filterInput) {
                     that.filterInput.val("");
                 }
 
                 that._filterSource();
-            } else {
+            } else if (that._allowOpening()) {
+                that.popup.one("activate", that._focusInputHandler);
                 that.popup.open();
-                that._focusElement(that.filterInput);
                 that._focusItem();
             }
         },
 
+        _focusInput: function () {
+            this._focusElement(this.filterInput);
+        },
+
         toggle: function(toggle) {
             this._toggle(toggle, true);
+        },
+
+        _allowOpening: function(length) {
+            return this.optionLabel[0] || this.filterInput || this.dataSource.view().length;
+        },
+
+        _activateItem: function() {
+            var current = this.listView.focus();
+            if (current) {
+                this._focused.add(this.filterInput).attr("aria-activedescendant", current.attr("id"));
+            }
+        },
+
+        _deactivateItem: function() {
+            this._focused.add(this.filterInput).removeAttr("aria-activedescendant");
         },
 
         _initList: function() {
@@ -35926,52 +36072,38 @@ kendo.ExcelMixin = {
                     groupTemplate: options.groupTemplate || "#:data#",
                     fixedGroupTemplate: options.fixedGroupTemplate || "#:data#",
                     template: options.template || "#:" + kendo.expr(options.dataTextField, "data") + "#",
-                    change: $.proxy(this._listChange, this),
-                    click: $.proxy(this._click, this),
-                    activate: function() {
-                        var current = this.focus();
-                        if (current) {
-                            that._focused.add(that.filterInput).attr("aria-activedescendant", current.attr("id"));
-                        }
-                    },
-                    deactivate: function() {
-                        that._focused.add(that.filterInput).removeAttr("aria-activedescendant");
-                    },
-                    listBound: $.proxy(this._listBound, this)
+                    click: $.proxy(that._click, that),
+                    change: $.proxy(that._listChange, that),
+                    activate: $.proxy(that._activateItem, that),
+                    deactivate: $.proxy(that._deactivateItem, that),
+                    listBound: $.proxy(that._listBound, that)
                 };
 
                 if (typeof options.virtual === "object") {
                     $.extend(virtualOptions, options.virtual);
                 }
 
-                this.listView = new kendo.ui.VirtualList(this.ul, virtualOptions);
+                that.listView = new kendo.ui.VirtualList(that.ul, virtualOptions);
             } else {
-                this.listView = new kendo.ui.StaticList(this.ul, {
+                that.listView = new kendo.ui.StaticList(that.ul, {
                     dataValueField: options.dataValueField,
-                    dataSource: this.dataSource,
+                    dataSource: that.dataSource,
                     groupTemplate: options.groupTemplate || "#:data#",
                     fixedGroupTemplate: options.fixedGroupTemplate || "#:data#",
                     template: options.template || "#:" + kendo.expr(options.dataTextField, "data") + "#",
-                    activate: function() {
-                        var current = this.focus();
-                        if (current) {
-                            that._focused.add(that.filterInput).attr("aria-activedescendant", current.attr("id"));
-                        }
-                    },
-                    click: $.proxy(this._click, this),
-                    change: $.proxy(this._listChange, this),
-                    deactivate: function() {
-                        that._focused.add(that.filterInput).removeAttr("aria-activedescendant");
-                    },
+                    click: $.proxy(that._click, that),
+                    change: $.proxy(that._listChange, that),
+                    activate: $.proxy(that._activateItem, that),
+                    deactivate: $.proxy(that._deactivateItem, that),
                     dataBinding: function() {
                         that.trigger("dataBinding");
                         that._angularItems("cleanup");
                     },
-                    dataBound: $.proxy(this._listBound, this)
+                    dataBound: $.proxy(that._listBound, that)
                 });
             }
 
-            this.listView.value(this.options.value);
+            that.listView.value(that.options.value);
         },
 
         current: function(candidate) {
@@ -36010,7 +36142,7 @@ kendo.ExcelMixin = {
                 index = $(that.items()).index(index);
             }
 
-            return that.listView.data()[index];
+            return that.dataSource.flatView()[index];
         },
 
         refresh: function() {
@@ -36063,14 +36195,12 @@ kendo.ExcelMixin = {
                 value = "";
             }
 
-            value = value.toString();
+            that.listView.value(value.toString()).done(function() {
+                that._triggerCascade();
 
-            that.listView.one("change", function() {
                 that._old = that._accessor();
                 that._oldIndex = that.selectedIndex;
             });
-
-            that.listView.value(value);
 
             that._fetchData();
         },
@@ -36105,7 +36235,8 @@ kendo.ExcelMixin = {
             that.optionLabelTemplate = template;
             that.optionLabel = $('<div class="k-list-optionlabel">' + template(optionLabel) + '</div>')
                                 .prependTo(that.list)
-                                .click($.proxy(this._click, this));
+                                .click($.proxy(that._click, that))
+                                .on(HOVEREVENTS, that._toggleHover);
 
             that.angular("compile", function(){
                 return { elements: that.optionLabel };
@@ -36119,12 +36250,14 @@ kendo.ExcelMixin = {
 
         _listBound: function() {
             var that = this;
-            var data = that.listView.data();
-            var length = data.length;
+            var initialIndex = that._initialIndex;
             var optionLabel = that.options.optionLabel;
             var filtered = that._state === STATE_FILTER;
             var element = that.element[0];
-            var selectedIndex;
+
+            var data = that.dataSource.flatView();
+            var length = data.length;
+
             var height;
             var value;
 
@@ -36140,20 +36273,20 @@ kendo.ExcelMixin = {
             }
 
             if (that._isSelect) {
-                selectedIndex = element.selectedIndex;
                 value = that.value();
 
                 if (length) {
                     if (optionLabel) {
-                        optionLabel = that._option("", this._optionLabelText());
+                        optionLabel = that._option("", that._optionLabelText());
                     }
                 } else if (value) {
-                    selectedIndex = 0;
                     optionLabel = that._option(value, that.text());
                 }
 
-                that._options(data, optionLabel);
-                element.selectedIndex = selectedIndex === -1 ? 0 : selectedIndex;
+                that._options(data, optionLabel, value);
+                if (element.selectedIndex === -1) {
+                    element.selectedIndex = 0;
+                }
             }
 
             that._hideBusy();
@@ -36161,25 +36294,23 @@ kendo.ExcelMixin = {
 
             if (!filtered) {
                 if (that._open) {
-                    that.toggle(!!length);
+                    that.toggle(that._allowOpening());
                 }
 
                 that._open = false;
 
                 if (!that._fetch) {
                     if (length) {
-                        if (!this.listView.value().length && this._initialIndex > -1 && this._initialIndex !== null) {
-                            this.select(this._initialIndex);
+                        if (!that.listView.value().length && initialIndex > -1 && initialIndex !== null) {
+                            that.select(initialIndex);
                         }
 
-                        this._initialIndex = null;
-                    } else if (this._textAccessor() !== optionLabel) {
-                        this.listView.value("");
-                        this._selectValue(null);
+                        that._initialIndex = null;
+                    } else if (that._textAccessor() !== optionLabel) {
+                        that.listView.value("");
+                        that._selectValue(null);
                     }
                 }
-            } else {
-                this.listView.first();
             }
 
             that.trigger("dataBound");
@@ -36210,12 +36341,8 @@ kendo.ExcelMixin = {
             if (!that._prevent) {
                 clearTimeout(that._typing);
 
-                if (filtered) {
-                    that._select(that._focus(), !that.listView.dataItems()[0]);
-                }
-
-                if (!filtered || that.dataItem()) {
-                    //that._triggerCascade();
+                if (filtered && that._focus()) {
+                    that._select(that._focus(), !that.dataSource.view().length);
                 }
 
                 if (kendo.support.mobileOS.ios && isIFrame) {
@@ -36237,6 +36364,7 @@ kendo.ExcelMixin = {
 
         _wrapperClick: function(e) {
             e.preventDefault();
+            this.popup.unbind("activate", this._focusInputHandler);
             this._focused = this.wrapper;
             this._toggle();
         },
@@ -36343,30 +36471,44 @@ kendo.ExcelMixin = {
             }
         },
 
-        _selectNext: function(word, index) {
-            var that = this, text,
-                startIndex = index,
-                data = that.listView.data(),
-                length = data.length,
-                ignoreCase = that.options.ignoreCase,
-                action = function(text, index) {
-                    text = text + "";
-                    if (ignoreCase) {
-                        text = text.toLowerCase();
-                    }
+        _matchText: function(text, index) {
+            var that = this;
+            var ignoreCase = that.options.ignoreCase;
+            var found = false;
 
-                    if (text.indexOf(word) === 0) {
-                        that._select(index);
-                        if (!that.popup.visible()) {
-                            that._change();
-                        }
-                        return true;
-                    }
-                };
+            text = text + "";
+
+            if (ignoreCase) {
+                text = text.toLowerCase();
+            }
+
+            if (text.indexOf(that._word) === 0) {
+                if (that.optionLabel[0]) {
+                    index += 1;
+                }
+
+                that._select(index);
+                if (!that.popup.visible()) {
+                    that._change();
+                }
+
+                found = true;
+            }
+
+            return found;
+        },
+
+        _selectNext: function(index) {
+            var that = this;
+            var startIndex = index;
+            var data = that.dataSource.flatView();
+            var length = data.length;
+            var text;
 
             for (; index < length; index++) {
                 text = that._text(data[index]);
-                if (text && action(text, index)) {
+
+                if (text && that._matchText(text, index) && !(that._word.length === 1 && startIndex === that.selectedIndex)) {
                     return true;
                 }
             }
@@ -36375,7 +36517,7 @@ kendo.ExcelMixin = {
                 index = 0;
                 for (; index <= startIndex; index++) {
                     text = that._text(data[index]);
-                    if (text && action(text, index)) {
+                    if (text && that._matchText(text, index)) {
                         return true;
                     }
                 }
@@ -36393,7 +36535,7 @@ kendo.ExcelMixin = {
 
             var character = String.fromCharCode(e.charCode || e.keyCode);
             var index = that.selectedIndex;
-            var word = that._word;
+            var length = that._word.length;
 
             if (that.options.ignoreCase) {
                 character = character.toLowerCase();
@@ -36403,17 +36545,20 @@ kendo.ExcelMixin = {
                 e.preventDefault();
             }
 
-            if (that._last === character && word.length <= 1 && index > -1) {
-                if (!word) {
-                    word = character;
-                }
+            if (!length) {
+                that._word = character;
+            }
 
-                if (that._selectNext(word, index + 1)) {
+            if (that._last === character && length <= 1 && index > -1) {
+                if (that._selectNext(index)) {
                     return;
                 }
             }
 
-            that._word = word + character;
+            if (length) {
+                that._word += character;
+            }
+
             that._last = character;
 
             that._search();
@@ -36435,7 +36580,7 @@ kendo.ExcelMixin = {
             this.popup.one("open", proxy(this._popupOpen, this));
         },
 
-        _click: function(e) {
+        _click: function (e) {
             var item = e.item || $(e.currentTarget);
 
             if (this.trigger("select", { item: item })) {
@@ -36488,10 +36633,9 @@ kendo.ExcelMixin = {
         },
 
         _search: function() {
-            var that = this,
-                dataSource = that.dataSource,
-                index = that.selectedIndex,
-                word = that._word;
+            var that = this;
+            var dataSource = that.dataSource;
+            var index = that.selectedIndex;
 
             clearTimeout(that._typing);
 
@@ -36516,15 +36660,15 @@ kendo.ExcelMixin = {
                 }
 
                 if (!that.ul[0].firstChild) {
-                    dataSource.one(CHANGE, function () {
+                    dataSource.fetch().done(function () {
                         if (dataSource.data()[0] && index > -1) {
-                            that._selectNext(word, index);
+                            that._selectNext(index);
                         }
-                    }).fetch();
+                    });
                     return;
                 }
 
-                that._selectNext(word, index);
+                that._selectNext(index);
             }
         },
 
@@ -36540,7 +36684,7 @@ kendo.ExcelMixin = {
             }
 
             if (typeof candidate === "function") {
-                data = this.listView.data();
+                data = this.dataSource.flatView();
 
                 for (idx = 0; idx < data.length; idx++) {
                     if (candidate(data[idx])) {
@@ -36641,66 +36785,67 @@ kendo.ExcelMixin = {
         },
 
         _select: function(candidate, keepState) {
-            var optionLabel = this.optionLabel;
+            var that = this;
+            var optionLabel = that.optionLabel;
 
-            candidate = this._get(candidate);
+            candidate = that._get(candidate);
 
-            if (!keepState && this._state === STATE_FILTER) {
-                this.listView.clearIndices();
-                this.listView.filter(false);
+            that.listView.select(candidate);
 
-                this._state = STATE_ACCEPT;
+            if (!keepState && that._state === STATE_FILTER) {
+                that.listView.filter(false);
+                that._state = STATE_ACCEPT;
             }
 
-            optionLabel.removeClass("k-state-focused k-state-selected");
-
-            this.listView.select(candidate);
-
             if (candidate === -1) {
-                this._selectValue(null);
-                this._focus(optionLabel.addClass("k-state-selected"));
+                that._selectValue(null);
             }
         },
 
         _selectValue: function(dataItem) {
+            var that = this;
+            var optionLabel = that.options.optionLabel;
+            var labelElement = that.optionLabel;
+            var idx = that.listView.select();
+
             var value = "";
             var text = "";
-            var idx = this.listView.select();
-            var optionLabel = this.options.optionLabel;
 
             idx = idx[idx.length - 1];
             if (idx === undefined) {
                 idx = -1;
             }
 
+            labelElement.removeClass("k-state-focused k-state-selected");
+
             if (dataItem) {
                 text = dataItem;
-                value = this._dataValue(dataItem);
+                value = that._dataValue(dataItem);
                 if (optionLabel) {
                     idx += 1;
                 }
             } else if (optionLabel) {
-                this._focus(this.optionLabel);
-                text = this._optionLabelText();
+                that._focus(labelElement.addClass("k-state-selected"));
+                text = that._optionLabelText();
                 if (typeof optionLabel === "string") {
                     value = "";
                 } else {
-                    value = this._value(optionLabel);
+                    value = that._value(optionLabel);
                 }
 
                 idx = 0;
             }
 
-            this.selectedIndex = idx;
+            that.selectedIndex = idx;
 
             if (value === null) {
                 value = "";
             }
 
-            this._textAccessor(text);
-            this._accessor(value, idx);
+            that._textAccessor(text);
+            that._accessor(value, idx);
 
-            this._triggerCascade();
+            that._triggerCascade();
         },
 
         _mobile: function() {
@@ -36790,18 +36935,8 @@ kendo.ExcelMixin = {
                               });
         },
 
-        _clearSelection: function() {
-            var that = this;
-            var optionLabel = that.options.optionLabel;
-
-            that.options.value = "";
-
-            if (that.dataSource.view()[0] && (optionLabel || that._userTriggered)) {
-                that.select(0);
-            } else {
-                that.select(-1);
-                that._textAccessor(that.options.optionLabel);
-            }
+        _clearSelection: function(parent) {
+            this.select(parent.value() ? 0 : -1);
         },
 
         _inputTemplate: function() {
@@ -37170,11 +37305,14 @@ kendo.ExcelMixin = {
         _listBound: function() {
             var that = this;
             var options  = that.options;
-            var data = that.listView.data();
-            var length = data.length;
-            var isActive = that.input[0] === activeElement();
+            var initialIndex = that._initialIndex;
             var filtered = that._state === STATE_FILTER;
-            var current;
+            var isActive = that.input[0] === activeElement();
+
+            var listView = that.listView;
+            var focusedItem = listView.focus();
+            var data = this.dataSource.flatView();
+            var length = data.length;
             var value;
 
             that._angularItems("compile");
@@ -37211,28 +37349,29 @@ kendo.ExcelMixin = {
             that._makeUnselectable();
 
             if (!filtered && !that._fetch) {
-                if (!this.listView.value().length) {
-                    if (this._initialIndex > -1 && this._initialIndex !== null) {
-                        this.select(this._initialIndex);
-                    } else if (this._accessor()) {
-                        this.listView.value(this._accessor());
+                if (!listView.value().length) {
+                    if (initialIndex !== null && initialIndex > -1) {
+                        that.select(initialIndex);
+                    } else if (that._accessor()) {
+                        listView.value(that._accessor());
                     }
                 }
 
-                this._initialIndex = null;
-            } else if (filtered) {
-                current = this.listView.focus();
-                if (current) {
-                    current.removeClass("k-state-selected");
-                }
+                that._initialIndex = null;
+            } else if (filtered && focusedItem) {
+                focusedItem.removeClass("k-state-selected");
             }
 
             if (length) {
                 if (options.highlightFirst) {
-                    that.listView.first();
+                    if (!focusedItem) {
+                        listView.focus(0);
+                    }
+                } else {
+                    listView.focus(-1);
                 }
 
-                if (options.suggest && isActive) {
+                if (options.suggest && isActive && that.input.val()) {
                     that.suggest(data[0]);
                 }
             }
@@ -37268,7 +37407,7 @@ kendo.ExcelMixin = {
             var data, found, idx;
 
             if (typeof candidate === "function") {
-                data = this.listView.data();
+                data = this.dataSource.flatView();
 
                 for (idx = 0; idx < data.length; idx++) {
                     if (candidate(data[idx])) {
@@ -37294,13 +37433,12 @@ kendo.ExcelMixin = {
                 this._accessor("");
             }
 
+            this.listView.select(candidate);
+
             if (!keepState && this._state === STATE_FILTER) {
                 this.listView.filter(false);
-                this.listView.clearIndices();
                 this._state = STATE_ACCEPT;
             }
-
-            this.listView.select(candidate);
         },
 
         _selectValue: function(dataItem) {
@@ -37445,7 +37583,6 @@ kendo.ExcelMixin = {
         value: function(value) {
             var that = this;
             var options = that.options;
-            var index;
 
             if (value === undefined) {
                 value = that._accessor() || that.listView.value()[0];
@@ -37462,22 +37599,20 @@ kendo.ExcelMixin = {
                 return;
             }
 
-            that.input.val(value);
             that._accessor(value);
+            that.input.val(value);
 
-            that.listView.value(value);
-            that._triggerCascade();
+            that.listView.value(value).done(function() {
+                that._triggerCascade();
 
-            index = that.listView.select()[0];
-            if (index === undefined) {
-                index = -1;
-            }
+                that._selectValue(that.listView.selectedDataItems()[0]);
 
-            that._old = that._accessor();
-            that._oldIndex = that.selectedIndex = index;
+                that._old = that._accessor();
+                that._oldIndex = that.selectedIndex;
 
-            that._prev = that.input.val();
-            that._state = STATE_ACCEPT;
+                that._prev = that.input.val();
+                that._state = STATE_ACCEPT;
+            });
 
             that._fetchData();
         },
@@ -37696,8 +37831,8 @@ kendo.ExcelMixin = {
             var custom = hasValue && parent.selectedIndex === -1;
 
             if (isFiltered || !hasValue || custom) {
-                that.value("");
                 that.options.value = "";
+                that.value("");
             }
         }
     });
@@ -38022,18 +38157,16 @@ kendo.ExcelMixin = {
             var that = this;
             var position = tag.index();
             var listView = that.listView;
-            var value = listView.value();
-
-            var customIndex = that._customOptions[value[position]];
+            var customIndex = that._customOptions[listView.value()[position]];
             var option;
 
             if (customIndex !== undefined) {
-                value.splice(position, 1);
-                listView.value(value, true);
-
                 option = that.element[0].children[customIndex];
                 option.removeAttribute("selected");
                 option.selected = false;
+
+                listView.removeAt(position);
+                tag.remove();
             } else {
                 listView.select(listView.select()[position]);
             }
@@ -38109,12 +38242,12 @@ kendo.ExcelMixin = {
                 that._retrieveData = false;
             }
 
-            if (that._retrieveData || !this.listView.isBound() || that._state === ACCEPT) {
-                that.listView.filter(false);
-
+            if (that._retrieveData || !that.listView.isBound() || that._state === ACCEPT) {
                 that._open = true;
                 that._state = REBIND;
                 that._retrieveData = false;
+                that.listView.filter(false);
+
                 that._filterSource();
             } else if (that._allowSelection()) {
                 that.popup.open();
@@ -38134,7 +38267,7 @@ kendo.ExcelMixin = {
 
         _listBound: function() {
             var that = this;
-            var data = this.listView.data();
+            var data = this.dataSource.flatView();
             var length = data.length;
 
             that._angularItems("compile");
@@ -38217,14 +38350,6 @@ kendo.ExcelMixin = {
 
             if (maxSelectedItems !== null && value.length > maxSelectedItems) {
                 value = value.slice(0, maxSelectedItems);
-            }
-
-            if (value.length && oldValue.length) {
-                for (idx = 0; idx < oldValue.length; idx++) {
-                    that._setOption(oldValue[idx], false);
-                }
-
-                that.tagList.html("");
             }
 
             that.listView.value(value);
@@ -38545,7 +38670,7 @@ kendo.ExcelMixin = {
             }
 
             if (selected) {
-                option += ' selected="selected"';
+                option += ' selected';
             }
 
             option += ">";
@@ -38579,7 +38704,7 @@ kendo.ExcelMixin = {
                     value = values[idx];
                     custom[value] = idx + length;
                     optionsMap[value] = idx + length;
-                    options += this._option(value, true);
+                    options += '<option selected="selected" value="' + value + '"></option>';
                 }
             }
 
@@ -42103,7 +42228,7 @@ kendo.ExcelMixin = {
             '<div data-#=ns#role="view" data-#=ns#init-widgets="false" class="k-grid-filter-menu">'+
                 '<div data-#=ns#role="header" class="k-header">'+
                     '<button class="k-button k-cancel">#=messages.cancel#</button>'+
-                    '#=field#'+
+                    '#=title#'+
                     '<button type="submit" class="k-button k-submit">#=messages.filter#</button>'+
                 '</div>'+
                 '<form class="k-filter-menu k-mobile-list">'+
@@ -42169,7 +42294,7 @@ kendo.ExcelMixin = {
             '<div data-#=ns#role="view" data-#=ns#init-widgets="false" class="k-grid-filter-menu">'+
                 '<div data-#=ns#role="header" class="k-header">'+
                     '<button class="k-button k-cancel">#=messages.cancel#</button>'+
-                    '#=field#'+
+                    '#=title#'+
                     '<button type="submit" class="k-button k-submit">#=messages.filter#</button>'+
                 '</div>'+
                 '<form class="k-filter-menu k-mobile-list">'+
@@ -42417,6 +42542,7 @@ kendo.ExcelMixin = {
             that.form = $("<div />")
                 .html(kendo.template(type === "boolean" ? booleanMobileTemplate : defaultMobileTemplate)({
                     field: that.field,
+                    title: options.title || that.field,
                     format: options.format,
                     ns: kendo.ns,
                     messages: options.messages,
@@ -45044,13 +45170,18 @@ kendo.ExcelMixin = {
 
                 if (options.filterable.multi) {
                     widget = "kendoFilterMultiCheck";
+                    if (options.filterable.dataSource) {
+                        options.filterable.checkSource = options.filterable.dataSource;
+                        delete options.filterable.dataSource;
+                    }
                 }
                 that.filterMenu = that.wrapper.find(".k-filterable")[widget](
                     extend(true, {}, {
                         appendToElement: true,
                         dataSource: options.dataSource,
                         values: options.values,
-                        field: that.field
+                        field: that.field,
+                        title: that.title
                     },
                     options.filterable)
                     ).data(widget);
@@ -48856,7 +48987,7 @@ kendo.ExcelMixin = {
 
 
 
-(function(global, parseFloat, undefined){
+(function(window, parseFloat, undefined){
 
     "use strict";
 
@@ -48868,10 +48999,10 @@ kendo.ExcelMixin = {
     /* jshint newcap:false */
     /* global VBArray */
 
-    var kendo = global.kendo;
+    var kendo = window.kendo;
 
     // XXX: remove this junk (assume `true`) when we no longer have to support IE < 10
-    var HAS_TYPED_ARRAYS = !!global.Uint8Array;
+    var HAS_TYPED_ARRAYS = !!window.Uint8Array;
 
     var NL = "\n";
 
@@ -49241,11 +49372,11 @@ kendo.ExcelMixin = {
 
     function loadBinary(url, cont) {
         function error() {
-            if (global.console) {
-                if (global.console.error) {
-                    global.console.error("Cannot load URL: %s", url);
+            if (window.console) {
+                if (window.console.error) {
+                    window.console.error("Cannot load URL: %s", url);
                 } else {
-                    global.console.log("Cannot load URL: %s", url);
+                    window.console.log("Cannot load URL: %s", url);
                 }
             }
             cont(null);
@@ -49290,7 +49421,7 @@ kendo.ExcelMixin = {
     var IMAGE_CACHE = {};
 
     function loadImage(url, cont) {
-        var img = IMAGE_CACHE[url];
+        var img = IMAGE_CACHE[url], bloburl, blob;
         if (img) {
             cont(img);
         } else {
@@ -49298,69 +49429,118 @@ kendo.ExcelMixin = {
             if (!(/^data:/i.test(url))) {
                 img.crossOrigin = "Anonymous";
             }
-            img.src = url;
-
-            var onload = function() {
-                var canvas = document.createElement("canvas");
-                canvas.width = img.width;
-                canvas.height = img.height;
-                var ctx = canvas.getContext("2d");
-
-                ctx.drawImage(img, 0, 0);
-
-                var imgdata;
-                try {
-                    imgdata = ctx.getImageData(0, 0, img.width, img.height);
-                } catch(ex) {
-                    // it tainted the canvas -- can't draw it.
-                    return cont(IMAGE_CACHE[url] = "TAINTED");
-                }
-
-                // in case it contains transparency, we must separate rgb data from the alpha
-                // channel and create a PDFRawImage image with opacity.  otherwise we can use a
-                // PDFJpegImage.
+            if (HAS_TYPED_ARRAYS) {
+                // IE10 fails to load images from another domain even when the server sends the
+                // proper CORS headers.  a XHR, however, will be able to load the data.
+                // http://stackoverflow.com/a/19734516/154985
                 //
-                // to do this in one step, we create the rgb and alpha streams anyway, even if
-                // we might end up not using them if hasAlpha remains false.
-
-                var hasAlpha = false, rgb = BinaryStream(), alpha = BinaryStream();
-                var rawbytes = imgdata.data;
-                var i = 0;
-                while (i < rawbytes.length) {
-                    rgb.writeByte(rawbytes[i++]);
-                    rgb.writeByte(rawbytes[i++]);
-                    rgb.writeByte(rawbytes[i++]);
-                    var a = rawbytes[i++];
-                    if (a < 255) {
-                        hasAlpha = true;
-                    }
-                    alpha.writeByte(a);
-                }
-
-                if (hasAlpha) {
-                    img = new PDFRawImage(img.width, img.height, rgb, alpha);
-                } else {
-                    // no transparency, encode as JPEG.
-                    var data = canvas.toDataURL("image/jpeg");
-                    data = data.substr(data.indexOf(";base64,") + 8);
-
-                    var stream = BinaryStream();
-                    stream.writeBase64(data);
-                    stream.offset(0);
-                    img = new PDFJpegImage(img.width, img.height, stream);
-                }
-
-                cont(IMAGE_CACHE[url] = img);
-            };
-
-            if (img.complete) {
-                onload();
-            } else {
-                img.onload = onload;
-                img.onerror = function(ev) {
-                    cont(IMAGE_CACHE[url] = "TAINTED");
+                // On the other hand, it's worth doing it this way for all browsers which support
+                // responseType = "blob" (HAS_TYPED_ARRAYS will be true), because we can inspect the
+                // mime type and if it's a JPEG (very common case) we can save a lot of time in
+                // _load below.
+                var xhr = new XMLHttpRequest();
+                xhr.onload = function() {
+                    blob = xhr.response;
+                    bloburl = URL.createObjectURL(blob);
+                    _load(bloburl);
                 };
+                xhr.onerror = _onerror;
+                xhr.open("GET", url, true);
+                xhr.responseType = "blob";
+                xhr.send();
+            } else {
+                _load(url);
             }
+        }
+
+        function _load(url) {
+            img.src = url;
+            if (img.complete) {
+                _onload();
+            } else {
+                img.onload = _onload;
+                img.onerror = _onerror;
+            }
+        }
+
+        function _onerror() {
+            cont(IMAGE_CACHE[url] = "TAINTED");
+        }
+
+        function _onload() {
+            if (blob && /^image\/jpe?g$/i.test(blob.type)) {
+                // If we know we got a JPEG, we can skip the process of rendering it to a
+                // canvas, getting the pixel data, searching for transparency we know we won't
+                // find, getting back a data URI and then decoding the BASE64 to finally get the
+                // binary we already have.  Also, we avoid downgrading the image quality, with
+                // the possible drawback of making a bigger PDF; still, seems legit.
+                //
+                // Besides saving a lot of work, this also reuses the buffer memory
+                // (BinaryStream does not create a copy), potentially saving some GC cycles.
+                var reader = new FileReader();
+                reader.onload = function() {
+                    img = new PDFJpegImage(img.width, img.height, BinaryStream(new Uint8Array(this.result)));
+                    URL.revokeObjectURL(bloburl);
+                    cont(IMAGE_CACHE[url] = img);
+                };
+                reader.readAsArrayBuffer(blob);
+                return;
+            }
+
+            var canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+            var ctx = canvas.getContext("2d");
+
+            ctx.drawImage(img, 0, 0);
+
+            var imgdata;
+            try {
+                imgdata = ctx.getImageData(0, 0, img.width, img.height);
+            } catch(ex) {
+                // it tainted the canvas -- can't draw it.
+                return _onerror();
+            } finally {
+                if (bloburl) {
+                    URL.revokeObjectURL(bloburl);
+                }
+            }
+
+            // in case it contains transparency, we must separate rgb data from the alpha
+            // channel and create a PDFRawImage image with opacity.  otherwise we can use a
+            // PDFJpegImage.
+            //
+            // to do this in one step, we create the rgb and alpha streams anyway, even if
+            // we might end up not using them if hasAlpha remains false.
+
+            var hasAlpha = false, rgb = BinaryStream(), alpha = BinaryStream();
+            var rawbytes = imgdata.data;
+            var i = 0;
+            while (i < rawbytes.length) {
+                rgb.writeByte(rawbytes[i++]);
+                rgb.writeByte(rawbytes[i++]);
+                rgb.writeByte(rawbytes[i++]);
+                var a = rawbytes[i++];
+                if (a < 255) {
+                    hasAlpha = true;
+                }
+                alpha.writeByte(a);
+            }
+
+            if (hasAlpha) {
+                img = new PDFRawImage(img.width, img.height, rgb, alpha);
+            } else {
+                // no transparency, encode as JPEG.
+                var data = canvas.toDataURL("image/jpeg");
+                data = data.substr(data.indexOf(";base64,") + 8);
+
+                var stream = BinaryStream();
+                stream.writeBase64(data);
+                stream.offset(0);
+                img = new PDFJpegImage(img.width, img.height, stream);
+            }
+
+            cont(IMAGE_CACHE[url] = img);
         }
     }
 
@@ -49663,14 +49843,14 @@ kendo.ExcelMixin = {
     }, {
         render: function(out) {
             var data = this.data.get(), props = this.props;
-            if (this.compress && global.pako && typeof global.pako.deflate == "function") {
+            if (this.compress && window.pako && typeof window.pako.deflate == "function") {
                 if (!props.Filter) {
                     props.Filter = [];
                 } else if (!(props.Filter instanceof Array)) {
                     props.Filter = [ props.Filter ];
                 }
                 props.Filter.unshift(_("FlateDecode"));
-                data = global.pako.deflate(data);
+                data = window.pako.deflate(data);
             }
             props.Length = data.length;
             out(new PDFDictionary(props), " stream", NL);
@@ -50830,9 +51010,9 @@ kendo.ExcelMixin = {
         return m[0] === 1 && m[1] === 0 && m[2] === 0 && m[3] === 1 && m[4] === 0 && m[5] === 0;
     }
 
-})(this, parseFloat);
+})(window, parseFloat);
 
-(function(global){
+(function(window){
 
 /*****************************************************************************\
  *
@@ -50860,7 +51040,7 @@ function sortedKeys(obj) {
     return Object.keys(obj).sort(function(a, b){ return a - b; }).map(parseFloat);
 }
 
-var PDF = global.kendo.pdf;
+var PDF = window.kendo.pdf;
 var BinaryStream = PDF.BinaryStream;
 
 ///
@@ -51922,7 +52102,7 @@ TTFFont.prototype = {
 
 PDF.TTFFont = TTFFont;
 
-})(this);
+})(window);
 
 (function(kendo, $){
 
@@ -54564,7 +54744,7 @@ kendo.PDFMixin = {
                 }
 
                 that.resizable = new ui.Resizable(container.add(that.lockedHeader), {
-                    handle: ".k-resize-handle",
+                    handle: (!!options.scrollable ? "" : ">") + ".k-resize-handle",
                     hint: function(handle) {
                         return $('<div class="k-grid-resize-indicator" />').css({
                             height: handle.data("th").outerHeight() + that.tbody.attr("clientHeight")
@@ -57385,7 +57565,7 @@ kendo.PDFMixin = {
 
                 that.angular("compile", function(){
                     return {
-                        elements: footer.find("td").get(),
+                        elements: footer.find("td:not(.k-group-cell, .k-hierarchy-cell)").get(),
                         data: map(that.columns, function(col, i){
                             return {
                                 column: col,
@@ -57721,6 +57901,7 @@ kendo.PDFMixin = {
                     type = th.attr(kendo.attr("type")),
                     groupable = th.attr(kendo.attr("groupable")),
                     field = th.attr(kendo.attr("field")),
+                    title = th.attr(kendo.attr("title")),
                     menu = th.attr(kendo.attr("menu"));
 
                 if (!field) {
@@ -57730,6 +57911,7 @@ kendo.PDFMixin = {
                 return {
                     field: field,
                     type: type,
+                    title: title,
                     sortable: sortable !== "false",
                     filterable: filterable !== "false",
                     groupable: groupable !== "false",
@@ -58408,6 +58590,8 @@ kendo.PDFMixin = {
 
             if (that.lockedHeader && that.thead) {
                 tr = that.thead.find("tr:has(th):not(.k-filter-row)").html("");
+                tr.remove();
+                tr = $();
 
                 that._removeLockedContainers();
             } else if (hasTHead) {
@@ -63829,6 +64013,35 @@ kendo.PDFMixin = {
             }
         },
 
+        _spellCorrect: function(editor) {
+            var beforeCorrection;
+            var falseTrigger = false;
+
+            $(editor.body)
+                .on("contextmenu" + NS, function(e) {
+                    editor.one("select", function() {
+                        beforeCorrection = null;
+                    });
+
+                    editor._spellCorrectTimeout = setTimeout(function() {
+                        beforeCorrection = new kendo.ui.editor.RestorePoint(editor.getRange());
+                        falseTrigger = false;
+                    }, 10);
+                })
+                .on("input" + NS, function(e) {
+                    if (!beforeCorrection) {
+                        return;
+                    }
+
+                    if (kendo.support.browser.mozilla && !falseTrigger) {
+                        falseTrigger = true;
+                        return;
+                    }
+
+                    kendo.ui.editor._finishUpdate(editor, beforeCorrection);
+                });
+        },
+
         _initializeContentElement: function() {
             var editor = this;
             var doc;
@@ -63868,7 +64081,10 @@ kendo.PDFMixin = {
                       });
             }
 
+            this._spellCorrect(editor);
+
             $(editor.body)
+                .on("dragstart" + NS, false)
                 .on("keydown" + NS, function (e) {
                     var range;
 
@@ -64073,6 +64289,8 @@ kendo.PDFMixin = {
             $(document).off("mousedown", proxy(that._endTyping, that))
                        .off("mouseup", proxy(that._mouseup, that));
 
+            clearTimeout(this._spellCorrectTimeout);
+
             that._focusOutside();
 
             that.toolbar.destroy();
@@ -64235,6 +64453,10 @@ kendo.PDFMixin = {
 
             if (!name) {
                 throw new Error("kendoEditor.exec(): `name` parameter cannot be empty");
+            }
+
+            if (that.body.getAttribute("contenteditable") !== "true") {
+                return false;
             }
 
             name = name.toLowerCase();
@@ -64690,13 +64912,15 @@ var Dom = {
 
     significantNodes: function(nodes) {
         return $.grep(nodes, function(child) {
-            if (Dom.is(child, 'br')) {
+            var name = Dom.name(child);
+
+            if (name == 'br') {
                 return false;
             } else if (Dom.insignificant(child)) {
                 return false;
             } else if (child.nodeType == 3 && whitespaceOrBom.test(child.nodeValue)) {
                 return false;
-            } else if (Dom.is(child, 'p') && Dom.emptyNode(child)) {
+            } else if (child.nodeType == 1 && !empty[name] && Dom.emptyNode(child)) {
                 return false;
             }
 
@@ -67652,6 +67876,13 @@ var Clipboard = Class.extend({
         dom.restoreScrollTop(editor.document);
         dom.scrollTo(caret);
         marker.removeCaret(range);
+
+        var rangeEnd = range.commonAncestorContainer.parentNode;
+        if (range.collapsed && dom.name(rangeEnd) == "tbody") {
+            range.setStartAfter($(rangeEnd).closest("table")[0]);
+            range.collapse(true);
+        }
+
         editor.selectRange(range);
     }
 });
@@ -68023,6 +68254,7 @@ var ExportPdfCommand = Command.extend({
     }
 });
 extend(editorNS, {
+    _finishUpdate: finishUpdate,
     Command: Command,
     GenericCommand: GenericCommand,
     InsertHtmlCommand: InsertHtmlCommand,
@@ -70114,9 +70346,7 @@ var ImageCommand = Command.extend({
 
             if (!img) {
                 img = dom.create(doc, "img", attributes);
-                img.onload = img.onerror = function () {
-                    removeIEAttributes();
-                };
+                img.onload = img.onerror = removeIEAttributes;
 
                 range.deleteContents();
                 range.insertNode(img);
@@ -70132,6 +70362,7 @@ var ImageCommand = Command.extend({
                 RangeUtils.selectRange(range);
                 return true;
             } else {
+                img.onload = img.onerror = removeIEAttributes;
                 dom.attr(img, attributes);
                 removeIEAttributes();
             }
@@ -70928,8 +71159,9 @@ var FormattingTool = DelayedExecutionTool.extend({
 
 var CleanFormatCommand = Command.extend({
     exec: function() {
+        var listFormatter = new Editor.ListFormatter('ul');
         var range = this.lockRange(true);
-        var remove = this.options.remove || "strong,em,span".split(",");
+        var remove = this.options.remove || "strong,em,span,sup,sub,del".split(",");
 
         RangeUtils.wrapSelectedElements(range);
 
@@ -70940,7 +71172,21 @@ var CleanFormatCommand = Command.extend({
                 return;
             }
 
-            if (node.nodeType == 1 && !dom.insignificant(node)) {
+            var name = dom.name(node);
+
+            if (name == "ul" || name == "ol") {
+                var prev = node.previousSibling;
+                var next = node.nextSibling;
+
+                listFormatter.unwrap(node);
+
+                // clean contents
+                for (; prev && prev != next; prev = prev.nextSibling) {
+                    clean(prev);
+                }
+            } else if (name == "blockquote") {
+                dom.changeTag(node, "p");
+            } else if (node.nodeType == 1 && !dom.insignificant(node)) {
                 for (var i = node.childNodes.length-1; i >= 0; i--) {
                     clean(node.childNodes[i]);
                 }
@@ -70949,7 +71195,7 @@ var CleanFormatCommand = Command.extend({
                 node.removeAttribute("class");
             }
 
-            if ($.inArray(dom.name(node), remove) > -1) {
+            if ($.inArray(name, remove) > -1) {
                 dom.unwrap(node);
             }
         });
@@ -71572,7 +71818,8 @@ var TableCommand = InsertHtmlCommand.extend({
     postProcess: function(editor, range) {
         var insertedTable = $("table[data-last]", editor.document).removeAttr("data-last");
 
-        range.selectNodeContents(insertedTable.find("td")[0]);
+        range.setStart(insertedTable.find("td")[0], 0);
+        range.collapse(true);
 
         editor.selectRange(range);
     },
@@ -78636,7 +78883,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
         _updateNodes: function(items, field) {
             var that = this;
-            var i, node, item, isChecked, isCollapsed;
+            var i, node, nodeWrapper, item, isChecked, isCollapsed;
             var context = { treeview: that.options, item: item };
 
             function setCheckedState(root, state) {
@@ -78668,16 +78915,17 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
                 for (i = 0; i < items.length; i++) {
                     context.item = item = items[i];
-                    node = elements[i].parent();
+                    nodeWrapper = elements[i];
+                    node = nodeWrapper.parent();
 
                     if (field != "expanded" && field != "checked") {
-                        node.find(">div>.k-in").html(that.templates.itemContent(context));
+                        nodeWrapper.children(".k-in").html(that.templates.itemContent(context));
                     }
 
                     if (field == CHECKED) {
                         isChecked = item[field];
 
-                        setCheckedState(node.children("div"), isChecked);
+                        setCheckedState(nodeWrapper, isChecked);
 
                         if (that.options.checkboxes.checkChildren) {
                             setCheckedState(node.children(".k-group"), isChecked);
@@ -78712,7 +78960,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                         that._updateNodeClasses(node, {}, { enabled: item[field], expanded: !isCollapsed });
                     }
 
-                    this.trigger("itemChange", { item: node, data: item, ns: ui });
+                    this.trigger("itemChange", { item: nodeWrapper, data: item, ns: ui });
                 }
 
                 that.angular("compile", function(){
@@ -78750,15 +78998,80 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             }
         },
 
+        _refreshChildren: function(parentNode, items, index) {
+            var i, children, child;
+            var options = this.options;
+            var loadOnDemand = options.loadOnDemand;
+            var checkChildren = options.checkboxes && options.checkboxes.checkChildren;
+
+            subGroup(parentNode).empty();
+
+            if (!items.length) {
+                updateNodeHtml(parentNode);
+            } else {
+                this._appendItems(index, items, parentNode);
+
+                children = subGroup(parentNode).children();
+
+                if (loadOnDemand && checkChildren) {
+                    this._bubbleIndeterminate(children.last());
+                }
+
+                for (i = 0; i < children.length; i++) {
+                    child = children.eq(i);
+                    this.trigger("itemChange", {
+                        item: child.children("div"),
+                        data: this.dataItem(child),
+                        ns: ui
+                    });
+                }
+            }
+        },
+
+        _refreshRoot: function(items) {
+            var groupHtml = this._renderGroup({
+                    items: items,
+                    group: {
+                        firstLevel: true,
+                        expanded: true
+                    }
+                });
+
+            if (this.root.length) {
+                this._angularItems("cleanup");
+
+                var group = $(groupHtml);
+
+                this.root
+                    .attr("class", group.attr("class"))
+                    .html(group.html());
+            } else {
+                this.root = this.wrapper.html(groupHtml).children("ul");
+            }
+
+            this.root.attr("role", "tree");
+
+            for (var i = 0; i < items.length; i++) {
+                var elements = this.root.children(".k-item");
+                this.trigger("itemChange", {
+                    item: elements.eq(i),
+                    data: items[i],
+                    ns: ui
+                });
+            }
+
+            this._angularItems("compile");
+        },
+
         refresh: function(e) {
-            var parentNode = this.wrapper,
-                node = e.node,
-                action = e.action,
-                items = e.items,
-                options = this.options,
-                loadOnDemand = options.loadOnDemand,
-                checkChildren = options.checkboxes && options.checkboxes.checkChildren,
-                i;
+            var node = e.node;
+            var action = e.action;
+            var items = e.items;
+            var parentNode = this.wrapper;
+            var options = this.options;
+            var loadOnDemand = options.loadOnDemand;
+            var checkChildren = options.checkboxes && options.checkboxes.checkChildren;
+            var i;
 
             if (e.field) {
                 if (!items[0] || !items[0].level) {
@@ -78796,55 +79109,10 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 this._remove(this.findByUid(items[0].uid), false);
             } else if (action == "itemchange") {
                 this._updateNodes(items);
+            } else if (action == "itemloaded") {
+                this._refreshChildren(parentNode, items, e.index);
             } else {
-                if (node) {
-                    subGroup(parentNode).empty();
-
-                    if (!items.length) {
-                        updateNodeHtml(parentNode);
-
-                        this.trigger("itemChange", { item: parentNode, data: node, ns: ui });
-                    } else {
-                        this._appendItems(e.index, items, parentNode);
-
-                        var children = subGroup(parentNode).children();
-
-                        if (loadOnDemand && checkChildren) {
-                            this._bubbleIndeterminate(children.last());
-                        }
-
-                        for (i = 0; i < children.length; i++) {
-                            var child = children.eq(i);
-                            this.trigger("itemChange", { item: child, data: this.dataItem(child), ns: ui });
-                        }
-                    }
-                } else {
-
-                    var groupHtml = this._renderGroup({
-                            items: items,
-                            group: {
-                                firstLevel: true,
-                                expanded: true
-                            }
-                        });
-
-                    if (this.root.length) {
-
-                        this._angularItems("cleanup");
-
-                        var group = $(groupHtml);
-
-                        this.root
-                            .attr("class", group.attr("class"))
-                            .html(group.html());
-                    } else {
-                        this.root = this.wrapper.html(groupHtml).children("ul");
-                    }
-
-                    this.root.attr("role", "tree");
-
-                    this._angularItems("compile");
-                }
+                this._refreshRoot(items);
             }
 
             if (action != "remove") {
@@ -78855,9 +79123,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 }
             }
 
-            this.trigger(DATABOUND, {
-                node: node ? parentNode : undefined
-            });
+            this.trigger(DATABOUND, { node: node ? parentNode : undefined });
         },
 
         _error: function(e) {
@@ -84984,6 +85250,11 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                             overflowElement.removeAttr(KENDO_UID_ATTR);
                             overflowElement = overflowElement.wrap("<li></li>").parent();
                             overflowElement.attr(KENDO_UID_ATTR, options.uid);
+
+                            if (options.type === "button" && options.enable === false) {
+                                overflowElement.find("." + BUTTON).removeClass(STATE_DISABLED);
+                                overflowElement.addClass(STATE_DISABLED);
+                            }
                         }
                         that._attributes(overflowElement, options);
                         overflowElement.addClass(itemClasses).appendTo(that.popup.container);
@@ -85004,10 +85275,11 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                         element = isFunction(template) ? template(options) : template;
 
                         if (!(element instanceof jQuery)) {
-                            element = $(element.replace(/^\s+|\s+$/g, ''));
+                            element = $("<div></div>").html(element);
+                        } else {
+                            element = element.wrap("<div></div>").parent();
                         }
 
-                        element = element.wrap("<div></div>").parent();
                         if (options.id) {
                            element.attr("id", options.id);
                         }
@@ -86870,15 +87142,15 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         VIRTUALLIST = "k-virtual-list",
         CONTENT = "k-virtual-content",
         LIST = "k-list",
-        HEADER = "k-virtual-header",
+        HEADER = "k-group-header",
         VIRTUALITEM = "k-virtual-item",
         ITEM = "k-item",
-        OPTIONLABEL = "k-virtual-option-label",
         HEIGHTCONTAINER = "k-height-container",
         GROUPITEM = "k-group",
 
         SELECTED = "k-state-selected",
         FOCUSED = "k-state-focused",
+        HOVER = "k-state-hover",
         CHANGE = "change",
         CLICK = "click",
         LISTBOUND = "listBound",
@@ -87016,7 +87288,6 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         element
             .attr("data-uid", data.item ? data.item.uid : "")
             .attr("data-offset-index", data.index)
-            .find("." + ITEM)
             .html(itemTemplate(data.item || {}));
 
         element.toggleClass(FOCUSED, data.current);
@@ -87025,7 +87296,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
         if (data.newGroup) {
             $("<div class=" + GROUPITEM + "></div>")
-                .appendTo(element.find("." + ITEM))
+                .appendTo(element)
                 .html(templates.groupTemplate({ group: data.group }));
         }
 
@@ -87047,18 +87318,19 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             Widget.fn.init.call(that, element, options);
 
-            element = that.element;
-            element.addClass(VIRTUALLIST);
-
             if (!that.options.itemHeight) {
                 that.options.itemHeight = getDefaultItemHeight();
             }
 
             options = that.options;
 
-            that.wrapper = element.wrap("<div class='" + WRAPPER + "' role='listbox'></div>").parent();
-            that.header = that.element.before("<div class='" + HEADER + "'></div>").prev();
-            that.content = element.append("<ul class='" + CONTENT + " " + LIST + "'></ul>").find("." + CONTENT);
+            that.element.addClass(LIST + " " + VIRTUALLIST);
+            that.content = that.element.wrap("<div class='" + CONTENT + "'></div>").parent();
+            that.wrapper = that.content.wrap("<div class='" + WRAPPER + "' role='listbox'></div>").parent();
+            that.header = that.content.before("<div class='" + HEADER + "'></div>").prev();
+
+            that.element.on("mouseenter" + VIRTUAL_LIST_NS, "li", function() { $(this).addClass(HOVER); })
+                        .on("mouseleave" + VIRTUAL_LIST_NS, "li", function() { $(this).removeClass(HOVER); });
 
             that._values = toArray(that.options.value);
             that._selectedDataItems = [];
@@ -87070,7 +87342,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             that.setDataSource(options.dataSource);
 
-            element.on("scroll" + VIRTUAL_LIST_NS, function() {
+            that.content.on("scroll" + VIRTUAL_LIST_NS, function() {
                 that._renderItems();
             });
 
@@ -87093,7 +87365,6 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             placeholderTemplate: "loading...",
             groupTemplate: "#:group#",
             fixedGroupTemplate: "fixed header template",
-            optionLabel: null,
             valueMapper: null
         },
 
@@ -87110,7 +87381,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             Widget.fn.setOptions.call(this, options);
 
             if (this._selectProxy && this.options.selectable === false) {
-                this.wrapper.off(CLICK, "." + VIRTUALITEM + ", ." + OPTIONLABEL, this._selectProxy);
+                this.element.off(CLICK, "." + VIRTUALITEM, this._selectProxy);
             } else if (!this._selectProxy && this.options.selectable) {
                 this._selectable();
             }
@@ -87124,21 +87395,32 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
         destroy: function() {
             this.wrapper.off(VIRTUAL_LIST_NS);
-            this.element.off(VIRTUAL_LIST_NS);
             this.dataSource.unbind(CHANGE, this._refreshHandler);
             Widget.fn.destroy.call(this);
         },
 
         setDataSource: function(source) {
-            var that = this,
-                dataSource = source || {};
+            var that = this;
+            var dataSource = source || {};
+            var value;
 
             dataSource = $.isArray(dataSource) ? {data: dataSource} : dataSource;
+            dataSource = kendo.data.DataSource.create(dataSource);
 
-            that.dataSource = kendo.data.DataSource.create(dataSource);
-            that._refreshHandler = $.proxy(that.refresh, that);
+            if (that.dataSource) {
+                that.dataSource.unbind(CHANGE, that._refreshHandler);
 
-            that.dataSource.bind(CHANGE, that._refreshHandler);
+                value = that.value();
+
+                that.value([]);
+                that.mute(function() {
+                    that.value(value);
+                });
+            } else {
+                that._refreshHandler = $.proxy(that.refresh, that);
+            }
+
+            that.dataSource = dataSource.bind(CHANGE, that._refreshHandler);
 
             if (that.dataSource.view().length !== 0) {
                 that.refresh();
@@ -87147,58 +87429,70 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             }
         },
 
-        refresh: function() {
+        refresh: function(e) {
             var that = this;
 
             if (that._mute) { return; }
 
             if (!that._fetching) {
                 that._createList();
-                if (that._values.length && !that._filter) {
-                    that._prefetchByValue(that._values);
+                if ((!e || !e.action) && that._values.length && !that._filter) {
+                    that.value(that._values, true).done(function() {
+                        that._listCreated = true;
+                        that.trigger(LISTBOUND);
+                    });
+                } else {
+                    that._listCreated = true;
+                    that.trigger(LISTBOUND);
                 }
-                that._listCreated = true;
-                that.trigger(LISTBOUND);
             } else {
                 if (that._renderItems) {
                     that._renderItems(true);
                 }
-                //that.trigger(LISTBOUND);
             }
 
             that._fetching = false;
         },
 
-        value: function(value, silent) {
-            var that = this,
-                dataSource = that.dataSource,
-                deferred = $.Deferred();
+        removeAt: function(position) {
+            this._selectedIndexes.splice(position, 1);
+            this._values.splice(position, 1);
+
+            return {
+                position: position,
+                dataItem: this._selectedDataItems.splice(position, 1)[0]
+            };
+        },
+
+        value: function(value, _forcePrefetch) {
+            var that = this;
+            var dataSource = that.dataSource;
 
             if (value === undefined) {
                 return that._values;
             }
 
-            if (silent) {
-                that._values = value = toArray(value);
-                return;
+            if (!that._valueDeferred || that._valueDeferred.state() === "resolved") {
+                that._valueDeferred = $.Deferred();
             }
 
             if (value === "" || value === null) {
                 value = [];
             }
 
-            if (value instanceof Array && !value.length) {
+            value = toArray(value);
+
+            if (!value.length || that.options.selectable === "multiple") {
                 that.select(-1);
-                return;
             }
 
-            that._selectedDataItems = [];
-            that._selectedIndexes = [];
-            that._values = value = toArray(value);
+            that._values = value;
 
-            if (that.isBound()) {
+            if ((that.isBound() && !that._mute) || _forcePrefetch) {
                 that._prefetchByValue(value);
             }
+
+            return that._valueDeferred;
         },
 
         _prefetchByValue: function(value) {
@@ -87334,7 +87628,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         },
 
         scrollTo: function(y) {
-            this.element.scrollTop(y); //works only if the element is visible
+            this.content.scrollTop(y); //works only if the element is visible
         },
 
         scrollToIndex: function(index) {
@@ -87348,15 +87642,16 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 dataSource = this.dataSource,
                 current,
                 itemHeight = this.options.itemHeight,
-                id = this._optionID;
+                id = this._optionID,
+                triggerEvent = true;
 
             if (candidate === undefined) {
-                current = this.content.find("." + FOCUSED);
+                current = this.element.find("." + FOCUSED);
                 return current.length ? current : null;
             }
 
             if (typeof candidate === "function") {
-                data = this.data();
+                data = this.dataSource.flatView();
                 for (var idx = 0; idx < data.length; idx++) {
                     if (candidate(data[idx])) {
                         candidate = idx;
@@ -87377,44 +87672,49 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 element = this._getElementByIndex(index);
             }
 
-            if (index === -1) { //this will be in conflict with the optionLabel
-                this.content.find("." + FOCUSED).removeClass(FOCUSED);
+            if (index === -1) {
+                this.element.find("." + FOCUSED).removeClass(FOCUSED);
                 this._focusedIndex = undefined;
                 return;
             }
 
             if (element.length) { /*focus rendered item*/
                 if (element.hasClass(FOCUSED)) {
-                    return;
-                } else {
-                    if (this._focusedIndex !== undefined) {
-                        current = this._getElementByIndex(this._focusedIndex);
-                        current
-                            .removeClass(FOCUSED)
-                            .removeAttr("id");
+                    triggerEvent = false;
+                }
+                if (this._focusedIndex !== undefined) {
+                    current = this._getElementByIndex(this._focusedIndex);
+                    current
+                        .removeClass(FOCUSED)
+                        .removeAttr("id");
 
+                    if (triggerEvent) {
                         this.trigger(DEACTIVATE);
                     }
+                }
 
-                    this._focusedIndex = index;
+                this._focusedIndex = index;
 
-                    element
-                        .addClass(FOCUSED)
-                        .attr("id", id);
+                element
+                    .addClass(FOCUSED)
+                    .attr("id", id);
 
-                    var position = this._getElementLocation(index);
+                var position = this._getElementLocation(index);
 
-                    if (position === "top") {
-                        this.scrollTo(index * itemHeight);
-                    } else if (position === "bottom") {
-                        this.scrollTo((index * itemHeight + itemHeight) - this.screenHeight);
-                    }
+                if (position === "top") {
+                    this.scrollTo(index * itemHeight);
+                } else if (position === "bottom") {
+                    this.scrollTo((index * itemHeight + itemHeight) - this.screenHeight);
+                } else if (position === "outScreen") {
+                    this.scrollTo(index * itemHeight);
+                }
 
+                if (triggerEvent) {
                     this.trigger(ACTIVATE);
                 }
             } else { /*focus non rendered item*/
                 this._focusedIndex = index;
-                this.items().add(this.optionLabel).removeClass(FOCUSED);
+                this.items().removeClass(FOCUSED);
                 this.scrollToIndex(index);
             }
         },
@@ -87450,76 +87750,64 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         },
 
         select: function(candidate) {
-            var that = this;
-            var indexes,
-                singleSelection = this.options.selectable !== "multiple",
-                prefetchStarted = !!this._activeDeferred,
+            var that = this,
+                indices,
+                singleSelection = that.options.selectable !== "multiple",
+                prefetchStarted = !!that._activeDeferred,
                 deferred,
                 added = [],
                 removed = [];
 
             if (candidate === undefined) {
-                return this._selectedIndexes.slice();
+                return that._selectedIndexes.slice();
             }
 
-            indexes = this._getIndecies(candidate);
+            indices = that._getIndecies(candidate);
 
-            if (!indexes.length || (singleSelection && lastFrom(indexes) === lastFrom(this._selectedIndexes))) { return; }
-
-            removed = this._deselect(indexes);
-
-            if (!indexes.length) {
-                this.trigger(CHANGE, {
-                    added: added,
-                    removed: removed
-                });
-            } else {
-                if (singleSelection) {
-                    this._activeDeferred = null;
-                    prefetchStarted = false;
-                    indexes = [lastFrom(indexes)];
-                }
-
-                var done = function() {
-                    added = that._select(indexes); //???
-                    that.focus(indexes);
-
-                    if (added.length || removed.length) {
-                        that.trigger(CHANGE, {
-                            added: added,
-                            removed: removed
-                        });
-                    }
-                };
-
-                deferred = this.prefetch(indexes);
-
-                if (!prefetchStarted) {
-                    if (deferred) {
-                        deferred.done(done);
-                    } else {
-                        done();
-                    }
-                }
-            }
-        },
-
-        data: function() {
-            var data = this.dataSource.view(),
-                first = this.optionInstance,
-                length = data.length,
-                idx = 0;
-
-            if (first && length) {
-                first = new kendo.data.ObservableArray([first]);
-
-                for (; idx < length; idx++) {
-                    first.push(data[idx]);
-                }
-                data = first;
+            if (that._filter && !singleSelection && that._deselectFiltered(indices)) {
+                return;
             }
 
-            return data;
+            if (!indices.length || (singleSelection && !that._filter && lastFrom(indices) === lastFrom(this._selectedIndexes))) {
+                return;
+            }
+
+            removed = that._deselect(indices);
+
+            if (singleSelection) {
+                that._activeDeferred = null;
+                prefetchStarted = false;
+                if (indices.length) {
+                    indices = [lastFrom(indices)];
+                }
+            }
+
+            var done = function() {
+                var added = that._select(indices);
+
+                that.focus(indices);
+
+                if (that._valueDeferred) {
+                    that._valueDeferred.resolve();
+                }
+
+                if (added.length || removed.length) {
+                    that.trigger(CHANGE, {
+                        added: added,
+                        removed: removed
+                    });
+                }
+            };
+
+            deferred = that.prefetch(indices);
+
+            if (!prefetchStarted) {
+                if (deferred) {
+                    deferred.done(done);
+                } else {
+                    done();
+                }
+            }
         },
 
         isBound: function() {
@@ -87544,44 +87832,30 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         },
 
         _getElementByIndex: function(index) {
-            var element;
-
-            if (index === -1) {
-                element = this.optionLabel;
-            } else {
-                element = this.items().filter(function(idx, element) {
-                    return index === parseInt($(element).attr("data-offset-index"), 10);
-                });
-            }
-
-            return element;
+            return this.items().filter(function(idx, element) {
+                return index === parseInt($(element).attr("data-offset-index"), 10);
+            });
         },
 
         _clean: function() {
             this.result = undefined;
             this._lastScrollTop = undefined;
-            if (this.optionLabel) {
-                this.optionLabel.parent().remove();
-                this.optionLabel = undefined;
-            }
-            this.content.empty();
+            $(this.heightContainer).remove();
+            this.heightContainer = undefined;
+            this.element.empty();
         },
 
         _screenHeight: function() {
             var height = this.options.height,
-                element = this.element;
+                element = this.element,
+                content = this.content;
 
-            if (height) {
-                element.height(height);
-            } else {
-                height = element.height();
-            }
-
+            content.height(height);
             this.screenHeight = height;
         },
 
         _getElementLocation: function(index) {
-            var scrollTop = this.element.scrollTop(),
+            var scrollTop = this.content.scrollTop(),
                 screenHeight = this.screenHeight,
                 itemHeight = this.options.itemHeight,
                 yPosition = index * itemHeight,
@@ -87626,9 +87900,8 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             while(count-- > 0) {
                 item = document.createElement("li");
                 item.tabIndex = -1;
-                item.className = VIRTUALITEM;
+                item.className = VIRTUALITEM + " " + ITEM;
                 item.setAttribute("role", "option");
-                item.innerHTML = "<div class='" + ITEM + "'></div>";
                 element.appendChild(item);
 
                 items.push(item);
@@ -87650,7 +87923,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
         _createList: function() {
             var that = this,
-                element = that.element.get(0),
+                content = that.content.get(0),
                 options = that.options,
                 dataSource = that.dataSource,
                 total = dataSource.total();
@@ -87669,8 +87942,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             }
 
             that._templates();
-            that._optionLabel();
-            that._items = that._generateItems(that.content[0], that.itemCount);
+            that._items = that._generateItems(that.element[0], that.itemCount);
 
             that._setHeight(options.itemHeight * dataSource.total());
             that.options.type = !!dataSource.group().length ? "group" : "flat";
@@ -87685,7 +87957,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             };
 
             that._renderItems = that._whenChanged(
-                scrollCallback(element, that._onScroll),
+                scrollCallback(content, that._onScroll),
                 syncList(that._reorderList(that._items, $.proxy(render, that)))
             );
 
@@ -87697,7 +87969,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 heightContainer = this.heightContainer;
 
             if (!heightContainer) {
-                heightContainer = this.heightContainer = appendChild(this.element[0], HEIGHTCONTAINER);
+                heightContainer = this.heightContainer = appendChild(this.content[0], HEIGHTCONTAINER);
             } else {
                 currentHeight = heightContainer.offsetHeight;
             }
@@ -87777,8 +88049,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 var firstVisibleGroup = firstVisibleDataItem.group;
 
                 if (firstVisibleGroup !== group) {
-                    this.header[0].innerHTML = "";
-                    appendChild(this.header[0], GROUPITEM).innerHTML = firstVisibleGroup;
+                    this.header[0].innerHTML = firstVisibleGroup || "";
                     this.currentVisibleGroup = firstVisibleGroup;
                 }
             }
@@ -87946,7 +88217,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         _selectable: function() {
             if (this.options.selectable) {
                 this._selectProxy = $.proxy(this, "_clickHandler");
-                this.wrapper.on(CLICK + VIRTUAL_LIST_NS, "." + VIRTUALITEM + ", ." + OPTIONLABEL, this._selectProxy);
+                this.element.on(CLICK + VIRTUAL_LIST_NS, "." + VIRTUALITEM, this._selectProxy);
             }
         },
 
@@ -87954,7 +88225,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             var result = [], data;
 
             if (typeof candidate === "function") {
-                data = this.data();
+                data = this.dataSource.flatView();
                 for (var idx = 0; idx < data.length; idx++) {
                     if (candidate(data[idx])) {
                         result.push(idx);
@@ -88055,6 +88326,44 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             return removed;
         },
 
+        _deselectFiltered: function(indices) {
+            var children = this.element[0].children;
+            var value, index, position;
+            var values = this._values;
+            var removed = [];
+            var idx = 0;
+            var j;
+
+            for (; idx < indices.length; idx++) {
+                position = -1;
+                index = indices[idx];
+                value = this._valueGetter(this._view[index].item);
+
+                for (j = 0; j < values.length; j++) {
+                    if (value == values[j]) {
+                        position = j;
+                        break;
+                    }
+                }
+
+                if (position > -1) {
+                    removed.push(this.removeAt(position));
+                    $(children[index]).removeClass("k-state-selected");
+                }
+            }
+
+            if (removed.length) {
+                this.trigger("change", {
+                    added: [],
+                    removed: removed
+                });
+
+                return true;
+            }
+
+            return false;
+        },
+
         _select: function(indexes) {
             var that = this,
                 singleSelection = this.options.selectable !== "multiple",
@@ -88103,22 +88412,6 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             if (!e.isDefaultPrevented()) {
                 this.trigger(CLICK, { item: $(e.currentTarget) });
             }
-        },
-
-        _optionLabel: function() {
-            var optionInstance = this.options.optionLabel;
-
-            if (optionInstance && typeof optionInstance === "object") {
-                this.element
-                    .before("<ul class='" + LIST + "'><li tabindex='-1' class='" + OPTIONLABEL + "' role='option'><div class='" + ITEM + "'></div></li></ul>");
-
-                this.optionLabel = this.wrapper.find("." + OPTIONLABEL);
-                render.call(this, this.optionLabel, { index: -1, top: null, selected: false, current: false, item: optionInstance }, this.templates);
-                this.optionInstance = optionInstance;
-            } else {
-                this.optionInstance = null;
-            }
-
         },
 
         _buildValueGetter: function() {
@@ -88350,7 +88643,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                for (var slotIndex = 0; slotIndex < collection.count(); slotIndex++) {
                    var slot = collection.at(slotIndex);
 
-                   if (x >= slot.offsetLeft && x < slot.offsetLeft + slot.clientWidth &&
+                   if (x >= slot.offsetLeft && x < slot.offsetLeft + slot.offsetWidth &&
                        y >= slot.offsetTop && y <= slot.offsetTop + slot.clientHeight) {
                        return slot;
                    }
@@ -92316,7 +92609,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         selectionByElement: function(cell) {
             var index, event;
             cell = $(cell);
-            if (cell.hasClass("k-scheduler-datecolumn")) {
+            if (cell.hasClass("k-scheduler-datecolumn") || !this._eventsList.length) {
                 return;
             }
 
@@ -103397,11 +103690,14 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             var size;
             var className = GanttView.styles.task + " " + GanttView.styles.taskMilestone;
             var milestone = $("<div class='" + className + "' style='visibility: hidden; position: absolute'>");
+            var boundingClientRect;
 
             this.content.append(milestone);
 
+            boundingClientRect = milestone[0].getBoundingClientRect();
+
             size = {
-                "width": milestone[0].getBoundingClientRect().width,
+                "width": boundingClientRect.right - boundingClientRect.left,
                 "clientWidth": milestone[0].clientWidth
             };
 
@@ -106933,6 +107229,8 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 save: "Save",
                 cancel: "Cancel",
                 destroy: "Delete",
+                deleteTaskConfirmation: TASK_DELETE_CONFIRM,
+                deleteDependencyConfirmation: DEPENDENCY_DELETE_CONFIRM,
                 deleteTaskWindowTitle: "Delete task",
                 deleteDependencyWindowTitle: "Delete dependency",
                 views: {
@@ -107926,18 +108224,22 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         },
 
         _taskConfirm: function(callback, task) {
+            var messages = this.options.messages;
+
             this._confirm(callback, {
                 model: task,
-                text: TASK_DELETE_CONFIRM,
-                title: this.options.messages.deleteTaskWindowTitle
+                text: messages.deleteTaskConfirmation,
+                title: messages.deleteTaskWindowTitle
             });
         },
 
         _dependencyConfirm: function(callback, dependency) {
+            var messages = this.options.messages;
+
             this._confirm(callback, {
                 model: dependency,
-                text: DEPENDENCY_DELETE_CONFIRM,
-                title: this.options.messages.deleteDependencyWindowTitle
+                text: messages.deleteDependencyConfirmation,
+                title: messages.deleteDependencyWindowTitle
             });
         },
 

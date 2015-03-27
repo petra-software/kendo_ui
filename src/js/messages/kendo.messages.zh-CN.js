@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -286,6 +286,25 @@ if (kendo.ui.Groupable) {
 kendo.ui.Groupable.prototype.options.messages =
 $.extend(true, kendo.ui.Groupable.prototype.options.messages,{
   "empty": "拖拽列标题到此处按列组合显示"
+});
+}
+
+/* ImageBrowser messages */
+
+if (kendo.ui.ImageBrowser) {
+kendo.ui.ImageBrowser.prototype.options.messages =
+$.extend(true, kendo.ui.ImageBrowser.prototype.options.messages,{
+  "uploadFile": "上传",
+  "orderBy": "排序条件",
+  "orderByName": "名称",
+  "orderBySize": "大小",
+  "directoryNotFound": "此文件夹未找到",
+  "emptyFolder": "文件夹为空",
+  "deleteFile": '您确定要删除 \"{0}\"?',
+  "invalidFileType": "选中的文件 \"{0}\" 非法，支持的文件类型为 {1}。",
+  "overwriteFile": "当前文件夹已存在文件名为 \"{0}\" 的文件，您确定要覆盖么？",
+  "dropFilesHere": "拖拽要上传的文件到此处",
+  "search": "搜索"
 });
 }
 

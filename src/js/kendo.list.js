@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -242,7 +242,7 @@
                 index = $(that.items()).index(index);
             }
 
-            return that.listView.data()[index];
+            return that.dataSource.flatView()[index];
         },
 
         _accessors: function() {
@@ -466,9 +466,8 @@
             }
         },
 
-        //use length of the items in ListView
         _firstOpen: function() {
-            var height = this._height(this.listView.data().length);
+            var height = this._height(this.dataSource.flatView().length);
             this._calculateGroupPadding(height);
         },
 
@@ -516,8 +515,8 @@
         _triggerCascade: function() {
             var that = this;
 
-            if (!that._bound || that._old !== that.value()) {
-                that._bound = true;
+            if (!that._cascadeTriggered || that._old !== that.value()) {
+                that._cascadeTriggered = true;
                 that.trigger("cascade", { userTriggered: that._userTriggered });
             }
         },
@@ -561,7 +560,6 @@
             this.options.dataSource = dataSource;
 
             this._dataSource();
-            this._bound = false;
 
             this.listView.setDataSource(this.dataSource);
 
@@ -635,7 +633,9 @@
             var option;
 
             if (value === undefined) {
-                option = element.options[selectedIndex];
+                if (selectedIndex > -1) {
+                    option = element.options[selectedIndex];
+                }
 
                 if (option) {
                     value = option.value;
@@ -650,14 +650,22 @@
                     idx = -1;
                 }
 
-                if (idx == -1 && value !== "") {
-                    idx = this._custom(value);
-                }
+                if (value !== "" && idx == -1) {
+                    this._custom(value);
+                } else {
+                    if (value) {
+                        element.value = value;
+                    } else {
+                        element.selectedIndex = idx;
+                    }
 
-                element.selectedIndex = idx;
-                option = element.options[idx];
-                if (option) {
-                   option.setAttribute(SELECTED, SELECTED);
+                    if (element.selectedIndex > -1) {
+                        option = element.options[element.selectedIndex];
+                    }
+
+                    if (option) {
+                       option.setAttribute(SELECTED, SELECTED);
+                    }
                 }
             }
         },
@@ -666,20 +674,16 @@
             var that = this;
             var element = that.element;
             var custom = that._customOption;
-            var idx = element[0].children.length - 1;
 
             if (!custom) {
                 custom = $("<option/>");
                 that._customOption = custom;
 
                 element.append(custom);
-                idx += 1;
             }
 
             custom.text(value);
-            custom[0].selected = true;
-
-            return idx;
+            custom[0].setAttribute(SELECTED, SELECTED);
         },
 
         _hideBusy: function () {
@@ -792,7 +796,7 @@
 
                     current = that._focus();
 
-                    if (!that._fetch) {
+                    if (!that._fetch && (!current || current.hasClass("k-state-selected"))) {
                         if (down) {
                             that._nextItem();
 
@@ -809,12 +813,11 @@
                     }
 
                     if (that.trigger(SELECT, { item: that.listView.focus() })) {
-                        that._focus(current); //revert focus
+                        that._focus(current);
                         return;
                     }
 
                     that._select(that._focus(), true);
-                    //that.listView.select(that.listView.focus());
 
                     if (!that.popup.visible()) {
                         that._blur();
@@ -888,7 +891,7 @@
             }
         },
 
-        _options: function(data, optionLabel) {
+        _options: function(data, optionLabel, value) {
             var that = this,
                 element = that.element,
                 length = data.length,
@@ -930,6 +933,10 @@
             }
 
             element.html(options);
+
+            if (value !== undefined) {
+                element.val(value);
+            }
         },
 
         _reset: function() {
@@ -975,15 +982,19 @@
                 change = function() {
                     that.dataSource.unbind(CHANGE, change);
 
-                    var value = that.listView.value()[0];
+                    var value = that._accessor();
+
                     if (that._userTriggered) {
                         that._clearSelection(parent, true);
                     } else if (value) {
-                        that.value(value);
+                        if (value !== that.listView.value()[0]) {
+                            that.value(value);
+                        }
+
                         if (!that.dataSource.view()[0] || that.selectedIndex === -1) {
                             that._clearSelection(parent, true);
                         }
-                    } else if (that.listView.data().length) {
+                    } else if (that.dataSource.flatView().length) {
                         that.select(options.index);
                     }
 
@@ -1054,8 +1065,6 @@
 
             this.header = this.element.before('<div class="k-static-header" style="display:none"></div>').prev();
 
-            this.setDataSource(this.options.dataSource);
-
             this._bound = false;
 
             this._optionID = kendo.guid();
@@ -1065,6 +1074,14 @@
             this._view = [];
             this._dataItems = [];
             this._values = [];
+
+            var value = this.options.value;
+
+            if (value) {
+                this._values = $.isArray(value) ? value.slice(0) : [value];
+            }
+
+            this.setDataSource(this.options.dataSource);
 
             this._getter();
             this._templates();
@@ -1079,11 +1096,6 @@
             }, this);
 
             this._fixedHeader();
-
-            var value = this.options.value;
-            if (value) {
-                this._values = $.isArray(value) ? value.slice(0) : [value];
-            }
         },
 
         options: {
@@ -1107,12 +1119,20 @@
         setDataSource: function(source) {
             var that = this;
             var dataSource = source || {};
+            var value;
 
             dataSource = $.isArray(dataSource) ? { data: dataSource } : dataSource;
             dataSource = kendo.data.DataSource.create(dataSource);
 
             if (that.dataSource) {
                 that.dataSource.unbind(CHANGE, that._refreshHandler);
+
+                value = that.value();
+
+                that.value([]);
+                that._bound = false;
+
+                that.value(value);
             } else {
                 that._refreshHandler = proxy(that.refresh, that);
             }
@@ -1122,11 +1142,6 @@
 
         setOptions: function(options) {
             Widget.fn.setOptions.call(this, options);
-
-            if (options.dataSource) {
-                this.setDataSource(options.dataSource);
-            }
-
 
             this._fixedHeader();
             this._getter();
@@ -1288,6 +1303,14 @@
             that.trigger("activate");
         },
 
+        filter: function(filter) {
+            if (filter === undefined) {
+                return this._filtered;
+            }
+
+            this._filtered = filter;
+        },
+
         select: function(indices) {
             var selectable = this.options.selectable;
             var singleSelection = selectable !== "multiple" && selectable !== false;
@@ -1306,7 +1329,11 @@
                 indices = [];
             }
 
-            if (singleSelection && $.inArray(indices[indices.length - 1], this._selectedIndices) !== -1) {
+            if (this.filter() && !singleSelection && this._deselectFiltered(indices)) {
+                return;
+            }
+
+            if (singleSelection && !this._filtered && $.inArray(indices[indices.length - 1], this._selectedIndices) !== -1) {
                 return;
             }
 
@@ -1331,11 +1358,23 @@
             }
         },
 
-        value: function(value, silent) {
+        removeAt: function(position) {
+            this._selectedIndices.splice(position, 1);
+            this._values.splice(position, 1);
+
+            return {
+                position: position,
+                dataItem: this._dataItems.splice(position, 1)[0]
+            };
+        },
+
+        value: function(value) {
+            var that = this;
+            var deferred = that._valueDeferred;
             var indices;
 
             if (value === undefined) {
-                return this._values.slice();
+                return that._values.slice();
             }
 
             if (value === "" || value === null) {
@@ -1344,50 +1383,25 @@
 
             value = $.isArray(value) || value instanceof ObservableArray ? value.slice(0) : [value];
 
-            this._values = value;
+            that._values = value;
 
-            if (silent) {
-                return;
+            if (!deferred || deferred.state() === "resolved") {
+                that._valueDeferred = deferred = $.Deferred();
             }
 
-            if (this.isBound()) {
-                indices = this._valueIndices(value);
+            if (that.isBound()) {
+                indices = that._valueIndices(value);
 
-                if (!indices.length) {
-                    this.select([]);
-                    return;
+                if (that.options.selectable === "multiple") {
+                    that.select(-1);
                 }
 
-                this._selectedIndices = [];
-                this._dataItems = [];
-                this._values = [];
+                that.select(indices);
 
-                this.select(indices);
-            }
-        },
-
-        data: function() {
-            var that = this;
-            var data = that._view;
-            var length = data.length;
-            var result = [];
-            var idx;
-
-            if (length) {
-                for (idx = 0; idx < length; idx++) {
-                    result.push(data[idx].item);
-                }
+                deferred.resolve();
             }
 
-            return result;
-        },
-
-        clearIndices: function() {
-            this._selectedIndices = [];
-        },
-
-        filter: function(isFilter) {
-            this._isFilter = isFilter;
+            return deferred;
         },
 
         _click: function(e) {
@@ -1436,14 +1450,18 @@
         },
 
         _deselect: function(indices) {
-            var children = this.element[0].children;
-            var selectable = this.options.selectable;
-            var selectedIndices = this._selectedIndices;
-            var dataItems = this._dataItems;
-            var values = this._values;
+            var that = this;
+            var children = that.element[0].children;
+            var selectable = that.options.selectable;
+            var selectedIndices = that._selectedIndices;
+            var dataItems = that._dataItems;
+            var values = that._values;
             var removed = [];
             var i = 0;
             var j;
+
+            var index, selectedIndex;
+            var removedIndices = 0;
 
             indices = indices.slice();
 
@@ -1457,13 +1475,10 @@
                     });
                 }
 
-                this._values = [];
-                this._dataItems = [];
-                this._selectedIndices = [];
+                that._values = [];
+                that._dataItems = [];
+                that._selectedIndices = [];
             } else if (selectable === "multiple") {
-                var index, selectedIndex;
-                var removedIndices = 0;
-
                 for (; i < indices.length; i++) {
                     index = indices[i];
 
@@ -1501,15 +1516,45 @@
             };
         },
 
-        _select: function(indices) {
+        _deselectFiltered: function(indices) {
             var children = this.element[0].children;
-            var data = this._view;
+            var dataItem, index, position;
+            var removed = [];
+            var idx = 0;
+
+            for (; idx < indices.length; idx++) {
+                index = indices[idx];
+                dataItem = this._view[index].item;
+                position = this._dataItemPosition(dataItem, this._values);
+
+                if (position > -1) {
+                    removed.push(this.removeAt(position));
+                    $(children[index]).removeClass("k-state-selected");
+                }
+            }
+
+            if (removed.length) {
+                this.trigger("change", {
+                    added: [],
+                    removed: removed
+                });
+
+                return true;
+            }
+
+            return false;
+        },
+
+        _select: function(indices) {
+            var that = this;
+            var children = that.element[0].children;
+            var data = that._view;
             var dataItem, index;
             var added = [];
             var idx = 0;
 
             if (indices[indices.length - 1] !== -1) {
-                this.focus(indices);
+                that.focus(indices);
             }
 
             for (; idx < indices.length; idx++) {
@@ -1522,9 +1567,9 @@
 
                 dataItem = dataItem.item;
 
-                this._selectedIndices.push(index);
-                this._dataItems.push(dataItem);
-                this._values.push(this._valueGetter(dataItem));
+                that._selectedIndices.push(index);
+                that._dataItems.push(dataItem);
+                that._values.push(that._valueGetter(dataItem));
 
                 $(children[index]).addClass("k-state-selected").attr("aria-selected", true);
 
@@ -1654,7 +1699,7 @@
             var item = '<li tabindex="-1" role="option" unselectable="on" class="k-item';
 
             var dataItem = context.item;
-            var found = this._isFilter && this._dataItemPosition(dataItem, values) !== -1;
+            var found = this._filtered && this._dataItemPosition(dataItem, values) !== -1;
 
             if (context.newGroup) {
                 item += ' k-first';
@@ -1721,18 +1766,26 @@
             }
         },
 
-        refresh: function() {
-            this.trigger("dataBinding");
+        refresh: function(e) {
+            var that = this;
 
-            this._render();
+            that.trigger("dataBinding");
 
-            this._bound = true;
+            that._render();
 
-            this.trigger("dataBound");
+            that._bound = true;
 
-            if (!this._isFilter) {
-                this.value(this._values);
+            if (that._filtered) {
+                that.focus(0);
+            } else if (!e || !e.action) {
+                that.value(that._values);
             }
+
+            if (that._valueDeferred) {
+                that._valueDeferred.resolve();
+            }
+
+            that.trigger("dataBound");
         },
 
         isBound: function() {

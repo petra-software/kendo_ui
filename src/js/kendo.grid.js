@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1881,7 +1881,7 @@
                 }
 
                 that.resizable = new ui.Resizable(container.add(that.lockedHeader), {
-                    handle: ".k-resize-handle",
+                    handle: (!!options.scrollable ? "" : ">") + ".k-resize-handle",
                     hint: function(handle) {
                         return $('<div class="k-grid-resize-indicator" />').css({
                             height: handle.data("th").outerHeight() + that.tbody.attr("clientHeight")
@@ -4702,7 +4702,7 @@
 
                 that.angular("compile", function(){
                     return {
-                        elements: footer.find("td").get(),
+                        elements: footer.find("td:not(.k-group-cell, .k-hierarchy-cell)").get(),
                         data: map(that.columns, function(col, i){
                             return {
                                 column: col,
@@ -5038,6 +5038,7 @@
                     type = th.attr(kendo.attr("type")),
                     groupable = th.attr(kendo.attr("groupable")),
                     field = th.attr(kendo.attr("field")),
+                    title = th.attr(kendo.attr("title")),
                     menu = th.attr(kendo.attr("menu"));
 
                 if (!field) {
@@ -5047,6 +5048,7 @@
                 return {
                     field: field,
                     type: type,
+                    title: title,
                     sortable: sortable !== "false",
                     filterable: filterable !== "false",
                     groupable: groupable !== "false",
@@ -5725,6 +5727,8 @@
 
             if (that.lockedHeader && that.thead) {
                 tr = that.thead.find("tr:has(th):not(.k-filter-row)").html("");
+                tr.remove();
+                tr = $();
 
                 that._removeLockedContainers();
             } else if (hasTHead) {

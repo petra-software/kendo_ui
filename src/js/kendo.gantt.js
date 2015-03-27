@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1461,6 +1461,8 @@
                 save: "Save",
                 cancel: "Cancel",
                 destroy: "Delete",
+                deleteTaskConfirmation: TASK_DELETE_CONFIRM,
+                deleteDependencyConfirmation: DEPENDENCY_DELETE_CONFIRM,
                 deleteTaskWindowTitle: "Delete task",
                 deleteDependencyWindowTitle: "Delete dependency",
                 views: {
@@ -2454,18 +2456,22 @@
         },
 
         _taskConfirm: function(callback, task) {
+            var messages = this.options.messages;
+
             this._confirm(callback, {
                 model: task,
-                text: TASK_DELETE_CONFIRM,
-                title: this.options.messages.deleteTaskWindowTitle
+                text: messages.deleteTaskConfirmation,
+                title: messages.deleteTaskWindowTitle
             });
         },
 
         _dependencyConfirm: function(callback, dependency) {
+            var messages = this.options.messages;
+
             this._confirm(callback, {
                 model: dependency,
-                text: DEPENDENCY_DELETE_CONFIRM,
-                title: this.options.messages.deleteDependencyWindowTitle
+                text: messages.deleteDependencyConfirmation,
+                title: messages.deleteDependencyWindowTitle
             });
         },
 

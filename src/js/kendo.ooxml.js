@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -99,7 +99,7 @@ var WORKBOOK = kendo.template(
   '<definedNames>' +
   ' # for (var di = 0; di < definedNames.length; di++) { #' +
   '<definedName name="_xlnm._FilterDatabase" hidden="1" localSheetId="${definedNames[di].localSheetId}">' +
-  '${definedNames[di].name}!$${definedNames[di].from.split("").join("$")}:$${definedNames[di].to.split("").join("$")}' +
+  '${definedNames[di].name}!$${definedNames[di].from}:$${definedNames[di].to}' +
   '</definedName>' +
   ' # } #' +
   '</definedNames>' +
@@ -112,7 +112,7 @@ var WORKSHEET = kendo.template(
 '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" mc:Ignorable="x14ac">' +
    '<dimension ref="A1" />' +
    '<sheetViews>' +
-       '<sheetView tabSelected="1" workbookViewId="0">' +
+       '<sheetView #if(index==0) {# tabSelected="1" #}# workbookViewId="0">' +
        '# if (freezePane) { #' +
        '<pane state="frozen"' +
        '# if (freezePane.colSplit) { #' +
@@ -307,6 +307,10 @@ function ref(rowIndex, colIndex) {
     return numChar(colIndex) + (rowIndex + 1);
 }
 
+function $ref(rowIndex, colIndex) {
+    return numChar(colIndex) + "$" + (rowIndex + 1);
+}
+
 function filterRowIndex(options) {
     return ((options.freezePane || {}).rowSplit || 1) - 1;
 }
@@ -320,7 +324,7 @@ var Worksheet = kendo.Class.extend({
         this._styles = styles;
         this._mergeCells = [];
     },
-    toXML: function() {
+    toXML: function(index) {
         var rows = this.options.rows || [];
         var filter = this.options.filter;
         var spans = {};
@@ -337,6 +341,7 @@ var Worksheet = kendo.Class.extend({
             freezePane: this.options.freezePane,
             columns: this.options.columns,
             data: data,
+            index: index,
             mergeCells: this._mergeCells,
             filter: filter ? { from: ref(filterRowIndex(this.options), filter.from), to: ref(filterRowIndex(this.options), filter.to) } : null
         });
@@ -621,8 +626,8 @@ var Workbook = kendo.Class.extend({
                     return {
                         localSheetId: index,
                         name: (options.title || "Sheet" + (index + 1)),
-                        from: ref(filterRowIndex(options), filter.from),
-                        to: ref(filterRowIndex(options), filter.to)
+                        from: $ref(filterRowIndex(options), filter.from),
+                        to: $ref(filterRowIndex(options), filter.to)
                     };
                 }
             })
@@ -632,7 +637,7 @@ var Workbook = kendo.Class.extend({
 
         var start = new Date();
         for (var idx = 0; idx < sheetCount; idx++) {
-            worksheets.file(kendo.format("sheet{0}.xml", idx+1), this._sheets[idx].toXML());
+            worksheets.file(kendo.format("sheet{0}.xml", idx+1), this._sheets[idx].toXML(idx));
         }
 
         var styles = $.map(this._styles, $.parseJSON);

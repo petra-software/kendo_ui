@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.318 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -203,7 +203,7 @@ if (kendo.ui.FilterCell) {
 kendo.ui.FilterCell.prototype.options.messages =
 $.extend(true, kendo.ui.FilterCell.prototype.options.messages,{
   "filter": "фільтрувати",
-  "clear": "очистити фільтр",
+  "clear": "очистити",
   "isFalse": "хиба",
   "isTrue": "істина",
   "operator": "Oператор"
@@ -217,7 +217,7 @@ kendo.ui.FilterMenu.prototype.options.messages =
 $.extend(true, kendo.ui.FilterMenu.prototype.options.messages,{
   "filter": "фільтрувати",
   "and": "І",
-  "clear": "очистити фільтр",
+  "clear": "очистити",
   "info": "Рядки із записами",
   "selectValue": "-виберіть-",
   "isFalse": "хиба",
