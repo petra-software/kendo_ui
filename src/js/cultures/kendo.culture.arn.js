@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -45,8 +45,8 @@
                     namesShort: ["kñ","ep","kl","me","ke","ca","re"]
                 },
                 months: {
-                    names: ["Kiñe Tripantu","Epu","Kila","Meli","Kechu","Cayu","Regle","Purha","Aiya","Marhi","Marhi Kiñe","Marhi Epu",""],
-                    namesAbbr: ["Kiñe Tripantu","Epu","Kila","Meli","Kechu","Cayu","Regle","Purha","Aiya","Marhi","Marhi Kiñe","Marhi Epu",""]
+                    names: ["Kiñe Tripantu","Epu","Kila","Meli","Kechu","Cayu","Regle","Purha","Aiya","Marhi","Marhi Kiñe","Marhi Epu"],
+                    namesAbbr: ["Kiñe Tripantu","Epu","Kila","Meli","Kechu","Cayu","Regle","Purha","Aiya","Marhi","Marhi Kiñe","Marhi Epu"]
                 },
                 AM: [""],
                 PM: [""],

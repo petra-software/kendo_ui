@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.327";
+    kendo.version = "2015.1.403";
 
     function Class() {}
 
@@ -10215,7 +10215,32 @@ var A = 0;
         },
 
         aggregates: function() {
-            return this._aggregateResult;
+            var result = this._aggregateResult;
+
+            if (isEmptyObject(result)) {
+                result = this._emptyAggregates(this.aggregate());
+            }
+
+            return result;
+        },
+
+        _emptyAggregates: function(aggregates) {
+            var result = {};
+
+            if (!isEmptyObject(aggregates)) {
+                var aggregate = {};
+
+                if (!isArray(aggregates)){
+                    aggregates = [aggregates];
+                }
+
+                for (var idx = 0; idx <aggregates.length; idx++) {
+                    aggregate[aggregates[idx].aggregate] = 0;
+                    result[aggregates[idx].field] = aggregate;
+                }
+            }
+
+            return result;
         },
 
         totalPages: function() {
@@ -27629,7 +27654,7 @@ var A = 0;
 
             for (var i = 0; i < children.length; i++) {
                 children[i].reflow(currentBox);
-                currentBox = boxDiff(currentBox, children[i].box);
+                currentBox = boxDiff(currentBox, children[i].box) || Box2D();
             }
         },
 
@@ -28095,13 +28120,15 @@ var A = 0;
                 BoxElement.fn.reflow.call(textbox, targetBox);
 
                 if (rotation) {
-                    var margin = options.margin;
+                    var margin = getSpacing(options.margin);
                     var box = textbox.box.unpad(margin);
                     textbox.normalBox = box.clone();
                     box.rotate(rotation);
-                    box.pad(margin);
                     textbox.align(targetBox, X, align);
                     textbox.align(targetBox, Y, options.vAlign);
+                    box.translate(margin.left - margin.right, margin.top - margin.bottom);
+                    textbox.rotatedBox = box.clone();
+                    box.pad(margin);
                 }
             }
         },
@@ -28163,27 +28190,11 @@ var A = 0;
             var center = this.normalBox.center();
             var cx = center.x;
             var cy = center.y;
-            var boxCenter = this.box.center();
+            var boxCenter = this.rotatedBox.center();
 
             return geom.transform()
                        .translate(boxCenter.x - cx, boxCenter.y - cy)
                        .rotate(rotation, [cx, cy]);
-        },
-
-        rotationMatrix: function() {
-            var textbox = this;
-            var options = textbox.options;
-            var normalBox = textbox.normalBox;
-            var center = normalBox.center();
-            var cx = center.x;
-            var cy = center.y;
-            var boxCenter = textbox.box.center();
-            var offsetX = boxCenter.x - cx;
-            var offsetY = boxCenter.y - cy;
-            var matrix = Matrix.translate(offsetX, offsetY)
-                    .times(Matrix.rotate(options.rotation, cx, cy));
-
-            return matrix;
         }
     });
 
@@ -28349,7 +28360,10 @@ var A = 0;
                 align: axis.options.majorTickType
             });
 
-            axis.createLabels();
+            if (!this.options._deferLables) {
+                axis.createLabels();
+            }
+
             axis.createTitle();
             axis.createNotes();
         },
@@ -28408,7 +28422,8 @@ var A = 0;
                 }
             },
 
-            _alignLines: true
+            _alignLines: true,
+            _deferLabels: false
         },
 
         // abstract labelsCount(): Number
@@ -28423,6 +28438,10 @@ var A = 0;
                     zIndex: options.zIndex
                 }),
                 step = math.max(1, labelOptions.step);
+
+            axis.children = $.grep(axis.children, function (child) {
+                return !(child instanceof AxisLabel);
+            });
 
             axis.labels = [];
 
@@ -30326,7 +30345,7 @@ var A = 0;
              return a.getTime() - b.getTime();
          }
 
-         return 0;
+         return -1;
     }
 
     var CurveProcessor = function(closed){
@@ -35751,14 +35770,15 @@ var A = 0;
                 chart.setDataSource(dataSource);
             }
 
-            if (chart._shouldAttachMouseMove()) {
-                chart.element.on(MOUSEMOVE_NS, chart._mousemove);
-            }
-
             if (chart._hasDataSource) {
                 chart.refresh();
             }  else {
+                chart._bindCategories();
                 chart.redraw();
+            }
+
+            if (chart._shouldAttachMouseMove()) {
+                chart.element.on(MOUSEMOVE_NS, chart._mousemove);
             }
         },
 
@@ -36177,7 +36197,7 @@ var A = 0;
                     opacity: 0
                 },
                 stroke: null,
-                cursor: cursor.style
+                cursor: cursor.style || cursor
             });
 
             this.appendVisual(eventSink);
@@ -36317,9 +36337,7 @@ var A = 0;
                 width: 0
             },
             item: {
-                cursor: {
-                    style: POINTER
-                }
+                cursor: POINTER
             },
             spacing: 6,
             background: "",
@@ -37636,9 +37654,17 @@ var A = 0;
                 }
             });
 
-            var size = options.vertical ? this.box.width() : this.box.height();
+            var width = this.box.width();
+            var height = this.box.height();
+
+            var size = options.vertical ? width : height;
+
             if (size > BAR_ALIGN_MIN_WIDTH) {
                 alignPathToPixel(rect);
+                //fixes lineJoin issue in firefox when the joined lines are parallel
+                if (width < 1 || height < 1) {
+                    rect.options.stroke.lineJoin = "round";
+                }
             }
 
             visual.append(rect);
@@ -43595,6 +43621,7 @@ var A = 0;
 
             plotArea.createCategoryAxes(panes);
             plotArea.aggregateCategories(panes);
+            plotArea.createCategoryAxesLabels(panes);
             plotArea.createCharts(panes);
             plotArea.createValueAxes(panes);
         },
@@ -43698,7 +43725,6 @@ var A = 0;
                 }
 
                 processedSeries.push(currentSeries);
-
             }
 
             plotArea.srcSeries = series;
@@ -43749,6 +43775,8 @@ var A = 0;
                     srcPoints[i], categories[i]
                 );
             }
+
+            categoryAxis.options.dataItems = data;
 
             return result;
         },
@@ -44010,6 +44038,15 @@ var A = 0;
             }
         },
 
+        createCategoryAxesLabels: function() {
+            var axes = this.axes;
+            for (var i = 0; i < axes.length; i++) {
+                if (axes[i] instanceof CategoryAxis) {
+                    axes[i].createLabels();
+                }
+            }
+        },
+
         createCategoryAxes: function(panes) {
             var plotArea = this,
                 invertAxes = plotArea.invertAxes,
@@ -44029,7 +44066,8 @@ var A = 0;
                     type  = axisOptions.type || "";
                     axisOptions = deepExtend({
                         vertical: invertAxes,
-                        axisCrossingValue: invertAxes ? MAX_VALUE : 0
+                        axisCrossingValue: invertAxes ? MAX_VALUE : 0,
+                        _deferLabels: true
                     }, axisOptions);
 
                     if (!defined(axisOptions.justified)) {
@@ -47003,7 +47041,7 @@ var A = 0;
                 majorAngles = axis.majorGridLineAngles(altAxis);
                 skipMajor = true;
 
-                gridLines = axis.renderGridLines(
+                gridLines = axis.renderMajorGridLines(
                     majorAngles, radius, options.majorGridLines
                 );
             }
@@ -47011,15 +47049,24 @@ var A = 0;
             if (options.minorGridLines.visible) {
                 minorAngles = axis.minorGridLineAngles(altAxis, skipMajor);
 
-                append(gridLines, axis.renderGridLines(
-                    minorAngles, radius, options.minorGridLines
+                append(gridLines, axis.renderMinorGridLines(
+                    minorAngles, radius, options.minorGridLines, altAxis, skipMajor
                 ));
             }
 
             return gridLines;
         },
 
-        renderGridLines: function(angles, radius, options) {
+        renderMajorGridLines: function(angles, radius, options) {
+            return this.renderGridLines(angles, radius, options);
+        },
+
+        renderMinorGridLines: function(angles, radius, options, altAxis, skipMajor) {
+            var radiusCallback = this.radiusCallback && this.radiusCallback(radius, altAxis, skipMajor);
+            return this.renderGridLines(angles, radius, options, radiusCallback);
+        },
+
+        renderGridLines: function(angles, radius, options, radiusCallback) {
             var style = {
                 stroke: {
                     width: options.width,
@@ -47034,6 +47081,9 @@ var A = 0;
 
             for (var i = 0; i < angles.length; i++) {
                 var line = new draw.Path(style);
+                if (radiusCallback) {
+                    circle.radius = radiusCallback(angles[i]);
+                }
 
                 line.moveTo(circle.center)
                     .lineTo(circle.pointAt(angles[i]));
@@ -47044,9 +47094,9 @@ var A = 0;
             return container.children;
         },
 
-        gridLineAngles: function(altAxis, step, skipStep) {
+        gridLineAngles: function(altAxis, size, skip, step, skipAngles) {
             var axis = this,
-                divs = axis.intervals(step, skipStep),
+                divs = axis.intervals(size, skip, step, skipAngles),
                 options = altAxis.options,
                 altAxisVisible = options.visible && (options.line || {}).visible !== false;
 
@@ -47087,6 +47137,9 @@ var A = 0;
 
         reflowLabels: function() {
             var axis = this,
+                labelOptions = axis.options.labels,
+                skip = labelOptions.skip || 0,
+                step = labelOptions.step || 1,
                 measureBox = new Box2D(),
                 labels = axis.labels,
                 labelBox,
@@ -47096,38 +47149,37 @@ var A = 0;
                 labels[i].reflow(measureBox);
                 labelBox = labels[i].box;
 
-                labels[i].reflow(axis.getSlot(i).adjacentBox(
+                labels[i].reflow(axis.getSlot(skip + i * step).adjacentBox(
                     0, labelBox.width(), labelBox.height()
                 ));
             }
         },
 
-        intervals: function(step, skipStep) {
+        intervals: function(size, skip, step, skipAngles) {
             var axis = this,
                 options = axis.options,
                 categories = options.categories.length,
                 angle = 0,
                 skipAngle = 0,
-                divCount = categories / step || 1,
+                divCount = categories / size || 1,
                 divAngle = 360 / divCount,
                 divs = [],
                 i;
 
-            if (skipStep) {
-                skipAngle = 360 / (categories / skipStep);
-            }
+            skip = skip || 0;
+            step = step || 1;
 
-            for (i = 0; i < divCount; i++) {
-                angle = round(angle, COORD_PRECISION);
-
-                if (angle % skipAngle !== 0) {
-                    divs.push(angle % 360);
+            for (i = skip; i < divCount; i+= step) {
+                if (options.reverse) {
+                    angle = 360 - i * divAngle;
+                } else {
+                    angle = i * divAngle;
                 }
 
-                if (options.reverse) {
-                    angle = 360 + angle - divAngle;
-                } else {
-                    angle += divAngle;
+                angle = round(angle, COORD_PRECISION) % 360;
+
+                if (!(skipAngles && dataviz.inArray(angle, skipAngles))) {
+                    divs.push(angle);
                 }
             }
 
@@ -47155,11 +47207,34 @@ var A = 0;
         },
 
         majorGridLineAngles: function(altAxis) {
-            return this.gridLineAngles(altAxis, 1);
+            var majorGridLines = this.options.majorGridLines;
+            return this.gridLineAngles(altAxis, 1, majorGridLines.skip, majorGridLines.step);
         },
 
         minorGridLineAngles: function(altAxis, skipMajor) {
-            return this.gridLineAngles(altAxis, 0.5, skipMajor ? 1 : 0);
+            var options = this.options;
+            var minorGridLines = options.minorGridLines;
+            var majorGridLines = options.majorGridLines;
+            var majorGridLineAngles = skipMajor ? this.intervals(1, majorGridLines.skip, majorGridLines.step) : null;
+
+            return this.gridLineAngles(altAxis, 0.5, minorGridLines.skip, minorGridLines.step, majorGridLineAngles);
+        },
+
+        radiusCallback: function(radius, altAxis, skipMajor) {
+            if (altAxis.options.type !== ARC) {
+                var minorAngle = 360 / (this.options.categories.length * 2);
+                var minorRadius = math.cos(minorAngle * DEG_TO_RAD) * radius;
+                var majorAngles = this.majorAngles();
+
+                var radiusCallback = function(angle) {
+                    if (!skipMajor && dataviz.inArray(angle, majorAngles)) {
+                        return radius;
+                    } else {
+                        return minorRadius;
+                    }
+                };
+                return radiusCallback;
+            }
         },
 
         createPlotBands: function() {
@@ -47542,11 +47617,12 @@ var A = 0;
 
         reflowLabels: function() {
             var axis = this,
-                labelOptions = axis.options.labels,
+                options = axis.options,
+                labelOptions = options.labels,
                 skip = labelOptions.skip || 0,
                 step = labelOptions.step || 1,
                 measureBox = new Box2D(),
-                divs = axis.majorIntervals(),
+                divs = axis.intervals(options.majorUnit, skip, step),
                 labels = axis.labels,
                 labelBox,
                 i;
@@ -47555,7 +47631,7 @@ var A = 0;
                 labels[i].reflow(measureBox);
                 labelBox = labels[i].box;
 
-                labels[i].reflow(axis.getSlot(divs[skip + i * step]).adjacentBox(
+                labels[i].reflow(axis.getSlot(divs[i]).adjacentBox(
                     0, labelBox.width(), labelBox.height()
                 ));
             }
@@ -47565,24 +47641,23 @@ var A = 0;
             return this.box;
         },
 
-        intervals: function(step, skipStep) {
+        intervals: function(size, skip, step, skipAngles) {
             var axis = this,
                 options = axis.options,
-                divisions = axis.getDivisions(step),
-                angle = options.min,
+                divisions = axis.getDivisions(size),
+                min = options.min,
+                current,
                 divs = [],
                 i;
 
-            if (skipStep) {
-                skipStep = skipStep / step;
-            }
+            skip = skip || 0;
+            step = step || 1;
 
-            for (i = 0; i < divisions; i++) {
-                if (i % skipStep !== 0) {
-                    divs.push((360 + angle) % 360);
+            for (i = skip; i < divisions; i+= step) {
+                current = (360 + min + i * size) % 360;
+                if (!(skipAngles && dataviz.inArray(current, skipAngles))) {
+                    divs.push(current);
                 }
-
-                angle += step;
             }
 
             return divs;
@@ -47597,7 +47672,7 @@ var A = 0;
         },
 
         intervalAngle: function(i) {
-            return (360 + i - this.options.startAngle) % 360;
+            return (540 - i - this.options.startAngle) % 360;
         },
 
         majorAngles: RadarCategoryAxis.fn.majorAngles,
@@ -47607,12 +47682,17 @@ var A = 0;
         },
 
         majorGridLineAngles: function(altAxis) {
-            return this.gridLineAngles(altAxis, this.options.majorUnit);
+            var majorGridLines = this.options.majorGridLines;
+            return this.gridLineAngles(altAxis, this.options.majorUnit, majorGridLines.skip, majorGridLines.step);
         },
 
         minorGridLineAngles: function(altAxis, skipMajor) {
-            return this.gridLineAngles(altAxis, this.options.minorUnit,
-                      skipMajor ? this.options.majorUnit : 0);
+            var options = this.options;
+            var minorGridLines = options.minorGridLines;
+            var majorGridLines = options.majorGridLines;
+            var majorGridLineAngles = skipMajor ? this.intervals(options.majorUnit, majorGridLines.skip, majorGridLines.step) : null;
+
+            return this.gridLineAngles(altAxis, this.options.minorUnit, minorGridLines.skip, minorGridLines.step, majorGridLineAngles);
         },
 
         createPlotBands: RadarCategoryAxis.fn.createPlotBands,
@@ -69328,7 +69408,7 @@ var A = 0;
                         tap: proxy(that._toggleOverflow, that)
                     });
 
-                    kendo.onResize(function() {
+                    that._resizeHandler = kendo.onResize(function() {
                         that.resize();
                     });
                 } else {
@@ -69390,6 +69470,7 @@ var A = 0;
                 that.userEvents.destroy();
 
                 if (that.options.resizable) {
+                    kendo.unbindResize(that._resizeHandler);
                     that.overflowUserEvents.destroy();
                     that.popup.destroy();
                 }
@@ -69638,8 +69719,9 @@ var A = 0;
                 } else {
                     that.popup.container = that.popup.element;
                 }
-
+                
                 that.popup.container.attr(KENDO_UID_ATTR, this.uid);
+                that.popup.element.toggleClass("k-rtl", kendo.support.isRtl(that.element));
             },
 
             _toggleOverflowAnchor: function() {
@@ -72220,6 +72302,7 @@ var A = 0;
 
             text[0].tabIndex = element.tabIndex;
             text[0].style.cssText = element.style.cssText;
+            text[0].title = element.title;
             text.prop("placeholder", that.options.placeholder);
 
             if (accessKey) {
@@ -75133,7 +75216,7 @@ var A = 0;
         _calculateGroupPadding: function(height) {
             var ul = this.ul;
             var li = $(ul[0].firstChild);
-            var groupHeader = ul.prev(".k-static-header");
+            var groupHeader = ul.prev(".k-group-header");
             var padding = 0;
 
             if (groupHeader[0] && groupHeader[0].style.display !== "none") {
@@ -75196,7 +75279,7 @@ var A = 0;
         _triggerCascade: function() {
             var that = this;
 
-            if (!that._cascadeTriggered || that._old !== that.value()) {
+            if (!that._cascadeTriggered || that._old !== that.value() || that._oldIndex !== that.selectedIndex) {
                 that._cascadeTriggered = true;
                 that.trigger("cascade", { userTriggered: that._userTriggered });
             }
@@ -75744,7 +75827,7 @@ var A = 0;
                         .on("mouseleave" + STATIC_LIST_NS, "li", function() { $(this).removeClass(HOVER); });
 
 
-            this.header = this.element.before('<div class="k-static-header" style="display:none"></div>').prev();
+            this.header = this.element.before('<div class="k-group-header" style="display:none"></div>').prev();
 
             this._bound = false;
 
@@ -76558,6 +76641,8 @@ var A = 0;
             options = that.options;
             element = that.element.on("focus" + ns, proxy(that._focusHandler, that));
 
+            that._clickHandler = $.proxy(that._click, that);
+
             that._focusInputHandler = $.proxy(that._focusInput, that);
             that._inputTemplate();
 
@@ -76565,6 +76650,7 @@ var A = 0;
 
             that._prev = "";
             that._word = "";
+            that.optionLabel = $();
 
             that._wrapper();
 
@@ -76664,11 +76750,16 @@ var A = 0;
 
             this.listView.setOptions(options);
 
+            this._optionLabel();
             this._inputTemplate();
             this._accessors();
             this._filterHeader();
             this._enable();
             this._aria();
+
+            if (!this.value() && this.optionLabel[0]) {
+                this.select(0);
+            }
         },
 
         destroy: function() {
@@ -76699,6 +76790,7 @@ var A = 0;
 
                 if (that.filterInput) {
                     that.filterInput.val("");
+                    that._prev = "";
                 }
 
                 that._filterSource();
@@ -76747,7 +76839,7 @@ var A = 0;
                     groupTemplate: options.groupTemplate || "#:data#",
                     fixedGroupTemplate: options.fixedGroupTemplate || "#:data#",
                     template: options.template || "#:" + kendo.expr(options.dataTextField, "data") + "#",
-                    click: $.proxy(that._click, that),
+                    click: that._clickHandler,
                     change: $.proxy(that._listChange, that),
                     activate: $.proxy(that._activateItem, that),
                     deactivate: $.proxy(that._deactivateItem, that),
@@ -76766,7 +76858,7 @@ var A = 0;
                     groupTemplate: options.groupTemplate || "#:data#",
                     fixedGroupTemplate: options.fixedGroupTemplate || "#:data#",
                     template: options.template || "#:" + kendo.expr(options.dataTextField, "data") + "#",
-                    click: $.proxy(that._click, that),
+                    click: that._clickHandler,
                     change: $.proxy(that._listChange, that),
                     activate: $.proxy(that._activateItem, that),
                     deactivate: $.proxy(that._deactivateItem, that),
@@ -76799,25 +76891,27 @@ var A = 0;
 
         dataItem: function(index) {
             var that = this;
-            var dataItem;
+            var dataItem = null;
+            var hasOptionLabel = !!that.optionLabel[0];
 
             if (index === undefined) {
                 dataItem = that.listView.selectedDataItems()[0];
-
-                if (!dataItem && this.optionLabel[0]) {
-                    dataItem = {};
-                    assign(dataItem, that.options.dataTextField.split("."), that._optionLabelText());
-                    assign(dataItem, that.options.dataValueField.split("."), "");
+            } else {
+                if (typeof index !== "number") {
+                    index = $(that.items()).index(index);
+                } else if (hasOptionLabel) {
+                    index -= 1;
                 }
 
-                return dataItem;
+                dataItem = that.dataSource.flatView()[index];
             }
 
-            if (typeof index !== "number") {
-                index = $(that.items()).index(index);
+
+            if (!dataItem && hasOptionLabel) {
+                dataItem = that._assignInstance(that._optionLabelText(), "");
             }
 
-            return that.dataSource.flatView()[index];
+            return dataItem;
         },
 
         refresh: function() {
@@ -76887,6 +76981,7 @@ var A = 0;
             var template = options.optionLabelTemplate;
 
             if (!optionLabel) {
+                that.optionLabel.off().remove();
                 that.optionLabel = $();
                 return;
             }
@@ -76908,10 +77003,15 @@ var A = 0;
             }
 
             that.optionLabelTemplate = template;
-            that.optionLabel = $('<div class="k-list-optionlabel">' + template(optionLabel) + '</div>')
-                                .prependTo(that.list)
-                                .click($.proxy(that._click, that))
-                                .on(HOVEREVENTS, that._toggleHover);
+
+            if (!that.optionLabel[0]) {
+                that.optionLabel = $('<div class="k-list-optionlabel"></div>').prependTo(that.list);
+            }
+
+            that.optionLabel.html(template(optionLabel))
+                            .off()
+                            .click(that._clickHandler)
+                            .on(HOVEREVENTS, that._toggleHover);
 
             that.angular("compile", function(){
                 return { elements: that.optionLabel };
@@ -77106,12 +77206,23 @@ var A = 0;
             var key = e.keyCode;
             var altKey = e.altKey;
             var ul = that.ul[0];
+            var isInputActive;
             var handled;
+
+            if (that.filterInput) {
+                isInputActive = that.filterInput[0] === activeElement();
+            }
 
             if (key === keys.LEFT) {
                 key = keys.UP;
+                handled = true;
             } else if (key === keys.RIGHT) {
                 key = keys.DOWN;
+                handled = true;
+            }
+
+            if (handled && isInputActive) {
+                return;
             }
 
             e.keyCode = key;
@@ -77594,6 +77705,7 @@ var A = 0;
             if (!wrapper.is("span.k-widget")) {
                 wrapper = element.wrap("<span />").parent();
                 wrapper[0].style.cssText = DOMelement.style.cssText;
+                wrapper[0].title = DOMelement.title;
             }
 
             element.hide();
@@ -77644,13 +77756,7 @@ var A = 0;
                 }
 
                 if (dataItem === undefined) {
-                    if (options.dataTextField) {
-                        dataItem = {};
-                        assign(dataItem, options.dataTextField.split("."), text);
-                        assign(dataItem, options.dataValueField.split("."), this._accessor());
-                    } else {
-                        dataItem = text;
-                    }
+                    dataItem = this._assignInstance(text, this._accessor());
                 }
 
                 var getElements = function(){
@@ -77665,6 +77771,21 @@ var A = 0;
             } else {
                 return span.text();
             }
+        },
+
+        _assignInstance: function(text, value) {
+            var dataTextField = this.options.dataTextField;
+            var dataItem = {};
+
+            if (dataTextField) {
+                assign(dataItem, dataTextField.split("."), text);
+                assign(dataItem, this.options.dataValueField.split("."), value);
+                dataItem = new kendo.data.ObservableObject(dataItem);
+            } else {
+                dataItem = text;
+            }
+
+            return dataItem;
         }
     });
 

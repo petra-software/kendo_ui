@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -510,6 +510,7 @@ html .km-pane-wrapper .k-header {
   border-color: #ffffff;
 }
 .k-virtual-item.k-first,
+.k-group-header + .k-list > .k-item.k-first,
 .k-static-header + .k-list > .k-item.k-first {
   border-top-color: #999999;
 }
@@ -1032,7 +1033,9 @@ div.k-filebrowser-dropzone em {
 .k-toolbar .k-button-group .k-group-start {
   border-radius: 2px 0 0 2px;
 }
-.k-rtl .k-tool.k-group-start {
+.k-rtl .k-tool.k-group-start,
+.k-rtl .k-toolbar .k-split-button .k-button,
+.k-rtl .k-toolbar .k-button-group .k-group-start {
   border-radius: 0 2px 2px 0;
 }
 .k-tool.k-group-end,
@@ -1040,7 +1043,9 @@ div.k-filebrowser-dropzone em {
 .k-toolbar .k-split-button .k-split-button-arrow {
   border-radius: 0 2px 2px 0;
 }
-.k-rtl .k-tool.k-group-end {
+.k-rtl .k-tool.k-group-end,
+.k-rtl .k-toolbar .k-button-group .k-group-end,
+.k-rtl .k-toolbar .k-split-button .k-split-button-arrow {
   border-radius: 2px 0 0 2px;
 }
 .k-group-start.k-group-end.k-tool {

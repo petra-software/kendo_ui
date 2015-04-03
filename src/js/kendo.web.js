@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.327";
+    kendo.version = "2015.1.403";
 
     function Class() {}
 
@@ -8643,7 +8643,32 @@ var A = 0;
         },
 
         aggregates: function() {
-            return this._aggregateResult;
+            var result = this._aggregateResult;
+
+            if (isEmptyObject(result)) {
+                result = this._emptyAggregates(this.aggregate());
+            }
+
+            return result;
+        },
+
+        _emptyAggregates: function(aggregates) {
+            var result = {};
+
+            if (!isEmptyObject(aggregates)) {
+                var aggregate = {};
+
+                if (!isArray(aggregates)){
+                    aggregates = [aggregates];
+                }
+
+                for (var idx = 0; idx <aggregates.length; idx++) {
+                    aggregate[aggregates[idx].aggregate] = 0;
+                    result[aggregates[idx].field] = aggregate;
+                }
+            }
+
+            return result;
         },
 
         totalPages: function() {
@@ -28917,7 +28942,7 @@ kendo.ExcelMixin = {
         CHANGE = "change",
         NS = ".kendoSelectable",
         UNSELECTING = "k-state-unselecting",
-        INPUTSELECTOR = "input,a,textarea,.k-multiselect-wrap,select,button,a.k-button>.k-icon,span.k-icon.k-i-expand,span.k-icon.k-i-collapse",
+        INPUTSELECTOR = "input,a,textarea,.k-multiselect-wrap,select,button,a.k-button>.k-icon,button.k-button>.k-icon,span.k-icon.k-i-expand,span.k-icon.k-i-collapse",
         msie = kendo.support.browser.msie,
         supportEventDelegation = false;
 
@@ -31824,7 +31849,7 @@ kendo.ExcelMixin = {
         _calculateGroupPadding: function(height) {
             var ul = this.ul;
             var li = $(ul[0].firstChild);
-            var groupHeader = ul.prev(".k-static-header");
+            var groupHeader = ul.prev(".k-group-header");
             var padding = 0;
 
             if (groupHeader[0] && groupHeader[0].style.display !== "none") {
@@ -31887,7 +31912,7 @@ kendo.ExcelMixin = {
         _triggerCascade: function() {
             var that = this;
 
-            if (!that._cascadeTriggered || that._old !== that.value()) {
+            if (!that._cascadeTriggered || that._old !== that.value() || that._oldIndex !== that.selectedIndex) {
                 that._cascadeTriggered = true;
                 that.trigger("cascade", { userTriggered: that._userTriggered });
             }
@@ -32435,7 +32460,7 @@ kendo.ExcelMixin = {
                         .on("mouseleave" + STATIC_LIST_NS, "li", function() { $(this).removeClass(HOVER); });
 
 
-            this.header = this.element.before('<div class="k-static-header" style="display:none"></div>').prev();
+            this.header = this.element.before('<div class="k-group-header" style="display:none"></div>').prev();
 
             this._bound = false;
 
@@ -35883,6 +35908,8 @@ kendo.ExcelMixin = {
             options = that.options;
             element = that.element.on("focus" + ns, proxy(that._focusHandler, that));
 
+            that._clickHandler = $.proxy(that._click, that);
+
             that._focusInputHandler = $.proxy(that._focusInput, that);
             that._inputTemplate();
 
@@ -35890,6 +35917,7 @@ kendo.ExcelMixin = {
 
             that._prev = "";
             that._word = "";
+            that.optionLabel = $();
 
             that._wrapper();
 
@@ -35989,11 +36017,16 @@ kendo.ExcelMixin = {
 
             this.listView.setOptions(options);
 
+            this._optionLabel();
             this._inputTemplate();
             this._accessors();
             this._filterHeader();
             this._enable();
             this._aria();
+
+            if (!this.value() && this.optionLabel[0]) {
+                this.select(0);
+            }
         },
 
         destroy: function() {
@@ -36024,6 +36057,7 @@ kendo.ExcelMixin = {
 
                 if (that.filterInput) {
                     that.filterInput.val("");
+                    that._prev = "";
                 }
 
                 that._filterSource();
@@ -36072,7 +36106,7 @@ kendo.ExcelMixin = {
                     groupTemplate: options.groupTemplate || "#:data#",
                     fixedGroupTemplate: options.fixedGroupTemplate || "#:data#",
                     template: options.template || "#:" + kendo.expr(options.dataTextField, "data") + "#",
-                    click: $.proxy(that._click, that),
+                    click: that._clickHandler,
                     change: $.proxy(that._listChange, that),
                     activate: $.proxy(that._activateItem, that),
                     deactivate: $.proxy(that._deactivateItem, that),
@@ -36091,7 +36125,7 @@ kendo.ExcelMixin = {
                     groupTemplate: options.groupTemplate || "#:data#",
                     fixedGroupTemplate: options.fixedGroupTemplate || "#:data#",
                     template: options.template || "#:" + kendo.expr(options.dataTextField, "data") + "#",
-                    click: $.proxy(that._click, that),
+                    click: that._clickHandler,
                     change: $.proxy(that._listChange, that),
                     activate: $.proxy(that._activateItem, that),
                     deactivate: $.proxy(that._deactivateItem, that),
@@ -36124,25 +36158,27 @@ kendo.ExcelMixin = {
 
         dataItem: function(index) {
             var that = this;
-            var dataItem;
+            var dataItem = null;
+            var hasOptionLabel = !!that.optionLabel[0];
 
             if (index === undefined) {
                 dataItem = that.listView.selectedDataItems()[0];
-
-                if (!dataItem && this.optionLabel[0]) {
-                    dataItem = {};
-                    assign(dataItem, that.options.dataTextField.split("."), that._optionLabelText());
-                    assign(dataItem, that.options.dataValueField.split("."), "");
+            } else {
+                if (typeof index !== "number") {
+                    index = $(that.items()).index(index);
+                } else if (hasOptionLabel) {
+                    index -= 1;
                 }
 
-                return dataItem;
+                dataItem = that.dataSource.flatView()[index];
             }
 
-            if (typeof index !== "number") {
-                index = $(that.items()).index(index);
+
+            if (!dataItem && hasOptionLabel) {
+                dataItem = that._assignInstance(that._optionLabelText(), "");
             }
 
-            return that.dataSource.flatView()[index];
+            return dataItem;
         },
 
         refresh: function() {
@@ -36212,6 +36248,7 @@ kendo.ExcelMixin = {
             var template = options.optionLabelTemplate;
 
             if (!optionLabel) {
+                that.optionLabel.off().remove();
                 that.optionLabel = $();
                 return;
             }
@@ -36233,10 +36270,15 @@ kendo.ExcelMixin = {
             }
 
             that.optionLabelTemplate = template;
-            that.optionLabel = $('<div class="k-list-optionlabel">' + template(optionLabel) + '</div>')
-                                .prependTo(that.list)
-                                .click($.proxy(that._click, that))
-                                .on(HOVEREVENTS, that._toggleHover);
+
+            if (!that.optionLabel[0]) {
+                that.optionLabel = $('<div class="k-list-optionlabel"></div>').prependTo(that.list);
+            }
+
+            that.optionLabel.html(template(optionLabel))
+                            .off()
+                            .click(that._clickHandler)
+                            .on(HOVEREVENTS, that._toggleHover);
 
             that.angular("compile", function(){
                 return { elements: that.optionLabel };
@@ -36431,12 +36473,23 @@ kendo.ExcelMixin = {
             var key = e.keyCode;
             var altKey = e.altKey;
             var ul = that.ul[0];
+            var isInputActive;
             var handled;
+
+            if (that.filterInput) {
+                isInputActive = that.filterInput[0] === activeElement();
+            }
 
             if (key === keys.LEFT) {
                 key = keys.UP;
+                handled = true;
             } else if (key === keys.RIGHT) {
                 key = keys.DOWN;
+                handled = true;
+            }
+
+            if (handled && isInputActive) {
+                return;
             }
 
             e.keyCode = key;
@@ -36919,6 +36972,7 @@ kendo.ExcelMixin = {
             if (!wrapper.is("span.k-widget")) {
                 wrapper = element.wrap("<span />").parent();
                 wrapper[0].style.cssText = DOMelement.style.cssText;
+                wrapper[0].title = DOMelement.title;
             }
 
             element.hide();
@@ -36969,13 +37023,7 @@ kendo.ExcelMixin = {
                 }
 
                 if (dataItem === undefined) {
-                    if (options.dataTextField) {
-                        dataItem = {};
-                        assign(dataItem, options.dataTextField.split("."), text);
-                        assign(dataItem, options.dataValueField.split("."), this._accessor());
-                    } else {
-                        dataItem = text;
-                    }
+                    dataItem = this._assignInstance(text, this._accessor());
                 }
 
                 var getElements = function(){
@@ -36990,6 +37038,21 @@ kendo.ExcelMixin = {
             } else {
                 return span.text();
             }
+        },
+
+        _assignInstance: function(text, value) {
+            var dataTextField = this.options.dataTextField;
+            var dataItem = {};
+
+            if (dataTextField) {
+                assign(dataItem, dataTextField.split("."), text);
+                assign(dataItem, this.options.dataValueField.split("."), value);
+                dataItem = new kendo.data.ObservableObject(dataItem);
+            } else {
+                dataItem = text;
+            }
+
+            return dataItem;
         }
     });
 
@@ -37352,6 +37415,7 @@ kendo.ExcelMixin = {
                 if (!listView.value().length) {
                     if (initialIndex !== null && initialIndex > -1) {
                         that.select(initialIndex);
+                        focusedItem = listView.focus();
                     } else if (that._accessor()) {
                         listView.value(that._accessor());
                     }
@@ -37397,10 +37461,6 @@ kendo.ExcelMixin = {
 
         _listChange: function() {
             this._selectValue(this.listView.selectedDataItems()[0]);
-
-            if (this._old && this._oldIndex === -1) {
-                this._oldIndex = this.selectedIndex;
-            }
         },
 
         _get: function(candidate) {
@@ -37707,6 +37767,7 @@ kendo.ExcelMixin = {
             }
 
             input[0].style.cssText = element.style.cssText;
+            input[0].title = element.title;
 
             if (element.maxLength > -1) {
                 input[0].maxLength = element.maxLength;
@@ -38155,10 +38216,16 @@ kendo.ExcelMixin = {
 
         _removeTag: function(tag) {
             var that = this;
+            var state = that._state;
             var position = tag.index();
             var listView = that.listView;
-            var customIndex = that._customOptions[listView.value()[position]];
+            var value = listView.value()[position];
+            var customIndex = that._customOptions[value];
             var option;
+
+            if (customIndex === undefined && (state === ACCEPT || state === FILTER)) {
+                customIndex = that._optionsMap[value];
+            }
 
             if (customIndex !== undefined) {
                 option = that.element[0].children[customIndex];
@@ -38873,6 +38940,7 @@ kendo.ExcelMixin = {
             if (!wrapper[0]) {
                 wrapper = element.wrap('<div class="k-widget k-multiselect k-header" unselectable="on" />').parent();
                 wrapper[0].style.cssText = element[0].style.cssText;
+                wrapper[0].title = element[0].title;
 
                 $('<div class="k-multiselect-wrap k-floatwrap" unselectable="on" />').insertBefore(element);
             }
@@ -41889,6 +41957,7 @@ kendo.ExcelMixin = {
 
             text[0].tabIndex = element.tabIndex;
             text[0].style.cssText = element.style.cssText;
+            text[0].title = element.title;
             text.prop("placeholder", that.options.placeholder);
 
             if (accessKey) {
@@ -48987,6 +49056,453 @@ kendo.ExcelMixin = {
 
 
 
+
+
+(function ($, undefined) {
+    var kendo = window.kendo,
+        ui = kendo.ui,
+        Widget = ui.Widget,
+        HORIZONTAL = "horizontal",
+        VERTICAL = "vertical",
+        DEFAULTMIN = 0,
+        DEFAULTMAX = 100,
+        DEFAULTVALUE = 0,
+        DEFAULTCHUNKCOUNT = 5,
+        KPROGRESSBAR = "k-progressbar",
+        KPROGRESSBARREVERSE = "k-progressbar-reverse",
+        KPROGRESSBARINDETERMINATE = "k-progressbar-indeterminate",
+        KPROGRESSBARCOMPLETE = "k-complete",
+        KPROGRESSWRAPPER = "k-state-selected",
+        KPROGRESSSTATUS = "k-progress-status",
+        KCOMPLETEDCHUNK = "k-state-selected",
+        KUPCOMINGCHUNK = "k-state-default",
+        KSTATEDISABLED = "k-state-disabled",
+        PROGRESSTYPE = {
+            VALUE: "value",
+            PERCENT: "percent",
+            CHUNK: "chunk"
+        },
+        CHANGE = "change",
+        COMPLETE = "complete",
+        BOOLEAN = "boolean",
+        math = Math,
+        extend = $.extend,
+        proxy = $.proxy,
+        HUNDREDPERCENT = 100,
+        DEFAULTANIMATIONDURATION = 400,
+        PRECISION = 3,
+        templates = {
+            progressStatus: "<span class='k-progress-status-wrap'><span class='k-progress-status'></span></span>"
+        };
+
+    var ProgressBar = Widget.extend({
+        init: function(element, options) {
+            var that = this;
+
+            Widget.fn.init.call(this, element, options);
+
+            options = that.options;
+
+            that._progressProperty = (options.orientation === HORIZONTAL) ? "width" : "height";
+
+            that._fields();
+
+            options.value = that._validateValue(options.value);
+
+            that._validateType(options.type);
+
+            that._wrapper();
+
+            that._progressAnimation();
+
+            if ((options.value !== options.min) && (options.value !== false)) {
+               that._updateProgress();
+            }
+        },
+
+        setOptions: function(options) {
+            var that = this;
+            
+            Widget.fn.setOptions.call(that, options);
+
+            if (options.hasOwnProperty("reverse")) {
+                that.wrapper.toggleClass("k-progressbar-reverse", options.reverse);
+            }
+
+            if (options.hasOwnProperty("enable")) {
+                that.enable(options.enable);
+            }
+
+            that._progressAnimation();
+
+            that._validateValue();
+
+            that._updateProgress();
+        },
+
+        events: [
+            CHANGE,
+            COMPLETE
+        ],
+
+        options: {
+            name: "ProgressBar",
+            orientation: HORIZONTAL,
+            reverse: false,
+            min: DEFAULTMIN,
+            max: DEFAULTMAX,
+            value: DEFAULTVALUE,
+            enable: true,
+            type: PROGRESSTYPE.VALUE,
+            chunkCount: DEFAULTCHUNKCOUNT,
+            showStatus: true,
+            animation: { }
+        },
+
+        _fields: function() {
+            var that = this;
+
+            that._isStarted = false;
+
+            that.progressWrapper = that.progressStatus = $();
+        },
+
+        _validateType: function(currentType) {
+            var isValid = false;
+
+            $.each(PROGRESSTYPE, function(k, type) {
+                if (type === currentType) {
+                    isValid = true;
+                    return false;
+                }
+            });
+
+            if (!isValid) {
+                throw new Error(kendo.format("Invalid ProgressBar type '{0}'", currentType));
+            }
+        },
+
+        _wrapper: function() {
+            var that = this;
+            var container = that.wrapper = that.element;
+            var options = that.options;
+            var orientation = options.orientation;
+            var initialStatusValue;
+
+            container.addClass("k-widget " + KPROGRESSBAR);
+
+            container.addClass(KPROGRESSBAR + "-" + ((orientation === HORIZONTAL) ? HORIZONTAL : VERTICAL));
+
+            if(options.enable === false) {
+                container.addClass(KSTATEDISABLED);
+            }
+
+            if (options.reverse) {
+                container.addClass(KPROGRESSBARREVERSE);
+            }
+
+            if (options.value === false) {
+                container.addClass(KPROGRESSBARINDETERMINATE);
+            }
+
+            if (options.type === PROGRESSTYPE.CHUNK) {
+                that._addChunkProgressWrapper();
+            } else {
+                if (options.showStatus){
+                    that.progressStatus = that.wrapper.prepend(templates.progressStatus)
+                                              .find("." + KPROGRESSSTATUS);
+
+                    initialStatusValue = (options.value !== false) ? options.value : options.min;
+
+                    if (options.type === PROGRESSTYPE.VALUE) {
+                        that.progressStatus.text(initialStatusValue);
+                    } else {
+                        that.progressStatus.text(that._calculatePercentage(initialStatusValue) + "%");
+                    }
+                }
+            }
+        },
+
+        value: function(value) {
+            return this._value(value);
+        },
+
+        _value: function(value){
+            var that = this;
+            var options = that.options;
+            var validated;
+
+            if (value === undefined) {
+                return options.value;
+            } else {
+                if (typeof value !== BOOLEAN) {
+                    value = that._roundValue(value);
+
+                    if(!isNaN(value)) {
+                        validated = that._validateValue(value);
+
+                        if (validated !== options.value) {
+                            that.wrapper.removeClass(KPROGRESSBARINDETERMINATE);
+
+                            options.value = validated;
+
+                            that._isStarted = true;
+
+                            that._updateProgress();
+                        }
+                    }
+                } else if (!value) {
+                    that.wrapper.addClass(KPROGRESSBARINDETERMINATE);
+                    options.value = false;
+                }
+            }
+        },
+
+        _roundValue: function(value) {
+            value = parseFloat(value);
+
+            var power = math.pow(10, PRECISION);
+
+            return math.floor(value * power) / power;
+        },
+
+        _validateValue: function(value) {
+            var that = this;
+            var options = that.options;
+
+            if (value !== false) {
+                if (value <= options.min || value === true) {
+                    return options.min;
+                } else if (value >= options.max) {
+                    return options.max;
+                }
+            } else if (value === false) {
+                return false;
+            }
+
+            if(isNaN(that._roundValue(value))) {
+                return options.min;
+            }
+
+            return value;
+        },
+
+        _updateProgress: function() {
+            var that = this;
+            var options = that.options;
+            var percentage = that._calculatePercentage();
+
+            if (options.type === PROGRESSTYPE.CHUNK) {
+                that._updateChunks(percentage);
+                that._onProgressUpdateAlways(options.value);
+            } else {
+                that._updateProgressWrapper(percentage);
+            }
+        },
+
+        _updateChunks: function(percentage) {
+            var that = this;
+            var options = that.options;
+            var chunkCount = options.chunkCount;
+            var percentagesPerChunk =  parseInt((HUNDREDPERCENT / chunkCount) * 100, 10) / 100;
+            var percentageParsed = parseInt(percentage * 100, 10) / 100;
+            var completedChunksCount = math.floor(percentageParsed / percentagesPerChunk);
+            var completedChunks;
+
+            if((options.orientation === HORIZONTAL && !(options.reverse)) ||
+               (options.orientation === VERTICAL && options.reverse)) {
+                completedChunks = that.wrapper.find("li.k-item:lt(" + completedChunksCount + ")");
+            } else {
+                completedChunks = that.wrapper.find("li.k-item:gt(-" + (completedChunksCount + 1) + ")");
+            }
+
+            that.wrapper.find("." + KCOMPLETEDCHUNK)
+                        .removeClass(KCOMPLETEDCHUNK)
+                        .addClass(KUPCOMINGCHUNK);
+
+            completedChunks.removeClass(KUPCOMINGCHUNK)
+                           .addClass(KCOMPLETEDCHUNK);
+        },
+
+        _updateProgressWrapper: function(percentage) {
+            var that = this;
+            var options = that.options;
+            var progressWrapper = that.wrapper.find("." + KPROGRESSWRAPPER);
+            var animationDuration = that._isStarted ? that._animation.duration : 0;
+            var animationCssOptions = { };
+
+            if (progressWrapper.length === 0) {
+                that._addRegularProgressWrapper();
+            }
+
+            animationCssOptions[that._progressProperty] = percentage + "%";
+            that.progressWrapper.animate(animationCssOptions, {
+                duration: animationDuration,
+                start: proxy(that._onProgressAnimateStart, that),
+                progress: proxy(that._onProgressAnimate, that),
+                complete: proxy(that._onProgressAnimateComplete, that, options.value),
+                always: proxy(that._onProgressUpdateAlways, that, options.value)
+            });
+        },
+
+        _onProgressAnimateStart: function() {
+            this.progressWrapper.show();
+        },
+
+        _onProgressAnimate: function(e) {
+            var that = this;
+            var options = that.options;
+            var progressInPercent = parseFloat(e.elem.style[that._progressProperty], 10);
+            var progressStatusWrapSize;
+
+            if (options.showStatus) {
+                progressStatusWrapSize = 10000 / parseFloat(that.progressWrapper[0].style[that._progressProperty]);
+
+                that.progressWrapper.find(".k-progress-status-wrap").css(that._progressProperty, progressStatusWrapSize + "%");
+            }
+
+            if (options.type !== PROGRESSTYPE.CHUNK && progressInPercent <= 98) {
+                that.progressWrapper.removeClass(KPROGRESSBARCOMPLETE);
+            }
+        },
+
+        _onProgressAnimateComplete: function(currentValue) {
+            var that = this;
+            var options = that.options;
+            var progressWrapperSize = parseFloat(that.progressWrapper[0].style[that._progressProperty]);
+
+            if (options.type !== PROGRESSTYPE.CHUNK && progressWrapperSize > 98) {
+                that.progressWrapper.addClass(KPROGRESSBARCOMPLETE);
+            }
+
+            if (options.showStatus) {
+                if (options.type === PROGRESSTYPE.VALUE) {
+                    that.progressStatus.text(currentValue);
+                } else {
+                    that.progressStatus.text(math.floor(that._calculatePercentage(currentValue)) + "%");
+                }
+            }
+
+            if (currentValue === options.min) {
+                that.progressWrapper.hide();
+            }
+        },
+
+        _onProgressUpdateAlways: function(currentValue) {
+            var that = this;
+            var options = that.options;
+
+            if (that._isStarted) {
+                that.trigger(CHANGE, { value: currentValue });
+            }
+
+            if (currentValue === options.max && that._isStarted) {
+                that.trigger(COMPLETE, { value: options.max });
+            }
+        },
+
+        enable: function(enable) {
+            var that = this;
+            var options = that.options;
+
+            options.enable = typeof(enable) === "undefined" ? true : enable;
+            that.wrapper.toggleClass(KSTATEDISABLED, !options.enable);
+        },
+
+        destroy: function() {
+            var that = this;
+
+            Widget.fn.destroy.call(that);
+        },
+
+        _addChunkProgressWrapper: function () {
+            var that = this;
+            var options = that.options;
+            var container = that.wrapper;
+            var chunkSize = HUNDREDPERCENT / options.chunkCount;
+            var html = "";
+
+            if (options.chunkCount <= 1) {
+                options.chunkCount = DEFAULTCHUNKCOUNT;
+            }
+
+            html += "<ul class='k-reset'>";
+            for (var i = options.chunkCount - 1; i >= 0; i--) {
+                html += "<li class='k-item k-state-default'></li>";
+            }
+            html += "</ul>";
+
+            container.append(html).find(".k-item").css(that._progressProperty, chunkSize + "%")
+                     .first().addClass("k-first")
+                     .end()
+                     .last().addClass("k-last");
+
+            that._normalizeChunkSize();
+        },
+
+        _normalizeChunkSize: function() {
+            var that = this;
+            var options = that.options;
+            var lastChunk = that.wrapper.find(".k-item:last");
+            var currentSize = parseFloat(lastChunk[0].style[that._progressProperty]);
+            var difference = HUNDREDPERCENT - (options.chunkCount * currentSize);
+
+            if (difference > 0) {
+                lastChunk.css(that._progressProperty, (currentSize + difference) + "%");
+            }
+        },
+
+        _addRegularProgressWrapper: function() {
+            var that = this;
+
+            that.progressWrapper = $("<div class='" + KPROGRESSWRAPPER + "'></div>").appendTo(that.wrapper);
+
+            if (that.options.showStatus) {
+                that.progressWrapper.append(templates.progressStatus);
+
+                that.progressStatus = that.wrapper.find("." + KPROGRESSSTATUS);
+            }
+        },
+
+        _calculateChunkSize: function() {
+            var that = this;
+            var chunkCount = that.options.chunkCount;
+            var chunkContainer = that.wrapper.find("ul.k-reset");
+
+            return (parseInt(chunkContainer.css(that._progressProperty), 10) - (chunkCount - 1)) / chunkCount;
+        },
+
+        _calculatePercentage: function(currentValue) {
+            var that = this;
+            var options = that.options;
+            var value = (currentValue !== undefined) ? currentValue : options.value;
+            var min = options.min;
+            var max = options.max;
+            that._onePercent = math.abs((max - min) / 100);
+
+            return math.abs((value - min) / that._onePercent);
+        },
+
+        _progressAnimation: function() {
+            var that = this;
+            var options = that.options;
+            var animation = options.animation;
+
+            if (animation === false) {
+                that._animation = { duration: 0 };
+            } else {
+                that._animation = extend({
+                    duration: DEFAULTANIMATIONDURATION
+                }, options.animation);
+            }
+        }
+    });
+
+    kendo.ui.plugin(ProgressBar);
+})(window.kendo.jQuery);
+
+
+
 (function(window, parseFloat, undefined){
 
     "use strict";
@@ -52856,10 +53372,10 @@ kendo.PDFMixin = {
                      .css("width", wrapper.width());
 
         wrapper.before(shadow);
-        shadow.append(content || wrapper.clone());
+        shadow.append(content || wrapper.clone(true, true));
 
         var promise = kendo.drawing.drawDOM(shadow);
-        promise.done(function() {
+        promise.always(function() {
             shadow.remove();
         });
 
@@ -53276,26 +53792,6 @@ kendo.PDFMixin = {
         $('th, th .k-grid-filter, th .k-link', context)
             .add(document.body)
             .css('cursor', value);
-    }
-
-    function buildEmptyAggregatesObject(aggregates) {
-            var idx,
-                length,
-                aggregate = {},
-                fieldsMap = {};
-
-            if (!isEmptyObject(aggregates)) {
-                if (!isArray(aggregates)){
-                    aggregates = [aggregates];
-                }
-
-                for (idx = 0, length = aggregates.length; idx < length; idx++) {
-                    aggregate[aggregates[idx].aggregate] = 0;
-                    fieldsMap[aggregates[idx].field] = aggregate;
-                }
-            }
-
-            return fieldsMap;
     }
 
     function reorder(selector, source, dest, before, count) {
@@ -57542,8 +58038,6 @@ kendo.PDFMixin = {
                 footer = that.footer || that.wrapper.find(".k-grid-footer");
 
             if (footerTemplate) {
-                aggregates = !isEmptyObject(aggregates) ? aggregates : buildEmptyAggregatesObject(that.dataSource.aggregate());
-
                 html = $(that._wrapFooter(footerTemplate(aggregates)));
 
                 if (footer.length) {
@@ -58146,7 +58640,7 @@ kendo.PDFMixin = {
                 count = 0,
                 scope = {},
                 groups = that._groups(),
-                fieldsMap = buildEmptyAggregatesObject(aggregates),
+                fieldsMap = that.dataSource._emptyAggregates(aggregates),
                 column;
 
             html += '<tr class="' + rowClass + '">';
@@ -59533,7 +60027,7 @@ kendo.PDFMixin = {
                 }
 
                 if (that.groupFooterTemplate) {
-                    that._groupAggregatesDefaultObject = buildEmptyAggregatesObject(that.dataSource.aggregate());
+                    that._groupAggregatesDefaultObject = that.dataSource.aggregates();
                 }
 
                 for (idx = 0, length = data.length; idx < length; idx++) {
@@ -59643,7 +60137,7 @@ kendo.PDFMixin = {
            var startingPage = dataSource.page();
 
            function resolve() {
-               if (allPages) {
+               if (allPages && startingPage !== undefined) {
                    dataSource.unbind("change", exportPage);
                    dataSource.one("change", function() {
                        result.resolve(doc);
@@ -63825,8 +64319,8 @@ kendo.PDFMixin = {
             that._initializeContentElement(that);
 
             that.keyboard = new editorNS.Keyboard([
-                new editorNS.TypingHandler(that),
                 new editorNS.BackspaceHandler(that),
+                new editorNS.TypingHandler(that),
                 new editorNS.SystemHandler(that)
             ]);
 
@@ -65389,13 +65883,11 @@ var Dom = {
     },
 
     ensureTrailingBreak: function(node) {
+        $(node).find(".k-br").remove();
+
         var lastChild = node.lastChild;
         var name = lastChild && Dom.name(lastChild);
         var br;
-
-        if ($(node).find(".k-br").length) {
-            return;
-        }
 
         if (!name ||
             (name != "br" && name != "img") ||
@@ -67058,6 +67550,23 @@ var RangeUtils = {
         }
     },
 
+    isStartOf: function(range, node) {
+        range = range.cloneRange();
+
+        while (range.startOffset === 0 && range.startContainer != node) {
+            var index = dom.findNodeIndex(range.startContainer);
+            var parent = range.startContainer.parentNode;
+
+            while (index > 0 && dom.insignificant(parent[index-1])) {
+                index--;
+            }
+
+            range.setStart(parent, index);
+        }
+
+        return range.startOffset === 0 && range.startContainer == node;
+    },
+
     wrapSelectedElements: function(range) {
         var startEditable = dom.editableParent(range.startContainer);
         var endEditable = dom.editableParent(range.endContainer);
@@ -67400,37 +67909,68 @@ var BackspaceHandler = Class.extend({
     init: function(editor) {
         this.editor = editor;
     },
+    _handleCaret: function(range) {
+        var node = range.startContainer;
+        var i = range.startOffset;
+        var li = dom.closestEditableOfType(node, ['li']);
+
+        if (dom.isDataNode(node)) {
+            while (i >= 0 && node.nodeValue[i-1] == "\ufeff") {
+                node.deleteData(i-1, 1);
+                i--;
+            }
+
+            range.setStart(node, Math.max(0, i));
+            range.collapse(true);
+            this.editor.selectRange(range);
+        }
+
+        // unwrap li element
+        if (li && editorNS.RangeUtils.isStartOf(range, li)) {
+            var formatter = new editorNS.GreedyBlockFormatter([ { tags: ["p"] } ]);
+            var child = li.firstChild;
+            formatter.editor = this.editor;
+            formatter.apply(li.childNodes);
+            range.setStart(child, 0);
+            this.editor.selectRange(range);
+
+            return true;
+        }
+
+        return false;
+    },
+    _handleSelection: function(range) {
+        var ancestor = range.commonAncestorContainer;
+        var emptyParagraphContent = editorNS.emptyElementContent;
+
+        if (/t(able|body|r)/i.test(dom.name(ancestor))) {
+            range.selectNode(dom.closest(ancestor, "table"));
+        }
+
+        range.deleteContents();
+
+        ancestor = range.commonAncestorContainer;
+
+        if (dom.name(ancestor) === "p" && ancestor.innerHTML === "") {
+            ancestor.innerHTML = emptyParagraphContent;
+            range.setStart(ancestor, 0);
+            range.collapse(true);
+            this.editor.selectRange(range);
+        }
+
+        return true;
+    },
     keydown: function(e) {
         if (e.keyCode === kendo.keys.BACKSPACE) {
-            var editor = this.editor;
-            var range = editor.getRange();
-            var emptyParagraphContent = kendo.support.browser.msie ? '' : '<br _moz_dirty="" />';
-
-            if (range.collapsed) {
-                return;
-            }
-
-            e.preventDefault();
-
+            var range = this.editor.getRange();
+            var method = range.collapsed ? "_handleCaret" : "_handleSelection";
             var startRestorePoint = new RestorePoint(range);
-            var ancestor = range.commonAncestorContainer;
 
-            if (/t(able|body|r)/i.test(dom.name(ancestor))) {
-                range.selectNode(dom.closest(ancestor, "table"));
+            if (this[method](range)) {
+                e.preventDefault();
+
+                finishUpdate(this.editor, startRestorePoint);
             }
-
-            range.deleteContents();
-
-            ancestor = range.commonAncestorContainer;
-
-            if (dom.name(ancestor) === "p" && ancestor.innerHTML === "") {
-                ancestor.innerHTML = emptyParagraphContent;
-                range.setStart(ancestor, 0);
-                range.collapse(true);
-                editor.selectRange(range);
-            }
-
-            finishUpdate(editor, startRestorePoint);
         }
     },
     keyup: function() {}
@@ -72097,7 +72637,7 @@ var InsertColumnCommand = Command.extend({
             newCell,
             position = this.options.position;
 
-        columnIndex = dom.findNodeIndex(td);
+        columnIndex = dom.findNodeIndex(td, true);
 
         for (i = 0; i < rows.length; i++) {
             cell = rows[i].cells[columnIndex];
@@ -79253,10 +79793,6 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 } else {
                     this._updateNodeClasses(node, {}, { expanded: expand });
 
-                    if (contents.css("display") == (expand ? "block" : "none")) {
-                        return;
-                    }
-
                     if (!expand) {
                         contents.css("height", contents.height()).css("height");
                     }
@@ -79586,7 +80122,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         _parents: function(node) {
             var parent = node && node.parentNode();
             var parents = [];
-            while (parent) {
+            while (parent && parent.parentNode) {
                 parents.push(parent);
                 parent = parent.parentNode();
             }
@@ -81923,453 +82459,6 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
     kendo.ui.plugin(PanelBar);
 
-})(window.kendo.jQuery);
-
-
-
-
-
-(function ($, undefined) {
-    var kendo = window.kendo,
-        ui = kendo.ui,
-        Widget = ui.Widget,
-        HORIZONTAL = "horizontal",
-        VERTICAL = "vertical",
-        DEFAULTMIN = 0,
-        DEFAULTMAX = 100,
-        DEFAULTVALUE = 0,
-        DEFAULTCHUNKCOUNT = 5,
-        KPROGRESSBAR = "k-progressbar",
-        KPROGRESSBARREVERSE = "k-progressbar-reverse",
-        KPROGRESSBARINDETERMINATE = "k-progressbar-indeterminate",
-        KPROGRESSBARCOMPLETE = "k-complete",
-        KPROGRESSWRAPPER = "k-state-selected",
-        KPROGRESSSTATUS = "k-progress-status",
-        KCOMPLETEDCHUNK = "k-state-selected",
-        KUPCOMINGCHUNK = "k-state-default",
-        KSTATEDISABLED = "k-state-disabled",
-        PROGRESSTYPE = {
-            VALUE: "value",
-            PERCENT: "percent",
-            CHUNK: "chunk"
-        },
-        CHANGE = "change",
-        COMPLETE = "complete",
-        BOOLEAN = "boolean",
-        math = Math,
-        extend = $.extend,
-        proxy = $.proxy,
-        HUNDREDPERCENT = 100,
-        DEFAULTANIMATIONDURATION = 400,
-        PRECISION = 3,
-        templates = {
-            progressStatus: "<span class='k-progress-status-wrap'><span class='k-progress-status'></span></span>"
-        };
-
-    var ProgressBar = Widget.extend({
-        init: function(element, options) {
-            var that = this;
-
-            Widget.fn.init.call(this, element, options);
-
-            options = that.options;
-
-            that._progressProperty = (options.orientation === HORIZONTAL) ? "width" : "height";
-
-            that._fields();
-
-            options.value = that._validateValue(options.value);
-
-            that._validateType(options.type);
-
-            that._wrapper();
-
-            that._progressAnimation();
-
-            if ((options.value !== options.min) && (options.value !== false)) {
-               that._updateProgress();
-            }
-        },
-
-        setOptions: function(options) {
-            var that = this;
-            
-            Widget.fn.setOptions.call(that, options);
-
-            if (options.hasOwnProperty("reverse")) {
-                that.wrapper.toggleClass("k-progressbar-reverse", options.reverse);
-            }
-
-            if (options.hasOwnProperty("enable")) {
-                that.enable(options.enable);
-            }
-
-            that._progressAnimation();
-
-            that._validateValue();
-
-            that._updateProgress();
-        },
-
-        events: [
-            CHANGE,
-            COMPLETE
-        ],
-
-        options: {
-            name: "ProgressBar",
-            orientation: HORIZONTAL,
-            reverse: false,
-            min: DEFAULTMIN,
-            max: DEFAULTMAX,
-            value: DEFAULTVALUE,
-            enable: true,
-            type: PROGRESSTYPE.VALUE,
-            chunkCount: DEFAULTCHUNKCOUNT,
-            showStatus: true,
-            animation: { }
-        },
-
-        _fields: function() {
-            var that = this;
-
-            that._isStarted = false;
-
-            that.progressWrapper = that.progressStatus = $();
-        },
-
-        _validateType: function(currentType) {
-            var isValid = false;
-
-            $.each(PROGRESSTYPE, function(k, type) {
-                if (type === currentType) {
-                    isValid = true;
-                    return false;
-                }
-            });
-
-            if (!isValid) {
-                throw new Error(kendo.format("Invalid ProgressBar type '{0}'", currentType));
-            }
-        },
-
-        _wrapper: function() {
-            var that = this;
-            var container = that.wrapper = that.element;
-            var options = that.options;
-            var orientation = options.orientation;
-            var initialStatusValue;
-
-            container.addClass("k-widget " + KPROGRESSBAR);
-
-            container.addClass(KPROGRESSBAR + "-" + ((orientation === HORIZONTAL) ? HORIZONTAL : VERTICAL));
-
-            if(options.enable === false) {
-                container.addClass(KSTATEDISABLED);
-            }
-
-            if (options.reverse) {
-                container.addClass(KPROGRESSBARREVERSE);
-            }
-
-            if (options.value === false) {
-                container.addClass(KPROGRESSBARINDETERMINATE);
-            }
-
-            if (options.type === PROGRESSTYPE.CHUNK) {
-                that._addChunkProgressWrapper();
-            } else {
-                if (options.showStatus){
-                    that.progressStatus = that.wrapper.prepend(templates.progressStatus)
-                                              .find("." + KPROGRESSSTATUS);
-
-                    initialStatusValue = (options.value !== false) ? options.value : options.min;
-
-                    if (options.type === PROGRESSTYPE.VALUE) {
-                        that.progressStatus.text(initialStatusValue);
-                    } else {
-                        that.progressStatus.text(that._calculatePercentage(initialStatusValue) + "%");
-                    }
-                }
-            }
-        },
-
-        value: function(value) {
-            return this._value(value);
-        },
-
-        _value: function(value){
-            var that = this;
-            var options = that.options;
-            var validated;
-
-            if (value === undefined) {
-                return options.value;
-            } else {
-                if (typeof value !== BOOLEAN) {
-                    value = that._roundValue(value);
-
-                    if(!isNaN(value)) {
-                        validated = that._validateValue(value);
-
-                        if (validated !== options.value) {
-                            that.wrapper.removeClass(KPROGRESSBARINDETERMINATE);
-
-                            options.value = validated;
-
-                            that._isStarted = true;
-
-                            that._updateProgress();
-                        }
-                    }
-                } else if (!value) {
-                    that.wrapper.addClass(KPROGRESSBARINDETERMINATE);
-                    options.value = false;
-                }
-            }
-        },
-
-        _roundValue: function(value) {
-            value = parseFloat(value);
-
-            var power = math.pow(10, PRECISION);
-
-            return math.floor(value * power) / power;
-        },
-
-        _validateValue: function(value) {
-            var that = this;
-            var options = that.options;
-
-            if (value !== false) {
-                if (value <= options.min || value === true) {
-                    return options.min;
-                } else if (value >= options.max) {
-                    return options.max;
-                }
-            } else if (value === false) {
-                return false;
-            }
-
-            if(isNaN(that._roundValue(value))) {
-                return options.min;
-            }
-
-            return value;
-        },
-
-        _updateProgress: function() {
-            var that = this;
-            var options = that.options;
-            var percentage = that._calculatePercentage();
-
-            if (options.type === PROGRESSTYPE.CHUNK) {
-                that._updateChunks(percentage);
-                that._onProgressUpdateAlways(options.value);
-            } else {
-                that._updateProgressWrapper(percentage);
-            }
-        },
-
-        _updateChunks: function(percentage) {
-            var that = this;
-            var options = that.options;
-            var chunkCount = options.chunkCount;
-            var percentagesPerChunk =  parseInt((HUNDREDPERCENT / chunkCount) * 100, 10) / 100;
-            var percentageParsed = parseInt(percentage * 100, 10) / 100;
-            var completedChunksCount = math.floor(percentageParsed / percentagesPerChunk);
-            var completedChunks;
-
-            if((options.orientation === HORIZONTAL && !(options.reverse)) ||
-               (options.orientation === VERTICAL && options.reverse)) {
-                completedChunks = that.wrapper.find("li.k-item:lt(" + completedChunksCount + ")");
-            } else {
-                completedChunks = that.wrapper.find("li.k-item:gt(-" + (completedChunksCount + 1) + ")");
-            }
-
-            that.wrapper.find("." + KCOMPLETEDCHUNK)
-                        .removeClass(KCOMPLETEDCHUNK)
-                        .addClass(KUPCOMINGCHUNK);
-
-            completedChunks.removeClass(KUPCOMINGCHUNK)
-                           .addClass(KCOMPLETEDCHUNK);
-        },
-
-        _updateProgressWrapper: function(percentage) {
-            var that = this;
-            var options = that.options;
-            var progressWrapper = that.wrapper.find("." + KPROGRESSWRAPPER);
-            var animationDuration = that._isStarted ? that._animation.duration : 0;
-            var animationCssOptions = { };
-
-            if (progressWrapper.length === 0) {
-                that._addRegularProgressWrapper();
-            }
-
-            animationCssOptions[that._progressProperty] = percentage + "%";
-            that.progressWrapper.animate(animationCssOptions, {
-                duration: animationDuration,
-                start: proxy(that._onProgressAnimateStart, that),
-                progress: proxy(that._onProgressAnimate, that),
-                complete: proxy(that._onProgressAnimateComplete, that, options.value),
-                always: proxy(that._onProgressUpdateAlways, that, options.value)
-            });
-        },
-
-        _onProgressAnimateStart: function() {
-            this.progressWrapper.show();
-        },
-
-        _onProgressAnimate: function(e) {
-            var that = this;
-            var options = that.options;
-            var progressInPercent = parseFloat(e.elem.style[that._progressProperty], 10);
-            var progressStatusWrapSize;
-
-            if (options.showStatus) {
-                progressStatusWrapSize = 10000 / parseFloat(that.progressWrapper[0].style[that._progressProperty]);
-
-                that.progressWrapper.find(".k-progress-status-wrap").css(that._progressProperty, progressStatusWrapSize + "%");
-            }
-
-            if (options.type !== PROGRESSTYPE.CHUNK && progressInPercent <= 98) {
-                that.progressWrapper.removeClass(KPROGRESSBARCOMPLETE);
-            }
-        },
-
-        _onProgressAnimateComplete: function(currentValue) {
-            var that = this;
-            var options = that.options;
-            var progressWrapperSize = parseFloat(that.progressWrapper[0].style[that._progressProperty]);
-
-            if (options.type !== PROGRESSTYPE.CHUNK && progressWrapperSize > 98) {
-                that.progressWrapper.addClass(KPROGRESSBARCOMPLETE);
-            }
-
-            if (options.showStatus) {
-                if (options.type === PROGRESSTYPE.VALUE) {
-                    that.progressStatus.text(currentValue);
-                } else {
-                    that.progressStatus.text(math.floor(that._calculatePercentage(currentValue)) + "%");
-                }
-            }
-
-            if (currentValue === options.min) {
-                that.progressWrapper.hide();
-            }
-        },
-
-        _onProgressUpdateAlways: function(currentValue) {
-            var that = this;
-            var options = that.options;
-
-            if (that._isStarted) {
-                that.trigger(CHANGE, { value: currentValue });
-            }
-
-            if (currentValue === options.max && that._isStarted) {
-                that.trigger(COMPLETE, { value: options.max });
-            }
-        },
-
-        enable: function(enable) {
-            var that = this;
-            var options = that.options;
-
-            options.enable = typeof(enable) === "undefined" ? true : enable;
-            that.wrapper.toggleClass(KSTATEDISABLED, !options.enable);
-        },
-
-        destroy: function() {
-            var that = this;
-
-            Widget.fn.destroy.call(that);
-        },
-
-        _addChunkProgressWrapper: function () {
-            var that = this;
-            var options = that.options;
-            var container = that.wrapper;
-            var chunkSize = HUNDREDPERCENT / options.chunkCount;
-            var html = "";
-
-            if (options.chunkCount <= 1) {
-                options.chunkCount = DEFAULTCHUNKCOUNT;
-            }
-
-            html += "<ul class='k-reset'>";
-            for (var i = options.chunkCount - 1; i >= 0; i--) {
-                html += "<li class='k-item k-state-default'></li>";
-            }
-            html += "</ul>";
-
-            container.append(html).find(".k-item").css(that._progressProperty, chunkSize + "%")
-                     .first().addClass("k-first")
-                     .end()
-                     .last().addClass("k-last");
-
-            that._normalizeChunkSize();
-        },
-
-        _normalizeChunkSize: function() {
-            var that = this;
-            var options = that.options;
-            var lastChunk = that.wrapper.find(".k-item:last");
-            var currentSize = parseFloat(lastChunk[0].style[that._progressProperty]);
-            var difference = HUNDREDPERCENT - (options.chunkCount * currentSize);
-
-            if (difference > 0) {
-                lastChunk.css(that._progressProperty, (currentSize + difference) + "%");
-            }
-        },
-
-        _addRegularProgressWrapper: function() {
-            var that = this;
-
-            that.progressWrapper = $("<div class='" + KPROGRESSWRAPPER + "'></div>").appendTo(that.wrapper);
-
-            if (that.options.showStatus) {
-                that.progressWrapper.append(templates.progressStatus);
-
-                that.progressStatus = that.wrapper.find("." + KPROGRESSSTATUS);
-            }
-        },
-
-        _calculateChunkSize: function() {
-            var that = this;
-            var chunkCount = that.options.chunkCount;
-            var chunkContainer = that.wrapper.find("ul.k-reset");
-
-            return (parseInt(chunkContainer.css(that._progressProperty), 10) - (chunkCount - 1)) / chunkCount;
-        },
-
-        _calculatePercentage: function(currentValue) {
-            var that = this;
-            var options = that.options;
-            var value = (currentValue !== undefined) ? currentValue : options.value;
-            var min = options.min;
-            var max = options.max;
-            that._onePercent = math.abs((max - min) / 100);
-
-            return math.abs((value - min) / that._onePercent);
-        },
-
-        _progressAnimation: function() {
-            var that = this;
-            var options = that.options;
-            var animation = options.animation;
-
-            if (animation === false) {
-                that._animation = { duration: 0 };
-            } else {
-                that._animation = extend({
-                    duration: DEFAULTANIMATIONDURATION
-                }, options.animation);
-            }
-        }
-    });
-
-    kendo.ui.plugin(ProgressBar);
 })(window.kendo.jQuery);
 
 
@@ -85145,7 +85234,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                         tap: proxy(that._toggleOverflow, that)
                     });
 
-                    kendo.onResize(function() {
+                    that._resizeHandler = kendo.onResize(function() {
                         that.resize();
                     });
                 } else {
@@ -85207,6 +85296,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 that.userEvents.destroy();
 
                 if (that.options.resizable) {
+                    kendo.unbindResize(that._resizeHandler);
                     that.overflowUserEvents.destroy();
                     that.popup.destroy();
                 }
@@ -85455,8 +85545,9 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 } else {
                     that.popup.container = that.popup.element;
                 }
-
+                
                 that.popup.container.attr(KENDO_UID_ATTR, this.uid);
+                that.popup.element.toggleClass("k-rtl", kendo.support.isRtl(that.element));
             },
 
             _toggleOverflowAnchor: function() {
@@ -87324,9 +87415,9 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             options = that.options;
 
-            that.element.addClass(LIST + " " + VIRTUALLIST);
+            that.element.addClass(LIST + " " + VIRTUALLIST).attr("role", "listbox");
             that.content = that.element.wrap("<div class='" + CONTENT + "'></div>").parent();
-            that.wrapper = that.content.wrap("<div class='" + WRAPPER + "' role='listbox'></div>").parent();
+            that.wrapper = that.content.wrap("<div class='" + WRAPPER + "'></div>").parent();
             that.header = that.content.before("<div class='" + HEADER + "'></div>").prev();
 
             that.element.on("mouseenter" + VIRTUAL_LIST_NS, "li", function() { $(this).addClass(HOVER); })
@@ -87962,6 +88053,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             );
 
             that._renderItems();
+            that._calculateGroupPadding(that.screenHeight);
         },
 
         _setHeight: function(height) {
@@ -88416,6 +88508,22 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
         _buildValueGetter: function() {
             this._valueGetter = kendo.getter(this.options.dataValueField);
+        },
+
+        _calculateGroupPadding: function(height) {
+            var firstItem = this.items().first(),
+                groupHeader = this.header,
+                padding = 0;
+
+            if (groupHeader[0] && groupHeader[0].style.display !== "none") {
+                if (height !== "auto") {
+                    padding = kendo.support.scrollbar();
+                }
+
+                padding += parseFloat(firstItem.css("border-right-width"), 10) + parseFloat(firstItem.children(".k-group").css("right"), 10);
+
+                groupHeader.css("padding-right", padding);
+            }
         }
 
     });
@@ -100108,7 +100216,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             wrapper.on("focus" + NS, function() {
                 if (!that._selection) {
-                    that._createSelection($(".k-scheduler-content").find("td:first"));
+                     that._createSelection(that.wrapper.find(".k-scheduler-content").find("td:first"));
                 }
 
                 that._select();
@@ -102484,6 +102592,10 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             if (this.touch) {
                 this.touch.destroy();
+            }
+
+            if (this.timer) {
+                clearTimeout(this.timer);
             }
 
             this.content.off(NS);
@@ -105000,6 +105112,8 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         destroy: function() {
             Widget.fn.destroy.call(this);
 
+            clearTimeout(this._tooltipTimeout);
+
             if (this._currentTimeUpdateTimer) {
                 clearInterval(this._currentTimeUpdateTimer);
             }
@@ -106205,6 +106319,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         },
 
         destroy: function() {
+            clearTimeout(this._focusTimeout);
             this.popup.destroy();
             this.element.off(NS);
             this.list.off(NS);
@@ -108608,7 +108723,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                     }
 
                     if ((navigatable || editable) && !isInput) {
-                        setTimeout(function() {
+                        that._focusTimeout = setTimeout(function() {
                             focusTable(that.list.content.find("table"), true);
                         }, 2);
                     }
@@ -108845,6 +108960,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
     var COLUMNSHOW = "columnShow";
     var HEADERCELLS = "th.k-header";
     var COLUMNREORDER = "columnReorder";
+    var COLUMNRESIZE = "columnResize";
     var COLUMNMENUINIT = "columnMenuInit";
     var COLUMNLOCK = "columnLock";
     var COLUMNUNLOCK = "columnUnlock";
@@ -109843,6 +109959,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             COLUMNHIDE,
             COLUMNSHOW,
             COLUMNREORDER,
+            COLUMNRESIZE,
             COLUMNMENUINIT,
             COLUMNLOCK,
             COLUMNUNLOCK
@@ -110749,10 +110866,17 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                     var column = grep(treelist.columns, function(c) {
                         return c.field == field;
                     });
+                    var newWidth = Math.floor(this.th.outerWidth());
 
-                    column[0].width = Math.floor(this.th.outerWidth());
+                    column[0].width = newWidth;
                     treelist._resize();
                     treelist._adjustRowsHeight();
+
+                    treelist.trigger(COLUMNRESIZE, {
+                        column: column,
+                        oldWidth: this.columnWidth,
+                        newWidth: newWidth
+                    });
 
                     this.table = this.col = this.th = null;
                 }

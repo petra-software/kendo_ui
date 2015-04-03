@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -45,8 +45,8 @@
                     namesShort: ["su","má","tý","mi","hó","fr","ley"]
                 },
                 months: {
-                    names: ["januar","februar","mars","apríl","mai","juni","juli","august","september","oktober","november","desember",""],
-                    namesAbbr: ["jan","feb","mar","apr","mai","jun","jul","aug","sep","okt","nov","des",""]
+                    names: ["januar","februar","mars","apríl","mai","juni","juli","august","september","oktober","november","desember"],
+                    namesAbbr: ["jan","feb","mar","apr","mai","jun","jul","aug","sep","okt","nov","des"]
                 },
                 AM: [""],
                 PM: [""],

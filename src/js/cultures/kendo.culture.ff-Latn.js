@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -45,8 +45,8 @@
                     namesShort: ["Al","Te","Ta","Al","Al","Ju","As"]
                 },
                 months: {
-                    names: ["samwiee","feeburyee","marsa","awril","me","suyeŋ","sulyee","ut","satambara","oktoobar","nowamburu","deesamburu",""],
-                    namesAbbr: ["samw","feeb","mar","awr","me","suy","sul","ut","sat","okt","now","dees",""]
+                    names: ["samwiee","feeburyee","marsa","awril","me","suyeŋ","sulyee","ut","satambara","oktoobar","nowamburu","deesamburu"],
+                    namesAbbr: ["samw","feeb","mar","awr","me","suy","sul","ut","sat","okt","now","dees"]
                 },
                 AM: [""],
                 PM: [""],

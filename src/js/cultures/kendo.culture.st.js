@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -45,8 +45,8 @@
                     namesShort: ["Son","Mma","Bed","Rar","Ne","Hla","Moq"]
                 },
                 months: {
-                    names: ["Phesekgong","Hlakola","Hlakubele","Mmese","Motsheanong","Phupjane","Phupu","Phata","Leotshe","Mphalane","Pundungwane","Tshitwe",""],
-                    namesAbbr: ["Phe","Kol","Ube","Mme","Mot","Jan","Upu","Pha","Leo","Mph","Pun","Tsh",""]
+                    names: ["Phesekgong","Hlakola","Hlakubele","Mmese","Motsheanong","Phupjane","Phupu","Phata","Leotshe","Mphalane","Pundungwane","Tshitwe"],
+                    namesAbbr: ["Phe","Kol","Ube","Mme","Mot","Jan","Upu","Pha","Leo","Mph","Pun","Tsh"]
                 },
                 AM: ["AM","am","AM"],
                 PM: ["PM","pm","PM"],

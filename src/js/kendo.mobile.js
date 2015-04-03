@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.327";
+    kendo.version = "2015.1.403";
 
     function Class() {}
 
@@ -9692,7 +9692,32 @@ var A = 0;
         },
 
         aggregates: function() {
-            return this._aggregateResult;
+            var result = this._aggregateResult;
+
+            if (isEmptyObject(result)) {
+                result = this._emptyAggregates(this.aggregate());
+            }
+
+            return result;
+        },
+
+        _emptyAggregates: function(aggregates) {
+            var result = {};
+
+            if (!isEmptyObject(aggregates)) {
+                var aggregate = {};
+
+                if (!isArray(aggregates)){
+                    aggregates = [aggregates];
+                }
+
+                for (var idx = 0; idx <aggregates.length; idx++) {
+                    aggregate[aggregates[idx].aggregate] = 0;
+                    result[aggregates[idx].field] = aggregate;
+                }
+            }
+
+            return result;
         },
 
         totalPages: function() {

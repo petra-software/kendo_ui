@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -437,6 +437,7 @@
         },
 
         destroy: function() {
+            clearTimeout(this._focusTimeout);
             this.popup.destroy();
             this.element.off(NS);
             this.list.off(NS);
@@ -2840,7 +2841,7 @@
                     }
 
                     if ((navigatable || editable) && !isInput) {
-                        setTimeout(function() {
+                        that._focusTimeout = setTimeout(function() {
                             focusTable(that.list.content.find("table"), true);
                         }, 2);
                     }

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -45,8 +45,8 @@
                     namesShort: ["Ta","Hi","Tū","Aa","Pa","Me","Ho"]
                 },
                 months: {
-                    names: ["Kohitātea","Huitanguru","Poutūterangi","Paengawhāwhā","Haratua","Pipiri","Hōngongoi","Hereturikōkā","Mahuru","Whiringa ā-nuku","Whiringa ā-rangi","Hakihea",""],
-                    namesAbbr: ["Kohi","Hui","Pou","Pae","Hara","Pipi","Hōngo","Here","Mahu","Nuku","Rangi","Haki",""]
+                    names: ["Kohitātea","Huitanguru","Poutūterangi","Paengawhāwhā","Haratua","Pipiri","Hōngongoi","Hereturikōkā","Mahuru","Whiringa ā-nuku","Whiringa ā-rangi","Hakihea"],
+                    namesAbbr: ["Kohi","Hui","Pou","Pae","Hara","Pipi","Hōngo","Here","Mahu","Nuku","Rangi","Haki"]
                 },
                 AM: ["a.m.","a.m.","A.M."],
                 PM: ["p.m.","p.m.","P.M."],

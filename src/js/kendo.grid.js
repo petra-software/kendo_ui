@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -7,7 +7,7 @@
 * If you do not own a commercial license, this file shall be governed by the trial license terms.
 */
 (function(f, define){
-    define([ "./kendo.data", "./kendo.columnsorter", "./kendo.editable", "./kendo.window", "./kendo.filtermenu", "./kendo.columnmenu", "./kendo.groupable", "./kendo.pager", "./kendo.selectable", "./kendo.sortable", "./kendo.reorderable", "./kendo.resizable", "./kendo.mobile.actionsheet", "./kendo.mobile.pane", "./kendo.ooxml", "./kendo.excel", "./kendo.pdf" ], f);
+    define([ "./kendo.data", "./kendo.columnsorter", "./kendo.editable", "./kendo.window", "./kendo.filtermenu", "./kendo.columnmenu", "./kendo.groupable", "./kendo.pager", "./kendo.selectable", "./kendo.sortable", "./kendo.reorderable", "./kendo.resizable", "./kendo.mobile.actionsheet", "./kendo.mobile.pane", "./kendo.ooxml", "./kendo.excel", "./kendo.progressbar", "./kendo.pdf" ], f);
 })(function(){
 
 /* jshint eqnull: true */
@@ -413,26 +413,6 @@
         $('th, th .k-grid-filter, th .k-link', context)
             .add(document.body)
             .css('cursor', value);
-    }
-
-    function buildEmptyAggregatesObject(aggregates) {
-            var idx,
-                length,
-                aggregate = {},
-                fieldsMap = {};
-
-            if (!isEmptyObject(aggregates)) {
-                if (!isArray(aggregates)){
-                    aggregates = [aggregates];
-                }
-
-                for (idx = 0, length = aggregates.length; idx < length; idx++) {
-                    aggregate[aggregates[idx].aggregate] = 0;
-                    fieldsMap[aggregates[idx].field] = aggregate;
-                }
-            }
-
-            return fieldsMap;
     }
 
     function reorder(selector, source, dest, before, count) {
@@ -4679,8 +4659,6 @@
                 footer = that.footer || that.wrapper.find(".k-grid-footer");
 
             if (footerTemplate) {
-                aggregates = !isEmptyObject(aggregates) ? aggregates : buildEmptyAggregatesObject(that.dataSource.aggregate());
-
                 html = $(that._wrapFooter(footerTemplate(aggregates)));
 
                 if (footer.length) {
@@ -5283,7 +5261,7 @@
                 count = 0,
                 scope = {},
                 groups = that._groups(),
-                fieldsMap = buildEmptyAggregatesObject(aggregates),
+                fieldsMap = that.dataSource._emptyAggregates(aggregates),
                 column;
 
             html += '<tr class="' + rowClass + '">';
@@ -6670,7 +6648,7 @@
                 }
 
                 if (that.groupFooterTemplate) {
-                    that._groupAggregatesDefaultObject = buildEmptyAggregatesObject(that.dataSource.aggregate());
+                    that._groupAggregatesDefaultObject = that.dataSource.aggregates();
                 }
 
                 for (idx = 0, length = data.length; idx < length; idx++) {
@@ -6780,7 +6758,7 @@
            var startingPage = dataSource.page();
 
            function resolve() {
-               if (allPages) {
+               if (allPages && startingPage !== undefined) {
                    dataSource.unbind("change", exportPage);
                    dataSource.one("change", function() {
                        result.resolve(doc);

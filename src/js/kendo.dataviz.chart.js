@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1421,14 +1421,15 @@
                 chart.setDataSource(dataSource);
             }
 
-            if (chart._shouldAttachMouseMove()) {
-                chart.element.on(MOUSEMOVE_NS, chart._mousemove);
-            }
-
             if (chart._hasDataSource) {
                 chart.refresh();
             }  else {
+                chart._bindCategories();
                 chart.redraw();
+            }
+
+            if (chart._shouldAttachMouseMove()) {
+                chart.element.on(MOUSEMOVE_NS, chart._mousemove);
             }
         },
 
@@ -1847,7 +1848,7 @@
                     opacity: 0
                 },
                 stroke: null,
-                cursor: cursor.style
+                cursor: cursor.style || cursor
             });
 
             this.appendVisual(eventSink);
@@ -1987,9 +1988,7 @@
                 width: 0
             },
             item: {
-                cursor: {
-                    style: POINTER
-                }
+                cursor: POINTER
             },
             spacing: 6,
             background: "",
@@ -3306,9 +3305,17 @@
                 }
             });
 
-            var size = options.vertical ? this.box.width() : this.box.height();
+            var width = this.box.width();
+            var height = this.box.height();
+
+            var size = options.vertical ? width : height;
+
             if (size > BAR_ALIGN_MIN_WIDTH) {
                 alignPathToPixel(rect);
+                //fixes lineJoin issue in firefox when the joined lines are parallel
+                if (width < 1 || height < 1) {
+                    rect.options.stroke.lineJoin = "round";
+                }
             }
 
             visual.append(rect);
@@ -9265,6 +9272,7 @@
 
             plotArea.createCategoryAxes(panes);
             plotArea.aggregateCategories(panes);
+            plotArea.createCategoryAxesLabels(panes);
             plotArea.createCharts(panes);
             plotArea.createValueAxes(panes);
         },
@@ -9368,7 +9376,6 @@
                 }
 
                 processedSeries.push(currentSeries);
-
             }
 
             plotArea.srcSeries = series;
@@ -9419,6 +9426,8 @@
                     srcPoints[i], categories[i]
                 );
             }
+
+            categoryAxis.options.dataItems = data;
 
             return result;
         },
@@ -9680,6 +9689,15 @@
             }
         },
 
+        createCategoryAxesLabels: function() {
+            var axes = this.axes;
+            for (var i = 0; i < axes.length; i++) {
+                if (axes[i] instanceof CategoryAxis) {
+                    axes[i].createLabels();
+                }
+            }
+        },
+
         createCategoryAxes: function(panes) {
             var plotArea = this,
                 invertAxes = plotArea.invertAxes,
@@ -9699,7 +9717,8 @@
                     type  = axisOptions.type || "";
                     axisOptions = deepExtend({
                         vertical: invertAxes,
-                        axisCrossingValue: invertAxes ? MAX_VALUE : 0
+                        axisCrossingValue: invertAxes ? MAX_VALUE : 0,
+                        _deferLabels: true
                     }, axisOptions);
 
                     if (!defined(axisOptions.justified)) {

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -855,6 +855,26 @@
 .k-rtl .k-panelbar .k-tabstrip-items .k-item .k-sprite
 {
     margin: -3px -6px 0 3px;
+}
+
+/* ToolBar */
+
+.k-rtl .k-overflow-anchor
+{
+    float: left;
+    border-width: 0 1px 0 0;
+}
+
+.k-rtl .k-toolbar .k-button-group .k-button,
+.k-rtl .k-toolbar .k-split-button .k-split-button-arrow
+{
+    margin: 0 -1px 0 0;
+}
+
+.k-rtl.k-overflow-container .k-overflow-button,
+.k-rtl .k-split-container .k-button
+{
+    text-align: right;
 }
 
 /* ToolTip */

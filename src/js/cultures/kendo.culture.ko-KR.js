@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -45,8 +45,8 @@
                     namesShort: ["일","월","화","수","목","금","토"]
                 },
                 months: {
-                    names: ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월",""],
-                    namesAbbr: ["1","2","3","4","5","6","7","8","9","10","11","12",""]
+                    names: ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"],
+                    namesAbbr: ["1","2","3","4","5","6","7","8","9","10","11","12"]
                 },
                 AM: ["오전","오전","오전"],
                 PM: ["오후","오후","오후"],

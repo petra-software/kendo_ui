@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -23,7 +23,7 @@
         CHANGE = "change",
         NS = ".kendoSelectable",
         UNSELECTING = "k-state-unselecting",
-        INPUTSELECTOR = "input,a,textarea,.k-multiselect-wrap,select,button,a.k-button>.k-icon,span.k-icon.k-i-expand,span.k-icon.k-i-collapse",
+        INPUTSELECTOR = "input,a,textarea,.k-multiselect-wrap,select,button,a.k-button>.k-icon,button.k-button>.k-icon,span.k-icon.k-i-expand,span.k-icon.k-i-collapse",
         msie = kendo.support.browser.msie,
         supportEventDelegation = false;
 

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -50,6 +50,7 @@
     var COLUMNSHOW = "columnShow";
     var HEADERCELLS = "th.k-header";
     var COLUMNREORDER = "columnReorder";
+    var COLUMNRESIZE = "columnResize";
     var COLUMNMENUINIT = "columnMenuInit";
     var COLUMNLOCK = "columnLock";
     var COLUMNUNLOCK = "columnUnlock";
@@ -1048,6 +1049,7 @@
             COLUMNHIDE,
             COLUMNSHOW,
             COLUMNREORDER,
+            COLUMNRESIZE,
             COLUMNMENUINIT,
             COLUMNLOCK,
             COLUMNUNLOCK
@@ -1954,10 +1956,17 @@
                     var column = grep(treelist.columns, function(c) {
                         return c.field == field;
                     });
+                    var newWidth = Math.floor(this.th.outerWidth());
 
-                    column[0].width = Math.floor(this.th.outerWidth());
+                    column[0].width = newWidth;
                     treelist._resize();
                     treelist._adjustRowsHeight();
+
+                    treelist.trigger(COLUMNRESIZE, {
+                        column: column,
+                        oldWidth: this.columnWidth,
+                        newWidth: newWidth
+                    });
 
                     this.table = this.col = this.th = null;
                 }

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -45,8 +45,8 @@
                     namesShort: ["cy","mb","ka","ga","ka","ga","ga"]
                 },
                 months: {
-                    names: ["Mutarama","Gashyantare","Werurwe","Mata","Gicurasi","Kamena","Nyakanga","Kanama","Nzeli","Ukwakira","Ugushyingo","Ukuboza",""],
-                    namesAbbr: ["Mut","Gas","Wer","Mat","Gic","Kam","Nyak","Kan","Nze","Ukwak","Ugus","Ukub",""]
+                    names: ["Mutarama","Gashyantare","Werurwe","Mata","Gicurasi","Kamena","Nyakanga","Kanama","Nzeli","Ukwakira","Ugushyingo","Ukuboza"],
+                    namesAbbr: ["Mut","Gas","Wer","Mat","Gic","Kam","Nyak","Kan","Nze","Ukwak","Ugus","Ukub"]
                 },
                 AM: ["z.m","z.m","Z.M"],
                 PM: ["z.n","z.n","Z.N"],

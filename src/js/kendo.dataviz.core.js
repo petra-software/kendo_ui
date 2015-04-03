@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -896,7 +896,7 @@
 
             for (var i = 0; i < children.length; i++) {
                 children[i].reflow(currentBox);
-                currentBox = boxDiff(currentBox, children[i].box);
+                currentBox = boxDiff(currentBox, children[i].box) || Box2D();
             }
         },
 
@@ -1362,13 +1362,15 @@
                 BoxElement.fn.reflow.call(textbox, targetBox);
 
                 if (rotation) {
-                    var margin = options.margin;
+                    var margin = getSpacing(options.margin);
                     var box = textbox.box.unpad(margin);
                     textbox.normalBox = box.clone();
                     box.rotate(rotation);
-                    box.pad(margin);
                     textbox.align(targetBox, X, align);
                     textbox.align(targetBox, Y, options.vAlign);
+                    box.translate(margin.left - margin.right, margin.top - margin.bottom);
+                    textbox.rotatedBox = box.clone();
+                    box.pad(margin);
                 }
             }
         },
@@ -1430,27 +1432,11 @@
             var center = this.normalBox.center();
             var cx = center.x;
             var cy = center.y;
-            var boxCenter = this.box.center();
+            var boxCenter = this.rotatedBox.center();
 
             return geom.transform()
                        .translate(boxCenter.x - cx, boxCenter.y - cy)
                        .rotate(rotation, [cx, cy]);
-        },
-
-        rotationMatrix: function() {
-            var textbox = this;
-            var options = textbox.options;
-            var normalBox = textbox.normalBox;
-            var center = normalBox.center();
-            var cx = center.x;
-            var cy = center.y;
-            var boxCenter = textbox.box.center();
-            var offsetX = boxCenter.x - cx;
-            var offsetY = boxCenter.y - cy;
-            var matrix = Matrix.translate(offsetX, offsetY)
-                    .times(Matrix.rotate(options.rotation, cx, cy));
-
-            return matrix;
         }
     });
 
@@ -1616,7 +1602,10 @@
                 align: axis.options.majorTickType
             });
 
-            axis.createLabels();
+            if (!this.options._deferLables) {
+                axis.createLabels();
+            }
+
             axis.createTitle();
             axis.createNotes();
         },
@@ -1675,7 +1664,8 @@
                 }
             },
 
-            _alignLines: true
+            _alignLines: true,
+            _deferLabels: false
         },
 
         // abstract labelsCount(): Number
@@ -1690,6 +1680,10 @@
                     zIndex: options.zIndex
                 }),
                 step = math.max(1, labelOptions.step);
+
+            axis.children = $.grep(axis.children, function (child) {
+                return !(child instanceof AxisLabel);
+            });
 
             axis.labels = [];
 
@@ -3593,7 +3587,7 @@
              return a.getTime() - b.getTime();
          }
 
-         return 0;
+         return -1;
     }
 
     var CurveProcessor = function(closed){

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -45,8 +45,8 @@
                     namesShort: ["ne","po","út","st","čt","pá","so"]
                 },
                 months: {
-                    names: ["leden","únor","březen","duben","květen","červen","červenec","srpen","září","říjen","listopad","prosinec",""],
-                    namesAbbr: ["I","II","III","IV","V","VI","VII","VIII","IX","X","XI","XII",""]
+                    names: ["leden","únor","březen","duben","květen","červen","červenec","srpen","září","říjen","listopad","prosinec"],
+                    namesAbbr: ["I","II","III","IV","V","VI","VII","VIII","IX","X","XI","XII"]
                 },
                 AM: ["dop.","dop.","DOP."],
                 PM: ["odp.","odp.","ODP."],

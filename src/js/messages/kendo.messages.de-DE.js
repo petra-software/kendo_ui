@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -324,6 +324,7 @@ $.extend(true, kendo.ui.Upload.prototype.options.localization,{
   "retry": "Wiederholen",
   "select": "Wählen Sie...",
   "statusFailed": "nicht erfolgreich",
+  "statusWarning": "warnung",
   "statusUploaded": "hochgeladet",
   "statusUploading": "hochladen",
   "uploadSelectedFiles": "Dateien hochladen",

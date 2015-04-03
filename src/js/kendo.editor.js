@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -229,8 +229,8 @@
             that._initializeContentElement(that);
 
             that.keyboard = new editorNS.Keyboard([
-                new editorNS.TypingHandler(that),
                 new editorNS.BackspaceHandler(that),
+                new editorNS.TypingHandler(that),
                 new editorNS.SystemHandler(that)
             ]);
 
@@ -1793,13 +1793,11 @@ var Dom = {
     },
 
     ensureTrailingBreak: function(node) {
+        $(node).find(".k-br").remove();
+
         var lastChild = node.lastChild;
         var name = lastChild && Dom.name(lastChild);
         var br;
-
-        if ($(node).find(".k-br").length) {
-            return;
-        }
 
         if (!name ||
             (name != "br" && name != "img") ||
@@ -3462,6 +3460,23 @@ var RangeUtils = {
         }
     },
 
+    isStartOf: function(range, node) {
+        range = range.cloneRange();
+
+        while (range.startOffset === 0 && range.startContainer != node) {
+            var index = dom.findNodeIndex(range.startContainer);
+            var parent = range.startContainer.parentNode;
+
+            while (index > 0 && dom.insignificant(parent[index-1])) {
+                index--;
+            }
+
+            range.setStart(parent, index);
+        }
+
+        return range.startOffset === 0 && range.startContainer == node;
+    },
+
     wrapSelectedElements: function(range) {
         var startEditable = dom.editableParent(range.startContainer);
         var endEditable = dom.editableParent(range.endContainer);
@@ -3804,37 +3819,68 @@ var BackspaceHandler = Class.extend({
     init: function(editor) {
         this.editor = editor;
     },
+    _handleCaret: function(range) {
+        var node = range.startContainer;
+        var i = range.startOffset;
+        var li = dom.closestEditableOfType(node, ['li']);
+
+        if (dom.isDataNode(node)) {
+            while (i >= 0 && node.nodeValue[i-1] == "\ufeff") {
+                node.deleteData(i-1, 1);
+                i--;
+            }
+
+            range.setStart(node, Math.max(0, i));
+            range.collapse(true);
+            this.editor.selectRange(range);
+        }
+
+        // unwrap li element
+        if (li && editorNS.RangeUtils.isStartOf(range, li)) {
+            var formatter = new editorNS.GreedyBlockFormatter([ { tags: ["p"] } ]);
+            var child = li.firstChild;
+            formatter.editor = this.editor;
+            formatter.apply(li.childNodes);
+            range.setStart(child, 0);
+            this.editor.selectRange(range);
+
+            return true;
+        }
+
+        return false;
+    },
+    _handleSelection: function(range) {
+        var ancestor = range.commonAncestorContainer;
+        var emptyParagraphContent = editorNS.emptyElementContent;
+
+        if (/t(able|body|r)/i.test(dom.name(ancestor))) {
+            range.selectNode(dom.closest(ancestor, "table"));
+        }
+
+        range.deleteContents();
+
+        ancestor = range.commonAncestorContainer;
+
+        if (dom.name(ancestor) === "p" && ancestor.innerHTML === "") {
+            ancestor.innerHTML = emptyParagraphContent;
+            range.setStart(ancestor, 0);
+            range.collapse(true);
+            this.editor.selectRange(range);
+        }
+
+        return true;
+    },
     keydown: function(e) {
         if (e.keyCode === kendo.keys.BACKSPACE) {
-            var editor = this.editor;
-            var range = editor.getRange();
-            var emptyParagraphContent = kendo.support.browser.msie ? '' : '<br _moz_dirty="" />';
-
-            if (range.collapsed) {
-                return;
-            }
-
-            e.preventDefault();
-
+            var range = this.editor.getRange();
+            var method = range.collapsed ? "_handleCaret" : "_handleSelection";
             var startRestorePoint = new RestorePoint(range);
-            var ancestor = range.commonAncestorContainer;
 
-            if (/t(able|body|r)/i.test(dom.name(ancestor))) {
-                range.selectNode(dom.closest(ancestor, "table"));
+            if (this[method](range)) {
+                e.preventDefault();
+
+                finishUpdate(this.editor, startRestorePoint);
             }
-
-            range.deleteContents();
-
-            ancestor = range.commonAncestorContainer;
-
-            if (dom.name(ancestor) === "p" && ancestor.innerHTML === "") {
-                ancestor.innerHTML = emptyParagraphContent;
-                range.setStart(ancestor, 0);
-                range.collapse(true);
-                editor.selectRange(range);
-            }
-
-            finishUpdate(editor, startRestorePoint);
         }
     },
     keyup: function() {}
@@ -8501,7 +8547,7 @@ var InsertColumnCommand = Command.extend({
             newCell,
             position = this.options.position;
 
-        columnIndex = dom.findNodeIndex(td);
+        columnIndex = dom.findNodeIndex(td, true);
 
         for (i = 0; i < rows.length; i++) {
             cell = rows[i].cells[columnIndex];

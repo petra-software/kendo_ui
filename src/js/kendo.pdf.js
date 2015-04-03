@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -3879,10 +3879,10 @@ kendo.PDFMixin = {
                      .css("width", wrapper.width());
 
         wrapper.before(shadow);
-        shadow.append(content || wrapper.clone());
+        shadow.append(content || wrapper.clone(true, true));
 
         var promise = kendo.drawing.drawDOM(shadow);
-        promise.done(function() {
+        promise.always(function() {
             shadow.remove();
         });
 

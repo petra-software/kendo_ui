@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.327 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -45,8 +45,8 @@
                     namesShort: ["in","aw","wn","cy","ku","ck","wk"]
                 },
                 months: {
-                    names: ["kulla","panchi","pawkar","ayriwa","aymuray","raymi","sitwa","karwa","kuski","wayru","sasi","kapak",""],
-                    namesAbbr: ["kull","pan","paw","ayr","aym","ray","sit","kar","kus","way","sas","kap",""]
+                    names: ["kulla","panchi","pawkar","ayriwa","aymuray","raymi","sitwa","karwa","kuski","wayru","sasi","kapak"],
+                    namesAbbr: ["kull","pan","paw","ayr","aym","ray","sit","kar","kus","way","sas","kap"]
                 },
                 AM: [""],
                 PM: [""],
