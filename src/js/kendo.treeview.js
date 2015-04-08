@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1335,7 +1335,9 @@
                         that._updateNodeClasses(node, {}, { enabled: item[field], expanded: !isCollapsed });
                     }
 
-                    this.trigger("itemChange", { item: nodeWrapper, data: item, ns: ui });
+                    if (nodeWrapper.length) {
+                        this.trigger("itemChange", { item: nodeWrapper, data: item, ns: ui });
+                    }
                 }
 
                 that.angular("compile", function(){
@@ -1591,8 +1593,12 @@
 
             element.find(".k-state-selected").each(function() {
                 var dataItem = that.dataItem(this);
-                dataItem.set("selected", false);
-                delete dataItem.selected;
+                if (dataItem) {
+                    dataItem.set("selected", false);
+                    delete dataItem.selected;
+                } else {
+                    $(this).removeClass("k-state-selected");
+                }
             });
 
             if (node.length) {

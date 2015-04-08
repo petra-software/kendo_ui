@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -281,8 +281,10 @@ $.extend(true, kendo.ui.Editor.prototype.options.messages,{
   "dialogButtonSeparator": "Ou",
   "dialogCancel": "Fermer",
   "dialogInsert": "Insérer",
-  "imageAltText": "Alternate text",
-  "imageWebAddress": "Adresse Web",
+  "imageAltText": "Le texte de remplacement",
+  "imageWebAddress": "Adresse Web",  
+  "imageWidth": "Largeur (px)",
+  "imageHeight": "Hauteur (px)",
   "linkOpenInNewWindow": "Ouvrir dans une nouvelle fenêtre",
   "linkText": "Text",
   "linkToolTip": "Info-bulle",
@@ -302,6 +304,33 @@ $.extend(true, kendo.ui.Editor.prototype.options.messages,{
   "insertFile": "Insert file"
 });
 }
+
+/* FileBrowser and ImageBrowser messages */
+
+var browserMessages = {
+  "uploadFile" : "Charger",
+  "orderBy" : "Trier par",
+  "orderByName" : "Nom",
+  "orderBySize" : "Taille",
+  "directoryNotFound" : "Aucun répértoire de ce nom.",
+  "emptyFolder" : "Répertoire vide",
+  "deleteFile" : 'Etes-vous sûr de vouloir supprimer "{0}"?',
+  "invalidFileType" : "Le fichier sélectionné \"{0}\" n'est pas valide. Les type fichiers supportés sont {1}.",
+  "overwriteFile" : "Un fichier du nom \"{0}\" existe déjà dans ce répertoire. Voulez-vous le remplacer?",
+  "dropFilesHere" : "glissez les fichiers ici pour les charger",
+  "search" : "Recherche"
+};
+
+if (kendo.ui.FileBrowser) {
+kendo.ui.FileBrowser.prototype.options.messages =
+$.extend(true, kendo.ui.FileBrowser.prototype.options.messages, browserMessages);
+}
+
+if (kendo.ui.ImageBrowser) {
+kendo.ui.ImageBrowser.prototype.options.messages =
+$.extend(true, kendo.ui.ImageBrowser.prototype.options.messages, browserMessages);
+}
+
 
 /* Upload messages */
 
@@ -329,7 +358,9 @@ kendo.ui.Scheduler.prototype.options.messages =
 $.extend(true, kendo.ui.Scheduler.prototype.options.messages,{
   "allDay": "toute la journée",
   "cancel": "Annuler",
-  "confirmation": "Etes-vous sûr de vouloir supprimer cet élément?",
+  "editable": {
+    "confirmation": "Etes-vous sûr de vouloir supprimer cet élément?"
+  },
   "date": "Date",
   "destroy": "Effacer",
   "editor": {

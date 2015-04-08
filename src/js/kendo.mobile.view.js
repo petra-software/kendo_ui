@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -477,10 +477,16 @@
 
             collection = container.children(that._locate("modalview drawer"));
             if (that.$angular) {
+
+                that.$angular[0].viewOptions = {
+                    defaultTransition: that.transition,
+                    loader: that.loader,
+                    container: that.container,
+                    getLayout: that.getLayoutProxy
+                };
+
                 collection.each(function(idx, element) {
-                    compileMobileDirective($(element), function(scope) {
-                        //pass the options?
-                    });
+                    compileMobileDirective($(element), options.$angular[0]);
                 });
             } else {
                 initWidgets(collection);
@@ -622,16 +628,7 @@
 
         _createView: function(element) {
             if (this.$angular) {
-                var that = this;
-
-                return compileMobileDirective(element, function(scope) {
-                    scope.viewOptions = {
-                        defaultTransition: that.transition,
-                        loader: that.loader,
-                        container: that.container,
-                        getLayout: that.getLayoutProxy
-                    };
-                });
+                return compileMobileDirective(element, this.$angular[0]);
             } else {
                 return kendo.initWidget(element, {
                     defaultTransition: this.transition,
@@ -694,7 +691,7 @@
 
             element.children(that._locate("layout")).each(function() {
                 if (that.$angular) {
-                    layout = compileMobileDirective($(this));
+                    layout = compileMobileDirective($(this), that.$angular[0]);
                 } else {
                     layout = kendo.initWidget($(this), {}, ui.roles);
                 }

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -3216,7 +3216,8 @@ PDF.TTFFont = TTFFont;
                 var tmp = optimize(group);
                 var bbox = tmp.bbox;
                 group = tmp.root;
-
+                // var tmp, bbox;
+                
                 var paperSize = getOption("paperSize", getOption("paperSize", "auto"), options), addMargin = false;
                 if (paperSize == "auto") {
                     if (bbox) {
@@ -3299,8 +3300,8 @@ PDF.TTFFont = TTFFont;
     }
 
     function drawElement(element, page, pdf) {
-        if (element.DEBUG) {
-            page.comment(element.DEBUG);
+        if (element.options._pdfDebug) {
+            page.comment("BEGIN: " + element.options._pdfDebug);
         }
 
         var transform = element.transform();
@@ -3332,6 +3333,10 @@ PDF.TTFFont = TTFFont;
         }, element, page, pdf);
 
         page.restore();
+
+        if (element.options._pdfDebug) {
+            page.comment("END: " + element.options._pdfDebug);
+        }
     }
 
     function setStrokeOptions(element, page, pdf) {
@@ -3622,6 +3627,10 @@ PDF.TTFFont = TTFFont;
 
     function drawImage(element, page, pdf) {
         var url = element.src();
+        if (!url) {
+            return;
+        }
+
         var rect = element.rect();
         var tl = rect.getOrigin();
         var sz = rect.getSize();

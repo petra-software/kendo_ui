@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -451,7 +451,7 @@
 
         _calculateGroupPadding: function(height) {
             var ul = this.ul;
-            var li = $(ul[0].firstChild);
+            var li = ul.children(".k-first:first");
             var groupHeader = ul.prev(".k-group-header");
             var padding = 0;
 
@@ -1329,7 +1329,7 @@
                 indices = [];
             }
 
-            if (this.filter() && !singleSelection && this._deselectFiltered(indices)) {
+            if (this._filtered && !singleSelection && this._deselectFiltered(indices)) {
                 return;
             }
 
@@ -1650,18 +1650,19 @@
             var scrollTop = element.scrollTop;
             var itemHeight = $(element.children[0]).height();
             var itemIndex = Math.floor(scrollTop / itemHeight) || 0;
-            var item = element.children[itemIndex];
-            var forward = item.offsetTop < scrollTop;
+            var item = element.children[itemIndex] || element.lastChild;
+            var offsetHeight = this._offsetHeight();
+            var forward = (item.offsetTop - offsetHeight) < scrollTop;
 
             while (item) {
                 if (forward) {
-                    if (item.offsetTop >= scrollTop || !item.nextSibling) {
+                    if ((item.offsetTop + itemHeight - offsetHeight) > scrollTop || !item.nextSibling) {
                         break;
                     }
 
                     item = item.nextSibling;
                 } else {
-                    if (item.offsetTop <= scrollTop || !item.previousSibling) {
+                    if ((item.offsetTop - offsetHeight) <= scrollTop || !item.previousSibling) {
                         break;
                     }
 
@@ -1699,9 +1700,10 @@
             var item = '<li tabindex="-1" role="option" unselectable="on" class="k-item';
 
             var dataItem = context.item;
+            var notFirstItem = context.index !== 0;
             var found = this._filtered && this._dataItemPosition(dataItem, values) !== -1;
 
-            if (context.newGroup) {
+            if (notFirstItem && context.newGroup) {
                 item += ' k-first';
             }
 
@@ -1713,7 +1715,7 @@
 
             item += this.templates.template(dataItem);
 
-            if (context.newGroup) {
+            if (notFirstItem && context.newGroup) {
                 item += '<div class="k-group">' + this.templates.groupTemplate(context.group) + '</div>';
             }
 

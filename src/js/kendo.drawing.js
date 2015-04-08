@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -740,6 +740,13 @@
             var bl = this.bottomLeft().transformCopy(matrix);
 
             return Rect.fromPoints(tl, tr, br, bl);
+        },
+
+        transformCopy: function(m) {
+            return Rect.fromPoints(
+                this.topLeft().transform(m),
+                this.bottomRight().transform(m)
+            );
         }
     });
 
@@ -1031,6 +1038,42 @@
                 this.a * m.e + this.c * m.f + this.e,
                 this.b * m.e + this.d * m.f + this.f
             );
+        },
+
+        // Invert function for general 3x3 matrixes, based on
+        // http://en.wikipedia.org/wiki/Invertible_matrix#Inversion_of_3.C3.973_matrices
+        // (simplified below for transformation matrixes, where the
+        // last col is constant, but let's keep this commented here)
+        //
+        // invert: function() {
+        //     var a = this.a, b = this.b, c = 0;
+        //     var d = this.c, e = this.d, f = 0;
+        //     var g = this.e, h = this.f, i = 1;
+        //
+        //     var A =  (e*i - f*h), D = -(b*i - c*h), G =  (b*f - c*e);
+        //     var B = -(d*i - f*g), E =  (a*i - c*g), H = -(a*f - c*d);
+        //     var C =  (d*h - e*g), F = -(a*h - b*g), I =  (a*e - b*d);
+        //
+        //     var det = a*A + b*B + c*C;
+        //     if (det === 0) {
+        //         return null;
+        //     }
+        //
+        //     return new Matrix(A/det, D/det, B/det, E/det, C/det, F/det);
+        // },
+
+        invert: function() {
+            var a = this.a, b = this.b;
+            var d = this.c, e = this.d;
+            var g = this.e, h = this.f;
+
+            var det = a*e - b*d;
+            if (det === 0) {
+                return null;
+            }
+
+            return new Matrix(e/det, -b/det, -d/det, a/det,
+                              (d*h - e*g)/det, (b*g - a*h)/det);
         },
 
         clone: function() {
@@ -3829,6 +3872,24 @@
             return "<?xml version='1.0' ?>" + this._template(this);
         },
 
+        exportVisual: function() {
+            var visual = this._visual;
+
+            var offset = this._offset;
+            if (offset) {
+                var wrap = new d.Group();
+                wrap.children.push(visual);
+
+                wrap.transform(
+                    g.transform().translate(-offset.x, -offset.y)
+                );
+
+                visual = wrap;
+            }
+
+            return visual;
+        },
+
         _resize: function() {
             if (this._offset) {
                 this.translate(this._offset);
@@ -4714,7 +4775,7 @@
         },
 
         mapSpace: function() {
-            return ["gradientUnits", this.srcElement.userSpace() ? "userSpaceOnUse" : "objectBoundingBox"]
+            return ["gradientUnits", this.srcElement.userSpace() ? "userSpaceOnUse" : "objectBoundingBox"];
         }
     });
 
@@ -6843,6 +6904,7 @@
 
     /* jshint eqnull:true */
     /* jshint -W069 */
+    /* global console */
 
     /* -----[ local vars ]----- */
 
@@ -8105,7 +8167,7 @@
         var fake = [];
         function pseudo(kind, place) {
             var style = getComputedStyle(element, kind);
-            if (style.content && style.content != "normal" && style.content != "none") {
+            if (style.content && style.content != "normal" && style.content != "none" && style.width != "0px") {
                 var psel = element.ownerDocument.createElement(KENDO_PSEUDO_ELEMENT);
                 psel.style.cssText = getCssText(style);
                 psel.textContent = evalPseudoElementContent(element, style.content);
@@ -8927,6 +8989,10 @@
                     visual = widget.exportVisual();
                 }
 
+                if (!visual) {
+                    return false;
+                }
+
                 var wrap = new drawing.Group();
                 wrap.children.push(visual);
 
@@ -9027,6 +9093,11 @@
     }
 
     function renderContents(element, group) {
+        if (nodeInfo._stackingContext.element === element) {
+            // the group that was set in pushNodeInfo might have
+            // changed due to clipping/transforms, update it here.
+            nodeInfo._stackingContext.group = group;
+        }
         switch (element.tagName.toLowerCase()) {
           case "img":
             renderImage(element, element.src, group);
@@ -9335,7 +9406,7 @@
         }
     }
 
-    function groupInStackingContext(group, zIndex) {
+    function groupInStackingContext(element, group, zIndex) {
         var main = nodeInfo._stackingContext.group;
         var a = main.children;
         for (var i = 0; i < a.length; ++i) {
@@ -9352,7 +9423,12 @@
         //     tmp.transform(nodeInfo._matrix);
         // }
         if (nodeInfo._clipbox) {
-            tmp.clip(drawing.Path.fromRect(nodeInfo._clipbox));
+            var m = nodeInfo._matrix.invert();
+            var r = nodeInfo._clipbox.transformCopy(m);
+            setClipping(tmp, drawing.Path.fromRect(r));
+            // console.log(r);
+            // tmp.append(drawing.Path.fromRect(r));
+            // tmp.append(new drawing.Text(element.className || element.id, r.topLeft()));
         }
 
         return tmp;
@@ -9395,14 +9471,20 @@
             zIndex = 0;
         }
         if (zIndex != "auto") {
-            group = groupInStackingContext(container, zIndex);
+            group = groupInStackingContext(element, container, parseFloat(zIndex));
         } else {
             group = new drawing.Group();
             container.append(group);
         }
 
         // XXX: remove at some point
-        group.DEBUG = $(element).data("debug");
+        // group.options._pdfDebug = "";
+        // if (element.id) {
+        //     group.options._pdfDebug = "#" + element.id;
+        // }
+        // if (element.className) {
+        //     group.options._pdfDebug += "." + element.className.split(" ").join(".");
+        // }
 
         if (opacity < 1) {
             group.opacity(opacity * group.opacity());

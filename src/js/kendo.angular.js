@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -227,7 +227,7 @@
 
             if (attrs.kNgDisabled) {
                 var kNgDisabled = attrs.kNgDisabled;
-                var isDisabled = scope[kNgDisabled];
+                var isDisabled = scope.$eval(kNgDisabled);
                 if (isDisabled) {
                     object.enable(!isDisabled);
                 }
@@ -236,7 +236,7 @@
 
             if (attrs.kNgReadonly) {
                 var kNgReadonly = attrs.kNgReadonly;
-                var isReadonly = scope[kNgReadonly];
+                var isReadonly = scope.$eval(kNgReadonly);
                 if (isReadonly) {
                     object.readonly(isReadonly);
                 }
@@ -808,6 +808,7 @@
             // prevent leaks. https://github.com/kendo-labs/angular-kendo/issues/237
             $(el)
                 .removeData("$scope")
+                .removeData("$$kendoScope")
                 .removeData("$isolateScope")
                 .removeData("$isolateScopeNoTemplate")
                 .removeClass("ng-scope");
@@ -878,7 +879,7 @@
             return;
         }
 
-        var scope = self.$angular_scope; //  || angular.element(self.element).scope();
+        var scope = self.$angular_scope;
 
         if (scope) {
             withoutTimeout(function(){
@@ -888,7 +889,8 @@
 
                       case "cleanup":
                         angular.forEach(elements, function(el){
-                            var itemScope = angular.element(el).scope();
+                            var itemScope = $(el).data("$$kendoScope");
+
                             if (itemScope && itemScope !== scope && itemScope.$$kendoScope) {
                                 destroyScope(itemScope, el);
                             }
@@ -904,16 +906,19 @@
                         angular.forEach(elements, function(el, i){
                             var itemScope;
                             if (x.scopeFrom) {
-                                itemScope = angular.element(x.scopeFrom).scope();
+                                itemScope = x.scopeFrom;
                             } else {
                                 var vars = data && data[i];
                                 if (vars !== undefined) {
                                     itemScope = $.extend(scope.$new(), vars);
                                     itemScope.$$kendoScope = true;
+                                } else {
+                                    itemScope = scope;
                                 }
                             }
 
-                            compile(el)(itemScope || scope);
+                            $(el).data("$$kendoScope", itemScope);
+                            compile(el)(itemScope);
                         });
                         digest(scope);
                         break;

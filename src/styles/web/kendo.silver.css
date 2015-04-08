@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -520,7 +520,17 @@ html .km-pane-wrapper .k-header {
 .k-virtual-item.k-first,
 .k-group-header + .k-list > .k-item.k-first,
 .k-static-header + .k-list > .k-item.k-first {
-  border-top-color: #b3bac7;
+  border-top-color: #b6bdca;
+}
+.k-popup > .k-group-header,
+.k-popup > .k-virtual-wrap > .k-group-header {
+  background: #b6bdca;
+  color: #ffffff;
+}
+.k-popup .k-item > .k-group {
+  background: #b6bdca;
+  color: #ffffff;
+  border-bottom-left-radius: 3px;
 }
 .k-marquee-text {
   color: #ffffff;

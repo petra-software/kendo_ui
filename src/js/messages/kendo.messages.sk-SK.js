@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -463,7 +463,9 @@ $.extend(true, kendo.ui.Scheduler.prototype.options.messages,{
   "deleteWindowTitle": "Odstránenie udalosti",
   "ariaSlotLabel": "Vybraté od {0:t} do {1:t}",
   "ariaEventLabel": "{0} dňa {1:D} o {2:t}",
-  "confirmation": "Naozaj chcete odstrániť túto udalosť?",
+  "editable": {
+    "confirmation": "Naozaj chcete odstrániť túto udalosť?"
+  },
   "views": {
     "day": "Deň",
     "week": "Týždeň",

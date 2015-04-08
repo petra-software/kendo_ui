@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -661,6 +661,16 @@
         }
         return result;
     }
+    function findParentColumnWithChildren(columns, index, source) {
+        var target;
+        var locked = source.locked;
+
+        do {
+            target = columns[Math.max(index--, 0)];
+        } while(index > -1 && target != source && !target.columns && target.locked == locked);
+
+        return target;
+    }
 
     function findReorderTarget(columns, target, source, before) {
         if (target.columns) {
@@ -685,7 +695,8 @@
                 index += before ? -1 : 1;
             }
 
-            target = parentColumns[Math.max(index, 0)];
+            target = findParentColumnWithChildren(parentColumns,index, source);
+
             if (target && target != source && target.columns) {
                 return findReorderTarget(columns, target, source, before);
             }
@@ -5453,16 +5464,22 @@
                 text,
                 html = "",
                 length,
-                leafs = leafColumns(that.columns);
+                leafs = leafColumns(that.columns),
+                field;
 
             for (idx = 0, length = columns.length; idx < length; idx++) {
                 th = columns[idx].column || columns[idx];
                 text = that._headerCellText(th);
+                field = "";
 
                 var index = inArray(th, leafs);
 
                 if (!th.command) {
-                    html += "<th role='columnheader' " + kendo.attr("field") + "='" + (th.field || "") + "' ";
+                    if (th.field) {
+                        field = kendo.attr("field") + "='" + th.field + "' ";
+                    }
+
+                    html += "<th role='columnheader' " + field;
 
                     if (rowSpan && !columns[idx].colSpan) {
                         html += " rowspan='" + rowSpan + "'";

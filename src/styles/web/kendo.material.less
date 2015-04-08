@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -598,9 +598,12 @@ border-color: @widget-background-color;
 }
 
 .k-list > .k-state-selected.k-state-focused {
-background-color: @selected-background-color;
-border-color: @selected-background-color;
 .box-shadow(none);
+color: @selected-text-color;
+}
+
+.k-list > .k-state-selected {
+    .box-shadow(none);
 }
 
 .k-list > .k-state-focused {
@@ -876,6 +879,8 @@ color: @header-text-color;
 .k-scheduler-layout .k-state-selected,
 .k-scheduler .k-today.k-state-selected,
 .k-grid tr.k-state-selected,
+.k-grid td.k-state-selected,
+.k-grid td.k-state-selected.k-state-focused,
 .k-marquee-color,
 .k-gantt .k-treelist .k-state-selected,
 .k-gantt .k-treelist .k-state-selected td,
@@ -892,6 +897,7 @@ background-color: @accent-color;
 }
 
 .k-grid tr.k-state-selected,
+.k-grid td.k-state-selected,
 .k-listview > .k-state-selected,
 .k-state-selected .k-progress-status {
 color: @inverse-text-color;
@@ -1294,6 +1300,17 @@ div.k-scheduler-marquee:after {
     background-color: @hover-background-color;
     border-color: @hover-border-color;    
     .box-shadow(@focused-item-shadow);
+}
+
+.k-popup > .k-group-header,
+.k-popup > .k-virtual-wrap > .k-group-header
+{
+    color: @widget-text-color;
+}
+
+.k-popup .k-item > .k-group
+{
+    color: @widget-text-color;
 }
 
 /* Responsive styles */

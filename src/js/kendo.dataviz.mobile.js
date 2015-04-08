@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.403";
+    kendo.version = "2015.1.408";
 
     function Class() {}
 
@@ -3995,16 +3995,12 @@ function pad(number, digits, end) {
         return start;
     };
 
-    kendo.compileMobileDirective = function(element, scopeSetup) {
+    kendo.compileMobileDirective = function(element, scope) {
         var angular = window.angular;
 
         element.attr("data-" + kendo.ns + "role", element[0].tagName.toLowerCase().replace('kendo-mobile-', '').replace('-', ''));
 
         angular.element(element).injector().invoke(["$compile", function($compile) {
-            var scope = angular.element(element).scope();
-            if (scopeSetup) {
-                scopeSetup(scope);
-            }
             $compile(element)(scope);
 
             if (!/^\$(digest|apply)$/.test(scope.$$phase)) {
@@ -14929,9 +14925,15 @@ var A = 0;
 
                 that.angular("compile", function(){
                     that.hint.removeAttr("ng-repeat");
+                    var scopeTarget = $(e.target);
+
+                    while (!scopeTarget.data("$$kendoScope") && scopeTarget.length) {
+                        scopeTarget = scopeTarget.parent();
+                    }
+
                     return {
                         elements: that.hint.get(),
-                        scopeFrom: e.target
+                        scopeFrom: scopeTarget.data("$$kendoScope")
                     };
                 });
             }
@@ -17904,6 +17906,13 @@ var A = 0;
             var bl = this.bottomLeft().transformCopy(matrix);
 
             return Rect.fromPoints(tl, tr, br, bl);
+        },
+
+        transformCopy: function(m) {
+            return Rect.fromPoints(
+                this.topLeft().transform(m),
+                this.bottomRight().transform(m)
+            );
         }
     });
 
@@ -18195,6 +18204,42 @@ var A = 0;
                 this.a * m.e + this.c * m.f + this.e,
                 this.b * m.e + this.d * m.f + this.f
             );
+        },
+
+        // Invert function for general 3x3 matrixes, based on
+        // http://en.wikipedia.org/wiki/Invertible_matrix#Inversion_of_3.C3.973_matrices
+        // (simplified below for transformation matrixes, where the
+        // last col is constant, but let's keep this commented here)
+        //
+        // invert: function() {
+        //     var a = this.a, b = this.b, c = 0;
+        //     var d = this.c, e = this.d, f = 0;
+        //     var g = this.e, h = this.f, i = 1;
+        //
+        //     var A =  (e*i - f*h), D = -(b*i - c*h), G =  (b*f - c*e);
+        //     var B = -(d*i - f*g), E =  (a*i - c*g), H = -(a*f - c*d);
+        //     var C =  (d*h - e*g), F = -(a*h - b*g), I =  (a*e - b*d);
+        //
+        //     var det = a*A + b*B + c*C;
+        //     if (det === 0) {
+        //         return null;
+        //     }
+        //
+        //     return new Matrix(A/det, D/det, B/det, E/det, C/det, F/det);
+        // },
+
+        invert: function() {
+            var a = this.a, b = this.b;
+            var d = this.c, e = this.d;
+            var g = this.e, h = this.f;
+
+            var det = a*e - b*d;
+            if (det === 0) {
+                return null;
+            }
+
+            return new Matrix(e/det, -b/det, -d/det, a/det,
+                              (d*h - e*g)/det, (b*g - a*h)/det);
         },
 
         clone: function() {
@@ -20993,6 +21038,24 @@ var A = 0;
             return "<?xml version='1.0' ?>" + this._template(this);
         },
 
+        exportVisual: function() {
+            var visual = this._visual;
+
+            var offset = this._offset;
+            if (offset) {
+                var wrap = new d.Group();
+                wrap.children.push(visual);
+
+                wrap.transform(
+                    g.transform().translate(-offset.x, -offset.y)
+                );
+
+                visual = wrap;
+            }
+
+            return visual;
+        },
+
         _resize: function() {
             if (this._offset) {
                 this.translate(this._offset);
@@ -21878,7 +21941,7 @@ var A = 0;
         },
 
         mapSpace: function() {
-            return ["gradientUnits", this.srcElement.userSpace() ? "userSpaceOnUse" : "objectBoundingBox"]
+            return ["gradientUnits", this.srcElement.userSpace() ? "userSpaceOnUse" : "objectBoundingBox"];
         }
     });
 
@@ -24007,6 +24070,7 @@ var A = 0;
 
     /* jshint eqnull:true */
     /* jshint -W069 */
+    /* global console */
 
     /* -----[ local vars ]----- */
 
@@ -25269,7 +25333,7 @@ var A = 0;
         var fake = [];
         function pseudo(kind, place) {
             var style = getComputedStyle(element, kind);
-            if (style.content && style.content != "normal" && style.content != "none") {
+            if (style.content && style.content != "normal" && style.content != "none" && style.width != "0px") {
                 var psel = element.ownerDocument.createElement(KENDO_PSEUDO_ELEMENT);
                 psel.style.cssText = getCssText(style);
                 psel.textContent = evalPseudoElementContent(element, style.content);
@@ -26091,6 +26155,10 @@ var A = 0;
                     visual = widget.exportVisual();
                 }
 
+                if (!visual) {
+                    return false;
+                }
+
                 var wrap = new drawing.Group();
                 wrap.children.push(visual);
 
@@ -26191,6 +26259,11 @@ var A = 0;
     }
 
     function renderContents(element, group) {
+        if (nodeInfo._stackingContext.element === element) {
+            // the group that was set in pushNodeInfo might have
+            // changed due to clipping/transforms, update it here.
+            nodeInfo._stackingContext.group = group;
+        }
         switch (element.tagName.toLowerCase()) {
           case "img":
             renderImage(element, element.src, group);
@@ -26499,7 +26572,7 @@ var A = 0;
         }
     }
 
-    function groupInStackingContext(group, zIndex) {
+    function groupInStackingContext(element, group, zIndex) {
         var main = nodeInfo._stackingContext.group;
         var a = main.children;
         for (var i = 0; i < a.length; ++i) {
@@ -26516,7 +26589,12 @@ var A = 0;
         //     tmp.transform(nodeInfo._matrix);
         // }
         if (nodeInfo._clipbox) {
-            tmp.clip(drawing.Path.fromRect(nodeInfo._clipbox));
+            var m = nodeInfo._matrix.invert();
+            var r = nodeInfo._clipbox.transformCopy(m);
+            setClipping(tmp, drawing.Path.fromRect(r));
+            // console.log(r);
+            // tmp.append(drawing.Path.fromRect(r));
+            // tmp.append(new drawing.Text(element.className || element.id, r.topLeft()));
         }
 
         return tmp;
@@ -26559,14 +26637,20 @@ var A = 0;
             zIndex = 0;
         }
         if (zIndex != "auto") {
-            group = groupInStackingContext(container, zIndex);
+            group = groupInStackingContext(element, container, parseFloat(zIndex));
         } else {
             group = new drawing.Group();
             container.append(group);
         }
 
         // XXX: remove at some point
-        group.DEBUG = $(element).data("debug");
+        // group.options._pdfDebug = "";
+        // if (element.id) {
+        //     group.options._pdfDebug = "#" + element.id;
+        // }
+        // if (element.className) {
+        //     group.options._pdfDebug += "." + element.className.split(" ").join(".");
+        // }
 
         if (opacity < 1) {
             group.opacity(opacity * group.opacity());
@@ -44722,6 +44806,9 @@ var A = 0;
             tooltip.element = $(tooltip.template(tooltip.options));
             tooltip.move = proxy(tooltip.move, tooltip);
             tooltip._mouseleave = proxy(tooltip._mouseleave, tooltip);
+
+            var mobileScrollerSelector = kendo.format("[{0}='content'],[{0}='scroller']", kendo.attr("role"));
+            tooltip._mobileScroller = chartElement.closest(mobileScrollerSelector).data("kendoMobileScroller");
         },
 
         destroy: function() {
@@ -44800,10 +44887,18 @@ var A = 0;
                 zoomLevel = kendo.support.zoomLevel(),
                 viewport = $(window),
                 scrollTop = window.pageYOffset || document.documentElement.scrollTop || 0,
-                scrollLeft = window.pageXOffset || document.documentElement.scrollLeft || 0;
+                scrollLeft = window.pageXOffset || document.documentElement.scrollLeft || 0,
+                movable = (this._mobileScroller || {}).movable;
 
-            top += tooltip._fit(top - scrollTop, size.height, viewport.outerHeight() / zoomLevel);
-            left += tooltip._fit(left - scrollLeft, size.width, viewport.outerWidth() / zoomLevel);
+            if (!movable || movable.scale === 1) {
+                top += tooltip._fit(top - scrollTop, size.height, viewport.outerHeight() / zoomLevel);
+                left += tooltip._fit(left - scrollLeft, size.width, viewport.outerWidth() / zoomLevel);
+            } else {
+                var transform = geom.transform().scale(movable.scale, movable.scale, [movable.x, movable.y]);
+                var point = new geom.Point(left, top).transform(transform);
+                left = point.x;
+                top = point.y;
+            }
 
             return {
                 top: top,
@@ -47946,9 +48041,7 @@ var A = 0;
     });
 
     var SplineRadarAreaSegment = SplineAreaSegment.extend({
-        areaPoints: function() {
-            return [];
-        }
+        closeFill: $.noop
     });
 
     var RadarAreaChart = RadarLineChart.extend({
@@ -48018,29 +48111,33 @@ var A = 0;
     });
 
     var SplinePolarAreaSegment = SplineAreaSegment.extend({
-        areaPoints: function(){
-             var segment = this,
-                chart = segment.parent,
+        closeFill: function(fillPath){
+            var center = this._polarAxisCenter();
+            fillPath.lineTo(center.x, center.y);
+        },
+
+        _polarAxisCenter: function() {
+            var chart = this.parent,
                 plotArea = chart.plotArea,
                 polarAxis = plotArea.polarAxis,
                 center = polarAxis.box.center();
-            return [center];
+            return center;
         },
-        points: function() {
-            var segment = this,
-                chart = segment.parent,
-                plotArea = chart.plotArea,
-                polarAxis = plotArea.polarAxis,
-                center = polarAxis.box.center(),
-                curvePoints,
-                curveProcessor = new CurveProcessor(false),
-                linePoints = LineSegment.fn.points.call(this);
-                linePoints.push(center);
 
-            curvePoints = curveProcessor.process(linePoints);
-            curvePoints.splice(curvePoints.length - 3, curvePoints.length - 1);
-            segment.curvePoints = curvePoints;
-            return curvePoints;
+        strokeSegments: function() {
+            var segments = this._strokeSegments;
+
+            if (!segments) {
+                var center = this._polarAxisCenter(),
+                    curveProcessor = new CurveProcessor(false),
+                    linePoints = LineSegment.fn.points.call(this);
+
+                linePoints.push(center);
+                segments = this._strokeSegments  = curveProcessor.process(linePoints);
+                segments.pop();
+            }
+
+            return segments;
         }
     });
 
@@ -48126,6 +48223,20 @@ var A = 0;
             plotArea.createValueAxis();
         },
 
+        alignAxes: function() {
+            var axis = this.valueAxis;
+            var range = axis.range();
+            var crossingValue = axis.options.reverse ? range.max : range.min;
+            var slot = axis.getSlot(crossingValue);
+            var center = this.polarAxis.getSlot(0).c;
+            var axisBox = axis.box.translate(
+                center.x - slot.x1,
+                center.y - slot.y1
+            );
+
+            axis.reflow(axisBox);
+        },
+
         createValueAxis: function() {
             var plotArea = this,
                 tracker = plotArea.valueAxisRangeTracker,
@@ -48180,20 +48291,6 @@ var A = 0;
 
             plotArea.axisBox = axisBox;
             plotArea.alignAxes(axisBox);
-        },
-
-        alignAxes: function() {
-            var plotArea = this,
-                valueAxis = plotArea.valueAxis,
-                slot = valueAxis.getSlot(valueAxis.options.min),
-                slotEdge = valueAxis.options.reverse ? 2 : 1,
-                center = plotArea.polarAxis.getSlot(0).c,
-                box = valueAxis.box.translate(
-                    center.x - slot[X + slotEdge],
-                    center.y - slot[Y + slotEdge]
-                );
-
-            valueAxis.reflow(box);
         },
 
         backgroundBox: function() {
@@ -55839,6 +55936,8 @@ var A = 0;
 
         Extent = dataviz.map.Extent,
 
+        geom = kendo.geometry,
+        draw = kendo.drawing,
         util = kendo.util,
         defined = util.defined,
         valueOrDefault = util.valueOrDefault;
@@ -56527,7 +56626,6 @@ var A = 0;
         _reset: function() {
             Layer.fn._reset.call(this);
             this._updateView();
-            this._view.clear();
             this._view.reset();
         },
 
@@ -56620,10 +56718,6 @@ var A = 0;
             );
         },
 
-        clear: function() {
-            this.pool.empty();
-        },
-
         tileCount: function() {
             var size = this.size(),
                 firstTileIndex = this.pointToTileIndex(this._extent.nw),
@@ -56668,6 +56762,7 @@ var A = 0;
         },
 
         reset: function() {
+            this.pool.reset();
             this.subdomainIndex = 0;
             this.basePoint = this._extent.nw;
             this.render();
@@ -56686,8 +56781,7 @@ var A = 0;
                     });
 
                     if (!tile.options.visible) {
-                        this.element.append(tile.element);
-                        tile.options.visible = true;
+                        tile.show();
                     }
                 }
             }
@@ -56695,8 +56789,12 @@ var A = 0;
 
         createTile: function(currentIndex) {
             var options = this.tileOptions(currentIndex);
+            var tile = this.pool.get(this._center, options);
+            if (tile.element.parent().length === 0) {
+                this.element.append(tile.element);
+            }
 
-            return this.pool.get(this._center, options);
+            return tile;
         },
 
         tileOptions: function(currentIndex) {
@@ -56741,9 +56839,7 @@ var A = 0;
         init: function(options) {
             this._initOptions(options);
             this.createElement();
-            this.load();
-            // initially the image should be
-            this.options.visible = false;
+            this.show();
         },
 
         options: {
@@ -56753,7 +56849,7 @@ var A = 0;
         },
 
         createElement: function() {
-            this.element = $("<img style='position: absolute; display: block; visibility: visible;' />")
+            this.element = $("<img style='position: absolute; display: block;' />")
                             .error(proxy(function(e) {
                                 if (this.errorUrl()) {
                                     e.target.setAttribute("src", this.errorUrl());
@@ -56763,19 +56859,26 @@ var A = 0;
                             }, this));
         },
 
-        load: function(options) {
-            this.options = deepExtend({}, this.options, options);
+        show: function(options) {
+            this.options = options = deepExtend({}, this.options, options);
+            var id = tileId(this.options.currentIndex, this.options.zoom);
+            var element = this.element[0];
 
-            var htmlElement = this.element[0];
+            element.style.top = renderSize(this.options.offset.y);
+            element.style.left = renderSize(this.options.offset.x);
 
-            htmlElement.style.visibility = "visible";
-            htmlElement.style.display = "block";
-            htmlElement.style.top = renderSize(this.options.offset.y);
-            htmlElement.style.left = renderSize(this.options.offset.x);
-            htmlElement.setAttribute("src", this.url());
+            if (this.options.id !== id || !element.getAttribute("url")) {
+                element.setAttribute("src", this.url());
+            }
+            element.style.visibility = "visible";
 
-            this.options.id = tileId(this.options.currentIndex, this.options.zoom);
+            this.options.id = id;
             this.options.visible = true;
+        },
+
+        hide: function() {
+            this.element[0].style.visibility = "hidden";
+            this.options.visible = false;
         },
 
         url: function() {
@@ -56816,7 +56919,6 @@ var A = 0;
 
     var TilePool = Class.extend({
         init: function() {
-            // calculate max size automaticaly
             this._items = [];
         },
 
@@ -56824,18 +56926,14 @@ var A = 0;
             maxSize: 100
         },
 
-        // should considered to remove the center of the screen
         get: function(center, options) {
-            var pool = this,
-                item;
+            var pool = this;
 
             if (pool._items.length >= pool.options.maxSize) {
-                item = pool._update(center, options);
-            } else {
-                item = pool._create(options);
+                pool._remove(center);
             }
 
-            return item;
+            return pool._create(options);
         },
 
         empty: function() {
@@ -56847,6 +56945,15 @@ var A = 0;
             }
 
             this._items = [];
+        },
+
+        reset: function() {
+            var items = this._items,
+                i;
+
+            for (i = 0; i < items.length; i++) {
+                items[i].hide();
+            }
         },
 
         _create: function(options) {
@@ -56864,7 +56971,7 @@ var A = 0;
             }
 
             if (oldTile) {
-                oldTile.load(options);
+                oldTile.show(options);
             } else {
                 tile = new ImageTile(options);
                 this._items.push(tile);
@@ -56873,30 +56980,23 @@ var A = 0;
             return tile;
         },
 
-        _update: function(center, options) {
-            var pool = this,
-                items = pool._items,
-                dist = -Number.MAX_VALUE,
-                currentDist, index, i, item;
+        _remove: function(center) {
+            var items = this._items;
+            var maxDist = -1;
+            var index = -1;
 
-            var id = tileId(options.currentIndex, options.zoom);
-
-            for (i = 0; i < items.length; i++) {
-                item = items[i];
-                currentDist = item.options.point.clone().distanceTo(center);
-                if (item.options.id === id) {
-                    return items[i];
-                }
-
-                if (dist < currentDist) {
+            for (var i = 0; i < items.length; i++) {
+                var dist = items[i].options.point.distanceTo(center);
+                if (dist > maxDist) {
                     index = i;
-                    dist = currentDist;
+                    maxDist = dist;
                 }
             }
 
-            items[index].load(options);
-
-            return items[index];
+            if (index !== -1) {
+                items[index].destroy();
+                items.splice(index, 1);
+            }
         }
     });
 
@@ -57650,6 +57750,11 @@ var A = 0;
                 width: width,
                 height: min(scale, element.height())
             };
+        },
+
+        exportVisual: function() {
+            this._reset();
+            return false;
         },
 
         _setOrigin: function(origin, zoom) {
@@ -63092,8 +63197,12 @@ var A = 0;
             LEFT = "Left",
             BOTTOM = "Bottom",
             DEFAULTCONNECTORNAMES = [TOP, RIGHT, BOTTOM, LEFT, AUTO],
+            DEFAULT_SNAP_SIZE = 10,
+            DEFAULT_SNAP_ANGLE = 10,
             ITEMROTATE = "itemRotate",
             ITEMBOUNDSCHANGE = "itemBoundsChange",
+            MIN_SNAP_SIZE = 5,
+            MIN_SNAP_ANGLE = 5,
             MOUSE_ENTER = "mouseEnter",
             MOUSE_LEAVE = "mouseLeave",
             ZOOM_START = "zoomStart",
@@ -63104,7 +63213,10 @@ var A = 0;
             FRICTION_MOBILE = 0.93,
             VELOCITY_MULTIPLIER = 5,
             TRANSPARENT = "transparent",
-            PAN = "pan";
+            PAN = "pan",
+            ROTATED = "rotated",
+            WIDTH = "width",
+            HEIGHT = "height";
 
         diagram.Cursors = Cursors;
 
@@ -64259,100 +64371,187 @@ var A = 0;
         });
 
         var CascadingRouter = LinearConnectionRouter.extend({
+            SAME_SIDE_DISTANCE_RATIO: 5,
+
             init: function (connection) {
                 var that = this;
                 LinearConnectionRouter.fn.init.call(that);
                 this.connection = connection;
             },
+
+            routePoints: function(start, end, sourceConnector, targetConnector) {
+                var result;
+
+                if (sourceConnector && targetConnector) {
+                    result = this._connectorPoints(start, end, sourceConnector, targetConnector);
+                } else {
+                    result = this._floatingPoints(start, end, sourceConnector);
+                }
+                return result;
+            },
+
             route: function () {
-                var link = this.connection;
+                var sourceConnector = this.connection._resolvedSourceConnector;
+                var targetConnector = this.connection._resolvedTargetConnector;
                 var start = this.connection.sourcePoint();
-                var end = this.connection.targetPoint(),
-                    points = [start, start, end, end],
-                    deltaX = end.x - start.x, // can be negative
-                    deltaY = end.y - start.y,
-                    l = points.length,
-                    shiftX,
-                    shiftY,
-                    sourceConnectorName = null,
-                    targetConnectorName = null;
+                var end = this.connection.targetPoint();
+                var points = this.routePoints(start, end, sourceConnector, targetConnector);
+                this.connection.points(points);
+            },
 
-                if (Utils.isDefined(link._resolvedSourceConnector)) {
-                    sourceConnectorName = link._resolvedSourceConnector.options.name;
-                }
-                if (Utils.isDefined(link._resolvedTargetConnector)) {
-                    targetConnectorName = link._resolvedTargetConnector.options.name;
-                }
-                function startHorizontal() {
-                    if (sourceConnectorName !== null) {
-                        if (sourceConnectorName === RIGHT || sourceConnectorName === LEFT) {
-                            return true;
-                        }
-                        if (sourceConnectorName === TOP || sourceConnectorName === BOTTOM) {
-                            return false;
-                        }
+            _connectorSides: [{
+                name: "Top",
+                axis: "y",
+                boundsPoint: "topLeft",
+                secondarySign: 1
+            }, {
+                name: "Left",
+                axis: "x",
+                boundsPoint: "topLeft",
+                secondarySign: 1
+            }, {
+                name: "Bottom",
+                axis: "y",
+                boundsPoint: "bottomRight",
+                secondarySign: -1
+            }, {
+                name: "Right",
+                axis: "x",
+                boundsPoint: "bottomRight",
+                secondarySign: -1
+            }],
+
+            _connectorSide: function(connector, targetPoint) {
+                var position = connector.position();
+                var shapeBounds = connector.shape.bounds(ROTATED);
+                var bounds = {
+                    topLeft: shapeBounds.topLeft(),
+                    bottomRight: shapeBounds.bottomRight()
+                };
+                var sides = this._connectorSides;
+                var min = kendo.util.MAX_NUM;
+                var sideDistance;
+                var minSide;
+                var axis;
+                var side;
+                for (var idx = 0; idx < sides.length; idx++) {
+                    side = sides[idx];
+                    axis = side.axis;
+                    sideDistance = Math.round(Math.abs(position[axis] - bounds[side.boundsPoint][axis]));
+                    if (sideDistance < min) {
+                        min = sideDistance;
+                        minSide = side;
+                    } else if (sideDistance === min &&
+                        (position[axis] - targetPoint[axis]) * side.secondarySign > (position[minSide.axis] - targetPoint[minSide.axis]) * minSide.secondarySign) {
+                        minSide = side;
                     }
-                    //fallback for custom connectors
-                    return Math.abs(start.x - end.x) > Math.abs(start.y - end.y);
                 }
+                return minSide.name;
+            },
 
-                if (sourceConnectorName !== null && targetConnectorName !== null && Utils.contains(DEFAULTCONNECTORNAMES, sourceConnectorName) && Utils.contains(DEFAULTCONNECTORNAMES, targetConnectorName)) {
-                    // custom routing for the default connectors
-                    if (sourceConnectorName === TOP || sourceConnectorName == BOTTOM) {
-                        if (targetConnectorName == TOP || targetConnectorName == BOTTOM) {
-                            this.connection.points([new Point(start.x, start.y + deltaY / 2), new Point(end.x, start.y + deltaY / 2)]);
+            _sameSideDistance: function(connector) {
+                var bounds = connector.shape.bounds(ROTATED);
+                return Math.min(bounds.width, bounds.height) / this.SAME_SIDE_DISTANCE_RATIO;
+            },
+
+            _connectorPoints: function(start, end, sourceConnector, targetConnector) {
+                var sourceConnectorSide = this._connectorSide(sourceConnector, end);
+                var targetConnectorSide = this._connectorSide(targetConnector, start);
+                var deltaX = end.x - start.x;
+                var deltaY = end.y - start.y;
+                var sameSideDistance = this._sameSideDistance(sourceConnector);
+                var result = [];
+                var pointX, pointY;
+
+                if (sourceConnectorSide === TOP || sourceConnectorSide == BOTTOM) {
+                    if (targetConnectorSide == TOP || targetConnectorSide == BOTTOM) {
+                        if (sourceConnectorSide == targetConnectorSide) {
+                            if (sourceConnectorSide == TOP) {
+                                pointY = Math.min(start.y, end.y) - sameSideDistance;
+                            } else {
+                                pointY = Math.max(start.y, end.y) + sameSideDistance;
+                            }
+                            result = [new Point(start.x, pointY), new Point(end.x, pointY)];
                         } else {
-                            this.connection.points([new Point(start.x, start.y + deltaY)]);
+                            result = [new Point(start.x, start.y + deltaY / 2), new Point(end.x, start.y + deltaY / 2)];
                         }
-                    } else { // LEFT or RIGHT
-                        if (targetConnectorName == LEFT || targetConnectorName == RIGHT) {
-                            this.connection.points([new Point(start.x + deltaX / 2, start.y), new Point(start.x + deltaX / 2, start.y + deltaY)]);
-                        } else {
-                            this.connection.points([new Point(end.x, start.y)]);
-                        }
+                    } else {
+                        result = [new Point(start.x, end.y)];
                     }
-
+                } else {
+                    if (targetConnectorSide == LEFT || targetConnectorSide == RIGHT) {
+                        if (sourceConnectorSide == targetConnectorSide) {
+                            if (sourceConnectorSide == LEFT) {
+                                pointX = Math.min(start.x, end.x) - sameSideDistance;
+                            } else {
+                                pointX = Math.max(start.x, end.x) + sameSideDistance;
+                            }
+                            result = [new Point(pointX, start.y), new Point(pointX, end.y)];
+                        } else {
+                            result = [new Point(start.x + deltaX / 2, start.y), new Point(start.x + deltaX / 2, start.y + deltaY)];
+                        }
+                    } else {
+                        result = [new Point(end.x, start.y)];
+                    }
                 }
-                else { // general case for custom and floating connectors
-                    this.connection.cascadeStartHorizontal = startHorizontal(this.connection);
+                return result;
+            },
 
-                    // note that this is more generic than needed for only two intermediate points.
-                    for (var k = 1; k < l - 1; ++k) {
-                        if (link.cascadeStartHorizontal) {
-                            if (k % 2 !== 0) {
-                                shiftX = deltaX / (l / 2);
-                                shiftY = 0;
-                            }
-                            else {
-                                shiftX = 0;
-                                shiftY = deltaY / ((l - 1) / 2);
-                            }
+            _floatingPoints: function(start, end, sourceConnector) {
+                var sourceConnectorSide = sourceConnector ? this._connectorSide(sourceConnector, end) : null;
+                var cascadeStartHorizontal = this._startHorizontal(start, end, sourceConnectorSide);
+                var points = [start, start, end, end];
+                var deltaX = end.x - start.x;
+                var deltaY = end.y - start.y;
+                var length = points.length;
+                var shiftX;
+                var shiftY;
+
+                // note that this is more generic than needed for only two intermediate points.
+                for (var idx = 1; idx < length - 1; ++idx) {
+                    if (cascadeStartHorizontal) {
+                        if (idx % 2 !== 0) {
+                            shiftX = deltaX / (length / 2);
+                            shiftY = 0;
                         }
                         else {
-                            if (k % 2 !== 0) {
-                                shiftX = 0;
-                                shiftY = deltaY / (l / 2);
-                            }
-                            else {
-                                shiftX = deltaX / ((l - 1) / 2);
-                                shiftY = 0;
-                            }
+                            shiftX = 0;
+                            shiftY = deltaY / ((length - 1) / 2);
                         }
-                        points[k] = new Point(points[k - 1].x + shiftX, points[k - 1].y + shiftY);
-                    }
-                    // need to fix the wrong 1.5 factor of the last intermediate point
-                    k--;
-                    if ((link.cascadeStartHorizontal && (k % 2 !== 0)) || (!link.cascadeStartHorizontal && (k % 2 === 0))) {
-                        points[l - 2] = new Point(points[l - 1].x, points[l - 2].y);
                     }
                     else {
-                        points[l - 2] = new Point(points[l - 2].x, points[l - 1].y);
+                        if (idx % 2 !== 0) {
+                            shiftX = 0;
+                            shiftY = deltaY / (length / 2);
+                        }
+                        else {
+                            shiftX = deltaX / ((length - 1) / 2);
+                            shiftY = 0;
+                        }
                     }
-
-                    this.connection.points([points[1], points[2]]);
+                    points[idx] = new Point(points[idx - 1].x + shiftX, points[idx - 1].y + shiftY);
                 }
-            }
+                // need to fix the wrong 1.5 factor of the last intermediate point
+                idx--;
+                if ((cascadeStartHorizontal && (idx % 2 !== 0)) || (!cascadeStartHorizontal && (idx % 2 === 0))) {
+                    points[length - 2] = new Point(points[length - 1].x, points[length - 2].y);
+                } else {
+                    points[length - 2] = new Point(points[length - 2].x, points[length - 1].y);
+                }
 
+                return [points[1], points[2]];
+            },
+
+            _startHorizontal: function (start, end, sourceSide) {
+                var horizontal;
+                if (sourceSide !== null && (sourceSide === RIGHT || sourceSide === LEFT)) {
+                    horizontal = true;
+                } else {
+                    horizontal = Math.abs(start.x - end.x) > Math.abs(start.y - end.y);
+                }
+
+                return horizontal;
+            }
         });
 
 // Adorners =========================================
@@ -64876,7 +65075,7 @@ var A = 0;
                     }
                     this.refresh();
                 } else {
-                    if (this.diagram.options.snap.enabled === true) {
+                    if (this.diagram.options.snap) {
                         var thr = this._truncateDistance(p.minus(this._lp));
                         // threshold
                         if (thr.x === 0 && thr.y === 0) {
@@ -64932,7 +65131,9 @@ var A = 0;
                             if (shape.hasOwnProperty("layout")) {
                                 shape.layout(shape, oldBounds, newBounds);
                             }
-                            shape.rotate(shape.rotate().angle); // forces the rotation to update it's rotation center
+                            if (oldBounds.width !== newBounds.width || oldBounds.height !== newBounds.height) {
+                                shape.rotate(shape.rotate().angle); // forces the rotation to update it's rotation center
+                            }
                             changed += 1;
                         }
                     }
@@ -64964,16 +65165,18 @@ var A = 0;
             },
 
             _truncateAngle: function (a) {
-                var snapAngle = Math.max(this.diagram.options.snap.angle, 5);
-                return this.diagram.options.snap.enabled === true ? Math.floor((a % 360) / snapAngle) * snapAngle : (a % 360);
+                var snap = this.diagram.options.snap;
+                var snapAngle = Math.max(snap.angle || DEFAULT_SNAP_ANGLE, MIN_SNAP_ANGLE);
+                return snap ? Math.floor((a % 360) / snapAngle) * snapAngle : (a % 360);
             },
 
             _truncateDistance: function (d) {
                 if (d instanceof diagram.Point) {
                     return new diagram.Point(this._truncateDistance(d.x), this._truncateDistance(d.y));
                 } else {
-                    var snapSize = Math.max(this.diagram.options.snap.size, 5);
-                    return this.diagram.options.snap.enabled === true ? Math.floor(d / snapSize) * snapSize : d;
+                    var snap = this.diagram.options.snap;
+                    var snapSize = Math.max(snap.size || DEFAULT_SNAP_SIZE, MIN_SNAP_SIZE);
+                    return snap ? Math.floor(d / snapSize) * snapSize : d;
                 }
             },
 
@@ -72696,7 +72899,8 @@ var A = 0;
                 step: "{0} is not valid",
                 email: "{0} is not valid email",
                 url: "{0} is not valid URL",
-                date: "{0} is not valid date"
+                date: "{0} is not valid date",
+                dateCompare: "End date should be greater than or equal to the start date"
             },
             rules: {
                 required: function(input) {
@@ -75215,7 +75419,7 @@ var A = 0;
 
         _calculateGroupPadding: function(height) {
             var ul = this.ul;
-            var li = $(ul[0].firstChild);
+            var li = ul.children(".k-first:first");
             var groupHeader = ul.prev(".k-group-header");
             var padding = 0;
 
@@ -76093,7 +76297,7 @@ var A = 0;
                 indices = [];
             }
 
-            if (this.filter() && !singleSelection && this._deselectFiltered(indices)) {
+            if (this._filtered && !singleSelection && this._deselectFiltered(indices)) {
                 return;
             }
 
@@ -76414,18 +76618,19 @@ var A = 0;
             var scrollTop = element.scrollTop;
             var itemHeight = $(element.children[0]).height();
             var itemIndex = Math.floor(scrollTop / itemHeight) || 0;
-            var item = element.children[itemIndex];
-            var forward = item.offsetTop < scrollTop;
+            var item = element.children[itemIndex] || element.lastChild;
+            var offsetHeight = this._offsetHeight();
+            var forward = (item.offsetTop - offsetHeight) < scrollTop;
 
             while (item) {
                 if (forward) {
-                    if (item.offsetTop >= scrollTop || !item.nextSibling) {
+                    if ((item.offsetTop + itemHeight - offsetHeight) > scrollTop || !item.nextSibling) {
                         break;
                     }
 
                     item = item.nextSibling;
                 } else {
-                    if (item.offsetTop <= scrollTop || !item.previousSibling) {
+                    if ((item.offsetTop - offsetHeight) <= scrollTop || !item.previousSibling) {
                         break;
                     }
 
@@ -76463,9 +76668,10 @@ var A = 0;
             var item = '<li tabindex="-1" role="option" unselectable="on" class="k-item';
 
             var dataItem = context.item;
+            var notFirstItem = context.index !== 0;
             var found = this._filtered && this._dataItemPosition(dataItem, values) !== -1;
 
-            if (context.newGroup) {
+            if (notFirstItem && context.newGroup) {
                 item += ' k-first';
             }
 
@@ -76477,7 +76683,7 @@ var A = 0;
 
             item += this.templates.template(dataItem);
 
-            if (context.newGroup) {
+            if (notFirstItem && context.newGroup) {
                 item += '<div class="k-group">' + this.templates.groupTemplate(context.group) + '</div>';
             }
 
@@ -76608,7 +76814,7 @@ var A = 0;
     var kendo = window.kendo,
         ui = kendo.ui,
         Select = ui.Select,
-        os = kendo.support.mobileOS,
+        support = kendo.support,
         activeElement = kendo._activeElement,
         keys = kendo.keys,
         ns = ".kendoDropDownList",
@@ -76631,7 +76837,7 @@ var A = 0;
         init: function(element, options) {
             var that = this;
             var index = options && options.index;
-            var optionLabel, useOptionLabel, text;
+            var optionLabel, text;
 
             that.ns = ns;
             options = $.isArray(options) ? { dataSource: options } : options;
@@ -76690,16 +76896,11 @@ var A = 0;
                 text = options.text || "";
                 if (!text) {
                     optionLabel = options.optionLabel;
-                    useOptionLabel = optionLabel && options.index === 0;
 
-                    if (that._isSelect) {
-                        if (useOptionLabel) {
-                            text = optionLabel;
-                        } else {
-                            text = element.children(":selected").text();
-                        }
-                    } else if (!element[0].value && useOptionLabel) {
+                    if (optionLabel && options.index === 0) {
                         text = optionLabel;
+                    } else if (that._isSelect) {
+                        text = element.children(":selected").text();
                     }
                 }
 
@@ -76964,8 +77165,14 @@ var A = 0;
                 value = "";
             }
 
+            that._initialIndex = null;
+
             that.listView.value(value.toString()).done(function() {
                 that._triggerCascade();
+
+                if (that.selectedIndex === -1 && that.text()) {
+                    that.text("");
+                }
 
                 that._old = that._accessor();
                 that._oldIndex = that.selectedIndex;
@@ -77088,6 +77295,7 @@ var A = 0;
                 }
             }
 
+            that._hideBusy();
             that.trigger("dataBound");
         },
 
@@ -77120,7 +77328,7 @@ var A = 0;
                     that._select(that._focus(), !that.dataSource.view().length);
                 }
 
-                if (kendo.support.mobileOS.ios && isIFrame) {
+                if (support.mobileOS.ios && isIFrame) {
                     that._change();
                 } else {
                     that._blur();
@@ -77387,6 +77595,11 @@ var A = 0;
             var wrapper = this.wrapper;
             var filterInput = this.filterInput;
             var compareElement = element === filterInput ? wrapper : filterInput;
+            var touchEnabled = support.mobileOS && (support.touch || support.MSPointers || support.pointers);
+
+            if (filterInput && filterInput[0] === element[0] && touchEnabled) {
+                return;
+            }
 
             if (filterInput && compareElement[0] === active) {
                 this._prevent = true;
@@ -77463,7 +77676,9 @@ var A = 0;
 
             if (this.optionLabel[0]) {
                 if (typeof candidate === "number") {
-                    candidate -= 1;
+                    if (candidate > -1) {
+                        candidate -= 1;
+                    }
                 } else if (candidate instanceof jQuery && candidate.hasClass("k-list-optionlabel")) {
                     candidate = -1;
                 }
@@ -77637,10 +77852,11 @@ var A = 0;
         _mobile: function() {
             var that = this,
                 popup = that.popup,
+                mobileOS = support.mobileOS,
                 root = popup.element.parents(".km-root").eq(0);
 
-            if (root.length && os) {
-                popup.options.animation.open.effects = (os.android || os.meego) ? "fadeIn" : (os.ios || os.wp) ? "slideIn:up" : popup.options.animation.open.effects;
+            if (root.length && mobileOS) {
+                popup.options.animation.open.effects = (mobileOS.android || mobileOS.meego) ? "fadeIn" : (mobileOS.ios || mobileOS.wp) ? "slideIn:up" : popup.options.animation.open.effects;
             }
         },
 
@@ -77918,20 +78134,15 @@ var A = 0;
             BUTTON_TEMPLATE = '<a class="k-button k-button-icontext #=className#" href="\\#"><span class="#=iconClass# #=imageClass#"></span>#=text#</a>';
 
         diagram.DefaultConnectors = [{
-            name: TOP,
-            description: "Top Connector"
+            name: TOP
         }, {
-            name: RIGHT,
-            description: "Right Connector"
+            name: BOTTOM
         }, {
-            name: BOTTOM,
-            description: "Bottom Connector"
+            name: LEFT
         }, {
-            name: LEFT,
-            Description: "Left Connector"
+            name: RIGHT
         }, {
             name: AUTO,
-            Description: "Auto Connector",
             position: function (shape) {
                 return shape.getPosition("center");
             }
@@ -77996,70 +78207,6 @@ var A = 0;
 
         function isAutoConnector(connector) {
             return connector.options.name.toLowerCase() === AUTO.toLowerCase();
-        }
-
-        function resolveConnectors(connection) {
-            var minDist = MAXINT,
-                sourcePoint, targetPoint,
-                source = connection.source(),
-                target = connection.target(),
-                autoSourceShape,
-                autoTargetShape,
-                sourceConnector,
-                preferred = [0, 2, 3, 1, 4],
-                k;
-            if (source instanceof Point) {
-                sourcePoint = source;
-            } else if (source instanceof Connector) {
-                if (isAutoConnector(source)) {
-                    autoSourceShape = source.shape;
-                } else {
-                    connection._resolvedSourceConnector = source;
-                    sourcePoint = source.position();
-                }
-            }
-
-            if (target instanceof Point) {
-                targetPoint = target;
-            } else if (target instanceof Connector) {
-                if (isAutoConnector(target)) {
-                    autoTargetShape = target.shape;
-                } else {
-                    connection._resolvedTargetConnector = target;
-                    targetPoint = target.position();
-                }
-            }
-
-            if (sourcePoint) {
-                if (autoTargetShape) {
-                    connection._resolvedTargetConnector = closestConnector(sourcePoint, autoTargetShape);
-                }
-            } else if (autoSourceShape) {
-                if (targetPoint) {
-                    connection._resolvedSourceConnector = closestConnector(targetPoint, autoSourceShape);
-                } else if (autoTargetShape) {
-                    for (var i = 0; i < autoSourceShape.connectors.length; i++) {
-                        if (autoSourceShape.connectors.length == 5) // presuming this means the default connectors
-                        {
-                            // will emphasize the vertical or horizontal direction, which matters when using the cascading router and distances which are equal for multiple connectors.
-                            k = preferred[i];
-                        } else {
-                            k = i;
-                        }
-                        sourceConnector = autoSourceShape.connectors[k];
-                        if (!isAutoConnector(sourceConnector)) {
-                            var currentSourcePoint = sourceConnector.position(),
-                                currentTargetConnector = closestConnector(currentSourcePoint, autoTargetShape);
-                            var dist = math.round(currentTargetConnector.position().distanceTo(currentSourcePoint)); // rounding prevents some not needed connectors switching.
-                            if (dist < minDist) {
-                                minDist = dist;
-                                connection._resolvedSourceConnector = sourceConnector;
-                                connection._resolvedTargetConnector = currentTargetConnector;
-                            }
-                        }
-                    }
-                }
-            }
         }
 
         function closestConnector(point, shape) {
@@ -78448,8 +78595,8 @@ var A = 0;
                         }
                     } else {
                         this._setBounds(value);
-                        this.refreshConnections();
                         this._triggerBoundsChange();
+                        this.refreshConnections();
                     }
                 } else {
                     bounds = this._bounds;
@@ -79267,8 +79414,9 @@ var A = 0;
                 pts.push(this.targetPoint());
                 return pts;
             },
+
             refresh: function () {
-                resolveConnectors(this);
+                this._resolveConnectors();
                 var globalSourcePoint = this.sourcePoint(), globalSinkPoint = this.targetPoint(),
                     boundsTopLeft, localSourcePoint, localSinkPoint, middle;
 
@@ -79285,6 +79433,123 @@ var A = 0;
                 if (this.adorner) {
                     this.adorner.refresh();
                 }
+            },
+
+            _resolveConnectors: function () {
+                var connection = this,
+                    sourcePoint, targetPoint,
+                    source = connection.source(),
+                    target = connection.target(),
+                    autoSourceShape,
+                    autoTargetShape;
+
+                if (source instanceof Point) {
+                    sourcePoint = source;
+                } else if (source instanceof Connector) {
+                    if (isAutoConnector(source)) {
+                        autoSourceShape = source.shape;
+                    } else {
+                        connection._resolvedSourceConnector = source;
+                        sourcePoint = source.position();
+                    }
+                }
+
+                if (target instanceof Point) {
+                    targetPoint = target;
+                } else if (target instanceof Connector) {
+                    if (isAutoConnector(target)) {
+                        autoTargetShape = target.shape;
+                    } else {
+                        connection._resolvedTargetConnector = target;
+                        targetPoint = target.position();
+                    }
+                }
+
+                if (sourcePoint) {
+                    if (autoTargetShape) {
+                        connection._resolvedTargetConnector = closestConnector(sourcePoint, autoTargetShape);
+                    }
+                } else if (autoSourceShape) {
+                    if (targetPoint) {
+                        connection._resolvedSourceConnector = closestConnector(targetPoint, autoSourceShape);
+                    } else if (autoTargetShape) {
+                        this._resolveAutoConnectors(autoSourceShape, autoTargetShape);
+                    }
+                }
+            },
+
+            _resolveAutoConnectors: function(autoSourceShape, autoTargetShape) {
+                var minNonConflict = MAXINT;
+                var minDist = MAXINT;
+                var sourceConnectors = autoSourceShape.connectors;
+                var targetConnectors;
+                var minNonConflictSource, minNonConflictTarget;
+                var sourcePoint, targetPoint;
+                var minSource, minTarget;
+                var sourceConnector, targetConnector;
+                var sourceIdx, targetIdx;
+                var dist;
+
+                for (sourceIdx = 0; sourceIdx < sourceConnectors.length; sourceIdx++) {
+                    sourceConnector = sourceConnectors[sourceIdx];
+                    if (!isAutoConnector(sourceConnector)) {
+                        sourcePoint = sourceConnector.position();
+                        targetConnectors = autoTargetShape.connectors;
+
+                        for (targetIdx = 0; targetIdx < targetConnectors.length; targetIdx++) {
+                            targetConnector = targetConnectors[targetIdx];
+                            if (!isAutoConnector(targetConnector)) {
+                                targetPoint = targetConnector.position();
+                                dist = math.round(sourcePoint.distanceTo(targetPoint));
+
+                                if (dist < minNonConflict && this.diagram && this._testRoutePoints(sourcePoint, targetPoint, sourceConnector, targetConnector)) {
+                                    minNonConflict = dist;
+                                    minNonConflictSource = sourceConnector;
+                                    minNonConflictTarget = targetConnector;
+                                }
+
+                                if (dist < minDist) {
+                                    minSource = sourceConnector;
+                                    minTarget = targetConnector;
+                                    minDist = dist;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (minNonConflictSource) {
+                    minSource = minNonConflictSource;
+                    minTarget = minNonConflictTarget;
+                }
+
+                this._resolvedSourceConnector = minSource;
+                this._resolvedTargetConnector = minTarget;
+            },
+
+            _testRoutePoints: function(sourcePoint, targetPoint, sourceConnector, targetConnector) {
+                var router = this._router;
+                var passRoute = true;
+                if (router instanceof CascadingRouter) {
+                    var points = router.routePoints(sourcePoint, targetPoint, sourceConnector, targetConnector),
+                        start, end,
+                        exclude, rect;
+                    points.unshift(sourcePoint);
+                    points.push(targetPoint);
+                    exclude = [sourceConnector.shape, targetConnector.shape];
+                    for (var idx = 1; idx < points.length; idx++) {
+                        start = points[idx - 1];
+                        end = points[idx];
+                        rect = new Rect(math.min(start.x, end.x), math.min(start.y, end.y),
+                                        math.abs(start.x - end.x), math.abs(start.y - end.y));
+
+                        if (this.diagram._shapesQuadTree.hitTestRect(rect, exclude)) {
+                            passRoute = false;
+                            break;
+                        }
+                    }
+                }
+                return passRoute;
             },
 
             redraw: function (options) {
@@ -79428,6 +79693,8 @@ var A = 0;
                 });
                 that.canvas.append(that.mainLayer);
 
+                that._shapesQuadTree = new ShapesQuadTree(that);
+
                 that._pan = new Point();
                 that._adorners = [];
                 that.adornerLayer = new Group({
@@ -79495,7 +79762,6 @@ var A = 0;
                     offsetY: 20
                 },
                 snap: {
-                    enabled: true,
                     size: 10,
                     angle: 10
                 },
@@ -80013,6 +80279,7 @@ var A = 0;
 
                 that.select(false);
                 that.mainLayer.clear();
+                that._shapesQuadTree.clear();
                 that._initialize();
             },
             /**
@@ -80069,9 +80336,10 @@ var A = 0;
                 }
 
                 connection.diagram = this;
+                connection.updateOptionsFromModel();
+                connection.refresh();
                 this.mainLayer.append(connection.visual);
                 this.connections.push(connection);
-                connection.updateOptionsFromModel();
 
                 return connection;
             },
@@ -80128,6 +80396,7 @@ var A = 0;
                 this.shapes.push(shape);
                 shape.diagram = this;
                 this.mainLayer.append(shape.visual);
+                this._shapesQuadTree.insert(shape);
 
                 this.trigger(CHANGE, {
                     added: [shape],
@@ -80919,6 +81188,7 @@ var A = 0;
                     this.undoRedoService.addCompositeItem(new DeleteShapeUnit(shape));
                 }
                 Utils.remove(this.shapes, shape);
+                this._shapesQuadTree.remove(shape);
 
                 for (i = 0; i < shape.connectors.length; i++) {
                     connector = shape.connectors[i];
@@ -82270,6 +82540,259 @@ var A = 0;
             }
         };
 
+        var QuadRoot = Class.extend({
+            init: function() {
+                this.shapes = [];
+            },
+
+            _add: function(shape, bounds) {
+                this.shapes.push({
+                    bounds: bounds,
+                    shape: shape
+                });
+                shape._quadNode = this;
+            },
+
+            insert: function(shape, bounds) {
+                this._add(shape, bounds);
+            },
+
+            remove: function(shape) {
+                var shapes = this.shapes;
+                var length = shapes.length;
+
+                for (var idx = 0; idx < length; idx++) {
+                    if (shapes[idx].shape === shape) {
+                        shapes.splice(idx, 1);
+                        break;
+                    }
+                }
+            },
+
+            hitTestRect: function(rect, exclude) {
+                var shapes = this.shapes;
+                var length = shapes.length;
+                var hit = false;
+
+                for (var i = 0; i < length; i++) {
+                    if (this._overlaps(shapes[i].bounds, rect) && !dataviz.inArray(shapes[i].shape, exclude)) {
+                        hit = true;
+                        break;
+                    }
+                }
+                return hit;
+            },
+
+            _overlaps: function(rect1, rect2) {
+                    var rect1BottomRight = rect1.bottomRight();
+                    var rect2BottomRight = rect2.bottomRight();
+                    var overlaps = !(rect1BottomRight.x < rect2.x || rect1BottomRight.y < rect2.y ||
+                        rect2BottomRight.x < rect1.x || rect2BottomRight.y < rect1.y);
+                    return overlaps;
+            }
+        });
+
+        var QuadNode = QuadRoot.extend({
+            init: function(rect) {
+                QuadRoot.fn.init.call(this);
+                this.children = [];
+                this.rect = rect;
+            },
+
+            inBounds: function(rect) {
+                var nodeRect = this.rect;
+                var nodeBottomRight = nodeRect.bottomRight();
+                var bottomRight = rect.bottomRight();
+                var inBounds = nodeRect.x <= rect.x && nodeRect.y <= rect.y && bottomRight.x <= nodeBottomRight.x &&
+                    bottomRight.y <= nodeBottomRight.y;
+                return inBounds;
+            },
+
+            overlapsBounds: function(rect) {
+                return this._overlaps(this.rect, rect);
+            },
+
+            insert: function (shape, bounds) {
+                var inserted = false;
+                var children = this.children;
+                var length = children.length;
+                if (this.inBounds(bounds)) {
+                    if (!length && this.shapes.length < 4) {
+                        this._add(shape, bounds);
+                    } else {
+                        if (!length) {
+                            this._initChildren();
+                        }
+
+                        for (var idx = 0; idx < children.length; idx++) {
+                            if (children[idx].insert(shape, bounds)) {
+                                inserted = true;
+                                break;
+                            }
+                        }
+
+                        if (!inserted) {
+                            this._add(shape, bounds);
+                        }
+                    }
+                    inserted = true;
+                }
+
+                return inserted;
+            },
+
+            _initChildren: function() {
+                var rect = this.rect,
+                    children = this.children,
+                    shapes = this.shapes,
+                    center = rect.center(),
+                    halfWidth = rect.width / 2,
+                    halfHeight = rect.height / 2,
+                    childIdx, shapeIdx;
+
+                children.push(
+                    new QuadNode(new Rect(rect.x, rect.y, halfWidth, halfHeight)),
+                    new QuadNode(new Rect(center.x, rect.y, halfWidth, halfHeight)),
+                    new QuadNode(new Rect(rect.x, center.y, halfWidth, halfHeight)),
+                    new QuadNode(new Rect(center.x, center.y, halfWidth, halfHeight))
+                );
+                for (shapeIdx = shapes.length - 1; shapeIdx >= 0; shapeIdx--) {
+                    for (childIdx = 0; childIdx < children.length; childIdx++) {
+                        if (children[childIdx].insert(shapes[shapeIdx].shape, shapes[shapeIdx].bounds)) {
+                            shapes.splice(shapeIdx, 1);
+                            break;
+                        }
+                    }
+                }
+            },
+
+            hitTestRect: function(rect, exclude) {
+                var idx, result = [];
+                var children = this.children;
+                var length = children.length;
+                var hit = false;
+
+                if (this.overlapsBounds(rect)) {
+                    if (QuadRoot.fn.hitTestRect.call(this, rect, exclude)) {
+                        hit = true;
+                    } else {
+                         for (idx = 0; idx < length; idx++) {
+                            if (children[idx].hitTestRect(rect, exclude)) {
+                               hit = true;
+                               break;
+                            }
+                        }
+                    }
+                }
+
+                return hit;
+            }
+        });
+
+        var ShapesQuadTree = Class.extend({
+            ROOT_SIZE: 1000,
+
+            init: function(diagram) {
+                diagram.bind(ITEMBOUNDSCHANGE, proxy(this._boundsChange, this));
+                diagram.bind(ITEMROTATE, proxy(this._boundsChange, this));
+                this.initRoots();
+            },
+
+            initRoots: function() {
+                this.rootMap = {};
+                this.root = new QuadRoot();
+            },
+
+            clear: function() {
+                this.initRoots();
+            },
+
+            _boundsChange: function(e) {
+                if (e.item._quadNode) {
+                    e.item._quadNode.remove(e.item);
+                    this.insert(e.item);
+                }
+            },
+
+            insert: function(shape) {
+                var bounds = shape.bounds(ROTATED);
+                var rootSize = this.ROOT_SIZE;
+                var sectors = this.getSectors(bounds);
+                var x = sectors[0][0];
+                var y = sectors[1][0];
+
+                if (this.inRoot(sectors)) {
+                    this.root.insert(shape, bounds);
+                } else {
+                    if (!this.rootMap[x]) {
+                        this.rootMap[x] = {};
+                    }
+
+                    if (!this.rootMap[x][y]) {
+                        this.rootMap[x][y] = new QuadNode(
+                            new Rect(x * rootSize, y * rootSize, rootSize, rootSize)
+                        );
+                    }
+
+                    this.rootMap[x][y].insert(shape, bounds);
+                }
+            },
+
+            remove: function(shape) {
+                if (shape._quadNode) {
+                    shape._quadNode.remove(shape);
+                }
+            },
+
+            inRoot: function(sectors) {
+                return sectors[0].length > 1 || sectors[1].length > 1;
+            },
+
+            getSectors: function(rect) {
+                var rootSize = this.ROOT_SIZE;
+                var bottomRight = rect.bottomRight();
+                var x = Math.floor(rect.x / rootSize);
+                var y = Math.floor(rect.y / rootSize);
+                var bottomX = Math.floor(bottomRight.x / rootSize);
+                var bottomY = Math.floor(bottomRight.y / rootSize);
+                var sectors = [
+                    [x],
+                    [y]
+                ];
+
+                if (x !== bottomX) {
+                    sectors[0].push(bottomX);
+                }
+                if (y !== bottomY) {
+                    sectors[1].push(bottomY);
+                }
+                return sectors;
+            },
+
+            hitTestRect: function(rect, exclude) {
+                var sectors = this.getSectors(rect);
+                var xIdx, yIdx, x, y;
+                var root;
+
+                if (this.root.hitTestRect(rect, exclude)) {
+                    return true;
+                }
+
+                for (xIdx = 0; xIdx < sectors[0].length; xIdx++) {
+                    x = sectors[0][xIdx];
+                    for (yIdx = 0; yIdx < sectors[1].length; yIdx++) {
+                        y = sectors[1][yIdx];
+                        root = (this.rootMap[x] || {})[y];
+                        if (root && root.hitTestRect(rect, exclude)) {
+                            return true;
+                        }
+                    }
+                }
+
+                return false;
+            }
+        });
+
         function cloneDataItem(dataItem) {
             var result = dataItem;
             if (dataItem instanceof kendo.data.Model) {
@@ -82311,7 +82834,10 @@ var A = 0;
             Shape: Shape,
             Connection: Connection,
             Connector: Connector,
-            DiagramToolBar: DiagramToolBar
+            DiagramToolBar: DiagramToolBar,
+            QuadNode: QuadNode,
+            QuadRoot: QuadRoot,
+            ShapesQuadTree: ShapesQuadTree
         });
 })(window.kendo.jQuery);
 
@@ -83483,7 +84009,7 @@ var A = 0;
 
             if (attrs.kNgDisabled) {
                 var kNgDisabled = attrs.kNgDisabled;
-                var isDisabled = scope[kNgDisabled];
+                var isDisabled = scope.$eval(kNgDisabled);
                 if (isDisabled) {
                     object.enable(!isDisabled);
                 }
@@ -83492,7 +84018,7 @@ var A = 0;
 
             if (attrs.kNgReadonly) {
                 var kNgReadonly = attrs.kNgReadonly;
-                var isReadonly = scope[kNgReadonly];
+                var isReadonly = scope.$eval(kNgReadonly);
                 if (isReadonly) {
                     object.readonly(isReadonly);
                 }
@@ -84064,6 +84590,7 @@ var A = 0;
             // prevent leaks. https://github.com/kendo-labs/angular-kendo/issues/237
             $(el)
                 .removeData("$scope")
+                .removeData("$$kendoScope")
                 .removeData("$isolateScope")
                 .removeData("$isolateScopeNoTemplate")
                 .removeClass("ng-scope");
@@ -84134,7 +84661,7 @@ var A = 0;
             return;
         }
 
-        var scope = self.$angular_scope; //  || angular.element(self.element).scope();
+        var scope = self.$angular_scope;
 
         if (scope) {
             withoutTimeout(function(){
@@ -84144,7 +84671,8 @@ var A = 0;
 
                       case "cleanup":
                         angular.forEach(elements, function(el){
-                            var itemScope = angular.element(el).scope();
+                            var itemScope = $(el).data("$$kendoScope");
+
                             if (itemScope && itemScope !== scope && itemScope.$$kendoScope) {
                                 destroyScope(itemScope, el);
                             }
@@ -84160,16 +84688,19 @@ var A = 0;
                         angular.forEach(elements, function(el, i){
                             var itemScope;
                             if (x.scopeFrom) {
-                                itemScope = angular.element(x.scopeFrom).scope();
+                                itemScope = x.scopeFrom;
                             } else {
                                 var vars = data && data[i];
                                 if (vars !== undefined) {
                                     itemScope = $.extend(scope.$new(), vars);
                                     itemScope.$$kendoScope = true;
+                                } else {
+                                    itemScope = scope;
                                 }
                             }
 
-                            compile(el)(itemScope || scope);
+                            $(el).data("$$kendoScope", itemScope);
+                            compile(el)(itemScope);
                         });
                         digest(scope);
                         break;
@@ -85281,10 +85812,16 @@ var A = 0;
 
             collection = container.children(that._locate("modalview drawer"));
             if (that.$angular) {
+
+                that.$angular[0].viewOptions = {
+                    defaultTransition: that.transition,
+                    loader: that.loader,
+                    container: that.container,
+                    getLayout: that.getLayoutProxy
+                };
+
                 collection.each(function(idx, element) {
-                    compileMobileDirective($(element), function(scope) {
-                        //pass the options?
-                    });
+                    compileMobileDirective($(element), options.$angular[0]);
                 });
             } else {
                 initWidgets(collection);
@@ -85426,16 +85963,7 @@ var A = 0;
 
         _createView: function(element) {
             if (this.$angular) {
-                var that = this;
-
-                return compileMobileDirective(element, function(scope) {
-                    scope.viewOptions = {
-                        defaultTransition: that.transition,
-                        loader: that.loader,
-                        container: that.container,
-                        getLayout: that.getLayoutProxy
-                    };
-                });
+                return compileMobileDirective(element, this.$angular[0]);
             } else {
                 return kendo.initWidget(element, {
                     defaultTransition: this.transition,
@@ -85498,7 +86026,7 @@ var A = 0;
 
             element.children(that._locate("layout")).each(function() {
                 if (that.$angular) {
-                    layout = compileMobileDirective($(this));
+                    layout = compileMobileDirective($(this), that.$angular[0]);
                 } else {
                     layout = kendo.initWidget($(this), {}, ui.roles);
                 }
@@ -86816,7 +87344,7 @@ var A = 0;
                 kendo.mobile.init(modalViews);
             } else {
                 modalViews.each(function(idx, element) {
-                    kendo.compileMobileDirective($(element));
+                    kendo.compileMobileDirective($(element), options.$angular[0]);
                 });
             }
 
@@ -86830,7 +87358,7 @@ var A = 0;
                 });
             } else {
                 that.element.children(kendo.directiveSelector("pane")).each(function() {
-                    pane = kendo.compileMobileDirective($(this));
+                    pane = kendo.compileMobileDirective($(this), options.$angular[0]);
                     that.panes.push(pane);
                 });
             }

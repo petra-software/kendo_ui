@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -10373,6 +10373,9 @@
             tooltip.element = $(tooltip.template(tooltip.options));
             tooltip.move = proxy(tooltip.move, tooltip);
             tooltip._mouseleave = proxy(tooltip._mouseleave, tooltip);
+
+            var mobileScrollerSelector = kendo.format("[{0}='content'],[{0}='scroller']", kendo.attr("role"));
+            tooltip._mobileScroller = chartElement.closest(mobileScrollerSelector).data("kendoMobileScroller");
         },
 
         destroy: function() {
@@ -10451,10 +10454,18 @@
                 zoomLevel = kendo.support.zoomLevel(),
                 viewport = $(window),
                 scrollTop = window.pageYOffset || document.documentElement.scrollTop || 0,
-                scrollLeft = window.pageXOffset || document.documentElement.scrollLeft || 0;
+                scrollLeft = window.pageXOffset || document.documentElement.scrollLeft || 0,
+                movable = (this._mobileScroller || {}).movable;
 
-            top += tooltip._fit(top - scrollTop, size.height, viewport.outerHeight() / zoomLevel);
-            left += tooltip._fit(left - scrollLeft, size.width, viewport.outerWidth() / zoomLevel);
+            if (!movable || movable.scale === 1) {
+                top += tooltip._fit(top - scrollTop, size.height, viewport.outerHeight() / zoomLevel);
+                left += tooltip._fit(left - scrollLeft, size.width, viewport.outerWidth() / zoomLevel);
+            } else {
+                var transform = geom.transform().scale(movable.scale, movable.scale, [movable.x, movable.y]);
+                var point = new geom.Point(left, top).transform(transform);
+                left = point.x;
+                top = point.y;
+            }
 
             return {
                 top: top,

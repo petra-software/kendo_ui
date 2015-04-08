@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1000,9 +1000,7 @@
     });
 
     var SplineRadarAreaSegment = SplineAreaSegment.extend({
-        areaPoints: function() {
-            return [];
-        }
+        closeFill: $.noop
     });
 
     var RadarAreaChart = RadarLineChart.extend({
@@ -1072,29 +1070,33 @@
     });
 
     var SplinePolarAreaSegment = SplineAreaSegment.extend({
-        areaPoints: function(){
-             var segment = this,
-                chart = segment.parent,
+        closeFill: function(fillPath){
+            var center = this._polarAxisCenter();
+            fillPath.lineTo(center.x, center.y);
+        },
+
+        _polarAxisCenter: function() {
+            var chart = this.parent,
                 plotArea = chart.plotArea,
                 polarAxis = plotArea.polarAxis,
                 center = polarAxis.box.center();
-            return [center];
+            return center;
         },
-        points: function() {
-            var segment = this,
-                chart = segment.parent,
-                plotArea = chart.plotArea,
-                polarAxis = plotArea.polarAxis,
-                center = polarAxis.box.center(),
-                curvePoints,
-                curveProcessor = new CurveProcessor(false),
-                linePoints = LineSegment.fn.points.call(this);
-                linePoints.push(center);
 
-            curvePoints = curveProcessor.process(linePoints);
-            curvePoints.splice(curvePoints.length - 3, curvePoints.length - 1);
-            segment.curvePoints = curvePoints;
-            return curvePoints;
+        strokeSegments: function() {
+            var segments = this._strokeSegments;
+
+            if (!segments) {
+                var center = this._polarAxisCenter(),
+                    curveProcessor = new CurveProcessor(false),
+                    linePoints = LineSegment.fn.points.call(this);
+
+                linePoints.push(center);
+                segments = this._strokeSegments  = curveProcessor.process(linePoints);
+                segments.pop();
+            }
+
+            return segments;
         }
     });
 
@@ -1180,6 +1182,20 @@
             plotArea.createValueAxis();
         },
 
+        alignAxes: function() {
+            var axis = this.valueAxis;
+            var range = axis.range();
+            var crossingValue = axis.options.reverse ? range.max : range.min;
+            var slot = axis.getSlot(crossingValue);
+            var center = this.polarAxis.getSlot(0).c;
+            var axisBox = axis.box.translate(
+                center.x - slot.x1,
+                center.y - slot.y1
+            );
+
+            axis.reflow(axisBox);
+        },
+
         createValueAxis: function() {
             var plotArea = this,
                 tracker = plotArea.valueAxisRangeTracker,
@@ -1234,20 +1250,6 @@
 
             plotArea.axisBox = axisBox;
             plotArea.alignAxes(axisBox);
-        },
-
-        alignAxes: function() {
-            var plotArea = this,
-                valueAxis = plotArea.valueAxis,
-                slot = valueAxis.getSlot(valueAxis.options.min),
-                slotEdge = valueAxis.options.reverse ? 2 : 1,
-                center = plotArea.polarAxis.getSlot(0).c,
-                box = valueAxis.box.translate(
-                    center.x - slot[X + slotEdge],
-                    center.y - slot[Y + slotEdge]
-                );
-
-            valueAxis.reflow(box);
         },
 
         backgroundBox: function() {

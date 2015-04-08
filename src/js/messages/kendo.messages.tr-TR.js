@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -310,7 +310,9 @@ kendo.ui.Scheduler.prototype.options.messages =
 $.extend(true, kendo.ui.Scheduler.prototype.options.messages,{
   "allDay": "Tüm gün",
   "cancel": "İptal Et",
-  "confirmation": "Bu etkinliği silmek istediğinizden emin misiniz?",
+  "editable": {
+    "confirmation": "Bu etkinliği silmek istediğinizden emin misiniz?"
+  },
   "date": "Tarih",
   "deleteWindowTitle": "Etkinliği sil",
   "destroy": "Sil",

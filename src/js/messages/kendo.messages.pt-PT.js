@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -451,7 +451,9 @@ $.extend(true, kendo.ui.Scheduler.prototype.options.messages,{
   "deleteWindowTitle": "Eliminar evento",
   "ariaSlotLabel": "Selecionado entre {0:t} e {1:t}",
   "ariaEventLabel": "{0} em {1:D} às {2:t}",
-  "confirmation": "Tem a certeza que quer eliminar este evento?",
+  "editable": {
+    "confirmation": "Tem a certeza que quer eliminar este evento?"
+  },
   "views": {
     "day": "Dia",
     "week": "Semana",

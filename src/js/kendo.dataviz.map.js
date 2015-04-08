@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -886,6 +886,8 @@
 
         Extent = dataviz.map.Extent,
 
+        geom = kendo.geometry,
+        draw = kendo.drawing,
         util = kendo.util,
         defined = util.defined,
         valueOrDefault = util.valueOrDefault;
@@ -1574,7 +1576,6 @@
         _reset: function() {
             Layer.fn._reset.call(this);
             this._updateView();
-            this._view.clear();
             this._view.reset();
         },
 
@@ -1667,10 +1668,6 @@
             );
         },
 
-        clear: function() {
-            this.pool.empty();
-        },
-
         tileCount: function() {
             var size = this.size(),
                 firstTileIndex = this.pointToTileIndex(this._extent.nw),
@@ -1715,6 +1712,7 @@
         },
 
         reset: function() {
+            this.pool.reset();
             this.subdomainIndex = 0;
             this.basePoint = this._extent.nw;
             this.render();
@@ -1733,8 +1731,7 @@
                     });
 
                     if (!tile.options.visible) {
-                        this.element.append(tile.element);
-                        tile.options.visible = true;
+                        tile.show();
                     }
                 }
             }
@@ -1742,8 +1739,12 @@
 
         createTile: function(currentIndex) {
             var options = this.tileOptions(currentIndex);
+            var tile = this.pool.get(this._center, options);
+            if (tile.element.parent().length === 0) {
+                this.element.append(tile.element);
+            }
 
-            return this.pool.get(this._center, options);
+            return tile;
         },
 
         tileOptions: function(currentIndex) {
@@ -1788,9 +1789,7 @@
         init: function(options) {
             this._initOptions(options);
             this.createElement();
-            this.load();
-            // initially the image should be
-            this.options.visible = false;
+            this.show();
         },
 
         options: {
@@ -1800,7 +1799,7 @@
         },
 
         createElement: function() {
-            this.element = $("<img style='position: absolute; display: block; visibility: visible;' />")
+            this.element = $("<img style='position: absolute; display: block;' />")
                             .error(proxy(function(e) {
                                 if (this.errorUrl()) {
                                     e.target.setAttribute("src", this.errorUrl());
@@ -1810,19 +1809,26 @@
                             }, this));
         },
 
-        load: function(options) {
-            this.options = deepExtend({}, this.options, options);
+        show: function(options) {
+            this.options = options = deepExtend({}, this.options, options);
+            var id = tileId(this.options.currentIndex, this.options.zoom);
+            var element = this.element[0];
 
-            var htmlElement = this.element[0];
+            element.style.top = renderSize(this.options.offset.y);
+            element.style.left = renderSize(this.options.offset.x);
 
-            htmlElement.style.visibility = "visible";
-            htmlElement.style.display = "block";
-            htmlElement.style.top = renderSize(this.options.offset.y);
-            htmlElement.style.left = renderSize(this.options.offset.x);
-            htmlElement.setAttribute("src", this.url());
+            if (this.options.id !== id || !element.getAttribute("url")) {
+                element.setAttribute("src", this.url());
+            }
+            element.style.visibility = "visible";
 
-            this.options.id = tileId(this.options.currentIndex, this.options.zoom);
+            this.options.id = id;
             this.options.visible = true;
+        },
+
+        hide: function() {
+            this.element[0].style.visibility = "hidden";
+            this.options.visible = false;
         },
 
         url: function() {
@@ -1863,7 +1869,6 @@
 
     var TilePool = Class.extend({
         init: function() {
-            // calculate max size automaticaly
             this._items = [];
         },
 
@@ -1871,18 +1876,14 @@
             maxSize: 100
         },
 
-        // should considered to remove the center of the screen
         get: function(center, options) {
-            var pool = this,
-                item;
+            var pool = this;
 
             if (pool._items.length >= pool.options.maxSize) {
-                item = pool._update(center, options);
-            } else {
-                item = pool._create(options);
+                pool._remove(center);
             }
 
-            return item;
+            return pool._create(options);
         },
 
         empty: function() {
@@ -1894,6 +1895,15 @@
             }
 
             this._items = [];
+        },
+
+        reset: function() {
+            var items = this._items,
+                i;
+
+            for (i = 0; i < items.length; i++) {
+                items[i].hide();
+            }
         },
 
         _create: function(options) {
@@ -1911,7 +1921,7 @@
             }
 
             if (oldTile) {
-                oldTile.load(options);
+                oldTile.show(options);
             } else {
                 tile = new ImageTile(options);
                 this._items.push(tile);
@@ -1920,30 +1930,23 @@
             return tile;
         },
 
-        _update: function(center, options) {
-            var pool = this,
-                items = pool._items,
-                dist = -Number.MAX_VALUE,
-                currentDist, index, i, item;
+        _remove: function(center) {
+            var items = this._items;
+            var maxDist = -1;
+            var index = -1;
 
-            var id = tileId(options.currentIndex, options.zoom);
-
-            for (i = 0; i < items.length; i++) {
-                item = items[i];
-                currentDist = item.options.point.clone().distanceTo(center);
-                if (item.options.id === id) {
-                    return items[i];
-                }
-
-                if (dist < currentDist) {
+            for (var i = 0; i < items.length; i++) {
+                var dist = items[i].options.point.distanceTo(center);
+                if (dist > maxDist) {
                     index = i;
-                    dist = currentDist;
+                    maxDist = dist;
                 }
             }
 
-            items[index].load(options);
-
-            return items[index];
+            if (index !== -1) {
+                items[index].destroy();
+                items.splice(index, 1);
+            }
         }
     });
 
@@ -2697,6 +2700,11 @@
                 width: width,
                 height: min(scale, element.height())
             };
+        },
+
+        exportVisual: function() {
+            this._reset();
+            return false;
         },
 
         _setOrigin: function(origin, zoom) {

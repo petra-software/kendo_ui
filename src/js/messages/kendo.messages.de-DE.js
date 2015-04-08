@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.403 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -178,6 +178,8 @@ $.extend(true, kendo.ui.Editor.prototype.options.messages,{
   "formatBlock": "Absatzstil",
   "imageAltText": "Abwechselnder Text",
   "imageWebAddress": "Web-Adresse",
+  "imageWidth": "Breite (px)",
+  "imageHeight": "Höhe (px)",
   "indent": "Einzug vergrößern",
   "insertHtml": "HTML einfügen",
   "insertImage": "Einfügen Bild",
@@ -219,6 +221,32 @@ $.extend(true, kendo.ui.Editor.prototype.options.messages,{
   "dialogUpdate": "Update",
   "insertFile": "Insert file"
 });
+}
+
+/* FileBrowser and ImageBrowser messages */
+
+var browserMessages = {
+  "uploadFile" : "Hochladen",
+  "orderBy" : "Sortieren nach",
+  "orderByName" : "Name",
+  "orderBySize" : "Größe",
+  "directoryNotFound" : "Das Verzeichnis wurde nicht gefunden.",
+  "emptyFolder" : "Leeres Verzeichnis",
+  "deleteFile" : 'Sind Sie sicher, dass Sie "{0}" wirklich löschen wollen?',
+  "invalidFileType" : "Die ausgewählte Datei \"{0}\" ist ungültig. Unterstützte Dateitypen sind {1}.",
+  "overwriteFile" : "Eine Datei namens \"{0}\" existiert bereits im aktuellen Ordner. Überschreiben?",
+  "dropFilesHere" : "Dateien hier verschieben",  
+  "search": "Suchen"
+};
+
+if (kendo.ui.FileBrowser) {
+kendo.ui.FileBrowser.prototype.options.messages =
+$.extend(true, kendo.ui.FileBrowser.prototype.options.messages, browserMessages);
+}
+
+if (kendo.ui.ImageBrowser) {
+kendo.ui.ImageBrowser.prototype.options.messages =
+$.extend(true, kendo.ui.ImageBrowser.prototype.options.messages, browserMessages);
 }
 
 /* FilterCell messages */
@@ -340,9 +368,11 @@ kendo.ui.Scheduler.prototype.options.messages =
 $.extend(true, kendo.ui.Scheduler.prototype.options.messages,{
   "allDay": "Ganzer Tag",
   "cancel": "Abbrechen",
-  "confirmation": "Möchten Sie diesen Termin wirklich löschen?",
   "date": "Datum",
   "destroy": "Löschen",
+  "editable": {
+    "confirmation": "Möchten Sie diesen Termin wirklich löschen?"
+  },
   "editor": {
     "allDayEvent": "Ganztägiger Termin",
     "description": "Beschreibung",
