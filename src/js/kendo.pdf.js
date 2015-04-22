@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.422 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -452,7 +452,7 @@
             if (!(/^data:/i.test(url))) {
                 img.crossOrigin = "Anonymous";
             }
-            if (HAS_TYPED_ARRAYS) {
+            if (HAS_TYPED_ARRAYS && !(/^data:/i.test(url))) {
                 // IE10 fails to load images from another domain even when the server sends the
                 // proper CORS headers.  a XHR, however, will be able to load the data.
                 // http://stackoverflow.com/a/19734516/154985
@@ -3805,7 +3805,7 @@ PDF.TTFFont = TTFFont;
 
 
 
-(function(kendo){
+(function(kendo, $){
 
 kendo.PDFMixin = {
     extend: function(proto) {
@@ -3899,7 +3899,7 @@ kendo.PDFMixin = {
     }
 };
 
-})(kendo);
+})(kendo, window.kendo.jQuery);
 
 return window.kendo;
 

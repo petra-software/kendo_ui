@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.422 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.408";
+    kendo.version = "2015.1.422";
 
     function Class() {}
 
@@ -2656,7 +2656,7 @@ function pad(number, digits, end) {
             var size = this.getSize(),
                 currentSize = this._size;
 
-            if (force || !currentSize || size.width !== currentSize.width || size.height !== currentSize.height) {
+            if (force || (size.width > 0 || size.height > 0) && (!currentSize || size.width !== currentSize.width || size.height !== currentSize.height)) {
                 this._size = size;
                 this._resize(size);
                 this.trigger("resize", size);
@@ -3878,7 +3878,9 @@ function pad(number, digits, end) {
     };
 
     kendo.elementUnderCursor = function(e) {
-        return document.elementFromPoint(e.x.client, e.y.client);
+        if (typeof e.x.client != "undefined") {
+            return document.elementFromPoint(e.x.client, e.y.client);
+        }
     };
 
     kendo.wheelDeltaY = function(jQueryEvent) {
@@ -8850,9 +8852,14 @@ var A = 0;
                 }
 
                 var promises = [];
-                promises.push.apply(promises, that._send("create", created));
-                promises.push.apply(promises, that._send("update", updated));
-                promises.push.apply(promises, that._send("destroy", destroyed));
+
+                if (that.options.batch && that.transport.submit) {
+                    promises = that._sendSubmit(created, updated, destroyed);
+                } else {
+                    promises.push.apply(promises, that._send("create", created));
+                    promises.push.apply(promises, that._send("update", updated));
+                    promises.push.apply(promises, that._send("destroy", destroyed));
+                }
 
                 promise = $.when
                  .apply(null, promises)
@@ -9034,6 +9041,73 @@ var A = 0;
                     }
                 }
             });
+        },
+
+        _submit: function(promises, data) {
+            var that = this;
+
+            that.trigger(REQUESTSTART, { type: "submit" });
+
+            that.transport.submit(extend({
+                success: function(response, type) {
+                    var promise = $.grep(promises, function(x) {
+                        return x.type == type;
+                    })[0];
+
+                    if (promise) {
+                        promise.resolve({
+                            response: response,
+                            models: promise.models,
+                            type: type
+                        });
+                    }
+                },
+                error: function(response, status, error) {
+                    for (var idx = 0; idx < promises.length; idx++) {
+                        promises[idx].reject(response);
+                    }
+
+                    that.error(response, status, error);
+                }
+            }, data));
+        },
+
+        _sendSubmit: function(created, updated, destroyed) {
+            var that = this,
+                promises = [];
+
+            if (that.options.batch) {
+                if (created.length) {
+                    promises.push($.Deferred(function(deferred) {
+                        deferred.type = "create";
+                        deferred.models = created;
+                    }));
+                }
+
+                if (updated.length) {
+                    promises.push($.Deferred(function(deferred) {
+                        deferred.type = "update";
+                        deferred.models = updated;
+                    }));
+                }
+
+                if (destroyed.length) {
+                    promises.push($.Deferred(function(deferred) {
+                        deferred.type = "destroy";
+                        deferred.models = destroyed;
+                    }));
+                }
+
+                that._submit(promises, {
+                    data: {
+                        created: that.reader.serialize(toJSON(created)),
+                        updated: that.reader.serialize(toJSON(updated)),
+                        destroyed: that.reader.serialize(toJSON(destroyed))
+                    }
+                });
+            }
+
+            return promises;
         },
 
         _promise: function(data, models, type) {
@@ -11008,7 +11082,6 @@ var A = 0;
         binders = {},
         slice = Array.prototype.slice,
         Class = kendo.Class,
-        innerText,
         proxy = $.proxy,
         VALUE = "value",
         SOURCE = "source",
@@ -11019,12 +11092,6 @@ var A = 0;
 
     (function() {
         var a = document.createElement("a");
-
-        if (a.innerText !== undefined) {
-            innerText = "innerText";
-        } else if (a.textContent !== undefined) {
-            innerText = "textContent";
-        }
 
         try {
             delete a.test;
@@ -11275,7 +11342,7 @@ var A = 0;
 
     var TypedBinder = Binder.extend({
         dataType: function() {
-            var dataType = this.element.getAttribute("data-type") || this.element.type || "text"; 
+            var dataType = this.element.getAttribute("data-type") || this.element.type || "text";
             return dataType.toLowerCase();
         },
 
@@ -11382,7 +11449,7 @@ var A = 0;
                 text = "";
             }
 
-            this.element[innerText] = text;
+            $(this.element).text(text);
         }
     });
 
@@ -11481,7 +11548,7 @@ var A = 0;
                     that.add(e.index, e.items);
                 } else if (e.action == "remove") {
                     that.remove(e.index, e.items);
-                } else if (e.action != "itemchange") {
+                } else if (e.action == "itemchange" || e.action === undefined) {
                     that.render();
                 }
             } else {
@@ -11522,7 +11589,6 @@ var A = 0;
                 } else {
                     template = "#:data#";
                 }
-
                 template = kendo.template(template);
             }
 
@@ -11692,6 +11758,29 @@ var A = 0;
     };
 
     binders.select = {
+        source: binders.source.extend({
+            refresh: function(e) {
+                var that = this,
+                    source = that.bindings.source.get();
+
+                if (source instanceof ObservableArray || source instanceof kendo.data.DataSource) {
+                    e = e || {};
+
+                    if (e.action == "add") {
+                        that.add(e.index, e.items);
+                    } else if (e.action == "remove") {
+                        that.remove(e.index, e.items);
+                    } else if (e.action == "itemchange" || e.action === undefined) {
+                        that.render();
+                        if(that.bindings.value){
+                            that.bindings.value.source.trigger("change", {field: that.bindings.value.path});
+                        }
+                    }
+                } else {
+                    that.render();
+                }
+            }
+        }),
         value: TypedBinder.extend({
             init: function(target, bindings, options) {
                 TypedBinder.fn.init.call(this, target, bindings, options);
@@ -11901,6 +11990,10 @@ var A = 0;
                             widget[setter](source._dataSource);
                         } else {
                             widget[fieldName].data(source);
+
+                            if (that.bindings.value && widget instanceof kendo.ui.Select) {
+                                that.bindings.value.source.trigger("change", { field: that.bindings.value.path });
+                            }
                         }
                     }
                 }
@@ -12122,28 +12215,36 @@ var A = 0;
             },
 
             refresh: function() {
-
                 if (!this._initChange) {
-                    var field = this.options.dataValueField || this.options.dataTextField,
-                        value = this.bindings.value.get(),
-                              idx = 0, length,
-                              values = [];
+                    var widget = this.widget;
+                    var textField = this.options.dataTextField;
+                    var valueField = this.options.dataValueField || textField;
+                    var value = this.bindings.value.get();
+                    var text = this.options.text || "";
+                    var idx = 0, length;
+                    var values = [];
 
                     if (value === undefined) {
                         value = null;
                     }
 
-                    if (field) {
+                    if (valueField) {
                         if (value instanceof ObservableArray) {
                             for (length = value.length; idx < length; idx++) {
-                                values[idx] = value[idx].get(field);
+                                values[idx] = value[idx].get(valueField);
                             }
                             value = values;
                         } else if (value instanceof ObservableObject) {
-                            value = value.get(field);
+                            text = value.get(textField);
+                            value = value.get(valueField);
                         }
                     }
-                    this.widget.value(value);
+
+                    if (widget.options.autoBind === false) {
+                        widget._preselect(value, text);
+                    } else {
+                        widget.value(value);
+                    }
                 }
 
                 this._initChange = false;
@@ -12252,6 +12353,7 @@ var A = 0;
                     if (!this._initChange) {
                         var field = this.options.dataValueField || this.options.dataTextField,
                             value = this.bindings.value.get(),
+                            data = value,
                             idx = 0, length,
                             values = [],
                             selectedValue;
@@ -12272,7 +12374,11 @@ var A = 0;
                             }
                         }
 
-                        this.widget.value(value);
+                        if (this.options.autoBind === false && this.options.valuePrimitive !== true) {
+                            this.widget._preselect(data, value);
+                        } else {
+                            this.widget.value(value);
+                        }
                     }
                 },
 
@@ -14702,7 +14808,7 @@ var A = 0;
 
             for (i = 0; i < areaLen; i ++) {
                 theFilter = areas[i];
-                if (support.matchesSelector.call(target, theFilter.options.filter)) {
+                if ($.contains(theFilter.element[0], target) && support.matchesSelector.call(target, theFilter.options.filter)) {
                     return { target: theFilter, targetElement: target };
                 }
             }
@@ -17837,14 +17943,10 @@ var A = 0;
         SAME_VIEW_REQUESTED = "sameViewRequested",
         OS = kendo.support.mobileOS,
         SKIP_TRANSITION_ON_BACK_BUTTON = OS.ios && !OS.appMode && OS.flatVersion >= 700,
-
         WIDGET_RELS = /popover|actionsheet|modalview|drawer/,
         BACK = "#:back",
 
-        attrValue = kendo.attrValue,
-        // navigation element roles
-        buttonRoles = "button backbutton detailbutton listview-link",
-        linkRoles = "tab";
+        attrValue = kendo.attrValue;
 
     var Pane = Widget.extend({
         init: function(element, options) {
@@ -18081,13 +18183,18 @@ var A = 0;
         },
 
         _setupAppLinks: function() {
-            var that = this;
+            var that = this,
+                linkRoles = "tab",
+                pressedButtonSelector = "[data-" + kendo.ns + "navigate-on-press]",
+                buttonSelector = roleSelector("button") + ":not(" + pressedButtonSelector + ")",
+                buttonSelectors = roleSelector("backbutton detailbutton listview-link") + "," + buttonSelector;
+
             this.element.handler(this)
-                .on("down", roleSelector(linkRoles)+",[data-navigate-on-press]", "_mouseup")
-                .on("click", roleSelector(linkRoles + " " + buttonRoles), "_appLinkClick");
+                .on("down", roleSelector(linkRoles) + "," + pressedButtonSelector, "_mouseup")
+                .on("click", roleSelector(linkRoles) + " " + buttonSelectors, "_appLinkClick");
 
             this.userEvents = new kendo.UserEvents(this.element, {
-                filter: roleSelector(buttonRoles),
+                filter: buttonSelectors,
                 tap: function(e) {
                     e.event.currentTarget = e.touch.currentTarget;
                     that._mouseup(e.event);
@@ -19039,6 +19146,10 @@ var A = 0;
                 that.element.children(kendo.directiveSelector("pane")).each(function() {
                     pane = kendo.compileMobileDirective($(this), options.$angular[0]);
                     that.panes.push(pane);
+                });
+
+                that.element.children(kendo.directiveSelector("header footer")).each(function() {
+                    kendo.compileMobileDirective($(this), options.$angular[0]);
                 });
             }
 
@@ -23371,6 +23482,8 @@ var A = 0;
             return;
         }
 
+        var form  = $(widget.element).parents("form");
+        var ngForm = scope[form.attr("name")];
         var getter = $parse(kNgModel);
         var setter = getter.assign;
         var updating = false;
@@ -23403,6 +23516,11 @@ var A = 0;
 
         widget.first("change", function(){
             updating = true;
+
+            if (ngForm && ngForm.$pristine) {
+                ngForm.$setDirty();
+            }
+
             scope.$apply(function(){
                 setter(scope, widget.$angular_getLogicValue());
             });

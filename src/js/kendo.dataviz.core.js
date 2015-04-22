@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.422 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1341,7 +1341,7 @@
             var rotation = options.rotation;
             textbox.container.options.align = align;
 
-            if (visual && !textbox._boxReflow && targetBox.hasSize()) {
+            if (visual && !textbox._boxReflow) {
                 textbox.visual = visual({
                     text: textbox.content,
                     rect: targetBox.toRect(),
@@ -2020,7 +2020,8 @@
                 titleSize = title ? title.box[sizeFn]() : 0,
                 space = axis.getActualTickSize() + options.margin + titleSize,
                 maxLabelSize = 0,
-                boxSize = box[sizeFn](),
+                rootBox = (this.getRoot() || {}).box || box,
+                boxSize = rootBox[sizeFn](),
                 labelSize, i;
 
             for (i = 0; i < count; i++) {

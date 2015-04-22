@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.408 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.422 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -661,13 +661,14 @@
         }
         return result;
     }
-    function findParentColumnWithChildren(columns, index, source) {
+    function findParentColumnWithChildren(columns, index, source, rtl) {
         var target;
         var locked = source.locked;
 
         do {
-            target = columns[Math.max(index--, 0)];
-        } while(index > -1 && target != source && !target.columns && target.locked == locked);
+            target = columns[index];
+            index += rtl ? 1 : -1;
+        } while(target && index > -1 && index < columns.length && target != source && !target.columns && target.locked == locked);
 
         return target;
     }
@@ -695,7 +696,8 @@
                 index += before ? -1 : 1;
             }
 
-            target = findParentColumnWithChildren(parentColumns,index, source);
+            var sourceIndex = inArray(source, parentColumns);
+            target = findParentColumnWithChildren(parentColumns, index, source, sourceIndex > index);
 
             if (target && target != source && target.columns) {
                 return findReorderTarget(columns, target, source, before);
