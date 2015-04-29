@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.422 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.429 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.422";
+    kendo.version = "2015.1.429";
 
     function Class() {}
 
@@ -2507,7 +2507,10 @@ function pad(number, digits, end) {
             }
 
             if (safe) {
+                expression = expression.replace(/"([^.]*)\.([^"]*)"/g,'"$1_$DOT$_$2"');
+                expression = expression.replace(/'([^.]*)\.([^']*)'/g,"'$1_$DOT$_$2'");
                 expression = wrapExpression(expression.split("."), paramName);
+                expression = expression.replace(/_\$DOT\$_/g, ".");
             } else {
                 expression = paramName + expression;
             }
@@ -2658,7 +2661,7 @@ function pad(number, digits, end) {
 
             if (force || (size.width > 0 || size.height > 0) && (!currentSize || size.width !== currentSize.width || size.height !== currentSize.height)) {
                 this._size = size;
-                this._resize(size);
+                this._resize(size, force);
                 this.trigger("resize", size);
             }
         },
@@ -4958,7 +4961,9 @@ function pad(number, digits, end) {
                     if (model.fields) {
                         each(model.fields, function(field, value) {
                             if (isPlainObject(value) && value.field) {
-                                value = extend(value, { field: that.getter(value.field) });
+                                if (!$.isFunction(value.field)) {
+                                    value = extend(value, { field: that.getter(value.field) });
+                                }
                             } else {
                                 value = { field: that.getter(value) };
                             }
@@ -9001,7 +9006,11 @@ var A = 0;
                         if (!that.trigger(REQUESTSTART, { type: "read" })) {
                             that.transport.read({
                                 data: that._params(options),
-                                success: that._prefetchSuccessHandler(skip, size, callback)
+                                success: that._prefetchSuccessHandler(skip, size, callback),
+                                error: function() {
+                                    var args = slice.call(arguments);
+                                    that.error.apply(that, args);
+                                }
                             });
                         } else {
                             that._dequeueRequest();
@@ -11090,7 +11099,11 @@ var A = 0;
                         }
                     }
 
-                    if (widget.options.autoBind === false) {
+                    if (widget.options.autoBind === false && widget.listView && !widget.listView.isBound()) {
+                        if (textField === valueField && !text) {
+                            text = value;
+                        }
+
                         widget._preselect(value, text);
                     } else {
                         widget.value(value);
@@ -11201,7 +11214,9 @@ var A = 0;
 
                 refresh: function() {
                     if (!this._initChange) {
-                        var field = this.options.dataValueField || this.options.dataTextField,
+                        var options = this.options,
+                            widget = this.widget,
+                            field = options.dataValueField || options.dataTextField,
                             value = this.bindings.value.get(),
                             data = value,
                             idx = 0, length,
@@ -11224,10 +11239,10 @@ var A = 0;
                             }
                         }
 
-                        if (this.options.autoBind === false && this.options.valuePrimitive !== true) {
-                            this.widget._preselect(data, value);
+                        if (options.autoBind === false && options.valuePrimitive !== true && !widget.listView.isBound()) {
+                            widget._preselect(data, value);
                         } else {
-                            this.widget.value(value);
+                            widget.value(value);
                         }
                     }
                 },
@@ -13898,7 +13913,7 @@ var A = 0;
 
 
 
-(function(kendo){
+(function($, kendo){
 
 var RELS = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' +
            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
@@ -14601,7 +14616,7 @@ kendo.ooxml = {
     Worksheet: Worksheet
 };
 
-})(kendo);
+})(kendo.jQuery, kendo);
 
 
 
@@ -31808,6 +31823,7 @@ kendo.ExcelMixin = {
 
             if (!hasVirtual) {
                 that.listView = new kendo.ui.StaticList(that.ul, listOptions);
+                that.listView.setTouchScroller(that._touchScroller);
             } else {
                 that.listView = new kendo.ui.VirtualList(that.ul, listOptions);
             }
@@ -31858,6 +31874,7 @@ kendo.ExcelMixin = {
             }
         },
 
+        //TODO: refactor
         _header: function() {
             var that = this;
             var template = that.options.headerTemplate;
@@ -32504,8 +32521,8 @@ kendo.ExcelMixin = {
                     if (!that.listView.isBound()) {
                         if (!that._fetch) {
                             that.dataSource.one(CHANGE, function() {
-                                that._move(e);
                                 that._fetch = false;
+                                that._move(e);
                             });
 
                             that._fetch = true;
@@ -32804,10 +32821,10 @@ kendo.ExcelMixin = {
                 this._values = $.isArray(value) ? value.slice(0) : [value];
             }
 
-            this.setDataSource(this.options.dataSource);
-
             this._getter();
             this._templates();
+
+            this.setDataSource(this.options.dataSource);
 
             this._onScroll = proxy(function() {
                 var that = this;
@@ -32862,6 +32879,7 @@ kendo.ExcelMixin = {
             }
 
             that.dataSource = dataSource.bind(CHANGE, that._refreshHandler);
+            that._fixedHeader();
         },
 
         setOptions: function(options) {
@@ -32870,10 +32888,7 @@ kendo.ExcelMixin = {
             this._fixedHeader();
             this._getter();
             this._templates();
-
-            this._mute = true;
-            this.refresh();
-            this._mute = false;
+            this._render();
         },
 
         destroy: function() {
@@ -32912,6 +32927,10 @@ kendo.ExcelMixin = {
             return offsetHeight;
         },
 
+        setTouchScroller: function (touchScroller) {
+            this._touchScroller = touchScroller;
+        },
+
         scroll: function (item) {
             if (!item) {
                 return;
@@ -32932,6 +32951,7 @@ kendo.ExcelMixin = {
 
             if (touchScroller) {
                 yDimension = touchScroller.dimensions.y;
+                yDimension.update(true);
 
                 if (yDimension.enabled && itemOffsetTop > yDimension.size) {
                     itemOffsetTop = itemOffsetTop - yDimension.size + itemOffsetHeight + 4;
@@ -33100,6 +33120,16 @@ kendo.ExcelMixin = {
             };
         },
 
+        setValue: function(value) {
+            if (value === "" || value === null) {
+                value = [];
+            }
+
+            value = $.isArray(value) || value instanceof ObservableArray ? value.slice(0) : [value];
+
+            this._values = value;
+        },
+
         value: function(value) {
             var that = this;
             var deferred = that._valueDeferred;
@@ -33109,20 +33139,14 @@ kendo.ExcelMixin = {
                 return that._values.slice();
             }
 
-            if (value === "" || value === null) {
-                value = [];
-            }
-
-            value = $.isArray(value) || value instanceof ObservableArray ? value.slice(0) : [value];
-
-            that._values = value;
+            that.setValue(value);
 
             if (!deferred || deferred.state() === "resolved") {
                 that._valueDeferred = deferred = $.Deferred();
             }
 
             if (that.isBound()) {
-                indices = that._valueIndices(value);
+                indices = that._valueIndices(that._values);
 
                 if (that.options.selectable === "multiple") {
                     that.select(-1);
@@ -33548,9 +33572,7 @@ kendo.ExcelMixin = {
                 that._valueDeferred.resolve();
             }
 
-            if (!that._mute) {
-                that.trigger("dataBound");
-            }
+            that.trigger("dataBound");
         },
 
         isBound: function() {
@@ -35710,7 +35732,6 @@ kendo.ExcelMixin = {
             value: null
         },
 
-        //Use Select._dataSource method here!
         _dataSource: function() {
             var that = this;
 
@@ -36617,6 +36638,8 @@ kendo.ExcelMixin = {
 
             that._angularItems("compile");
 
+            that._presetValue = false;
+
             if (!that.options.virtual) {
                 height = that._height(filtered ? (length || 1) : length);
                 that._calculateGroupPadding(height);
@@ -36674,7 +36697,7 @@ kendo.ExcelMixin = {
         _listChange: function() {
             this._selectValue(this.listView.selectedDataItems()[0]);
 
-            if (this._old && this._oldIndex === -1) {
+            if (this._presetValue || (this._old && this._oldIndex === -1)) {
                 this._oldIndex = this.selectedIndex;
             }
         },
@@ -36692,12 +36715,13 @@ kendo.ExcelMixin = {
             var that = this;
             var filtered = that._state === STATE_FILTER;
             var isIFrame = window.self !== window.top;
+            var focusedItem = that._focus();
 
             if (!that._prevent) {
                 clearTimeout(that._typing);
 
-                if (filtered && that._focus()) {
-                    that._select(that._focus(), !that.dataSource.view().length);
+                if (filtered && focusedItem && !that.trigger("select", { item: focusedItem })) {
+                    that._select(focusedItem, !that.dataSource.view().length);
                 }
 
                 if (support.mobileOS.ios && isIFrame) {
@@ -37364,6 +37388,14 @@ kendo.ExcelMixin = {
         _preselect: function(value, text) {
             this._accessor(value);
             this._textAccessor(text);
+
+            this._old = this._accessor();
+            this._oldIndex = this.selectedIndex;
+
+            this.listView.setValue(value);
+
+            this._initialIndex = null;
+            this._presetValue = true;
         },
 
         _assignInstance: function(text, value) {
@@ -37632,7 +37664,7 @@ kendo.ExcelMixin = {
                 return;
             }
 
-            if ((!this.dataSource.view().length && state !== STATE_FILTER) || state === STATE_ACCEPT) {
+            if ((!that.listView.isBound() && state !== STATE_FILTER) || state === STATE_ACCEPT) {
                 that._open = true;
                 that._state = STATE_REBIND;
                 that.listView.filter(false);
@@ -37658,6 +37690,8 @@ kendo.ExcelMixin = {
 
             that._angularItems("compile");
 
+            that._presetValue = false;
+
             if (!options.virtual) {
                 that._calculateGroupPadding(that._height(length));
             }
@@ -37677,7 +37711,7 @@ kendo.ExcelMixin = {
                 var custom = that._customOption;
 
                 that._customOption = undefined;
-                that._options(data);
+                that._options(data, "", that.value());
 
                 if (custom && custom[0].selected) {
                     that._custom(custom.val(), keepState);
@@ -37740,6 +37774,10 @@ kendo.ExcelMixin = {
 
         _listChange: function() {
             this._selectValue(this.listView.selectedDataItems()[0]);
+
+            if (this._presetValue) {
+                this._oldIndex = this.selectedIndex;
+            }
         },
 
         _get: function(candidate) {
@@ -37871,48 +37909,52 @@ kendo.ExcelMixin = {
             var dataItem;
             var value;
 
-            if (text !== undefined) {
-                dataItem = that.dataItem();
-
-                if (dataItem && that._text(dataItem) === text) {
-                    value = that._value(dataItem);
-                    if (value === null) {
-                        value = "";
-                    } else {
-                        value += "";
-                    }
-
-                    if (value === that._old) {
-                        that._triggerCascade();
-                        return;
-                    }
-                }
-
-                if (ignoreCase) {
-                    loweredText = loweredText.toLowerCase();
-                }
-
-                that._select(function(data) {
-                    data = that._text(data);
-
-                    if (ignoreCase) {
-                        data = (data + "").toLowerCase();
-                    }
-
-                    return data === loweredText;
-                });
-
-                if (that.selectedIndex < 0) {
-                    that._accessor(text);
-                    input.value = text;
-
-                    that._triggerCascade();
-                }
-
-                that._prev = input.value;
-            } else {
+            if (text === undefined) {
                 return input.value;
             }
+
+            dataItem = that.dataItem();
+
+            if (that.options.autoBind === false && !that.listView.isBound()) {
+                return;
+            }
+
+            if (dataItem && that._text(dataItem) === text) {
+                value = that._value(dataItem);
+                if (value === null) {
+                    value = "";
+                } else {
+                    value += "";
+                }
+
+                if (value === that._old) {
+                    that._triggerCascade();
+                    return;
+                }
+            }
+
+            if (ignoreCase) {
+                loweredText = loweredText.toLowerCase();
+            }
+
+            that._select(function(data) {
+                data = that._text(data);
+
+                if (ignoreCase) {
+                    data = (data + "").toLowerCase();
+                }
+
+                return data === loweredText;
+            });
+
+            if (that.selectedIndex < 0) {
+                that._accessor(text);
+                input.value = text;
+
+                that._triggerCascade();
+            }
+
+            that._prev = input.value;
         },
 
         toggle: function(toggle) {
@@ -38183,8 +38225,16 @@ kendo.ExcelMixin = {
         },
 
         _preselect: function(value, text) {
-            this._accessor(value);
             this.input.val(text);
+            this._accessor(value);
+
+            this._old = this._accessor();
+            this._oldIndex = this.selectedIndex;
+
+            this.listView.setValue(value);
+
+            this._initialIndex = null;
+            this._presetValue = true;
         }
     });
 
@@ -38488,12 +38538,13 @@ kendo.ExcelMixin = {
         _wrapperMousedown: function(e) {
             var that = this;
             var notInput = e.target.nodeName.toLowerCase() !== "input";
+            var closeButton = $(e.target).hasClass("k-select") || $(e.target).parent().hasClass("k-select");
 
-            if (notInput) {
+            if (notInput && !(closeButton && kendo.support.mobileOS)) {
                 e.preventDefault();
             }
 
-            if (e.target.className.indexOf("k-delete") === -1) {
+            if (!closeButton) {
                 if (that.input[0] !== activeElement() && notInput) {
                     that.input.focus();
                 }
@@ -38589,7 +38640,7 @@ kendo.ExcelMixin = {
                 tagList
                     .on(MOUSEENTER, LI, function() { $(this).addClass(HOVERCLASS); })
                     .on(MOUSELEAVE, LI, function() { $(this).removeClass(HOVERCLASS); })
-                    .on(CLICK, ".k-delete", proxy(that._tagListClick, that));
+                    .on(CLICK, "li.k-button .k-select", proxy(that._tagListClick, that));
             } else {
                 if (disable) {
                     wrapper.addClass(STATEDISABLED);
@@ -39068,28 +39119,38 @@ kendo.ExcelMixin = {
         },
 
         _render: function(data) {
-            var values = this.listView.value().slice(0);
+            var selectedItems = this.listView.selectedDataItems();
             var length = data.length;
+            var selectedIndex;
             var options = "";
             var dataItem;
-            var idx = 0;
             var value;
+            var idx;
 
             var custom = {};
             var optionsMap = {};
 
-            for (; idx < length; idx++) {
+            for (idx = 0; idx < length; idx++) {
                 dataItem = data[idx];
+                selectedIndex = this._selectedIndex(dataItem, selectedItems);
+
+                if (selectedIndex !== -1) {
+                    selectedItems.splice(selectedIndex, 1);
+                }
+
                 optionsMap[this._value(dataItem)] = idx;
-                options += this._option(dataItem, this._selected(dataItem, values));
+                options += this._option(dataItem, selectedIndex !== -1);
             }
 
-            if (values.length) {
-                for (idx = 0; idx < values.length; idx++) {
-                    value = values[idx];
+            if (selectedItems.length) {
+                for (idx = 0; idx < selectedItems.length; idx++) {
+                    dataItem = selectedItems[idx];
+
+                    value = this._value(dataItem);
                     custom[value] = idx + length;
                     optionsMap[value] = idx + length;
-                    options += '<option selected="selected" value="' + value + '"></option>';
+
+                    options += '<option selected="selected" value="' + value + '">' + this._text(dataItem) + '</option>';
                 }
             }
 
@@ -39099,28 +39160,18 @@ kendo.ExcelMixin = {
             this.element.html(options);
         },
 
-        _selected: function(dataItem, values) {
-            var that = this;
-            var value = that._value(dataItem);
-            var selected = false;
+        _selectedIndex: function(dataItem, selectedItems) {
+            var valueGetter = this._value;
+            var value = valueGetter(dataItem);
             var idx = 0;
 
-            if (value === undefined) {
-                value = that._text(dataItem);
-            }
-
-            for (; idx < values.length; idx++) {
-                if (value === values[idx]) {
-                    selected = true;
-                    break;
+            for (; idx < selectedItems.length; idx++) {
+                if (value === valueGetter(selectedItems[idx])) {
+                    return idx;
                 }
             }
 
-            if (selected) {
-                values.splice(idx, 1);
-            }
-
-            return selected;
+            return -1;
         },
 
         _search: function() {
@@ -39233,7 +39284,7 @@ kendo.ExcelMixin = {
 
             that.tagTextTemplate = tagTemplate;
             that.tagTemplate = function(data) {
-                return '<li class="k-button" unselectable="on"><span unselectable="on">' + tagTemplate(data) + '</span><span unselectable="on" class="k-icon k-delete">delete</span></li>';
+                return '<li class="k-button" unselectable="on"><span unselectable="on">' + tagTemplate(data) + '</span><span unselectable="on" class="k-select"><span unselectable="on" class="k-icon k-i-close">delete</span></span></li>';
             };
         },
 
@@ -50288,7 +50339,9 @@ kendo.ExcelMixin = {
 
         function _load(url) {
             img.src = url;
-            if (img.complete) {
+            if (img.complete && !kendo.support.browser.msie) {
+                // IE, bless it's little heart, says img.complete == true even though the image is
+                // not loaded (width=0), therefore we must go the onload route (ticket 929635).
                 _onload();
             } else {
                 img.onload = _onload;
@@ -59384,7 +59437,7 @@ kendo.PDFMixin = {
 
                 var count = removeEmptyRows(this.thead);
                 if (rows.length < count) {
-                    removeRowSpanValue(table, count);
+                    removeRowSpanValue(table, count - rows.length);
                 }
 
                 trFilter = table.find(".k-filter-row");
@@ -60203,12 +60256,15 @@ kendo.PDFMixin = {
             kendo.ui.progress(element, toggle);
         },
 
-        _resize: function() {
+        _resize: function(size, force) {
             if (this.content) {
                 this._setContentWidth();
                 this._setContentHeight();
             }
-            if (this.virtualScrollable) {
+            if (this.virtualScrollable && (force || this._rowHeight)) {
+                if (force) {
+                    this._rowHeight = null;
+                }
                 this.virtualScrollable.repaintScrollbar();
             }
         },
@@ -83992,7 +84048,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             }
 
             if (contentAnimators.length === 0) {
-                oldTab.removeClass(TABONTOP);
+                that.tabGroup.find("." + TABONTOP).removeClass(TABONTOP);
                 item.addClass(TABONTOP) // change these directly to bring the tab on top.
                     .css("z-index");
 
@@ -84027,7 +84083,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             var isAjaxContent = (item.children("." + LINK).data(CONTENTURL) || false) && contentHolder.is(EMPTY),
                 showContentElement = function () {
-                    oldTab.removeClass(TABONTOP);
+                    that.tabGroup.find("." + TABONTOP).removeClass(TABONTOP);
                     item.addClass(TABONTOP) // change these directly to bring the tab on top.
                         .css("z-index");
 
@@ -87961,6 +88017,10 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             if (that._mute) { return; }
 
             if (!that._fetching) {
+                if (that._filter) {
+                    that.focus(0);
+                }
+
                 that._createList();
                 if (!action && that._values.length && !that._filter) {
                     that.value(that._values, true).done(function() {
@@ -87997,6 +88057,14 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 position: position,
                 dataItem: this._selectedDataItems.splice(position, 1)[0]
             };
+        },
+
+        setValue: function(value) {
+            if (value === "" || value === null) {
+                value = [];
+            }
+
+            this._values = toArray(value);
         },
 
         value: function(value, _forcePrefetch) {
@@ -88376,6 +88444,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             if (filter === undefined) {
                 return this._filter;
             }
+
             this._filter = filter;
         },
 
@@ -88574,6 +88643,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                         this._fetching = true;
                         dataSource.range(rangeStart, pageSize);
                         lastRangeStart = rangeStart;
+                        this._fetching = false;
                         this._mute = false;
                     }
 
@@ -88763,7 +88833,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 itemHeight = this.options.itemHeight,
                 total = this.dataSource.total();
 
-            return Math.min(total - itemCount, Math.max(0, Math.floor(position / itemHeight )));
+            return Math.min(Math.max(total - itemCount, 0), Math.max(0, Math.floor(position / itemHeight )));
         },
 
         _listIndex: function(scrollTop, lastScrollTop) {
@@ -88827,6 +88897,8 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             if (indexes[position] === -1) { //deselect everything
                 for (var idx = 0; idx < selectedIndexes.length; idx++) {
                     selectedIndex = selectedIndexes[idx];
+
+                    this._getElementByIndex(selectedIndex).removeClass(SELECTED);
 
                     removed.push({
                         index: selectedIndex,
@@ -98873,8 +98945,8 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 '<ul class="k-reset k-header k-scheduler-navigation">' +
                    '<li class="k-state-default k-nav-prev"><a role="button" href="\\#" class="k-link"><span class="k-icon k-i-arrow-w"></span></a></li>' +
                    '<li class="k-state-default k-nav-current">' +
-                        '<span data-#=ns#bind="text: formattedShortDate"></span>' +
-                        '<span data-#=ns#bind="text: formattedDate"></span>' +
+                        '<span class="k-sm-date-format" data-#=ns#bind="text: formattedShortDate"></span>' +
+                        '<span class="k-lg-date-format" data-#=ns#bind="text: formattedDate"></span>' +
                     '</li>' +
                    '<li class="k-state-default k-nav-next"><a role="button" href="\\#" class="k-link"><span class="k-icon k-i-arrow-e"></span></a></li>' +
                 '</ul>' +
@@ -110144,6 +110216,13 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
                 if (touchScroller && touchScroller.movable) {
                     this._touchScroller = touchScroller;
+
+                    touchScroller.movable.bind("change", function(e) {
+                        scrollables.scrollLeft(-e.sender.x);
+                        if (lockedContent) {
+                            lockedContent.scrollTop(-e.sender.y);
+                        }
+                    });
                 }
             }
         },
@@ -113502,12 +113581,20 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         var self = this.self;
         var options = self.options;
         var valueField = options.dataValueField;
+        var text = options.text || "";
 
-        if (valueField && !options.valuePrimitive) {
-            val = val != null ? val[options.dataValueField || options.dataTextField] : null;
+        val = val || "";
+
+        if (valueField && !options.valuePrimitive && val) {
+            text = val[options.dataTextField] || "";
+            val = val[valueField || options.dataTextField];
         }
 
-        self.value(val);
+        if (self.options.autoBind === false && !self.listView.isBound()) {
+            self._preselect(val, text);
+        } else {
+            self.value(val);
+        }
     });
 
     defadvice("ui.MultiSelect", "$angular_getLogicValue", function() {
@@ -113527,16 +113614,23 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         if (val == null) {
             val = [];
         }
-        var self = this.self,
-            valueField = self.options.dataValueField;
 
-        if (valueField && !self.options.valuePrimitive) {
+        var self = this.self;
+        var options = self.options;
+        var valueField = options.dataValueField;
+        var data = val;
+
+        if (valueField && !options.valuePrimitive) {
             val = $.map(val, function(item) {
                 return item[valueField];
             });
         }
 
-        self.value(val);
+        if (options.autoBind === false && !options.valuePrimitive && !self.listView.isBound()) {
+            self._preselect(data, val);
+        } else {
+            self.value(val);
+        }
     });
 
     defadvice("ui.AutoComplete", "$angular_getLogicValue", function(){

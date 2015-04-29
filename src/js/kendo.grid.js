@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.422 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.429 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -5679,7 +5679,7 @@
 
                 var count = removeEmptyRows(this.thead);
                 if (rows.length < count) {
-                    removeRowSpanValue(table, count);
+                    removeRowSpanValue(table, count - rows.length);
                 }
 
                 trFilter = table.find(".k-filter-row");
@@ -6498,12 +6498,15 @@
             kendo.ui.progress(element, toggle);
         },
 
-        _resize: function() {
+        _resize: function(size, force) {
             if (this.content) {
                 this._setContentWidth();
                 this._setContentHeight();
             }
-            if (this.virtualScrollable) {
+            if (this.virtualScrollable && (force || this._rowHeight)) {
+                if (force) {
+                    this._rowHeight = null;
+                }
                 this.virtualScrollable.repaintScrollbar();
             }
         },

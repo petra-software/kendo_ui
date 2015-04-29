@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.422 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.429 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.422";
+    kendo.version = "2015.1.429";
 
     function Class() {}
 
@@ -2507,7 +2507,10 @@ function pad(number, digits, end) {
             }
 
             if (safe) {
+                expression = expression.replace(/"([^.]*)\.([^"]*)"/g,'"$1_$DOT$_$2"');
+                expression = expression.replace(/'([^.]*)\.([^']*)'/g,"'$1_$DOT$_$2'");
                 expression = wrapExpression(expression.split("."), paramName);
+                expression = expression.replace(/_\$DOT\$_/g, ".");
             } else {
                 expression = paramName + expression;
             }
@@ -2658,7 +2661,7 @@ function pad(number, digits, end) {
 
             if (force || (size.width > 0 || size.height > 0) && (!currentSize || size.width !== currentSize.width || size.height !== currentSize.height)) {
                 this._size = size;
-                this._resize(size);
+                this._resize(size, force);
                 this.trigger("resize", size);
             }
         },
@@ -6530,7 +6533,9 @@ function pad(number, digits, end) {
                     if (model.fields) {
                         each(model.fields, function(field, value) {
                             if (isPlainObject(value) && value.field) {
-                                value = extend(value, { field: that.getter(value.field) });
+                                if (!$.isFunction(value.field)) {
+                                    value = extend(value, { field: that.getter(value.field) });
+                                }
                             } else {
                                 value = { field: that.getter(value) };
                             }
@@ -10573,7 +10578,11 @@ var A = 0;
                         if (!that.trigger(REQUESTSTART, { type: "read" })) {
                             that.transport.read({
                                 data: that._params(options),
-                                success: that._prefetchSuccessHandler(skip, size, callback)
+                                success: that._prefetchSuccessHandler(skip, size, callback),
+                                error: function() {
+                                    var args = slice.call(arguments);
+                                    that.error.apply(that, args);
+                                }
                             });
                         } else {
                             that._dequeueRequest();
@@ -12662,7 +12671,11 @@ var A = 0;
                         }
                     }
 
-                    if (widget.options.autoBind === false) {
+                    if (widget.options.autoBind === false && widget.listView && !widget.listView.isBound()) {
+                        if (textField === valueField && !text) {
+                            text = value;
+                        }
+
                         widget._preselect(value, text);
                     } else {
                         widget.value(value);
@@ -12773,7 +12786,9 @@ var A = 0;
 
                 refresh: function() {
                     if (!this._initChange) {
-                        var field = this.options.dataValueField || this.options.dataTextField,
+                        var options = this.options,
+                            widget = this.widget,
+                            field = options.dataValueField || options.dataTextField,
                             value = this.bindings.value.get(),
                             data = value,
                             idx = 0, length,
@@ -12796,10 +12811,10 @@ var A = 0;
                             }
                         }
 
-                        if (this.options.autoBind === false && this.options.valuePrimitive !== true) {
-                            this.widget._preselect(data, value);
+                        if (options.autoBind === false && options.valuePrimitive !== true && !widget.listView.isBound()) {
+                            widget._preselect(data, value);
                         } else {
-                            this.widget.value(value);
+                            widget.value(value);
                         }
                     }
                 },
@@ -27054,6 +27069,7 @@ var A = 0;
         CROSS = "cross",
         DEFAULT_FONT = "12px sans-serif",
         DEFAULT_HEIGHT = 400,
+        DEFAULT_ICON_SIZE = 7,
         DEFAULT_PRECISION = 6,
         DEFAULT_WIDTH = 600,
         DEG_TO_RAD = math.PI / 180,
@@ -28336,42 +28352,32 @@ var A = 0;
         },
 
         reflow: function(targetBox) {
-            var textbox = this;
-            var options = textbox.options;
+            var options = this.options;
             var visual = options.visual;
             var align = options.align;
             var rotation = options.rotation;
-            textbox.container.options.align = align;
+            this.container.options.align = align;
 
-            if (visual && !textbox._boxReflow) {
-                textbox.visual = visual({
-                    text: textbox.content,
-                    rect: targetBox.toRect(),
-                    options: textbox.visualOptions(),
-                    createVisual: function() {
-                        textbox._boxReflow = true;
-                        textbox.reflow(targetBox);
-                        textbox._boxReflow = false;
-                        return textbox.getDefaultVisual();
-                    }
-                });
+            if (visual && !this._boxReflow) {
+                this.visual = visual(this.visualContext(targetBox));
+
                 var visualBox = targetBox;
-                if (textbox.visual) {
-                    visualBox = rectToBox(textbox.visual.clippedBBox() || new geom.Rect());
+                if (this.visual) {
+                    visualBox = rectToBox(this.visual.clippedBBox() || new geom.Rect());
                 }
-                textbox.box = textbox.contentBox = textbox.paddingBox = visualBox;
+                this.box = this.contentBox = this.paddingBox = visualBox;
             } else {
-                BoxElement.fn.reflow.call(textbox, targetBox);
+                BoxElement.fn.reflow.call(this, targetBox);
 
                 if (rotation) {
                     var margin = getSpacing(options.margin);
-                    var box = textbox.box.unpad(margin);
-                    textbox.normalBox = box.clone();
+                    var box = this.box.unpad(margin);
+                    this.normalBox = box.clone();
                     box.rotate(rotation);
-                    textbox.align(targetBox, X, align);
-                    textbox.align(targetBox, Y, options.vAlign);
+                    this.align(targetBox, X, align);
+                    this.align(targetBox, Y, options.vAlign);
                     box.translate(margin.left - margin.right, margin.top - margin.bottom);
-                    textbox.rotatedBox = box.clone();
+                    this.rotatedBox = box.clone();
                     box.pad(margin);
                 }
             }
@@ -28414,6 +28420,22 @@ var A = 0;
                 margin: options.margin,
                 padding: options.padding,
                 visible: options.visible
+            };
+        },
+
+        visualContext: function(targetBox) {
+            var textbox = this;
+
+            return {
+                text: textbox.content,
+                rect: targetBox.toRect(),
+                options: textbox.visualOptions(),
+                createVisual: function() {
+                    textbox._boxReflow = true;
+                    textbox.reflow(targetBox);
+                    textbox._boxReflow = false;
+                    return textbox.getDefaultVisual();
+                }
             };
         },
 
@@ -28498,6 +28520,16 @@ var A = 0;
             label.dataItem = dataItem;
 
             TextBox.fn.init.call(label, text, options);
+        },
+
+        visualContext: function(targetBox) {
+            var context = TextBox.fn.visualContext.call(this, targetBox);
+            context.value = this.value;
+            context.dataItem = this.dataItem;
+            context.format = this.options.format;
+            context.culture = this.options.culture;
+
+            return context;
         },
 
         click: function(widget, e) {
@@ -29264,7 +29296,7 @@ var A = 0;
 
                     note.label = new TextBox(text, deepExtend({}, label));
 
-                    if (label.position === INSIDE) {
+                    if (label.position === INSIDE && !defined(size)) {
                         if (icon.type === CIRCLE) {
                             size = math.max(note.label.box.width(), note.label.box.height());
                         } else {
@@ -29275,8 +29307,8 @@ var A = 0;
                     }
                 }
 
-                icon.width = width || size;
-                icon.height = height || size;
+                icon.width = width || size || DEFAULT_ICON_SIZE;
+                icon.height = height || size || DEFAULT_ICON_SIZE;
 
                 marker = new ShapeElement(deepExtend({}, icon));
 
@@ -29430,6 +29462,7 @@ var A = 0;
                     }
                 });
 
+                alignPathToPixel(path);
                 this.visual.append(path);
             }
         },
@@ -31225,7 +31258,6 @@ var A = 0;
                 },
                 notes: {
                     icon: {
-                        size: 7,
                         border: {
                             width: 1
                         }
@@ -75551,6 +75583,7 @@ var A = 0;
 
             if (!hasVirtual) {
                 that.listView = new kendo.ui.StaticList(that.ul, listOptions);
+                that.listView.setTouchScroller(that._touchScroller);
             } else {
                 that.listView = new kendo.ui.VirtualList(that.ul, listOptions);
             }
@@ -75601,6 +75634,7 @@ var A = 0;
             }
         },
 
+        //TODO: refactor
         _header: function() {
             var that = this;
             var template = that.options.headerTemplate;
@@ -76247,8 +76281,8 @@ var A = 0;
                     if (!that.listView.isBound()) {
                         if (!that._fetch) {
                             that.dataSource.one(CHANGE, function() {
-                                that._move(e);
                                 that._fetch = false;
+                                that._move(e);
                             });
 
                             that._fetch = true;
@@ -76547,10 +76581,10 @@ var A = 0;
                 this._values = $.isArray(value) ? value.slice(0) : [value];
             }
 
-            this.setDataSource(this.options.dataSource);
-
             this._getter();
             this._templates();
+
+            this.setDataSource(this.options.dataSource);
 
             this._onScroll = proxy(function() {
                 var that = this;
@@ -76605,6 +76639,7 @@ var A = 0;
             }
 
             that.dataSource = dataSource.bind(CHANGE, that._refreshHandler);
+            that._fixedHeader();
         },
 
         setOptions: function(options) {
@@ -76613,10 +76648,7 @@ var A = 0;
             this._fixedHeader();
             this._getter();
             this._templates();
-
-            this._mute = true;
-            this.refresh();
-            this._mute = false;
+            this._render();
         },
 
         destroy: function() {
@@ -76655,6 +76687,10 @@ var A = 0;
             return offsetHeight;
         },
 
+        setTouchScroller: function (touchScroller) {
+            this._touchScroller = touchScroller;
+        },
+
         scroll: function (item) {
             if (!item) {
                 return;
@@ -76675,6 +76711,7 @@ var A = 0;
 
             if (touchScroller) {
                 yDimension = touchScroller.dimensions.y;
+                yDimension.update(true);
 
                 if (yDimension.enabled && itemOffsetTop > yDimension.size) {
                     itemOffsetTop = itemOffsetTop - yDimension.size + itemOffsetHeight + 4;
@@ -76843,6 +76880,16 @@ var A = 0;
             };
         },
 
+        setValue: function(value) {
+            if (value === "" || value === null) {
+                value = [];
+            }
+
+            value = $.isArray(value) || value instanceof ObservableArray ? value.slice(0) : [value];
+
+            this._values = value;
+        },
+
         value: function(value) {
             var that = this;
             var deferred = that._valueDeferred;
@@ -76852,20 +76899,14 @@ var A = 0;
                 return that._values.slice();
             }
 
-            if (value === "" || value === null) {
-                value = [];
-            }
-
-            value = $.isArray(value) || value instanceof ObservableArray ? value.slice(0) : [value];
-
-            that._values = value;
+            that.setValue(value);
 
             if (!deferred || deferred.state() === "resolved") {
                 that._valueDeferred = deferred = $.Deferred();
             }
 
             if (that.isBound()) {
-                indices = that._valueIndices(value);
+                indices = that._valueIndices(that._values);
 
                 if (that.options.selectable === "multiple") {
                     that.select(-1);
@@ -77291,9 +77332,7 @@ var A = 0;
                 that._valueDeferred.resolve();
             }
 
-            if (!that._mute) {
-                that.trigger("dataBound");
-            }
+            that.trigger("dataBound");
         },
 
         isBound: function() {
@@ -77733,6 +77772,8 @@ var A = 0;
 
             that._angularItems("compile");
 
+            that._presetValue = false;
+
             if (!that.options.virtual) {
                 height = that._height(filtered ? (length || 1) : length);
                 that._calculateGroupPadding(height);
@@ -77790,7 +77831,7 @@ var A = 0;
         _listChange: function() {
             this._selectValue(this.listView.selectedDataItems()[0]);
 
-            if (this._old && this._oldIndex === -1) {
+            if (this._presetValue || (this._old && this._oldIndex === -1)) {
                 this._oldIndex = this.selectedIndex;
             }
         },
@@ -77808,12 +77849,13 @@ var A = 0;
             var that = this;
             var filtered = that._state === STATE_FILTER;
             var isIFrame = window.self !== window.top;
+            var focusedItem = that._focus();
 
             if (!that._prevent) {
                 clearTimeout(that._typing);
 
-                if (filtered && that._focus()) {
-                    that._select(that._focus(), !that.dataSource.view().length);
+                if (filtered && focusedItem && !that.trigger("select", { item: focusedItem })) {
+                    that._select(focusedItem, !that.dataSource.view().length);
                 }
 
                 if (support.mobileOS.ios && isIFrame) {
@@ -78480,6 +78522,14 @@ var A = 0;
         _preselect: function(value, text) {
             this._accessor(value);
             this._textAccessor(text);
+
+            this._old = this._accessor();
+            this._oldIndex = this.selectedIndex;
+
+            this.listView.setValue(value);
+
+            this._initialIndex = null;
+            this._presetValue = true;
         },
 
         _assignInstance: function(text, value) {
@@ -80833,6 +80883,11 @@ var A = 0;
                 connection.refresh();
                 this.mainLayer.append(connection.visual);
                 this.connections.push(connection);
+
+                this.trigger(CHANGE, {
+                    added: [connection],
+                    removed: []
+                });
 
                 return connection;
             },
@@ -85235,12 +85290,20 @@ var A = 0;
         var self = this.self;
         var options = self.options;
         var valueField = options.dataValueField;
+        var text = options.text || "";
 
-        if (valueField && !options.valuePrimitive) {
-            val = val != null ? val[options.dataValueField || options.dataTextField] : null;
+        val = val || "";
+
+        if (valueField && !options.valuePrimitive && val) {
+            text = val[options.dataTextField] || "";
+            val = val[valueField || options.dataTextField];
         }
 
-        self.value(val);
+        if (self.options.autoBind === false && !self.listView.isBound()) {
+            self._preselect(val, text);
+        } else {
+            self.value(val);
+        }
     });
 
     defadvice("ui.MultiSelect", "$angular_getLogicValue", function() {
@@ -85260,16 +85323,23 @@ var A = 0;
         if (val == null) {
             val = [];
         }
-        var self = this.self,
-            valueField = self.options.dataValueField;
 
-        if (valueField && !self.options.valuePrimitive) {
+        var self = this.self;
+        var options = self.options;
+        var valueField = options.dataValueField;
+        var data = val;
+
+        if (valueField && !options.valuePrimitive) {
             val = $.map(val, function(item) {
                 return item[valueField];
             });
         }
 
-        self.value(val);
+        if (options.autoBind === false && !options.valuePrimitive && !self.listView.isBound()) {
+            self._preselect(data, val);
+        } else {
+            self.value(val);
+        }
     });
 
     defadvice("ui.AutoComplete", "$angular_getLogicValue", function(){

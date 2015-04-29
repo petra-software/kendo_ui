@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.422 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.429 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1179,7 +1179,11 @@
                         }
                     }
 
-                    if (widget.options.autoBind === false) {
+                    if (widget.options.autoBind === false && widget.listView && !widget.listView.isBound()) {
+                        if (textField === valueField && !text) {
+                            text = value;
+                        }
+
                         widget._preselect(value, text);
                     } else {
                         widget.value(value);
@@ -1290,7 +1294,9 @@
 
                 refresh: function() {
                     if (!this._initChange) {
-                        var field = this.options.dataValueField || this.options.dataTextField,
+                        var options = this.options,
+                            widget = this.widget,
+                            field = options.dataValueField || options.dataTextField,
                             value = this.bindings.value.get(),
                             data = value,
                             idx = 0, length,
@@ -1313,10 +1319,10 @@
                             }
                         }
 
-                        if (this.options.autoBind === false && this.options.valuePrimitive !== true) {
-                            this.widget._preselect(data, value);
+                        if (options.autoBind === false && options.valuePrimitive !== true && !widget.listView.isBound()) {
+                            widget._preselect(data, value);
                         } else {
-                            this.widget.value(value);
+                            widget.value(value);
                         }
                     }
                 },
