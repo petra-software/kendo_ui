@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.429 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.430 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -4824,8 +4824,7 @@ html .km-ios .k-overflow-container.km-actionsheet > li {
 }
 /* Revert box/clip for Web widgets */
 .km-ios7 [class^=k-],
-.km-ios7 .k-calendar th,
-.km-ios7 .k-calendar td {
+.km-ios7 [class^=k-] * {
   -moz-box-sizing: content-box;
   -webkit-box-sizing: content-box;
   box-sizing: content-box;

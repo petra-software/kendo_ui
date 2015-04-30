@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.429 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.430 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -311,6 +311,7 @@
 
             if (that.dataSource) {
                 that.dataSource.unbind(CHANGE, that._refreshHandler);
+                that.dataSource.unbind(CHANGE, that._rangeChangeHandler);
 
                 value = that.value();
 
@@ -320,14 +321,26 @@
                 });
             } else {
                 that._refreshHandler = $.proxy(that.refresh, that);
+                that._rangeChangeHandler = $.proxy(that.rangeChange, that);
             }
 
-            that.dataSource = dataSource.bind(CHANGE, that._refreshHandler);
+            that.dataSource = dataSource.bind(CHANGE, that._refreshHandler)
+                                        .bind(CHANGE, that._rangeChangeHandler);
 
             if (that.dataSource.view().length !== 0) {
                 that.refresh();
             } else if (that.options.autoBind) {
                 that.dataSource.fetch();
+            }
+        },
+
+        rangeChange: function () {
+            var that = this;
+            var page = that.dataSource.page();
+
+            if (that._rangeChange === true && that._lastPage !== page) {
+                that._lastPage = page;
+                that.trigger(LISTBOUND);
             }
         },
 
@@ -346,10 +359,12 @@
                 that._createList();
                 if (!action && that._values.length && !that._filter) {
                     that.value(that._values, true).done(function() {
+                        that._lastPage = that.dataSource.page();
                         that._listCreated = true;
                         that.trigger(LISTBOUND);
                     });
                 } else {
+                    that._lastPage = that.dataSource.page();
                     that._listCreated = true;
                     that.trigger(LISTBOUND);
                 }
@@ -394,7 +409,7 @@
             var dataSource = that.dataSource;
 
             if (value === undefined) {
-                return that._values;
+                return that._values.slice();
             }
 
             if (!that._valueDeferred || that._valueDeferred.state() === "resolved") {
@@ -953,7 +968,9 @@
 
                             if (rangeStart <= firstItemIndex && firstItemIndex <= (rangeStart + pageSize)) {
                                 that._fetching = true;
+                                that._rangeChange = true;
                                 dataSource.range(rangeStart, pageSize);
+                                that._rangeChange = false;
                             }
                         });
                     }
@@ -961,12 +978,16 @@
                     return null;
                 } else {
                     if (lastRangeStart !== rangeStart) {
-                        this._mute = true;
-                        this._fetching = true;
+                        that._mute = true;
+                        that._fetching = true;
+                        that._rangeChange = true;
+
                         dataSource.range(rangeStart, pageSize);
                         lastRangeStart = rangeStart;
-                        this._fetching = false;
-                        this._mute = false;
+
+                        that._rangeChange = false;
+                        that._fetching = false;
+                        that._mute = false;
                     }
 
                     var result;

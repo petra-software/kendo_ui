@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.429 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.430 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.429";
+    kendo.version = "2015.1.430";
 
     function Class() {}
 
@@ -12000,8 +12000,8 @@ var A = 0;
                         } else {
                             widget[fieldName].data(source);
 
-                            if (that.bindings.value && widget instanceof kendo.ui.Select) {
-                                that.bindings.value.source.trigger("change", { field: that.bindings.value.path });
+                            if (that.bindings.value && (widget instanceof kendo.ui.Select || widget instanceof kendo.ui.MultiSelect)) {
+                                widget.value(retrievePrimitiveValues(that.bindings.value.get(), widget.options.dataValueField));
                             }
                         }
                     }
@@ -12790,6 +12790,29 @@ var A = 0;
         if (bindingTarget) {
             bind(element, bindingTarget.source, namespace);
         }
+    }
+
+    function retrievePrimitiveValues(value, valueField) {
+        var values = [];
+        var idx = 0;
+        var length;
+        var item;
+
+        if (!valueField) {
+            return value;
+        }
+
+        if (value instanceof ObservableArray) {
+            for (length = value.length; idx < length; idx++) {
+                item = value[idx];
+                values[idx] = item.get ? item.get(valueField) : item[valueField];
+            }
+            value = values;
+        } else if (value instanceof ObservableObject) {
+            value = value.get(valueField);
+        }
+
+        return value;
     }
 
     kendo.unbind = unbind;
@@ -16137,6 +16160,10 @@ var A = 0;
             // $(window).height() uses documentElement to get the height
             viewportWidth = isWindow ? window.innerWidth : viewport.width();
             viewportHeight = isWindow ? window.innerHeight : viewport.height();
+
+            if (isWindow && document.documentElement.offsetWidth - document.documentElement.clientWidth > 0) {
+                viewportWidth -= kendo.support.scrollbar();
+            }
 
             siblingContainer = anchor.parents().filter(wrapper.siblings());
 

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.429 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.430 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -5756,7 +5756,7 @@
             if (hasFilterRow) {
                 var filterRow = $("<tr/>");
                 filterRow.addClass("k-filter-row");
-                if (hasDetails) {
+                if (hasDetails || tr.find(".k-hierarchy-cell").length) { // handles server side detail template
                     filterRow.prepend('<th class="k-hierarchy-cell">&nbsp;</th>');
                 }
 

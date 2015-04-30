@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.429 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.430 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -468,6 +468,10 @@
             // $(window).height() uses documentElement to get the height
             viewportWidth = isWindow ? window.innerWidth : viewport.width();
             viewportHeight = isWindow ? window.innerHeight : viewport.height();
+
+            if (isWindow && document.documentElement.offsetWidth - document.documentElement.clientWidth > 0) {
+                viewportWidth -= kendo.support.scrollbar();
+            }
 
             siblingContainer = anchor.parents().filter(wrapper.siblings());
 
