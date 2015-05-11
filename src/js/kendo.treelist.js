@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.430 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.511 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -204,16 +204,31 @@
             return model;
         },
 
-        _readData: function(newData) {
-            var result = [];
-            var data = this.data();
-            var i, length;
+        _shouldWrap: function(data) {
+            return true;
+        },
 
-            for (i = 0, length = data.length; i < length; i++) {
-                result.push(data[i]);
+        _readData: function(newData) {
+            var data = this.data();
+            newData = DataSource.fn._readData.call(this, newData);
+
+            this._concat(newData, data);
+
+            if (newData instanceof ObservableArray) {
+                return newData;
             }
 
-            return result.concat(DataSource.fn._readData.call(this, newData));
+            return data;
+        },
+
+        _concat: function(source, target) {
+            var targetLength = target.length;
+
+            for (var i = 0; i < source.length; i++) {
+                target[targetLength++] = source[i];
+            }
+
+            target.length = targetLength;
         },
 
         _readAggregates: function(data) {

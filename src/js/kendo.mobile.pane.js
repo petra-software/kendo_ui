@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.430 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.511 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -277,7 +277,7 @@
 
             this.element.handler(this)
                 .on("down", roleSelector(linkRoles) + "," + pressedButtonSelector, "_mouseup")
-                .on("click", roleSelector(linkRoles) + " " + buttonSelectors, "_appLinkClick");
+                .on("click", roleSelector(linkRoles) + "," + buttonSelectors + "," + pressedButtonSelector, "_appLinkClick");
 
             this.userEvents = new kendo.UserEvents(this.element, {
                 filter: buttonSelectors,

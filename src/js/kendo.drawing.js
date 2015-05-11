@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.430 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.511 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -316,7 +316,6 @@
     }
 
     function encodeUTF8(input) {
-        input = input.replace(/\r\n/g,"\n");
         var output = "";
 
         for (var i = 0; i < input.length; i++) {
@@ -7888,6 +7887,16 @@
         }
     }
 
+    function actuallyGetRangeBoundingRect(range) {
+        if (browser.msie) {
+            var a = range.getClientRects();
+            if (a.length == 2 && a[1].width == 0) {
+                return a[0];
+            }
+        }
+        return range.getBoundingClientRect();
+    }
+
     function getBorder(style, side) {
         side = "border-" + side;
         return {
@@ -9311,7 +9320,7 @@
                 // bounding box will not change.
                 pos = (function findEOL(min, eol, max){
                     range.setEnd(node, eol);
-                    var r = range.getBoundingClientRect();
+                    var r = actuallyGetRangeBoundingRect(range);
                     if (r.bottom != box.bottom && min < eol) {
                         return findEOL(min, (min + eol) >> 1, eol);
                     } else if (r.right != box.right) {

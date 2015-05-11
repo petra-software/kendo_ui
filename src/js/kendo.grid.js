@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.430 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.511 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1557,6 +1557,7 @@
 
             var initialData = dataSource.options.data && dataSource._data;
             dataSource.options.data = null;
+
             result.dataSource = $.extend(true, {}, dataSource.options);
 
             result.dataSource.data = initialData;
@@ -1566,6 +1567,10 @@
             result.dataSource.sort = dataSource.sort();
             result.dataSource.group = dataSource.group();
             result.dataSource.aggregate = dataSource.aggregate();
+
+            if (result.dataSource.transport) {
+                result.dataSource.transport.dataSource = null;
+            }
 
             result.$angular = undefined;
 

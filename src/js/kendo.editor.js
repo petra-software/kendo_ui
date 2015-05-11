@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.430 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.511 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -851,9 +851,9 @@
         },
 
         exec: function (name, params) {
-            var that = this,
-                range,
-                tool, command = null;
+            var that = this;
+            var command = null;
+            var range, tool, prevented;
 
             if (!name) {
                 throw new Error("kendoEditor.exec(): `name` parameter cannot be empty");
@@ -889,7 +889,11 @@
                     command = tool.command(extend({ range: range }, params));
                 }
 
-                that.trigger("execute", { name: name, command: command });
+                prevented = that.trigger("execute", { name: name, command: command });
+
+                if (prevented) {
+                    return;
+                }
 
                 if (/^(undo|redo)$/i.test(name)) {
                     that.undoRedoStack[name]();
@@ -3738,8 +3742,7 @@ var InsertHtmlTool = Tool.extend({
 
 var UndoRedoStack = Class.extend({
     init: function() {
-        this.stack = [];
-        this.currentCommandIndex = -1;
+        this.clear();
     },
 
     push: function (command) {
@@ -3757,6 +3760,11 @@ var UndoRedoStack = Class.extend({
         if (this.canRedo()) {
             this.stack[++this.currentCommandIndex].redo();
         }
+    },
+
+    clear: function() {
+        this.stack = [];
+        this.currentCommandIndex = -1;
     },
 
     canUndo: function () {
@@ -3875,6 +3883,7 @@ var BackspaceHandler = Class.extend({
         var ancestor = range.commonAncestorContainer;
         var table = dom.closest(ancestor, "table");
         var emptyParagraphContent = editorNS.emptyElementContent;
+        var result = false;
 
         if (/t(able|body)/i.test(dom.name(ancestor))) {
             range.selectNode(table);
@@ -3885,6 +3894,7 @@ var BackspaceHandler = Class.extend({
         if (table && $(table).text() === "") {
             range.selectNode(table);
             range.deleteContents();
+            result = true;
         }
 
         ancestor = range.commonAncestorContainer;
@@ -3894,9 +3904,11 @@ var BackspaceHandler = Class.extend({
             range.setStart(ancestor, 0);
             range.collapse(true);
             this.editor.selectRange(range);
+
+            result = true;
         }
 
-        return true;
+        return result;
     },
     keydown: function(e) {
         var method, startRestorePoint;

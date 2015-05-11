@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.430 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.511 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -309,7 +309,9 @@
                 value = "";
             }
 
-            that._initialIndex = null;
+            if (value) {
+                that._initialIndex = null;
+            }
 
             that.listView.value(value.toString()).done(function() {
                 that._triggerCascade();
@@ -383,6 +385,7 @@
 
             var data = that.dataSource.flatView();
             var length = data.length;
+            var dataItem;
 
             var height;
             var value;
@@ -434,6 +437,10 @@
                         }
 
                         that._initialIndex = null;
+                        dataItem = that.listView.selectedDataItems()[0];
+                        if (dataItem && that.text() !== that._text(dataItem)) {
+                            that._selectValue(dataItem);
+                        }
                     } else if (that._textAccessor() !== that._optionLabelText()) {
                         that.listView.value("");
                         that._selectValue(null);
@@ -820,13 +827,14 @@
 
         _get: function(candidate) {
             var data, found, idx;
+            var jQueryCandidate = $(candidate);
 
             if (this.optionLabel[0]) {
                 if (typeof candidate === "number") {
                     if (candidate > -1) {
                         candidate -= 1;
                     }
-                } else if (candidate instanceof jQuery && candidate.hasClass("k-list-optionlabel")) {
+                } else if (jQueryCandidate.hasClass("k-list-optionlabel")) {
                     candidate = -1;
                 }
             }
@@ -1137,6 +1145,10 @@
         },
 
         _preselect: function(value, text) {
+            if (!value && !text) {
+                text = this._optionLabelText();
+            }
+
             this._accessor(value);
             this._textAccessor(text);
 
