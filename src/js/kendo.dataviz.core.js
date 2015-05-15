@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.511 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1336,18 +1336,22 @@
 
         reflow: function(targetBox) {
             var options = this.options;
-            var visual = options.visual;
+            var visualFn = options.visual;
             var align = options.align;
             var rotation = options.rotation;
             this.container.options.align = align;
 
-            if (visual && !this._boxReflow) {
-                this.visual = visual(this.visualContext(targetBox));
+            if (visualFn && !this._boxReflow) {
+                this.visual = visualFn(this.visualContext(targetBox));
 
                 var visualBox = targetBox;
                 if (this.visual) {
                     visualBox = rectToBox(this.visual.clippedBBox() || new geom.Rect());
+
+                    this.visual.options.zIndex = options.zIndex;
+                    this.visual.options.noclip = options.noclip;
                 }
+
                 this.box = this.contentBox = this.paddingBox = visualBox;
             } else {
                 BoxElement.fn.reflow.call(this, targetBox);
@@ -1388,6 +1392,7 @@
         renderVisual: function() {
             if (this.options.visual) {
                 this.addVisual();
+                this.createAnimation();
             } else {
                 BoxElement.fn.renderVisual.call(this);
             }

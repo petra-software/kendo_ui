@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.511 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -41,7 +41,7 @@
 
     var ComboBox = Select.extend({
         init: function(element, options) {
-            var that = this, text;
+            var that = this, text, disabled;
 
             that.ns = ns;
 
@@ -96,6 +96,12 @@
 
             if (!text) {
                 that._placeholder();
+            }
+
+            disabled = $(that.element).parents("fieldset").is(':disabled');
+
+            if (disabled) {
+                that.enable(false);
             }
 
             kendo.notify(that);
@@ -269,9 +275,7 @@
                 that._calculateGroupPadding(that._height(length));
             }
 
-            if (that.popup.visible()) {
-                that.popup._position();
-            }
+            that.popup.position();
 
             if (that._isSelect) {
                 var hasChild = that.element[0].children[0];
@@ -547,12 +551,6 @@
                 value = that._accessor() || that.listView.value()[0];
                 return value === undefined || value === null ? "" : value;
             }
-
-            if (value === null) {
-                value = "";
-            }
-
-            value = value.toString();
 
             if (value === options.value && that.input.val() === options.text) {
                 return;

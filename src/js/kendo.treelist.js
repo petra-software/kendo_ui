@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.511 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -250,16 +250,19 @@
         },
 
         _filterCallback: function(query) {
+            var i, item;
+            var map = {};
             var result = [];
             var data = query.toArray();
-            var map = {};
-            var i, parent, item;
 
             for (i = 0; i < data.length; i++) {
                 item = data[i];
 
                 while (item) {
-                    map[item.id] = true;
+                    if (!map[item.id]) {
+                        map[item.id] = true;
+                        result.push(item);
+                    }
 
                     if (!map[item.parentId]) {
                         map[item.parentId] = true;
@@ -274,7 +277,7 @@
                 }
             }
 
-            return new Query(data.concat(result));
+            return new Query(result);
         },
 
         _subtree: function(map, id) {
@@ -370,7 +373,8 @@
                 }
 
                 if (hasLoadedChildren) {
-                    data.splice.apply(data, [i+1, 0].concat(children));
+                    //cannot use splice due to IE8 bug
+                    data = data.slice(0, i + 1).concat(children, data.slice(i + 1));
                 }
             }
 

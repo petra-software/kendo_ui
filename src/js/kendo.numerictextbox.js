@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.511 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -42,7 +42,8 @@
         ARIA_READONLY = "aria-readonly",
         INTEGER_REGEXP = /^(-)?(\d*)$/,
         NULL = null,
-        proxy = $.proxy;
+        proxy = $.proxy,
+        extend = $.extend;
 
     var NumericTextBox = Widget.extend({
          init: function(element, options) {
@@ -58,6 +59,8 @@
                            .attr("role", "spinbutton");
 
              options.placeholder = options.placeholder || element.attr("placeholder");
+
+             that._initialOptions = extend({}, options);
 
              that._reset();
              that._wrapper();
@@ -97,7 +100,8 @@
              value = options.value;
              that.value(value !== NULL ? value : element.val());
 
-             disabled = element.is("[disabled]");
+             disabled = element.is("[disabled]") || $(that.element).parents("fieldset").is(':disabled');
+
              if (disabled) {
                  that.enable(false);
              } else {
@@ -651,6 +655,8 @@
                 that._resetHandler = function() {
                     setTimeout(function() {
                         that.value(element[0].value);
+                        that.max(that._initialOptions.max);
+                        that.min(that._initialOptions.min);
                     });
                 };
 

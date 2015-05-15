@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.511 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -58,7 +58,13 @@
 
         calendar.normalize(options);
 
+
         parseFormats = $.isArray(parseFormats) ? parseFormats : [parseFormats];
+
+        if (!parseFormats.length) {
+            parseFormats.push("yyyy-MM-dd");
+        }
+
         if ($.inArray(format, parseFormats) === -1) {
             parseFormats.splice(0, 0, options.format);
         }
@@ -182,11 +188,6 @@
                 calendar = that.calendar,
                 selectIsClicked = e.ctrlKey && key == keys.DOWN || key == keys.ENTER;
 
-            if (key == keys.ESC) {
-                that.close();
-                return;
-            }
-
             if (e.altKey) {
                 if (key == keys.DOWN) {
                     that.open();
@@ -195,20 +196,17 @@
                     that.close();
                     e.preventDefault();
                 }
-                return;
-            }
 
-            if (!that.popup.visible()){
-                return;
-            }
+            } else if (that.popup.visible()) {
 
-            if (selectIsClicked && calendar._cell.hasClass(SELECTED)) {
-                that.close();
-                e.preventDefault();
-                return;
-            }
+                if (key == keys.ESC || (selectIsClicked && calendar._cell.hasClass(SELECTED))) {
+                    that.close();
+                    e.preventDefault();
+                    return;
+                }
 
-            that._current = calendar._move(e);
+                that._current = calendar._move(e);
+            }
         },
 
         current: function(date) {
@@ -265,6 +263,8 @@
             options.max = parse(element.attr("max")) || parse(options.max);
 
             normalize(options);
+
+            that._initialOptions = extend({}, options);
 
             that._wrapper();
 
@@ -326,7 +326,7 @@
             that._reset();
             that._template();
 
-            disabled = element.is("[disabled]");
+            disabled = element.is("[disabled]") || $(that.element).parents("fieldset").is(':disabled');
             if (disabled) {
                 that.enable(false);
             } else {
@@ -638,6 +638,8 @@
             if (form[0]) {
                 that._resetHandler = function() {
                     that.value(element[0].defaultValue);
+                    that.max(that._initialOptions.max);
+                    that.min(that._initialOptions.min);
                 };
 
                 that._form = form.on("reset", that._resetHandler);

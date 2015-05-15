@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.511 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -66,6 +66,8 @@
 
             normalize(options);
 
+            that._initialOptions = extend({}, options);
+
             that._wrapper();
 
             that._views();
@@ -90,7 +92,7 @@
 
             that._midnight = getMilliseconds(options.min) + getMilliseconds(options.max) === 0;
 
-            disabled = element.is("[disabled]");
+            disabled = element.is("[disabled]") || $(that.element).parents("fieldset").is(':disabled');
             if (disabled) {
                 that.enable(false);
             } else {
@@ -686,6 +688,8 @@
             if (form[0]) {
                 that._resetHandler = function() {
                     that.value(element[0].defaultValue);
+                    that.max(that._initialOptions.max);
+                    that.min(that._initialOptions.min);
                 };
 
                 that._form = form.on("reset", that._resetHandler);
@@ -724,11 +728,17 @@
 
     function normalize(options) {
         var patterns = kendo.getCulture(options.culture).calendars.standard.patterns,
+            parseFormats = !options.parseFormats.length,
             timeFormat;
 
         options.format = extractFormat(options.format || patterns.g);
         options.timeFormat = timeFormat = extractFormat(options.timeFormat || patterns.t);
         kendo.DateView.normalize(options);
+
+        if (parseFormats) {
+            options.parseFormats.push("yyyy-MM-ddTHH:mm:ss");
+        }
+
         if ($.inArray(timeFormat, options.parseFormats) === -1) {
             options.parseFormats.splice(1, 0, timeFormat);
         }

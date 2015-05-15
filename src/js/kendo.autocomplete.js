@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.511 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -55,7 +55,7 @@
 
     var AutoComplete = List.extend({
         init: function (element, options) {
-            var that = this, wrapper;
+            var that = this, wrapper, disabled;
 
             that.ns = ns;
             options = $.isArray(options) ? { dataSource: options} : options;
@@ -114,6 +114,12 @@
             that._placeholder();
 
             that._initList();
+
+            disabled = $(that.element).parents("fieldset").is(':disabled');
+
+            if (disabled) {
+                that.enable(false);
+            }
 
             kendo.notify(that);
         },
@@ -408,9 +414,7 @@
 
             that._calculateGroupPadding(that._height(length));
 
-            if (popup.visible()) {
-                popup._position();
-            }
+            popup.position();
 
             if (length) {
                 var current = this.listView.focus();

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.511 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.511";
+    kendo.version = "2015.1.515";
 
     function Class() {}
 
@@ -2034,8 +2034,16 @@ function pad(number, digits, end) {
 
         support.zoomLevel = function() {
             try {
-                return support.touch ? (document.documentElement.clientWidth / window.innerWidth) :
-                       support.browser.msie && support.browser.version >= 10 ? ((top || window).document.documentElement.offsetWidth / (top || window).innerWidth) : 1;
+                var browser = support.browser;
+                var ie11WidthCorrection = 0;
+                var docEl = document.documentElement;
+
+                if (browser.msie && browser.version == 11 && docEl.scrollHeight > docEl.clientHeight && !support.touch) {
+                    ie11WidthCorrection = support.scrollbar();
+                }
+
+                return support.touch ? (docEl.clientWidth / window.innerWidth) :
+                       browser.msie && browser.version >= 10 ? (((top || window).document.documentElement.offsetWidth + ie11WidthCorrection) / (top || window).innerWidth) : 1;
             } catch(e) {
                 return 1;
             }
@@ -6235,8 +6243,6 @@ function pad(number, digits, end) {
 
 
 
-var A = 0;
-
 
 
 /*jshint eqnull: true, loopfunc: true, evil: true */
@@ -8106,34 +8112,6 @@ var A = 0;
         }
     });
 
-    function cloneGroups(groups) {
-        var result = [];
-        var item;
-        var group;
-
-        for (var idx = 0, length = groups.length; idx < length; idx++) {
-            item = groups[idx];
-            if (!("field" in item && "items" in item && "value" in item)) {
-                break;
-            }
-
-            group = {};
-            for (var field in item) {
-                var shouldSerialize = item.shouldSerialize ? item.shouldSerialize : item.hasOwnProperty;
-                if (shouldSerialize.call(item, field)) {
-                    group[field] = item[field];
-                }
-            }
-
-            result.push(group);
-
-            if (group.hasSubgroups) {
-                result = result.concat(cloneGroups(group.items));
-            }
-        }
-        return result;
-    }
-
     function mergeGroups(target, dest, skip, take) {
         var group,
             idx = 0,
@@ -9992,7 +9970,6 @@ var A = 0;
 
         _mergeGroups: function(data, range, skip, take) {
             if (this._isServerGrouped()) {
-                //var temp = cloneGroups(range),
                 var temp = range.toJSON(),
                     prevGroup;
 
@@ -11819,7 +11796,9 @@ var A = 0;
                     } else if (e.action == "itemchange" || e.action === undefined) {
                         that.render();
                         if(that.bindings.value){
-                            that.bindings.value.source.trigger("change", {field: that.bindings.value.path});
+                            if (that.bindings.value) {
+                                that.element.value = retrievePrimitiveValues(that.bindings.value.get(), $(that.element).data("valueField"));
+                            }
                         }
                     }
                 } else {
@@ -16036,6 +16015,12 @@ var A = 0;
             }
         },
 
+        position: function() {
+            if (this.visible()) {
+                this._position();
+            }
+        },
+
         toggle: function() {
             var that = this;
 
@@ -16179,7 +16164,8 @@ var A = 0;
 
         _position: function(fixed) {
             var that = this,
-                element = that.element.css(POSITION, ""),
+                //element = that.element.css(POSITION, ""), /* fixes telerik/kendo-ui-core#790, comes from telerik/kendo#615 */
+                element = that.element,
                 wrapper = that.wrapper,
                 options = that.options,
                 viewport = $(options.viewport),
@@ -16192,13 +16178,15 @@ var A = 0;
                 siblingContainer, parents,
                 parentZIndex, zIndex = 10002,
                 isWindow = !!((viewport[0] == window) && window.innerWidth && (zoomLevel <= 1.02)),
-                idx = 0, length, viewportWidth, viewportHeight;
+                idx = 0,
+                docEl = document.documentElement,
+                length, viewportWidth, viewportHeight;
 
             // $(window).height() uses documentElement to get the height
             viewportWidth = isWindow ? window.innerWidth : viewport.width();
             viewportHeight = isWindow ? window.innerHeight : viewport.height();
-
-            if (isWindow && document.documentElement.offsetWidth - document.documentElement.clientWidth > 0) {
+            
+            if (isWindow && docEl.scrollHeight - docEl.clientHeight > 0) {
                 viewportWidth -= kendo.support.scrollbar();
             }
 
@@ -19989,13 +19977,19 @@ var A = 0;
             that.enable(that.options.enable);
 
             that._userEvents = new kendo.UserEvents(that.element, {
-                press: function(e) { that._activate(e); },
-                release: function(e) { highlightButton(that, e, false); }
+                press: function(e) {
+                    that._activate(e);
+                },
+                release: function(e) {
+                    highlightButton(that, e, false);
+                    if (!useTap) { e.event.stopPropagation(); }
+                }
             });
 
             that._userEvents.bind(useTap ? "tap" : "press", function(e) {
                 that._release(e);
             });
+
 
             if (ANDROID3UP) {
                 that.element.on("move", function(e) { that._timeoutDeactivate(e); });

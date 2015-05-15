@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.511 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -9,10 +9,6 @@
 (function(f, define){
     define([ "./kendo.core", "./kendo.data.odata", "./kendo.data.xml" ], f);
 })(function(){
-
-var A = 0;
-
-
 
 /*jshint eqnull: true, loopfunc: true, evil: true */
 (function($, undefined) {
@@ -1881,34 +1877,6 @@ var A = 0;
         }
     });
 
-    function cloneGroups(groups) {
-        var result = [];
-        var item;
-        var group;
-
-        for (var idx = 0, length = groups.length; idx < length; idx++) {
-            item = groups[idx];
-            if (!("field" in item && "items" in item && "value" in item)) {
-                break;
-            }
-
-            group = {};
-            for (var field in item) {
-                var shouldSerialize = item.shouldSerialize ? item.shouldSerialize : item.hasOwnProperty;
-                if (shouldSerialize.call(item, field)) {
-                    group[field] = item[field];
-                }
-            }
-
-            result.push(group);
-
-            if (group.hasSubgroups) {
-                result = result.concat(cloneGroups(group.items));
-            }
-        }
-        return result;
-    }
-
     function mergeGroups(target, dest, skip, take) {
         var group,
             idx = 0,
@@ -3767,7 +3735,6 @@ var A = 0;
 
         _mergeGroups: function(data, range, skip, take) {
             if (this._isServerGrouped()) {
-                //var temp = cloneGroups(range),
                 var temp = range.toJSON(),
                     prevGroup;
 

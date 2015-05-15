@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.511 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -58,7 +58,7 @@
 
     var MultiSelect = List.extend({
         init: function(element, options) {
-            var that = this, id;
+            var that = this, id, disabled;
 
             that.ns = ns;
             List.fn.init.call(that, element, options);
@@ -106,6 +106,12 @@
                 that.dataSource.fetch();
             } else if (options.value) {
                 that._preselect(options.value);
+            }
+
+            disabled = $(that.element).parents("fieldset").is(':disabled');
+
+            if (disabled) {
+                that.enable(false);
             }
 
             kendo.notify(that);
@@ -425,7 +431,7 @@
             if (that.options.autoClose) {
                 that.close();
             } else {
-                that.popup._position();
+                that.popup.position();
             }
         },
 
@@ -482,9 +488,7 @@
                 that.toggle(length);
             }
 
-            if (that.popup.visible()) {
-                that.popup._position();
-            }
+            that.popup.position();
 
             if (that.options.highlightFirst && (page === undefined || page === 1)) {
                 that.listView.first();
@@ -978,30 +982,47 @@
             return max === null || max > this.listView.value().length;
         },
 
+        _angularTagItems: function(cmd) {
+            var that = this;
+
+            that.angular(cmd, function() {
+                return {
+                    elements: that.tagList[0].children,
+                    data: $.map(that.dataItems(), function(dataItem) {
+                        return { dataItem: dataItem };
+                    })
+                };
+            });
+        },
+
         _selectValue: function(added, removed) {
-            var tagList = this.tagList;
-            var getter = this._value;
+            var that = this;
+            var tagList = that.tagList;
+            var getter = that._value;
             var removedItem;
             var addedItem;
             var idx;
+
+            that._angularTagItems("cleanup");
 
             for (idx = removed.length - 1; idx > -1; idx--) {
                 removedItem = removed[idx];
 
                 tagList[0].removeChild(tagList[0].children[removedItem.position]);
 
-                this._setOption(getter(removedItem.dataItem), false);
+                that._setOption(getter(removedItem.dataItem), false);
             }
 
             for (idx = 0; idx < added.length; idx++) {
                 addedItem = added[idx];
 
-                tagList.append(this.tagTemplate(addedItem.dataItem));
+                tagList.append(that.tagTemplate(addedItem.dataItem));
 
-                this._setOption(getter(addedItem.dataItem), true);
+                that._setOption(getter(addedItem.dataItem), true);
             }
 
-            this._placeholder();
+            that._angularTagItems("compile");
+            that._placeholder();
         },
 
         _select: function(candidate) {

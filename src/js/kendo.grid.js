@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.511 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1125,13 +1125,13 @@
         return result;
     }
 
-    function formatGroupValue(value, format, columnValues) {
-        var isForiegnKey = columnValues && columnValues.length && isPlainObject(columnValues[0]) && "value" in columnValues[0],
-            groupValue = isForiegnKey ? convertToObject(columnValues)[value] : value;
+    function formatGroupValue(value, format, columnValues, encoded) {
+        var isForeignKey = columnValues && columnValues.length && isPlainObject(columnValues[0]) && "value" in columnValues[0],
+            groupValue = isForeignKey ? convertToObject(columnValues)[value] : value;
 
         groupValue = groupValue != null ? groupValue : "";
 
-        return format ? kendo.format(format, groupValue) : groupValue;
+        return format ? kendo.format(format, groupValue) : (encoded === false ? groupValue : kendo.htmlEncode(groupValue));
     }
 
     function setCellVisibility(cells, index, visible) {
@@ -5765,7 +5765,7 @@
                     filterRow.prepend('<th class="k-hierarchy-cell">&nbsp;</th>');
                 }
 
-                var existingFilterRow = thead.find(".k-filter-row");
+                var existingFilterRow = (that.thead || thead).find(".k-filter-row");
                 if (existingFilterRow.length) {
                     kendo.destroy(existingFilterRow);
                     existingFilterRow.remove();
@@ -6005,7 +6005,7 @@
                 field = group.field,
                 column = grep(leafColumns(that.columns), function(column) { return column.field == field; })[0] || { },
                 template = column.groupHeaderTemplate,
-                text =  (column.title || field) + ': ' + formatGroupValue(group.value, column.format, column.values),
+                text = (column.title || field) + ': ' + formatGroupValue(group.value, column.format, column.values, column.encoded),
                 footerDefaults = that._groupAggregatesDefaultObject || {},
                 aggregates = extend({}, footerDefaults, group.aggregates),
                 data = extend({}, { field: group.field, value: group.value, aggregates: aggregates }, group.aggregates[group.field]),
@@ -6403,7 +6403,7 @@
             }
 
             if (column.columns && column.columns.length) {
-                position = columnVisiblePosition(column, columns);
+                position =  columnPosition(column, columns);
 
                 setColumnVisibility(column, true);
 

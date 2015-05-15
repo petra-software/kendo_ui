@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.511 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -530,6 +530,8 @@
 
             normalize(options);
 
+            that._initialOptions = extend({}, options);
+
             that._wrapper();
 
             that.timeView = timeView = new TimeView(extend({}, options, {
@@ -586,7 +588,7 @@
                         "aria-owns": timeView._timeViewID
                    });
 
-            disabled = element.is("[disabled]");
+            disabled = element.is("[disabled]") || $(that.element).parents("fieldset").is(':disabled');
             if (disabled) {
                 that.enable(false);
             } else {
@@ -883,6 +885,8 @@
             if (form[0]) {
                 that._resetHandler = function() {
                     that.value(element[0].defaultValue);
+                    that.max(that._initialOptions.max);
+                    that.min(that._initialOptions.min);
                 };
 
                 that._form = form.on("reset", that._resetHandler);

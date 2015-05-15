@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.511 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -307,6 +307,12 @@
             }
         },
 
+        position: function() {
+            if (this.visible()) {
+                this._position();
+            }
+        },
+
         toggle: function() {
             var that = this;
 
@@ -450,7 +456,8 @@
 
         _position: function(fixed) {
             var that = this,
-                element = that.element.css(POSITION, ""),
+                //element = that.element.css(POSITION, ""), /* fixes telerik/kendo-ui-core#790, comes from telerik/kendo#615 */
+                element = that.element,
                 wrapper = that.wrapper,
                 options = that.options,
                 viewport = $(options.viewport),
@@ -463,13 +470,15 @@
                 siblingContainer, parents,
                 parentZIndex, zIndex = 10002,
                 isWindow = !!((viewport[0] == window) && window.innerWidth && (zoomLevel <= 1.02)),
-                idx = 0, length, viewportWidth, viewportHeight;
+                idx = 0,
+                docEl = document.documentElement,
+                length, viewportWidth, viewportHeight;
 
             // $(window).height() uses documentElement to get the height
             viewportWidth = isWindow ? window.innerWidth : viewport.width();
             viewportHeight = isWindow ? window.innerHeight : viewport.height();
-
-            if (isWindow && document.documentElement.offsetWidth - document.documentElement.clientWidth > 0) {
+            
+            if (isWindow && docEl.scrollHeight - docEl.clientHeight > 0) {
                 viewportWidth -= kendo.support.scrollbar();
             }
 
