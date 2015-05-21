@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.521 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -854,13 +854,16 @@
 
         _generateItems: function(element, count) {
             var items = [],
-                item;
+                item,
+                itemHeight = this.options.itemHeight + "px";
 
             while(count-- > 0) {
                 item = document.createElement("li");
                 item.tabIndex = -1;
                 item.className = VIRTUALITEM + " " + ITEM;
                 item.setAttribute("role", "option");
+                item.style.height = itemHeight;
+                item.style.minHeight = itemHeight;
                 element.appendChild(item);
 
                 items.push(item);
@@ -1405,7 +1408,7 @@
         _clickHandler: function(e) {
             var item = $(e.currentTarget);
 
-            if (!e.isDefaultPrevented() && item.data("uid")) {
+            if (!e.isDefaultPrevented() && item.attr("data-uid")) {
                 this.trigger(CLICK, { item: item });
             }
         },

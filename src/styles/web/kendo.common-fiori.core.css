@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.521 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -2463,8 +2463,9 @@ input.k-checkbox + label {
 /* Off-screen container used during export */
 .k-pdf-export-shadow {
   position: absolute;
-  overflow: visible;
-  left: -10000px;
+  overflow: hidden;
+  left: -15000px;
+  width: 14400px;
 }
 /* responsive panel */
 .k-rpanel-left {
@@ -5027,6 +5028,7 @@ span.k-tooltip {
   position: absolute;
   width: 100%;
   box-sizing: border-box;
+  overflow: hidden;
 }
 .k-popup .k-list .k-item > .k-group,
 .k-popup > .k-group-header,

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.521 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -2201,7 +2201,7 @@
                             return JSON.parse(localStorage.getItem(key));
                         },
                         setItem: function(item) {
-                            localStorage.setItem(key, stringify(item));
+                            localStorage.setItem(key, stringify(that.reader.serialize(item)));
                         }
                     };
                 } else {

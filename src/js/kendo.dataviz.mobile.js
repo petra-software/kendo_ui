@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.521 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.515";
+    kendo.version = "2015.1.521";
 
     function Class() {}
 
@@ -8959,7 +8959,7 @@ function pad(number, digits, end) {
                             return JSON.parse(localStorage.getItem(key));
                         },
                         setItem: function(item) {
-                            localStorage.setItem(key, stringify(item));
+                            localStorage.setItem(key, stringify(that.reader.serialize(item)));
                         }
                     };
                 } else {
@@ -11993,7 +11993,7 @@ function pad(number, digits, end) {
                     that.add(e.index, e.items);
                 } else if (e.action == "remove") {
                     that.remove(e.index, e.items);
-                } else if (e.action == "itemchange" || e.action === undefined) {
+                } else if (e.action != "itemchange") {
                     that.render();
                 }
             } else {
@@ -12664,10 +12664,11 @@ function pad(number, digits, end) {
             refresh: function() {
                 if (!this._initChange) {
                     var widget = this.widget;
-                    var textField = this.options.dataTextField;
-                    var valueField = this.options.dataValueField || textField;
+                    var options = widget.options;
+                    var textField = options.dataTextField;
+                    var valueField = options.dataValueField || textField;
                     var value = this.bindings.value.get();
-                    var text = this.options.text || "";
+                    var text = options.text || "";
                     var idx = 0, length;
                     var values = [];
 
@@ -12687,7 +12688,7 @@ function pad(number, digits, end) {
                         }
                     }
 
-                    if (widget.options.autoBind === false && widget.listView && !widget.listView.isBound()) {
+                    if (options.autoBind === false && !options.cascadeFrom && widget.listView && !widget.listView.isBound()) {
                         if (textField === valueField && !text) {
                             text = value;
                         }
@@ -28444,6 +28445,12 @@ function pad(number, digits, end) {
             this.container.options.align = align;
 
             if (visualFn && !this._boxReflow) {
+                if (!targetBox.hasSize()) {
+                    this._boxReflow = true;
+                    this.reflow(targetBox);
+                    this._boxReflow = false;
+                    targetBox = this.box;
+                }
                 this.visual = visualFn(this.visualContext(targetBox));
 
                 var visualBox = targetBox;
@@ -36689,8 +36696,8 @@ function pad(number, digits, end) {
                     text.options.align = CENTER;
                     if (aboveAxis) {
                         targetBox = new Box2D(
-                            targetBox.x2 + box.width(), targetBox.y1,
-                            targetBox.x2, targetBox.y2
+                            targetBox.x2, targetBox.y1,
+                            targetBox.x2 + box.width(), targetBox.y2
                         );
                     } else {
                         targetBox = new Box2D(
@@ -76062,7 +76069,7 @@ function pad(number, digits, end) {
                     padding = kendo.support.scrollbar();
                 }
 
-                padding += parseFloat(li.css("border-right-width"), 10) + parseFloat(li.children(".k-group").css("right"), 10);
+                padding += parseFloat(li.css("border-right-width"), 10) + parseFloat(li.children(".k-group").css("padding-right"), 10);
 
                 groupHeader.css("padding-right", padding);
             }
@@ -76161,14 +76168,23 @@ function pad(number, digits, end) {
         },
 
         setDataSource: function(dataSource) {
-            this.options.dataSource = dataSource;
+            var that = this;
+            var parent;
 
-            this._dataSource();
+            that.options.dataSource = dataSource;
 
-            this.listView.setDataSource(this.dataSource);
+            that._dataSource();
 
-            if (this.options.autoBind) {
-                this.dataSource.fetch();
+            that.listView.setDataSource(that.dataSource);
+
+            if (that.options.autoBind) {
+                that.dataSource.fetch();
+            }
+
+            parent = that._parentWidget();
+
+            if (parent) {
+                parent.trigger("cascade");
             }
         },
 
@@ -76560,21 +76576,27 @@ function pad(number, digits, end) {
             }
         },
 
+        _parentWidget: function() {
+            var name = this.options.name;
+            var parentElement = $("#" + this.options.cascadeFrom);
+            var parent = parentElement.data("kendo" + name);
+
+            if (!parent) {
+                parent = parentElement.data("kendo" + alternativeNames[name]);
+            }
+
+            return parent;
+        },
+
         _cascade: function() {
             var that = this,
                 options = that.options,
                 cascade = options.cascadeFrom,
-                parent, parentElement,
                 select, valueField,
-                change;
+                parent, change;
 
             if (cascade) {
-                parentElement = $("#" + cascade);
-                parent = parentElement.data("kendo" + options.name);
-
-                if (!parent) {
-                    parent = parentElement.data("kendo" + alternativeNames[options.name]);
-                }
+                parent = that._parentWidget();
 
                 if (!parent) {
                     return;
@@ -84829,6 +84851,11 @@ function pad(number, digits, end) {
             if (val === undefined) {
                 val = ngModel.$modelValue;
             }
+
+            if (val === undefined) {
+                val = null;
+            }
+
             setTimeout(function(){
                 if (widget) { // might have been destroyed in between. :-(
                     widget.value(val);
@@ -84868,7 +84895,9 @@ function pad(number, digits, end) {
         };
 
         widget.first("change", onChange(false));
-        widget.first("dataBound", onChange(true));
+		if (!(kendo.ui.AutoComplete && widget instanceof kendo.ui.AutoComplete)) {
+			widget.first("dataBound", onChange(true));
+		}
 
         var currentVal = value();
 

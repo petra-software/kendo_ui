@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.521 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1559,6 +1559,8 @@
             dataSource.options.data = null;
 
             result.dataSource = $.extend(true, {}, dataSource.options);
+
+            dataSource.options.data = initialData;
 
             result.dataSource.data = initialData;
             result.dataSource.page = dataSource.page();
@@ -6798,7 +6800,9 @@
            }
 
            function exportPage() {
-                grid._drawPDFShadow()
+                grid._drawPDFShadow({
+                    width: grid.wrapper.width()
+                })
                 .done(function(group) {
                     var pageNum = dataSource.page();
                     var totalPages = allPages ? dataSource.totalPages() : 1;

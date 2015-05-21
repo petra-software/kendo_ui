@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.521 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1342,6 +1342,12 @@
             this.container.options.align = align;
 
             if (visualFn && !this._boxReflow) {
+                if (!targetBox.hasSize()) {
+                    this._boxReflow = true;
+                    this.reflow(targetBox);
+                    this._boxReflow = false;
+                    targetBox = this.box;
+                }
                 this.visual = visualFn(this.visualContext(targetBox));
 
                 var visualBox = targetBox;

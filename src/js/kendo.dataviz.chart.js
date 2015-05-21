@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.521 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1762,8 +1762,8 @@
                     text.options.align = CENTER;
                     if (aboveAxis) {
                         targetBox = new Box2D(
-                            targetBox.x2 + box.width(), targetBox.y1,
-                            targetBox.x2, targetBox.y2
+                            targetBox.x2, targetBox.y1,
+                            targetBox.x2 + box.width(), targetBox.y2
                         );
                     } else {
                         targetBox = new Box2D(

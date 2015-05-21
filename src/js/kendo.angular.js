@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.521 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -342,6 +342,11 @@
             if (val === undefined) {
                 val = ngModel.$modelValue;
             }
+
+            if (val === undefined) {
+                val = null;
+            }
+
             setTimeout(function(){
                 if (widget) { // might have been destroyed in between. :-(
                     widget.value(val);
@@ -381,7 +386,9 @@
         };
 
         widget.first("change", onChange(false));
-        widget.first("dataBound", onChange(true));
+		if (!(kendo.ui.AutoComplete && widget instanceof kendo.ui.AutoComplete)) {
+			widget.first("dataBound", onChange(true));
+		}
 
         var currentVal = value();
 

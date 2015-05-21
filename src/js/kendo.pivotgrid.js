@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.521 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -3982,6 +3982,7 @@
                 row = element("tr", null, []);
 
                 row.parentMember = parentMember;
+                row.collapsed = 0;
                 row.colSpan = 0;
                 row.rowSpan = 1;
 
@@ -4054,6 +4055,8 @@
             var path;
 
             var idx = 0;
+            var collapsed = 0;
+
             var colSpan;
             var metadata;
 
@@ -4080,8 +4083,10 @@
 
             if (member.hasChildren) {
                 if (metadata.expanded === false) {
-                    childrenLength = 0;
+                    row.collapsed += metadata.maxChildren;
+
                     metadata.children = 0;
+                    childrenLength = 0;
                 }
 
                 cellAttr = { className: "k-icon " + (childrenLength ? STATE_EXPANDED : STATE_COLLAPSED) };
@@ -4112,6 +4117,9 @@
 
                 row.colSpan += colSpan;
                 row.rowSpan = childRow.rowSpan + 1;
+                row.collapsed += childRow.collapsed;
+
+                collapsed += childRow.collapsed;
 
                 if (nextMember) {
                     if (nextMember.measure) {
@@ -4141,8 +4149,8 @@
                 }
             }
 
-            if (metadata.maxChildren < metadata.children) {
-                metadata.maxChildren = metadata.children;
+            if (metadata.maxChildren < (metadata.children + collapsed)) {
+                metadata.maxChildren = metadata.children + collapsed;
             }
 
             if (metadata.maxMembers < metadata.members) {
@@ -4833,7 +4841,9 @@
         kendo.PDFMixin.extend(PivotGrid.prototype);
 
         PivotGrid.fn._drawPDF = function() {
-            return this._drawPDFShadow();
+            return this._drawPDFShadow({
+                width: this.wrapper.width()
+            });
         };
     }
 

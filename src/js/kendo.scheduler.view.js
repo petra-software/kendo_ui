@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.515 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.521 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1334,7 +1334,9 @@
         current: function(candidate) {
             if (candidate !== undefined) {
                 this._current = candidate;
-                this._scrollTo(candidate, this.content[0]);
+                if (this.content.has(candidate)) {
+                    this._scrollTo(candidate, this.content[0]);
+                }
             } else {
                 return this._current;
             }
