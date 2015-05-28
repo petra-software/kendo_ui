@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.521 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.528 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -90,7 +90,7 @@
                    });
 
 
-            that._midnight = getMilliseconds(options.min) + getMilliseconds(options.max) === 0;
+            that._midnight = that._calculateMidnight(options.min, options.max);
 
             disabled = element.is("[disabled]") || $(that.element).parents("fieldset").is(':disabled');
             if (disabled) {
@@ -146,6 +146,8 @@
             options.max = max = parse(options.max);
 
             normalize(options);
+
+            that._midnight = that._calculateMidnight(options.min, options.max);
 
             currentValue = options.value || that._value || that.dateView._current;
 
@@ -359,7 +361,7 @@
             options[option] = new DATE(value.getTime());
             that.dateView[option](value);
 
-            that._midnight = getMilliseconds(options.min) + getMilliseconds(options.max) === 0;
+            that._midnight = that._calculateMidnight(options.min, options.max);
 
             if (current) {
                 minDateEqual = isEqualDatePart(options.min, current);
@@ -698,6 +700,10 @@
 
         _template: function() {
             this._ariaTemplate = kendo.template(this.options.ARIATemplate);
+        },
+
+        _calculateMidnight: function(min, max) {
+            return getMilliseconds(min) + getMilliseconds(max) === 0;
         },
 
         _updateARIA: function(date) {

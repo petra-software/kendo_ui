@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.521 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.528 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -4875,6 +4875,11 @@
 
                         if (filterMenu) {
                             filterMenu.destroy();
+                        }
+
+                        filterMenu = cell.data("kendoFilterMultiCheck");
+                        if (filterMenu) {
+                           filterMenu.destroy();
                         }
 
                         var columnFilterable = columns[idx].filterable;

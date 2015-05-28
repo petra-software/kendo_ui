@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.521 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.528 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -787,10 +787,13 @@
             var checkbox = $(e.target);
             var isChecked = checkbox.prop(CHECKED);
             var node = checkbox.closest(NODE);
+            var dataItem = this.dataItem(node);
 
-            this.dataItem(node).set(CHECKED, isChecked);
+            if (dataItem.checked != isChecked) {
+                dataItem.set(CHECKED, isChecked);
 
-            this._trigger(CHECK, node);
+                this._trigger(CHECK, node);
+            }
         },
 
         _toggleButtonClick: function (e) {
@@ -1260,6 +1263,7 @@
             var that = this;
             var i, node, nodeWrapper, item, isChecked, isCollapsed;
             var context = { treeview: that.options, item: item };
+            var render = field != "expanded" && field != "checked";
 
             function setCheckedState(root, state) {
                 root.find(".k-checkbox :checkbox")
@@ -1286,15 +1290,18 @@
                     return that.findByUid(item.uid).children("div");
                 });
 
-                that.angular("cleanup", function() { return { elements: elements }; });
+                if (render) {
+                    that.angular("cleanup", function() { return { elements: elements }; });
+                }
 
                 for (i = 0; i < items.length; i++) {
                     context.item = item = items[i];
                     nodeWrapper = elements[i];
                     node = nodeWrapper.parent();
 
-                    if (field != "expanded" && field != "checked") {
-                        nodeWrapper.children(".k-in").html(that.templates.itemContent(context));
+                    if (render) {
+                        nodeWrapper.children(".k-in")
+                            .html(that.templates.itemContent(context));
                     }
 
                     if (field == CHECKED) {
@@ -1340,14 +1347,16 @@
                     }
                 }
 
-                that.angular("compile", function(){
-                    return {
-                        elements: elements,
-                        data: $.map(items, function(item) {
-                            return [{ dataItem: item }];
-                        })
-                    };
-                });
+                if (render) {
+                    that.angular("compile", function(){
+                        return {
+                            elements: elements,
+                            data: $.map(items, function(item) {
+                                return [{ dataItem: item }];
+                            })
+                        };
+                    });
+                }
             }
         },
 

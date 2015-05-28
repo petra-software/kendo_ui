@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.521 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.528 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.521";
+    kendo.version = "2015.1.528";
 
     function Class() {}
 
@@ -12693,7 +12693,11 @@ function pad(number, digits, end) {
                             text = value;
                         }
 
-                        widget._preselect(value, text);
+                        if (!text && value && options.valuePrimitive) {
+                            widget.value(value);
+                        } else {
+                            widget._preselect(value, text);
+                        }
                     } else {
                         widget.value(value);
                     }
@@ -71530,11 +71534,14 @@ function pad(number, digits, end) {
                 adjustDST(today, 0);
                 today = +today;
 
+                start = new DATE(start.getFullYear(), start.getMonth(), start.getDate());
+                adjustDST(start, 0);
+
                 return view({
                     cells: 42,
                     perRow: 7,
                     html: html += '</tr></thead><tbody><tr role="row">',
-                    start: new DATE(start.getFullYear(), start.getMonth(), start.getDate()),
+                    start: start,
                     min: new DATE(min.getFullYear(), min.getMonth(), min.getDate()),
                     max: new DATE(max.getFullYear(), max.getMonth(), max.getDate()),
                     content: options.content,
@@ -75701,13 +75708,17 @@ function pad(number, digits, end) {
                 that.listView.value(value).done(function() {
                     var text = options.text;
 
-                    if (that.input && that.selectedIndex === -1) {
-                        if (text === undefined || text === null) {
-                            text = value;
-                        }
+                    if (!that.listView.filter() && that.input) {
+                        if (that.selectedIndex === -1) {
+                            if (text === undefined || text === null) {
+                                text = value;
+                            }
 
-                        that._accessor(value);
-                        that.input.val(text);
+                            that._accessor(value);
+                            that.input.val(text);
+                        } else if (that._oldIndex === -1) {
+                            that._oldIndex = that.selectedIndex;
+                        }
                     }
                 });
             }
@@ -76243,6 +76254,9 @@ function pad(number, digits, end) {
             if (value === undefined) {
                 return element.value;
             } else {
+                if (value === null) {
+                    value = "";
+                }
                 element.value = value;
             }
         },
@@ -76304,6 +76318,7 @@ function pad(number, digits, end) {
 
             custom.text(value);
             custom[0].setAttribute(SELECTED, SELECTED);
+            custom[0].selected = true;
         },
 
         _hideBusy: function () {
@@ -77061,38 +77076,44 @@ function pad(number, digits, end) {
 
         _valueExpr: function(type, values) {
             var that = this;
-            var selectedValue;
-            var index = -1;
+            var value;
             var idx = 0;
 
-            var body = "";
+            var body;
+            var comparer;
+            var normalized = [];
 
             if (!that._valueComparer  || that._valueType !== type) {
                 that._valueType = type;
 
                 for (; idx < values.length; idx++) {
-                    selectedValue = values[idx];
+                    value = values[idx];
 
-                    if (selectedValue === undefined || selectedValue === "") {
-                        selectedValue = '""';
-                    } else if (selectedValue !== null) {
-                        if ((type !== "boolean" && type !== "number") || typeof selectedValue === "object") {
-                            selectedValue = '"' + selectedValue + '"';
-                        } else if (type === "number" && isNaN(selectedValue)) {
-                            continue;
+                    if (value !== undefined && value !== "" && value !== null) {
+                        if (type === "boolean") {
+                            value = Boolean(value);
+                        } else if (type === "number") {
+                            value = Number(value);
+                        } else if (type === "string") {
+                            value = value.toString();
                         }
                     }
 
-                    if (body) {
-                        body += " else ";
-                    }
-
-                    body += "if (value === " + selectedValue + ") { return " + idx + "; }";
+                    normalized.push(value);
                 }
 
-                body += " return -1;";
+                body = "for (var idx = 0; idx < " + normalized.length + "; idx++) {" +
+                        " if (current === values[idx]) {" +
+                        "   return idx;" +
+                        " }" +
+                        "} " +
+                        "return -1;";
 
-                that._valueComparer = new Function("value", body);
+                comparer = new Function(["current", "values"], body);
+
+                that._valueComparer = function(current) {
+                    return comparer(current, normalized);
+                };
             }
 
             return that._valueComparer;
@@ -85486,7 +85507,11 @@ function pad(number, digits, end) {
         }
 
         if (self.options.autoBind === false && !self.listView.isBound()) {
-            self._preselect(val, text);
+            if (!text && val && options.valuePrimitive) {
+                self.value(val);
+            } else {
+                self._preselect(val, text);
+            }
         } else {
             self.value(val);
         }

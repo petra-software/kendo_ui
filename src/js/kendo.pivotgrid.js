@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.521 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.528 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1339,14 +1339,15 @@
         },
 
         _createTuple: function(tuple, measure, buildRoot) {
-            var name;
-            var member;
-            var parentName;
             var members = tuple.members;
             var length = members.length;
             var root = { members: [] };
-            var levelNum;
+            var levelName, levelNum;
+            var name, parentName;
+            var hasChildren;
+            var hierarchy;
             var caption;
+            var member;
             var idx = 0;
 
             if (measure) {
@@ -1360,6 +1361,9 @@
                 name = member.name;
                 parentName = member.parentName;
                 caption = member.caption || name;
+                hasChildren = member.hasChildren;
+                hierarchy = member.hierarchy;
+                levelName = member.levelName;
 
                 if (buildRoot) {
                     caption = "All";
@@ -1369,17 +1373,18 @@
                         levelNum -= 1;
                     }
 
-                    name = parentName;
+                    hasChildren = true;
+                    name = hierarchy = levelName = parentName;
                 }
 
                 root.members.push({
                     name: name,
                     children: [],
                     caption: caption,
-                    levelName: parentName,
+                    levelName: levelName,
                     levelNum: levelNum.toString(),
-                    hasChildren: buildRoot,
-                    hierarchy: parentName,
+                    hasChildren: hasChildren,
+                    hierarchy: hierarchy,
                     parentName: !buildRoot ? parentName: ""
                 });
             }
@@ -1658,7 +1663,7 @@
                     }
                 }
 
-                if (columnIndexes[idx % columnsLength] !== undefined) {
+                while (columnIndexes[idx % columnsLength] !== undefined) {
                     result[idx] = { value: "", fmtValue: "", ordinal: idx };
                     idx += 1;
                 }
@@ -2114,10 +2119,9 @@
                     continue;
                 } else if (map[path + member.parentName]) {
                     return map[path + member.parentName];
+                } else if (map[parentPath + member.parentName]) {
+                    return map[parentPath + member.parentName];
                 } else {
-                    if (member.parentName) {
-                        parentPath += member.parentName;
-                    }
                     return map[parentPath];
                 }
             }
@@ -3659,12 +3663,8 @@
 
             var rowLength = contentTable.children("colgroup").children().length;
 
-            var minWidth = 100;
             var calculatedWidth = rowLength * this.options.columnWidth;
-
-            if (contentWidth < calculatedWidth) {
-                minWidth = Math.ceil((calculatedWidth / contentWidth) * 100);
-            }
+            var minWidth = Math.ceil((calculatedWidth / contentWidth) * 100);
 
             contentTable.add(this.columnsHeader.children("table"))
                         .css("width", minWidth + "%");
@@ -3674,37 +3674,39 @@
             var that = this;
             var content = that.content;
             var rowsHeader = that.rowsHeader;
-            var height = that.wrapper.innerHeight();
+            var innerHeight = that.wrapper.innerHeight();
             var scrollbar = kendo.support.scrollbar();
             var skipScrollbar = content[0].offsetHeight === content[0].clientHeight;
+            var height = that.options.height;
 
             if (that.wrapper.is(":visible")) {
-                if (!height) {
+                if (!innerHeight || !height || height === "100%") {
                     if (skipScrollbar) {
                         scrollbar = 0;
                     }
 
+                    content.height("auto");
                     rowsHeader.height(content.height() - scrollbar);
                     return;
                 }
 
-                height -= that.columnFields.outerHeight();
-                height -= that.columnsHeader.outerHeight();
+                innerHeight -= that.columnFields.outerHeight();
+                innerHeight -= that.columnsHeader.outerHeight();
 
-                if (height <= scrollbar * 2) { // do not set height if proper scrollbar cannot be displayed
-                    height = scrollbar * 2 + 1;
+                if (innerHeight <= scrollbar * 2) { // do not set height if proper scrollbar cannot be displayed
+                    innerHeight = scrollbar * 2 + 1;
                     if (!skipScrollbar) {
-                        height += scrollbar;
+                        innerHeight += scrollbar;
                     }
                 }
 
-                content.height(height);
+                content.height(innerHeight);
 
                 if (skipScrollbar) {
                     scrollbar = 0;
                 }
 
-                rowsHeader.height(height - scrollbar);
+                rowsHeader.height(innerHeight - scrollbar);
             }
         },
 
@@ -3741,7 +3743,7 @@
                 return;
             }
 
-            columnBuilder.measures = this._axisMeasures("columns");
+            columnBuilder.measures = that._axisMeasures("columns");
 
             that.columnsHeaderTree.render(columnBuilder.build(columns));
             that.rowsHeaderTree.render(rowBuilder.build(rows));
@@ -4483,8 +4485,8 @@
             this.rows = [];
 
             if (this.data[0]) {
-                this.columnIndexes = this._indexes(this.columnAxis);
-                this.rowIndexes = this._indexes(this.rowAxis);
+                this.columnIndexes = this._indexes(this.columnAxis, this.rowLength);
+                this.rowIndexes = this._indexes(this.rowAxis, Math.ceil(this.data.length / this.rowLength));
 
                 this._buildRows();
             } else {
@@ -4494,7 +4496,7 @@
             return element("tbody", null, this.rows);
         },
 
-        _indexes: function(axisInfo) {
+        _indexes: function(axisInfo, total) {
             var result = [];
             var axisInfoMember;
             var indexes = axisInfo.indexes;
@@ -4557,6 +4559,10 @@
                     while(result[firstEmpty] !== undefined) {
                         firstEmpty += 1;
                     }
+                }
+
+                if (firstEmpty === total) {
+                    break;
                 }
 
                 dataIdx += skipChildren;
