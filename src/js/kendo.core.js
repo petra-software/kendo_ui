@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.528 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.609 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -38,7 +38,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.528";
+    kendo.version = "2015.1.609";
 
     function Class() {}
 
@@ -1259,6 +1259,10 @@ function pad(number, digits, end) {
                     count = lookAhead("d");
                     if (!calendar._lowerDays) {
                         calendar._lowerDays = lowerLocalInfo(calendar.days);
+                    }
+
+                    if (day !== null && count > 2) {
+                        continue;
                     }
 
                     day = count < 3 ? getNumber(2) : getIndexByName(calendar._lowerDays[count == 3 ? "namesAbbr" : "names"], true);

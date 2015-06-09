@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.528 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.609 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -553,7 +553,7 @@
             if (this.options.type === "group") {
                 for (var i = 0; i < view.length; i++) {
                     group = view[i].items;
-                    if (group.length < index) {
+                    if (group.length <= index) {
                         index = index - group.length;
                     } else {
                         return group[index];
@@ -804,8 +804,23 @@
             this.element.empty();
         },
 
+        _height: function() {
+            var hasData = !!this.dataSource.view().length,
+                height = this.options.height,
+                itemHeight = this.options.itemHeight,
+                total = this.dataSource.total();
+
+            if (!hasData) {
+                height = 0;
+            } else if (height/itemHeight > total) {
+                height = total * itemHeight;
+            }
+
+            return height;
+        },
+
         _screenHeight: function() {
-            var height = this.options.height,
+            var height = this._height(),
                 element = this.element,
                 content = this.content;
 
@@ -907,7 +922,7 @@
             that._items = that._generateItems(that.element[0], that.itemCount);
 
             that._setHeight(options.itemHeight * dataSource.total());
-            that.options.type = !!dataSource.group().length ? "group" : "flat";
+            that.options.type = (dataSource.group() || []).length ? "group" : "flat";
 
             if (that.options.type === "flat") {
                 that.header.hide();

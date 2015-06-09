@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.528 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.609 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1417,6 +1417,7 @@
             var that = this,
                 element;
 
+            that._angularItems("cleanup");
             that._destroyColumnAttachments();
 
             Widget.fn.destroy.call(that);
@@ -1649,7 +1650,7 @@
                 return { elements: that.thead.get() };
             });
 
-            that.thead.find("th").each(function(){
+            that.thead.add(that.lockedHeader).find("th").each(function(){
                 var th = $(this),
                     filterMenu = th.data("kendoFilterMenu"),
                     sortable = th.data("kendoColumnSorter"),
@@ -1739,7 +1740,7 @@
             if (!isRtl) {
                 left = th[0].offsetWidth;
 
-                var cells = leafDataCells(th.closest("thead"));
+                var cells = leafDataCells(th.closest("thead")).filter(":visible");
                 for (var idx = 0; idx < cells.length; idx++) {
                     if (cells[idx] == th[0]) {
                         break;
@@ -6638,10 +6639,25 @@
        },
 
        _angularItems: function(cmd) {
-
            kendo.ui.DataBoundWidget.fn._angularItems.call(this, cmd);
 
+           if (cmd === "cleanup") {
+               this._cleanupDetailItems();
+           }
+
            this._angularGroupItems(cmd);
+       },
+
+       _cleanupDetailItems: function() {
+           var that = this;
+
+           if (that._hasDetails()) {
+              that.angular("cleanup", function() {
+                   return { elements: that.tbody.children(".k-detail-row") };
+               });
+
+               that.tbody.find(".k-detail-cell").empty();
+           }
        },
 
        _angularGroupItems: function(cmd) {

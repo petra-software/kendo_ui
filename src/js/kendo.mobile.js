@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.528 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.609 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.528";
+    kendo.version = "2015.1.609";
 
     function Class() {}
 
@@ -1261,6 +1261,10 @@ function pad(number, digits, end) {
                     count = lookAhead("d");
                     if (!calendar._lowerDays) {
                         calendar._lowerDays = lowerLocalInfo(calendar.days);
+                    }
+
+                    if (day !== null && count > 2) {
+                        continue;
                     }
 
                     day = count < 3 ? getNumber(2) : getIndexByName(calendar._lowerDays[count == 3 ? "namesAbbr" : "names"], true);
@@ -5720,7 +5724,10 @@ function pad(number, digits, end) {
             page: $.noop,
             filter: function(params, filter, useVersionFour) {
                 if (filter) {
-                    params.$filter = toOdataFilter(filter, useVersionFour);
+                    filter = toOdataFilter(filter, useVersionFour);
+                    if (filter) {
+                        params.$filter = filter;
+                    }
                 }
             },
             sort: function(params, orderby) {
@@ -10213,6 +10220,10 @@ function pad(number, digits, end) {
                 data = inferTable(table, fields);
             } else if (select) {
                 data = inferSelect(select, fields);
+
+                if (dataSource.group === undefined && data[0] && data[0].optgroup !== undefined) {
+                    dataSource.group = "optgroup";
+                }
             }
         }
 
@@ -10230,6 +10241,9 @@ function pad(number, digits, end) {
         }
 
         dataSource.data = data;
+
+        select = null;
+        dataSource.select = null;
         table = null;
         dataSource.table = null;
 
@@ -10237,22 +10251,33 @@ function pad(number, digits, end) {
     };
 
     function inferSelect(select, fields) {
-        var options = $(select)[0].children,
-            idx,
-            length,
-            data = [],
-            record,
-            firstField = fields[0],
-            secondField = fields[1],
-            value,
-            option;
+        select = $(select)[0];
+        var options = select.options;
+        var firstField = fields[0];
+        var secondField = fields[1];
+
+        var data = [];
+        var idx, length;
+        var optgroup;
+        var option;
+        var record;
+        var value;
 
         for (idx = 0, length = options.length; idx < length; idx++) {
             record = {};
             option = options[idx];
+            optgroup = option.parentNode;
 
-            if (option.disabled) {
+            if (optgroup === select) {
+                optgroup = null;
+            }
+
+            if (option.disabled || (optgroup && optgroup.disabled)) {
                 continue;
+            }
+
+            if (optgroup) {
+                record.optgroup = optgroup.label;
             }
 
             record[firstField.field] = option.text;
@@ -18258,8 +18283,10 @@ function pad(number, digits, end) {
             var that = this,
                 linkRoles = "tab",
                 pressedButtonSelector = "[data-" + kendo.ns + "navigate-on-press]",
-                buttonSelector = roleSelector("button") + ":not(" + pressedButtonSelector + ")",
-                buttonSelectors = roleSelector("backbutton detailbutton listview-link") + "," + buttonSelector;
+
+                buttonSelectors = $.map(["button", "backbutton", "detailbutton", "listview-link"] , function(role) {
+                    return roleSelector(role) + ":not(" + pressedButtonSelector + ")";
+                }).join(",");
 
             this.element.handler(this)
                 .on("down", roleSelector(linkRoles) + "," + pressedButtonSelector, "_mouseup")
@@ -19982,6 +20009,7 @@ function pad(number, digits, end) {
             that.enable(that.options.enable);
 
             that._userEvents = new kendo.UserEvents(that.element, {
+                allowSelection: !useTap,
                 press: function(e) {
                     that._activate(e);
                 },
@@ -23765,9 +23793,15 @@ function pad(number, digits, end) {
                 scope: false,
 
                 controller: [ '$scope', '$attrs', '$element', function($scope, $attrs, $element) {
-                    this.template = function(key, value) {
+                    var that = this;
+                    that.template = function(key, value) {
                         $attrs[key] = kendo.stringify(value);
                     };
+
+                    $scope.$on("$destroy", function() {
+                        that.template = null;
+                        that = null;
+                    });
                 }],
 
                 link: function(scope, element, attrs, controllers) {
@@ -24108,10 +24142,16 @@ function pad(number, digits, end) {
     });
 
     defadvice("ui.Select", "$angular_getLogicValue", function(){
-        var item = this.self.dataItem();
+        var item = this.self.dataItem(),
+            valueField = this.self.options.dataValueField;
+
         if (item) {
             if (this.self.options.valuePrimitive) {
-                return item[this.self.options.dataValueField];
+                if (!!valueField) {
+                    return item[valueField];
+                } else {
+                    return item;
+                }
             } else {
                 return item.toJSON();
             }

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.528 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.609 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -3978,6 +3978,10 @@
                 data = inferTable(table, fields);
             } else if (select) {
                 data = inferSelect(select, fields);
+
+                if (dataSource.group === undefined && data[0] && data[0].optgroup !== undefined) {
+                    dataSource.group = "optgroup";
+                }
             }
         }
 
@@ -3995,6 +3999,9 @@
         }
 
         dataSource.data = data;
+
+        select = null;
+        dataSource.select = null;
         table = null;
         dataSource.table = null;
 
@@ -4002,22 +4009,33 @@
     };
 
     function inferSelect(select, fields) {
-        var options = $(select)[0].children,
-            idx,
-            length,
-            data = [],
-            record,
-            firstField = fields[0],
-            secondField = fields[1],
-            value,
-            option;
+        select = $(select)[0];
+        var options = select.options;
+        var firstField = fields[0];
+        var secondField = fields[1];
+
+        var data = [];
+        var idx, length;
+        var optgroup;
+        var option;
+        var record;
+        var value;
 
         for (idx = 0, length = options.length; idx < length; idx++) {
             record = {};
             option = options[idx];
+            optgroup = option.parentNode;
 
-            if (option.disabled) {
+            if (optgroup === select) {
+                optgroup = null;
+            }
+
+            if (option.disabled || (optgroup && optgroup.disabled)) {
                 continue;
+            }
+
+            if (optgroup) {
+                record.optgroup = optgroup.label;
             }
 
             record[firstField.field] = option.text;

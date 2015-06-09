@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.528 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.609 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -36,7 +36,7 @@
         COLLAPSEMEMBER = "collapseMember",
         STATE_EXPANDED = "k-i-arrow-s",
         STATE_COLLAPSED = "k-i-arrow-e",
-        HEADER_TEMPLATE = "#: data.member.caption || data.member.name #",
+        HEADER_TEMPLATE = "<span>#: data.member.caption || data.member.name #</span>",
         KPISTATUS_TEMPLATE = '<span class="k-icon k-i-kpi-#=data.dataItem.value > 0 ? \"open\" : data.dataItem.value < 0 ? \"denied\" : \"hold\"#">#:data.dataItem.value#</span>',
         KPITREND_TEMPLATE = '<span class="k-icon k-i-kpi-#=data.dataItem.value > 0 ? \"increase\" : data.dataItem.value < 0 ? \"decrease\" : \"equal\"#">#:data.dataItem.value#</span>',
         DATACELL_TEMPLATE = '#= data.dataItem ? kendo.htmlEncode(data.dataItem.fmtValue || data.dataItem.value) || "&nbsp;" : "&nbsp;" #',
@@ -968,6 +968,7 @@
             this._measures = normalizeMeasures(measures);
             this._measuresAxis = measuresAxis;
 
+            this._skipNormalize = 0;
             this._axes = {};
         },
 
@@ -1058,7 +1059,9 @@
                 return this._columns;
             }
 
+            this._skipNormalize += 1;
             this._clearAxesData = true;
+
             this._columns = normalizeMembers(val);
             this.query({
                 columns: val,
@@ -1072,7 +1075,9 @@
                 return this._rows;
             }
 
+            this._skipNormalize += 1;
             this._clearAxesData = true;
+
             this._rows = normalizeMembers(val);
 
             this.query({
@@ -1087,7 +1092,9 @@
                 return this._measures;
             }
 
+            this._skipNormalize += 1;
             this._clearAxesData = true;
+
             this.query({
                 columns: this.columnsAxisDescriptors(),
                 rows: this.rowsAxisDescriptors(),
@@ -1161,6 +1168,7 @@
             var that = this;
 
             if (!options) {
+                this._skipNormalize += 1;
                 this._clearAxesData = true;
             }
 
@@ -1216,6 +1224,7 @@
                 return this._filter;
             }
 
+            this._skipNormalize += 1;
             this._clearAxesData = true;
             this._query({ filter: val, page: 1 });
         },
@@ -1279,6 +1288,8 @@
 
             columnIndexes = this._normalizeTuples(axes.columns.tuples, this._axes.columns.tuples, columnDescriptors, this._columnMeasures());
             rowIndexes = this._normalizeTuples(axes.rows.tuples, this._axes.rows.tuples, rowDescriptors, this._rowMeasures());
+
+            this._skipNormalize -= 1;
 
             if (!this.cubeBuilder) {
                 data = this._normalizeData({
@@ -1593,7 +1604,8 @@
                 return;
             }
 
-            if (!this._hasRoot(tuples[0], source, descriptors)) {
+            if (this._skipNormalize <= 0 && !this._hasRoot(tuples[0], source, descriptors)) {
+                this._skipNormalize = 0;
                 for (; idx < length; idx++) {
                     roots.push(this._createTuple(tuples[0], measures[idx], true));
                     indexes[idx] = idx;
@@ -3617,15 +3629,6 @@
                 this._setSectionsHeight();
                 this._setContentWidth();
                 this._setContentHeight();
-
-                columnTable.css("table-layout", AUTO);
-                contentTable.css("table-layout", AUTO);
-
-                clearTimeout(this._layoutTimeout);
-                this._layoutTimeout = setTimeout(function() {
-                    columnTable.css("table-layout", "fixed");
-                    contentTable.css("table-layout", "fixed");
-                });
             }
         },
 
@@ -3659,15 +3662,20 @@
 
         _setContentWidth: function() {
             var contentTable = this.content.find("table");
-            var contentWidth = this.content.width();
+            var columnTable = this.columnsHeader.children("table");
 
             var rowLength = contentTable.children("colgroup").children().length;
 
             var calculatedWidth = rowLength * this.options.columnWidth;
-            var minWidth = Math.ceil((calculatedWidth / contentWidth) * 100);
+            var minWidth = Math.ceil((calculatedWidth / this.content.width()) * 100);
 
-            contentTable.add(this.columnsHeader.children("table"))
-                        .css("width", minWidth + "%");
+            if (minWidth < 100) {
+                minWidth = 100;
+            }
+
+            contentTable.add(columnTable).css("width", minWidth + "%");
+
+            this._resetColspan(columnTable);
         },
 
         _setContentHeight: function() {
@@ -3708,6 +3716,24 @@
 
                 rowsHeader.height(innerHeight - scrollbar);
             }
+        },
+
+        _resetColspan: function(columnTable) {
+            var that = this;
+            var cell = columnTable.children("tbody").children(":first").children(":first");
+
+            if (that._colspan === undefined) {
+                that._colspan = cell.attr("colspan");
+            }
+
+            cell.attr("colspan", 1);
+
+            clearTimeout(that._layoutTimeout);
+
+            that._layoutTimeout = setTimeout(function() {
+                cell.attr("colspan", that._colspan);
+                that._colspan = undefined;
+            });
         },
 
         _axisMeasures: function(axis) {

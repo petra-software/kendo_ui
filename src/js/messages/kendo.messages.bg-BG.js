@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.528 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.609 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -313,6 +313,8 @@ $.extend(true, kendo.ui.Grid.prototype.options.messages,{
     "create": "Добави",
     "destroy": "Изтриване",
     "edit": "Редактиране",
+    "excel": "Експорт към Excel",
+    "pdf": "Експорт към PDF",
     "save": "Запази промените",
     "select": "Избери",
     "update": "Запази"

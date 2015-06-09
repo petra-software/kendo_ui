@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.528 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.609 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.528";
+    kendo.version = "2015.1.609";
 
     function Class() {}
 
@@ -1261,6 +1261,10 @@ function pad(number, digits, end) {
                     count = lookAhead("d");
                     if (!calendar._lowerDays) {
                         calendar._lowerDays = lowerLocalInfo(calendar.days);
+                    }
+
+                    if (day !== null && count > 2) {
+                        continue;
                     }
 
                     day = count < 3 ? getNumber(2) : getIndexByName(calendar._lowerDays[count == 3 ? "namesAbbr" : "names"], true);
@@ -4671,7 +4675,10 @@ function pad(number, digits, end) {
             page: $.noop,
             filter: function(params, filter, useVersionFour) {
                 if (filter) {
-                    params.$filter = toOdataFilter(filter, useVersionFour);
+                    filter = toOdataFilter(filter, useVersionFour);
+                    if (filter) {
+                        params.$filter = filter;
+                    }
                 }
             },
             sort: function(params, orderby) {
@@ -9164,6 +9171,10 @@ function pad(number, digits, end) {
                 data = inferTable(table, fields);
             } else if (select) {
                 data = inferSelect(select, fields);
+
+                if (dataSource.group === undefined && data[0] && data[0].optgroup !== undefined) {
+                    dataSource.group = "optgroup";
+                }
             }
         }
 
@@ -9181,6 +9192,9 @@ function pad(number, digits, end) {
         }
 
         dataSource.data = data;
+
+        select = null;
+        dataSource.select = null;
         table = null;
         dataSource.table = null;
 
@@ -9188,22 +9202,33 @@ function pad(number, digits, end) {
     };
 
     function inferSelect(select, fields) {
-        var options = $(select)[0].children,
-            idx,
-            length,
-            data = [],
-            record,
-            firstField = fields[0],
-            secondField = fields[1],
-            value,
-            option;
+        select = $(select)[0];
+        var options = select.options;
+        var firstField = fields[0];
+        var secondField = fields[1];
+
+        var data = [];
+        var idx, length;
+        var optgroup;
+        var option;
+        var record;
+        var value;
 
         for (idx = 0, length = options.length; idx < length; idx++) {
             record = {};
             option = options[idx];
+            optgroup = option.parentNode;
 
-            if (option.disabled) {
+            if (optgroup === select) {
+                optgroup = null;
+            }
+
+            if (option.disabled || (optgroup && optgroup.disabled)) {
                 continue;
+            }
+
+            if (optgroup) {
+                record.optgroup = optgroup.label;
             }
 
             record[firstField.field] = option.text;
@@ -15409,12 +15434,12 @@ kendo.ExcelMixin = {
             color.match = [ m[1] ];
             return color;
         }
-        if ((m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i.exec(color))) {
+        if ((m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})\b/i.exec(color))) {
             ret = new _Bytes(parseInt(m[1], 16),
                              parseInt(m[2], 16),
                              parseInt(m[3], 16), 1);
         }
-        else if ((m = /^#?([0-9a-f])([0-9a-f])([0-9a-f])/i.exec(color))) {
+        else if ((m = /^#?([0-9a-f])([0-9a-f])([0-9a-f])\b/i.exec(color))) {
             ret = new _Bytes(parseInt(m[1] + m[1], 16),
                              parseInt(m[2] + m[2], 16),
                              parseInt(m[3] + m[3], 16), 1);
@@ -32948,8 +32973,6 @@ kendo.ExcelMixin = {
                     that._renderHeader();
                 }, 50);
             }, this);
-
-            this._fixedHeader();
         },
 
         options: {
@@ -32999,7 +33022,6 @@ kendo.ExcelMixin = {
         setOptions: function(options) {
             Widget.fn.setOptions.call(this, options);
 
-            this._fixedHeader();
             this._getter();
             this._templates();
             this._render();
@@ -33591,7 +33613,7 @@ kendo.ExcelMixin = {
         },
 
         _fixedHeader: function() {
-            if (this.dataSource.group().length && this.templates.fixedGroupTemplate) {
+            if (this.isGrouped() && this.templates.fixedGroupTemplate) {
                 this.header.show();
                 this.element.scroll(this._onScroll);
             } else {
@@ -33650,7 +33672,7 @@ kendo.ExcelMixin = {
             var values = this.value();
 
             var group, newGroup, j;
-            var isGrouped = this.dataSource.group().length;
+            var isGrouped = this.isGrouped();
 
             if (isGrouped) {
                 for (i = 0; i < view.length; i++) {
@@ -33702,6 +33724,8 @@ kendo.ExcelMixin = {
 
             that.trigger("dataBinding");
 
+            that._fixedHeader();
+
             that._render();
 
             that._bound = true;
@@ -33732,6 +33756,10 @@ kendo.ExcelMixin = {
 
         isBound: function() {
             return this._bound;
+        },
+
+        isGrouped: function() {
+            return (this.dataSource.group() || []).length;
         }
     });
 
@@ -46910,6 +46938,7 @@ kendo.ExcelMixin = {
 
         setOptions: function(options) {
             Widget.fn.setOptions.call(this, options);
+            this.restore();
             this._animations();
             this._dimensions();
             this._position();
@@ -49054,8 +49083,10 @@ kendo.ExcelMixin = {
             var that = this,
                 linkRoles = "tab",
                 pressedButtonSelector = "[data-" + kendo.ns + "navigate-on-press]",
-                buttonSelector = roleSelector("button") + ":not(" + pressedButtonSelector + ")",
-                buttonSelectors = roleSelector("backbutton detailbutton listview-link") + "," + buttonSelector;
+
+                buttonSelectors = $.map(["button", "backbutton", "detailbutton", "listview-link"] , function(role) {
+                    return roleSelector(role) + ":not(" + pressedButtonSelector + ")";
+                }).join(",");
 
             this.element.handler(this)
                 .on("down", roleSelector(linkRoles) + "," + pressedButtonSelector, "_mouseup")
@@ -55438,6 +55469,7 @@ kendo.PDFMixin = {
             var that = this,
                 element;
 
+            that._angularItems("cleanup");
             that._destroyColumnAttachments();
 
             Widget.fn.destroy.call(that);
@@ -55670,7 +55702,7 @@ kendo.PDFMixin = {
                 return { elements: that.thead.get() };
             });
 
-            that.thead.find("th").each(function(){
+            that.thead.add(that.lockedHeader).find("th").each(function(){
                 var th = $(this),
                     filterMenu = th.data("kendoFilterMenu"),
                     sortable = th.data("kendoColumnSorter"),
@@ -55760,7 +55792,7 @@ kendo.PDFMixin = {
             if (!isRtl) {
                 left = th[0].offsetWidth;
 
-                var cells = leafDataCells(th.closest("thead"));
+                var cells = leafDataCells(th.closest("thead")).filter(":visible");
                 for (var idx = 0; idx < cells.length; idx++) {
                     if (cells[idx] == th[0]) {
                         break;
@@ -60659,10 +60691,25 @@ kendo.PDFMixin = {
        },
 
        _angularItems: function(cmd) {
-
            kendo.ui.DataBoundWidget.fn._angularItems.call(this, cmd);
 
+           if (cmd === "cleanup") {
+               this._cleanupDetailItems();
+           }
+
            this._angularGroupItems(cmd);
+       },
+
+       _cleanupDetailItems: function() {
+           var that = this;
+
+           if (that._hasDetails()) {
+              that.angular("cleanup", function() {
+                   return { elements: that.tbody.children(".k-detail-row") };
+               });
+
+               that.tbody.find(".k-detail-cell").empty();
+           }
        },
 
        _angularGroupItems: function(cmd) {
@@ -69200,6 +69247,7 @@ var MSWordFormatCleaner = Cleaner.extend({
             /(&nbsp;|<br[^>]*>)+\s*$/gi, '',
             /mso-[^;"]*;?/ig, '', /* office-related CSS attributes */
             /<(\/?)b(\s[^>]*)?>/ig, '<$1strong$2>',
+            /<(\/?)font(\s[^>]*)?>/ig, this.convertFontMatch,
             /<(\/?)i(\s[^>]*)?>/ig, '<$1em$2>',
             /<o:p>&nbsp;<\/o:p>/ig, '&nbsp;',
             /<\/?(meta|link|style|o:|v:|x:)[^>]*>((?:.|\n)*?<\/(meta|link|style|o:|v:|x:)[^>]*>)?/ig, '', /* external references and namespaced tags */
@@ -69209,8 +69257,24 @@ var MSWordFormatCleaner = Cleaner.extend({
         ];
     },
 
+    convertFontMatch: function(match, closing, args) {
+        var faceRe = /face=['"]([^'"]+)['"]/i;
+        var face = faceRe.exec(args);
+        var family = args && face && face[1];
+
+        if (closing) {
+            return '</span>';
+        } else if (family) {
+            return '<span style="font-family:' + family + '">';
+        } else {
+            return '<span>';
+        }
+    },
+
     applicable: function(html) {
-        return (/class="?Mso|style="[^"]*mso-/i).test(html) || (/urn:schemas-microsoft-com:office/).test(html);
+        return (/class="?Mso/i).test(html) ||
+               (/style="[^"]*mso-/i).test(html) ||
+               (/urn:schemas-microsoft-com:office/).test(html);
     },
 
     stripEmptyAnchors: function(html) {
@@ -74111,7 +74175,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         COLLAPSEMEMBER = "collapseMember",
         STATE_EXPANDED = "k-i-arrow-s",
         STATE_COLLAPSED = "k-i-arrow-e",
-        HEADER_TEMPLATE = "#: data.member.caption || data.member.name #",
+        HEADER_TEMPLATE = "<span>#: data.member.caption || data.member.name #</span>",
         KPISTATUS_TEMPLATE = '<span class="k-icon k-i-kpi-#=data.dataItem.value > 0 ? \"open\" : data.dataItem.value < 0 ? \"denied\" : \"hold\"#">#:data.dataItem.value#</span>',
         KPITREND_TEMPLATE = '<span class="k-icon k-i-kpi-#=data.dataItem.value > 0 ? \"increase\" : data.dataItem.value < 0 ? \"decrease\" : \"equal\"#">#:data.dataItem.value#</span>',
         DATACELL_TEMPLATE = '#= data.dataItem ? kendo.htmlEncode(data.dataItem.fmtValue || data.dataItem.value) || "&nbsp;" : "&nbsp;" #',
@@ -75043,6 +75107,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             this._measures = normalizeMeasures(measures);
             this._measuresAxis = measuresAxis;
 
+            this._skipNormalize = 0;
             this._axes = {};
         },
 
@@ -75133,7 +75198,9 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 return this._columns;
             }
 
+            this._skipNormalize += 1;
             this._clearAxesData = true;
+
             this._columns = normalizeMembers(val);
             this.query({
                 columns: val,
@@ -75147,7 +75214,9 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 return this._rows;
             }
 
+            this._skipNormalize += 1;
             this._clearAxesData = true;
+
             this._rows = normalizeMembers(val);
 
             this.query({
@@ -75162,7 +75231,9 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 return this._measures;
             }
 
+            this._skipNormalize += 1;
             this._clearAxesData = true;
+
             this.query({
                 columns: this.columnsAxisDescriptors(),
                 rows: this.rowsAxisDescriptors(),
@@ -75236,6 +75307,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             var that = this;
 
             if (!options) {
+                this._skipNormalize += 1;
                 this._clearAxesData = true;
             }
 
@@ -75291,6 +75363,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 return this._filter;
             }
 
+            this._skipNormalize += 1;
             this._clearAxesData = true;
             this._query({ filter: val, page: 1 });
         },
@@ -75354,6 +75427,8 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             columnIndexes = this._normalizeTuples(axes.columns.tuples, this._axes.columns.tuples, columnDescriptors, this._columnMeasures());
             rowIndexes = this._normalizeTuples(axes.rows.tuples, this._axes.rows.tuples, rowDescriptors, this._rowMeasures());
+
+            this._skipNormalize -= 1;
 
             if (!this.cubeBuilder) {
                 data = this._normalizeData({
@@ -75668,7 +75743,8 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 return;
             }
 
-            if (!this._hasRoot(tuples[0], source, descriptors)) {
+            if (this._skipNormalize <= 0 && !this._hasRoot(tuples[0], source, descriptors)) {
+                this._skipNormalize = 0;
                 for (; idx < length; idx++) {
                     roots.push(this._createTuple(tuples[0], measures[idx], true));
                     indexes[idx] = idx;
@@ -77692,15 +77768,6 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 this._setSectionsHeight();
                 this._setContentWidth();
                 this._setContentHeight();
-
-                columnTable.css("table-layout", AUTO);
-                contentTable.css("table-layout", AUTO);
-
-                clearTimeout(this._layoutTimeout);
-                this._layoutTimeout = setTimeout(function() {
-                    columnTable.css("table-layout", "fixed");
-                    contentTable.css("table-layout", "fixed");
-                });
             }
         },
 
@@ -77734,15 +77801,20 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
         _setContentWidth: function() {
             var contentTable = this.content.find("table");
-            var contentWidth = this.content.width();
+            var columnTable = this.columnsHeader.children("table");
 
             var rowLength = contentTable.children("colgroup").children().length;
 
             var calculatedWidth = rowLength * this.options.columnWidth;
-            var minWidth = Math.ceil((calculatedWidth / contentWidth) * 100);
+            var minWidth = Math.ceil((calculatedWidth / this.content.width()) * 100);
 
-            contentTable.add(this.columnsHeader.children("table"))
-                        .css("width", minWidth + "%");
+            if (minWidth < 100) {
+                minWidth = 100;
+            }
+
+            contentTable.add(columnTable).css("width", minWidth + "%");
+
+            this._resetColspan(columnTable);
         },
 
         _setContentHeight: function() {
@@ -77783,6 +77855,24 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
                 rowsHeader.height(innerHeight - scrollbar);
             }
+        },
+
+        _resetColspan: function(columnTable) {
+            var that = this;
+            var cell = columnTable.children("tbody").children(":first").children(":first");
+
+            if (that._colspan === undefined) {
+                that._colspan = cell.attr("colspan");
+            }
+
+            cell.attr("colspan", 1);
+
+            clearTimeout(that._layoutTimeout);
+
+            that._layoutTimeout = setTimeout(function() {
+                cell.attr("colspan", that._colspan);
+                that._colspan = undefined;
+            });
         },
 
         _axisMeasures: function(axis) {
@@ -88565,7 +88655,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             if (this.options.type === "group") {
                 for (var i = 0; i < view.length; i++) {
                     group = view[i].items;
-                    if (group.length < index) {
+                    if (group.length <= index) {
                         index = index - group.length;
                     } else {
                         return group[index];
@@ -88816,8 +88906,23 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             this.element.empty();
         },
 
+        _height: function() {
+            var hasData = !!this.dataSource.view().length,
+                height = this.options.height,
+                itemHeight = this.options.itemHeight,
+                total = this.dataSource.total();
+
+            if (!hasData) {
+                height = 0;
+            } else if (height/itemHeight > total) {
+                height = total * itemHeight;
+            }
+
+            return height;
+        },
+
         _screenHeight: function() {
-            var height = this.options.height,
+            var height = this._height(),
                 element = this.element,
                 content = this.content;
 
@@ -88919,7 +89024,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             that._items = that._generateItems(that.element[0], that.itemCount);
 
             that._setHeight(options.itemHeight * dataSource.total());
-            that.options.type = !!dataSource.group().length ? "group" : "flat";
+            that.options.type = (dataSource.group() || []).length ? "group" : "flat";
 
             if (that.options.type === "flat") {
                 that.header.hide();
@@ -97767,24 +97872,35 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 var currentGroup = this.groups[groupIndex];
                 var utcCurrentTime = kendo.date.toUtcTime(currentTime);
                 var ranges = currentGroup.timeSlotRanges(utcCurrentTime, utcCurrentTime + 1);
+
                 if(ranges.length === 0) {
                     return;
                 }
+
                 var collection = ranges[0].collection;
                 var slotElement = collection.slotByStartDate(currentTime);
 
                 if(slotElement) {
                     var element = $("<div class='k-current-time'></div>");
                     var datesHeader = this.datesHeader;
+                    var left = Math.round(ranges[0].innerRect(currentTime, new Date(currentTime.getTime() + 1), false).left);
 
                     element.appendTo(datesHeader.find(".k-scheduler-header-wrap")).css({
-                        left: Math.round(ranges[0].innerRect(currentTime, new Date(currentTime.getTime() + 1), false).left),
+                        left: this._adjustLeftPosition(left),
                         width: "1px",
                         bottom: "1px",
                         top: 0
                     });
                 }
             }
+        },
+
+        _adjustLeftPosition: function (left) {
+            if (this._isRtl) {
+                left -= (this.content[0].scrollWidth - this.content[0].offsetWidth);
+            }
+
+            return left;
         },
 
         _currentTime: function() {
@@ -97872,49 +97988,49 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             }
         },
 
-       _slotByPosition: function(x, y) {
-           var slot;
-           var content = this.content;
-           var offset = content.offset();
-           var group;
-           var groupIndex;
+        _slotByPosition: function(x, y) {
+            var slot;
+            var content = this.content;
+            var offset = content.offset();
+            var group;
+            var groupIndex;
 
-           x -= offset.left;
-           y -= offset.top;
+            x -= offset.left;
+            y -= offset.top;
 
-           if (this._isRtl) {
-               var browser = kendo.support.browser;
+            if (this._isRtl) {
+                var browser = kendo.support.browser;
 
-               if (browser.mozilla) {
-                    x += (content[0].scrollWidth - content[0].offsetWidth);
-                    x += content[0].scrollLeft;
-               } else if (browser.msie) {
-                    x -= content.scrollLeft();
-                    x += content[0].scrollWidth - this.content[0].offsetWidth;
-               } else if (browser.webkit) {
-                    x += content[0].scrollLeft;
-               }
-           } else {
-               x += content[0].scrollLeft;
-           }
-
-           y += content[0].scrollTop;
-
-           x = Math.ceil(x);
-           y = Math.ceil(y);
-
-           for (groupIndex = 0; groupIndex < this.groups.length; groupIndex++) {
-                group = this.groups[groupIndex];
-
-                slot = group.timeSlotByPosition(x, y);
-
-                if (slot) {
-                    return slot;
+                if (browser.mozilla) {
+                     x += (content[0].scrollWidth - content[0].offsetWidth);
+                     x += content[0].scrollLeft;
+                } else if (browser.msie) {
+                     x -= content.scrollLeft();
+                     x += content[0].scrollWidth - content[0].offsetWidth;
+                } else if (browser.webkit) {
+                     x += content[0].scrollLeft;
                 }
-           }
+            } else {
+                x += content[0].scrollLeft;
+            }
 
-           return null;
-       },
+            y += content[0].scrollTop;
+
+            x = Math.ceil(x);
+            y = Math.ceil(y);
+
+            for (groupIndex = 0; groupIndex < this.groups.length; groupIndex++) {
+                 group = this.groups[groupIndex];
+
+                 slot = group.timeSlotByPosition(x, y);
+
+                 if (slot) {
+                     return slot;
+                 }
+            }
+
+            return null;
+        },
 
         options: {
             name: "TimelineView",
@@ -98509,10 +98625,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             var rect = eventObject.slotRange.innerRect(eventObject.start, eventObject.end, false);
 
-            var left = rect.left;
-            if (this._isRtl) {
-                left -= (this.content[0].scrollWidth - this.content[0].offsetWidth);
-            }
+            var left = this._adjustLeftPosition(rect.left);
 
             var width = rect.right - rect.left - 2;
 
@@ -98874,11 +98987,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                    width = 0;
                 }
 
-                var left = rect.left;
-
-                if (this._isRtl) {
-                   left -= (this.content[0].scrollWidth - this.content[0].offsetWidth);
-                }
+                var left = this._adjustLeftPosition(rect.left);
 
                 var css = {
                     left: left,
@@ -98913,12 +99022,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 var width = startRect.right - startRect.left;
                 var height = start.offsetHeight;
 
-                var left = startRect.left;
-
-                var content = this.content;
-                if (this._isRtl) {
-                    left -= (content[0].scrollWidth - content[0].offsetWidth);
-                }
+                var left = this._adjustLeftPosition(startRect.left);
 
                 var hint = SchedulerView.fn._createResizeHint.call(this,
                     left,
@@ -112697,14 +112801,22 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         },
 
         _dataSource: function() {
-            if (this.dataSource && this._refreshHandler) {
-                this.dataSource.unbind("change", this._refreshHandler);
+            var that = this;
+
+            if (that.dataSource && that._refreshHandler) {
+                that.dataSource.unbind("change", that._refreshHandler)
+                               .unbind("error", that._errorHandler)
+                               .unbind("progress", that._progressHandler);
             } else {
-                this._refreshHandler = $.proxy(this.refresh, this);
+                that._errorHandler = $.proxy(that._error, that);
+                that._refreshHandler = $.proxy(that.refresh, that);
+                that._progressHandler = $.proxy(that._requestStart, that);
             }
 
-            this.dataSource = kendo.data.PivotDataSource.create(this.options.dataSource);
-            this.dataSource.bind("change", this._refreshHandler);
+            that.dataSource = kendo.data.PivotDataSource.create(that.options.dataSource);
+            that.dataSource.bind("change", that._refreshHandler)
+                           .bind("error", that._errorHandler)
+                           .bind("progress", that._progressHandler);
         },
 
         setDataSource: function(dataSource) {
@@ -112787,6 +112899,18 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                     }
                 }
             });
+        },
+
+        _progress: function(toggle) {
+            kendo.ui.progress(this.element, toggle);
+        },
+
+        _error: function() {
+            this._progress(false);
+        },
+
+        _requestStart: function() {
+            this._progress(true);
         },
 
         _layout: function() {
@@ -112975,6 +113099,8 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             this._cube = this.dataSource.cube();
 
             this._resize();
+
+            this._progress(false);
         },
 
         destroy: function() {
@@ -113622,9 +113748,15 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 scope: false,
 
                 controller: [ '$scope', '$attrs', '$element', function($scope, $attrs, $element) {
-                    this.template = function(key, value) {
+                    var that = this;
+                    that.template = function(key, value) {
                         $attrs[key] = kendo.stringify(value);
                     };
+
+                    $scope.$on("$destroy", function() {
+                        that.template = null;
+                        that = null;
+                    });
                 }],
 
                 link: function(scope, element, attrs, controllers) {
@@ -113965,10 +114097,16 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
     });
 
     defadvice("ui.Select", "$angular_getLogicValue", function(){
-        var item = this.self.dataItem();
+        var item = this.self.dataItem(),
+            valueField = this.self.options.dataValueField;
+
         if (item) {
             if (this.self.options.valuePrimitive) {
-                return item[this.self.options.dataValueField];
+                if (!!valueField) {
+                    return item[valueField];
+                } else {
+                    return item;
+                }
             } else {
                 return item.toJSON();
             }

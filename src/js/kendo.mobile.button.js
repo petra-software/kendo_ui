@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.528 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.609 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -53,6 +53,7 @@
             that.enable(that.options.enable);
 
             that._userEvents = new kendo.UserEvents(that.element, {
+                allowSelection: !useTap,
                 press: function(e) {
                     that._activate(e);
                 },
