@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.609 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.616 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.609";
+    kendo.version = "2015.1.616";
 
     function Class() {}
 
@@ -8796,26 +8796,6 @@ function pad(number, digits, end) {
         }
     }
 
-    function wrapInEmptyGroup(groups, model) {
-        var parent,
-            group,
-            idx,
-            length;
-
-        for (idx = groups.length-1, length = 0; idx >= length; idx--) {
-            group = groups[idx];
-            parent = {
-                value: model.get(group.field),
-                field: group.field,
-                items: parent ? [parent] : [model],
-                hasSubgroups: !!parent,
-                aggregates: {}
-            };
-        }
-
-        return parent;
-    }
-
     function indexOfPristineModel(data, model) {
         if (model) {
             return indexOf(data, function(item) {
@@ -9189,7 +9169,7 @@ function pad(number, digits, end) {
             }
 
             if (this._isServerGrouped()) {
-                this._data.splice(index, 0, wrapInEmptyGroup(this.group(), model));
+                this._data.splice(index, 0, this._wrapInEmptyGroup(model));
             } else {
                 this._data.splice(index, 0, model);
             }
@@ -9217,7 +9197,7 @@ function pad(number, digits, end) {
                     var pristine = result.toJSON();
 
                     if (this._isServerGrouped()) {
-                        pristine = wrapInEmptyGroup(this.group(), pristine);
+                        pristine = this._wrapInEmptyGroup(pristine);
                     }
 
                     this._pristineData.push(pristine);
@@ -9500,7 +9480,7 @@ function pad(number, digits, end) {
                     models[idx].accept(response[idx]);
 
                     if (type === "create") {
-                        pristine.push(serverGroup ? wrapInEmptyGroup(that.group(), models[idx]) : response[idx]);
+                        pristine.push(serverGroup ? that._wrapInEmptyGroup(models[idx]) : response[idx]);
                     } else if (type === "update") {
                         that._updatePristineForModel(models[idx], response[idx]);
                     }
@@ -10334,6 +10314,27 @@ function pad(number, digits, end) {
             }
 
             return result;
+        },
+
+        _wrapInEmptyGroup: function(model) {
+            var groups = this.group(),
+                parent,
+                group,
+                idx,
+                length;
+
+            for (idx = groups.length-1, length = 0; idx >= length; idx--) {
+                group = groups[idx];
+                parent = {
+                    value: model.get(group.field),
+                    field: group.field,
+                    items: parent ? [parent] : [model],
+                    hasSubgroups: !!parent,
+                    aggregates: this._emptyAggregates(group.aggregates)
+                };
+            }
+
+            return parent;
         },
 
         totalPages: function() {
@@ -50543,11 +50544,17 @@ function pad(number, digits, end) {
             var step = math.abs(that.getDiff(plotAreaBox, bbox));
             var min = round(step, COORD_PRECISION);
             var max = round(-step, COORD_PRECISION);
-            var minDiff, midDiff, maxDiff, mid;
+            var minDiff, midDiff, maxDiff, mid, oldDiff;
+            var staleFlag = 0;
             var i = 0;
 
-            while (i < 100) {
-                i++;
+            while (i++ < 100) {
+                staleFlag = (oldDiff === maxDiff) ? (staleFlag + 1) : 0;
+
+                if (staleFlag > 5) {
+                    break;
+                }
+
                 if (min != mid) {
                     minDiff = that.getPlotBox(min, bbox, arc);
                     if (0 <= minDiff && minDiff <= 2) {
@@ -50574,6 +50581,8 @@ function pad(number, digits, end) {
                 if (0 <= midDiff && midDiff <= 2) {
                     break;
                 }
+
+                oldDiff = maxDiff;
 
                 if (midDiff > 0) {
                     max = mid;
@@ -72187,15 +72196,18 @@ function pad(number, digits, end) {
             var that = this,
                 key = e.keyCode,
                 calendar = that.calendar,
-                selectIsClicked = e.ctrlKey && key == keys.DOWN || key == keys.ENTER;
+                selectIsClicked = e.ctrlKey && key == keys.DOWN || key == keys.ENTER,
+                handled = false;
 
             if (e.altKey) {
                 if (key == keys.DOWN) {
                     that.open();
                     e.preventDefault();
+                    handled = true;
                 } else if (key == keys.UP) {
                     that.close();
                     e.preventDefault();
+                    handled = true;
                 }
 
             } else if (that.popup.visible()) {
@@ -72203,11 +72215,14 @@ function pad(number, digits, end) {
                 if (key == keys.ESC || (selectIsClicked && calendar._cell.hasClass(SELECTED))) {
                     that.close();
                     e.preventDefault();
-                    return;
+                    return true;
                 }
 
                 that._current = calendar._move(e);
+                handled = true;
             }
+
+            return handled;
         },
 
         current: function(date) {
@@ -72517,23 +72532,32 @@ function pad(number, digits, end) {
                 that._old = value;
                 that._oldText = that.element.val();
 
-                // trigger the DOM change event so any subscriber gets notified
-                that.element.trigger(CHANGE);
+                if (!that._typing) {
+                    // trigger the DOM change event so any subscriber gets notified
+                    that.element.trigger(CHANGE);
+                }
 
                 that.trigger(CHANGE);
             }
+
+            that._typing = false;
         },
 
         _keydown: function(e) {
             var that = this,
                 dateView = that.dateView,
-                value = that.element.val();
+                value = that.element.val(),
+                handled = false;
 
             if (!dateView.popup.visible() && e.keyCode == keys.ENTER && value !== that._oldText) {
                 that._change(value);
             } else {
-                dateView.move(e);
+                handled = dateView.move(e);
                 that._updateARIA(dateView._current);
+
+                if (!handled) {
+                    that._typing = true;
+                }
             }
         },
 
@@ -73019,11 +73043,15 @@ function pad(number, digits, end) {
             if (that._old != value) {
                 that._old = value;
 
-                // trigger the DOM change event so any subscriber gets notified
-                that.element.trigger(CHANGE);
+                if (!that._typing) {
+                    // trigger the DOM change event so any subscriber gets notified
+                    that.element.trigger(CHANGE);
+                }
 
                 that.trigger(CHANGE);
             }
+
+            that._typing = false;
         },
 
         _culture: function(culture) {
@@ -73104,7 +73132,10 @@ function pad(number, digits, end) {
                 that._step(1);
             } else if (key == keys.ENTER) {
                 that._change(that.element.val());
+            } else {
+                that._typing = true;
             }
+
         },
 
         _keypress: function(e) {
@@ -73225,6 +73256,7 @@ function pad(number, digits, end) {
             value += that.options.step * step;
 
             that._update(that._adjust(value));
+            that._typing = false;
 
             that.trigger(SPIN);
         },
@@ -75955,11 +75987,15 @@ function pad(number, digits, end) {
                 that._old = value;
                 that._oldIndex = index;
 
-                // trigger the DOM change event so any subscriber gets notified
-                that.element.trigger(CHANGE);
+                if (!that._typing) {
+                    // trigger the DOM change event so any subscriber gets notified
+                    that.element.trigger(CHANGE);
+                }
 
                 that.trigger(CHANGE);
             }
+
+            that.typing = false;
         },
 
         _data: function() {
@@ -76251,7 +76287,7 @@ function pad(number, digits, end) {
             var filter = options.filter;
             var field = options.dataTextField;
 
-            clearTimeout(that._typing);
+            clearTimeout(that._typingTimeout);
 
             if (!length || length >= options.minLength) {
                 that._state = "filter";
@@ -76539,8 +76575,7 @@ function pad(number, digits, end) {
             var that = this;
             var hasItems = !!that.dataSource.view().length;
 
-            //if request is started avoid datasource.fetch
-            if (that.element[0].disabled || that._request || that.options.cascadeFrom) {
+            if (that._request || that.options.cascadeFrom) {
                 return;
             }
 
@@ -78069,7 +78104,7 @@ function pad(number, digits, end) {
             var focusedItem = that._focus();
 
             if (!that._prevent) {
-                clearTimeout(that._typing);
+                clearTimeout(that._typingTimeout);
 
                 if (filtered && focusedItem && !that.trigger("select", { item: focusedItem })) {
                     that._select(focusedItem, !that.dataSource.view().length);
@@ -78188,7 +78223,7 @@ function pad(number, digits, end) {
                 that._focusElement(that.wrapper);
             }
 
-            if (key === keys.ENTER && that._typing && that.filterInput && isPopupVisible) {
+            if (key === keys.ENTER && that._typingTimeout && that.filterInput && isPopupVisible) {
                 e.preventDefault();
                 return;
             }
@@ -78390,10 +78425,10 @@ function pad(number, digits, end) {
             var dataSource = that.dataSource;
             var index = that.selectedIndex;
 
-            clearTimeout(that._typing);
+            clearTimeout(that._typingTimeout);
 
             if (that.options.filter !== "none") {
-                that._typing = setTimeout(function() {
+                that._typingTimeout = setTimeout(function() {
                     var value = that.filterInput.val();
 
                     if (that._prev !== value) {
@@ -78401,10 +78436,10 @@ function pad(number, digits, end) {
                         that.search(value);
                     }
 
-                    that._typing = null;
+                    that._typingTimeout = null;
                 }, that.options.delay);
             } else {
-                that._typing = setTimeout(function() {
+                that._typingTimeout = setTimeout(function() {
                     that._word = "";
                 }, that.options.delay);
 
@@ -85540,7 +85575,9 @@ function pad(number, digits, end) {
         var valueField = options.dataValueField;
         var text = options.text || "";
 
-        val = val || "";
+        if (val === undefined) {
+            val = "";
+        }
 
         if (valueField && !options.valuePrimitive && val) {
             text = val[options.dataTextField] || "";

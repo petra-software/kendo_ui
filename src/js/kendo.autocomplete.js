@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.609 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.616 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -252,7 +252,7 @@
 
             word = word || that._accessor();
 
-            clearTimeout(that._typing);
+            clearTimeout(that._typingTimeout);
 
             if (separator) {
                 word = wordAtCaret(caret(that.element)[0], word, separator);
@@ -433,12 +433,12 @@
                 that._open = false;
                 action = length ? "open" : "close";
 
-                if (that._typing && !isActive) {
+                if (that._typingTimeout && !isActive) {
                     action = "close";
                 }
 
                 popup[action]();
-                that._typing = undefined;
+                that._typingTimeout = undefined;
             }
 
             if (that._touchScroller) {
@@ -541,6 +541,7 @@
                 that.close();
             } else {
                 that._search();
+                that._typing = true;
             }
         },
 
@@ -613,9 +614,9 @@
 
         _search: function () {
             var that = this;
-            clearTimeout(that._typing);
+            clearTimeout(that._typingTimeout);
 
-            that._typing = setTimeout(function () {
+            that._typingTimeout = setTimeout(function () {
                 if (that._prev !== that._accessor()) {
                     that._prev = that._accessor();
                     that.search();

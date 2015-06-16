@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.609 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.616 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1412,14 +1412,10 @@ var Dom = {
             elementTop, elementHeight,
             scrollContainer = Dom.scrollContainer(node.ownerDocument);
 
-        if (Dom.name(element[0]) == "br") {
-            element = element.parent();
-        }
-
         elementTop = element.offset().top;
         elementHeight = element[0].offsetHeight;
 
-        if (Dom.is(element[0], "p")) {
+        if (!elementHeight) {
             elementHeight = parseInt(element.css("line-height"), 10) ||
                             Math.ceil(1.2 * parseInt(element.css("font-size"), 10)) ||
                             15;
@@ -4098,6 +4094,7 @@ var Clipboard = Class.extend({
         this.editor = editor;
         this.cleaners = [
             new ScriptCleaner(),
+            new TabCleaner(),
             new MSWordFormatCleaner(),
             new WebkitFormatCleaner()
         ];
@@ -4411,6 +4408,21 @@ var ScriptCleaner = Cleaner.extend({
 
     applicable: function(html) {
         return (/<script[^>]*>/i).test(html);
+    }
+});
+
+var TabCleaner = Cleaner.extend({
+    init: function() {
+        var replacement = ' ';
+        this.replacements = [
+            /<span\s+class="Apple-tab-span"[^>]*>\s*<\/span>/gi, replacement,
+            /\t/gi, replacement,
+            /&nbsp;&nbsp; &nbsp;/gi, replacement
+        ];
+    },
+
+    applicable: function(html) {
+        return (/&nbsp;&nbsp; &nbsp;|class="?Apple-tab-span/i).test(html);
     }
 });
 
@@ -4784,6 +4796,7 @@ extend(editorNS, {
     Keyboard: Keyboard,
     Clipboard: Clipboard,
     Cleaner: Cleaner,
+    TabCleaner: TabCleaner,
     MSWordFormatCleaner: MSWordFormatCleaner,
     WebkitFormatCleaner: WebkitFormatCleaner,
     PrintCommand: PrintCommand,

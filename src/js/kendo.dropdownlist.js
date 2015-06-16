@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.609 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.616 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -475,7 +475,7 @@
             var focusedItem = that._focus();
 
             if (!that._prevent) {
-                clearTimeout(that._typing);
+                clearTimeout(that._typingTimeout);
 
                 if (filtered && focusedItem && !that.trigger("select", { item: focusedItem })) {
                     that._select(focusedItem, !that.dataSource.view().length);
@@ -594,7 +594,7 @@
                 that._focusElement(that.wrapper);
             }
 
-            if (key === keys.ENTER && that._typing && that.filterInput && isPopupVisible) {
+            if (key === keys.ENTER && that._typingTimeout && that.filterInput && isPopupVisible) {
                 e.preventDefault();
                 return;
             }
@@ -796,10 +796,10 @@
             var dataSource = that.dataSource;
             var index = that.selectedIndex;
 
-            clearTimeout(that._typing);
+            clearTimeout(that._typingTimeout);
 
             if (that.options.filter !== "none") {
-                that._typing = setTimeout(function() {
+                that._typingTimeout = setTimeout(function() {
                     var value = that.filterInput.val();
 
                     if (that._prev !== value) {
@@ -807,10 +807,10 @@
                         that.search(value);
                     }
 
-                    that._typing = null;
+                    that._typingTimeout = null;
                 }, that.options.delay);
             } else {
-                that._typing = setTimeout(function() {
+                that._typingTimeout = setTimeout(function() {
                     that._word = "";
                 }, that.options.delay);
 
