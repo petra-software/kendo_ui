@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.616 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.624 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -7655,8 +7655,10 @@
         function addRule(styleSheet, names, bold, italic, url) {
             // We get full resolved absolute URLs in Chrome, but sadly
             // not in Firefox.
-            if (!(/^[^\/:]+:\/\//.test(url) || /^\//.test(url))) {
-                url = String(styleSheet.href).replace(/[^\/]*$/, "") + url;
+            if (!(/^data:/i.test(url))) {
+                if (!(/^[^\/:]+:\/\//.test(url) || /^\//.test(url))) {
+                    url = String(styleSheet.href).replace(/[^\/]*$/, "") + url;
+                }
             }
             names.forEach(function(name){
                 name = name.replace(/^(['"]?)(.*?)\1$/, "$2"); // it's quoted

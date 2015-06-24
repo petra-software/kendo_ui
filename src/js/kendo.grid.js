@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.616 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.624 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1022,9 +1022,14 @@
         return result;
     }
 
-    function appendContent(tbody, table, html) {
+    function appendContent(tbody, table, html, empty) {
         var placeholder,
             tmp = tbody;
+
+        // necessary for AngularJS to cleanup its guts.
+        if (empty) {
+            tbody.empty();
+        }
 
         if (tbodySupportsInnerHtml) {
             tbody[0].innerHTML = html;
@@ -2213,7 +2218,9 @@
                 headerTable,
                 isLocked,
                 visibleLocked = that.lockedHeader ? leafDataCells(that.lockedHeader.find(">table>thead")).filter(isCellVisible).length : 0,
-                col;
+                col,
+                notGroupOrHierarchyCol = "col:not(.k-group-col):not(.k-hierarchy-col)",
+                notGroupOrHierarchyVisibleCell = "td:visible:not(.k-group-cell):not(.k-hierarchy-cell)";
 
             //  retrieve the column object, depending on the method argument
             if (typeof column == "number") {
@@ -2252,7 +2259,7 @@
 
             var footerTable = footer.find("table").first();
 
-            if (that.lockedHeader && visibleLocked >= index && !isLocked) {
+            if (that.lockedHeader && !isLocked) {
                 index -= visibleLocked;
             }
 
@@ -2269,11 +2276,11 @@
 
             // get col elements
             if (options.scrollable) {
-                col = headerTable.find("col:not(.k-group-col):not(.k-hierarchy-col):eq(" + index + ")")
-                    .add(contentTable.children("colgroup").find("col:not(.k-group-col):not(.k-hierarchy-col):eq(" + index + ")"))
-                    .add(footerTable.find("colgroup").find("col:not(.k-group-col):not(.k-hierarchy-col):eq(" + index + ")"));
+                col = headerTable.find(notGroupOrHierarchyCol).eq(index)
+                    .add(contentTable.children("colgroup").find(notGroupOrHierarchyCol).eq(index))
+                    .add(footerTable.find("colgroup").find(notGroupOrHierarchyCol).eq(index));
             } else {
-                col = contentTable.children("colgroup").find("col:not(.k-group-col):not(.k-hierarchy-col):eq(" + index + ")");
+                col = contentTable.children("colgroup").find(notGroupOrHierarchyCol).eq(index);
             }
 
             var tables = headerTable.add(contentTable).add(footerTable);
@@ -2289,7 +2296,11 @@
             tables.css("table-layout", "");
 
             var newTableWidth = Math.max(headerTable.width(), contentTable.width(), footerTable.width());
-            var newColumnWidth = Math.ceil(Math.max(th.outerWidth(), contentTable.find("tr").eq(0).children("td:visible").eq(index).outerWidth(), footerTable.find("tr").eq(0).children("td:visible").eq(index).outerWidth()));
+            var newColumnWidth = Math.ceil(Math.max(
+                th.outerWidth(),
+                contentTable.find("tr").eq(0).children(notGroupOrHierarchyVisibleCell).eq(index).outerWidth(),
+                footerTable.find("tr").eq(0).children(notGroupOrHierarchyVisibleCell).eq(index).outerWidth()
+            ));
 
             col.width(newColumnWidth);
             column.width = newColumnWidth;
@@ -4893,6 +4904,7 @@
                                 values: columns[idx].values,
                                 format: columns[idx].format,
                                 closeCallback: closeCallback,
+                                title: columns[idx].title || columns[idx].field,
                                 init: filterInit,
                                 pane: that.pane
                             }
@@ -6708,7 +6720,7 @@
                 html += that._rowsHtml(data, templates);
             }
 
-            that.tbody = appendContent(that.tbody, that.table, html);
+            that.tbody = appendContent(that.tbody, that.table, html, this.options.$angular);
        },
 
        _renderLockedContent: function(data, colspan, groups) {
@@ -6734,7 +6746,7 @@
                    html = this._rowsHtml(data, templates);
                }
 
-               appendContent(table.children("tbody"), table, html);
+               appendContent(table.children("tbody"), table, html, this.options.$angular);
 
                this._syncLockedContentHeight();
            }

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.616 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.624 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -512,6 +512,28 @@ kendo.ui.Slider.prototype.options =
 $.extend(true, kendo.ui.Slider.prototype.options,{
   "increaseButtonTitle": "Increase",
   "decreaseButtonTitle": "Decrease"
+});
+}
+
+/* TreeList messages */
+
+if (kendo.ui.TreeList) {
+kendo.ui.TreeList.prototype.options.messages =
+$.extend(true, kendo.ui.TreeList.prototype.options.messages,{
+  "noRows": "No records to display",
+  "loading": "Loading...",
+  "requestFailed": "Request failed.",
+  "retry": "Retry",
+  "commands": {
+      "edit": "Edit",
+      "update": "Update",
+      "canceledit": "Cancel",
+      "create": "Add new record",
+      "createchild": "Add child record",
+      "destroy": "Delete",
+      "excel": "Export to Excel",
+      "pdf": "Export to PDF"
+  }
 });
 }
 

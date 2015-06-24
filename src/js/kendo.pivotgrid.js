@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.616 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.624 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -617,7 +617,7 @@
                     name = getName(descriptor);
 
                     value = getters[name](dataItem);
-                    value = value !== undefined ? value.toString() : value;
+                    value = (value !== undefined && value !== null) ? value.toString() : value;
 
                     name = name + "&" + value;
 
@@ -693,6 +693,14 @@
             return aggregators;
         },
 
+        _normalizeName: function(name) {
+            if (name.indexOf(" ") !== -1) {
+                name = '["' + name + '"]';
+            }
+
+            return name;
+        },
+
         _buildGetters: function(descriptors) {
             var result = {};
             var descriptor;
@@ -709,7 +717,7 @@
                 if (parts.length > 1) {
                     result[parts[0]] = kendo.getter(parts[0], true);
                 } else {
-                    result[name] = kendo.getter(name, true);
+                    result[name] = kendo.getter(this._normalizeName(name), true);
                 }
             }
 
@@ -4037,6 +4045,7 @@
 
                 if (!row.parentMember || row.parentMember !== parentMember) {
                     row.parentMember = parentMember;
+                    row.collapsed = 0;
                     row.colSpan = 0;
                 }
             }
@@ -4087,10 +4096,11 @@
             var path;
 
             var idx = 0;
-            var collapsed = 0;
+            var metadata;
 
             var colSpan;
-            var metadata;
+            var collapsed = 0;
+            var memberCollapsed = 0;
 
             if (member.measure) {
                 this._measures(member.children, tuple);
@@ -4115,7 +4125,8 @@
 
             if (member.hasChildren) {
                 if (metadata.expanded === false) {
-                    row.collapsed += metadata.maxChildren;
+                    collapsed = metadata.maxChildren;
+                    row.collapsed += collapsed;
 
                     metadata.children = 0;
                     childrenLength = 0;
@@ -4142,22 +4153,26 @@
                 }
 
                 colSpan = childRow.colSpan;
+                collapsed = childRow.collapsed;
+
                 cell.attr.colSpan = colSpan;
 
                 metadata.children = colSpan;
                 metadata.members = 1;
 
                 row.colSpan += colSpan;
+                row.collapsed += collapsed;
                 row.rowSpan = childRow.rowSpan + 1;
-                row.collapsed += childRow.collapsed;
-
-                collapsed += childRow.collapsed;
 
                 if (nextMember) {
                     if (nextMember.measure) {
                         colSpan = this._measures(nextMember.children, tuple, " k-alt");
                     } else {
-                        colSpan = this._buildRows(tuple, memberIdx + 1).colSpan;
+                        childRow = this._buildRows(tuple, memberIdx + 1);
+                        colSpan = childRow.colSpan;
+
+                        row.collapsed += childRow.collapsed;
+                        memberCollapsed = childRow.collapsed;
                     }
 
                     allCell.attr.colSpan = colSpan;
@@ -4170,7 +4185,11 @@
                 if (nextMember.measure) {
                     colSpan = this._measures(nextMember.children, tuple);
                 } else {
-                    colSpan = this._buildRows(tuple, memberIdx + 1).colSpan;
+                    childRow = this._buildRows(tuple, memberIdx + 1);
+                    colSpan = childRow.colSpan;
+
+                    row.collapsed += childRow.collapsed;
+                    memberCollapsed = childRow.collapsed;
                 }
 
                 metadata.members = colSpan;
@@ -4181,12 +4200,14 @@
                 }
             }
 
-            if (metadata.maxChildren < (metadata.children + collapsed)) {
-                metadata.maxChildren = metadata.children + collapsed;
+            if (metadata.maxMembers < (metadata.members + memberCollapsed)) {
+                metadata.maxMembers = metadata.members + memberCollapsed;
             }
 
-            if (metadata.maxMembers < metadata.members) {
-                metadata.maxMembers = metadata.members;
+            children = metadata.children + collapsed;
+
+            if (metadata.maxChildren < children) {
+                metadata.maxChildren = children;
             }
 
             (allCell || cell).tupleAll = true;

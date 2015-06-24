@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.616 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.624 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.616";
+    kendo.version = "2015.1.624";
 
     function Class() {}
 
@@ -25025,8 +25025,10 @@ function pad(number, digits, end) {
         function addRule(styleSheet, names, bold, italic, url) {
             // We get full resolved absolute URLs in Chrome, but sadly
             // not in Firefox.
-            if (!(/^[^\/:]+:\/\//.test(url) || /^\//.test(url))) {
-                url = String(styleSheet.href).replace(/[^\/]*$/, "") + url;
+            if (!(/^data:/i.test(url))) {
+                if (!(/^[^\/:]+:\/\//.test(url) || /^\//.test(url))) {
+                    url = String(styleSheet.href).replace(/[^\/]*$/, "") + url;
+                }
             }
             names.forEach(function(name){
                 name = name.replace(/^(['"]?)(.*?)\1$/, "$2"); // it's quoted
@@ -58530,6 +58532,8 @@ function pad(number, digits, end) {
             origin.x += offset.x;
             origin.y += offset.y;
 
+            this._scrollOffset = offset;
+
             this._setOrigin(this.layerToLocation(origin));
             this.trigger("pan", {
                 originalEvent: e,
@@ -58539,11 +58543,22 @@ function pad(number, digits, end) {
         },
 
         _scrollEnd: function(e) {
+            if (!this._scrollOffset || !this._panComplete()) {
+                return;
+            }
+
+            this._scrollOffset = null;
+            this._panEndTS = new Date();
+
             this.trigger("panEnd", {
                 originalEvent: e,
                 origin: this._getOrigin(),
                 center: this.center()
             });
+        },
+
+        _panComplete: function() {
+            return new Date() - (this._panEndTS || 0) > 50;
         },
 
         _scaleStart: function(e) {
@@ -58648,6 +58663,10 @@ function pad(number, digits, end) {
         },
 
         _click: function(e) {
+            if (!this._panComplete()) {
+                return;
+            }
+
             var cursor = this.eventOffset(e);
             this.trigger("click", {
                 originalEvent: e,
@@ -77010,6 +77029,10 @@ function pad(number, digits, end) {
             that.trigger("activate");
         },
 
+        focusIndex: function() {
+            return this.focus() ? this.focus().index() : undefined;
+        },
+
         filter: function(filter, skipValueUpdate) {
             if (filter === undefined) {
                 return this._filtered;
@@ -77841,12 +77864,12 @@ function pad(number, digits, end) {
             this._focusElement(this.filterInput);
         },
 
-        toggle: function(toggle) {
-            this._toggle(toggle, true);
-        },
-
         _allowOpening: function(length) {
             return this.optionLabel[0] || this.filterInput || this.dataSource.view().length;
+        },
+
+        toggle: function(toggle) {
+            this._toggle(toggle, true);
         },
 
         current: function(candidate) {
@@ -77934,6 +77957,7 @@ function pad(number, digits, end) {
 
         value: function(value) {
             var that = this;
+            var dataSource = that.dataSource;
 
             if (value === undefined) {
                 value = that._accessor() || that.listView.value()[0];
@@ -77944,9 +77968,18 @@ function pad(number, digits, end) {
                 that._initialIndex = null;
             }
 
-            that.listView.value(value).done(function() {
-                that._triggerCascade();
+            if (that._request && that.options.cascadeFrom && that.listView.isBound()) {
+                if (that._valueSetter) {
+                    dataSource.unbind(CHANGE, that._valueSetter);
+                }
 
+                that._valueSetter = proxy(function() { that.value(value); }, that);
+
+                dataSource.one(CHANGE, that._valueSetter);
+                return;
+            }
+
+            that.listView.value(value).done(function() {
                 if (that.selectedIndex === -1 && that.text()) {
                     that.text("");
                     that._accessor("", -1);

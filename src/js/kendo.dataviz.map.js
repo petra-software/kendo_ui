@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.616 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.624 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -2892,6 +2892,8 @@
             origin.x += offset.x;
             origin.y += offset.y;
 
+            this._scrollOffset = offset;
+
             this._setOrigin(this.layerToLocation(origin));
             this.trigger("pan", {
                 originalEvent: e,
@@ -2901,11 +2903,22 @@
         },
 
         _scrollEnd: function(e) {
+            if (!this._scrollOffset || !this._panComplete()) {
+                return;
+            }
+
+            this._scrollOffset = null;
+            this._panEndTS = new Date();
+
             this.trigger("panEnd", {
                 originalEvent: e,
                 origin: this._getOrigin(),
                 center: this.center()
             });
+        },
+
+        _panComplete: function() {
+            return new Date() - (this._panEndTS || 0) > 50;
         },
 
         _scaleStart: function(e) {
@@ -3010,6 +3023,10 @@
         },
 
         _click: function(e) {
+            if (!this._panComplete()) {
+                return;
+            }
+
             var cursor = this.eventOffset(e);
             this.trigger("click", {
                 originalEvent: e,

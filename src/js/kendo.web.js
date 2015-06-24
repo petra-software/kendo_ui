@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.616 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.624 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.616";
+    kendo.version = "2015.1.624";
 
     function Class() {}
 
@@ -23269,8 +23269,10 @@ kendo.ExcelMixin = {
         function addRule(styleSheet, names, bold, italic, url) {
             // We get full resolved absolute URLs in Chrome, but sadly
             // not in Firefox.
-            if (!(/^[^\/:]+:\/\//.test(url) || /^\//.test(url))) {
-                url = String(styleSheet.href).replace(/[^\/]*$/, "") + url;
+            if (!(/^data:/i.test(url))) {
+                if (!(/^[^\/:]+:\/\//.test(url) || /^\//.test(url))) {
+                    url = String(styleSheet.href).replace(/[^\/]*$/, "") + url;
+                }
             }
             names.forEach(function(name){
                 name = name.replace(/^(['"]?)(.*?)\1$/, "$2"); // it's quoted
@@ -33191,6 +33193,10 @@ kendo.ExcelMixin = {
             that.trigger("activate");
         },
 
+        focusIndex: function() {
+            return this.focus() ? this.focus().index() : undefined;
+        },
+
         filter: function(filter, skipValueUpdate) {
             if (filter === undefined) {
                 return this._filtered;
@@ -36674,12 +36680,12 @@ kendo.ExcelMixin = {
             this._focusElement(this.filterInput);
         },
 
-        toggle: function(toggle) {
-            this._toggle(toggle, true);
-        },
-
         _allowOpening: function(length) {
             return this.optionLabel[0] || this.filterInput || this.dataSource.view().length;
+        },
+
+        toggle: function(toggle) {
+            this._toggle(toggle, true);
         },
 
         current: function(candidate) {
@@ -36767,6 +36773,7 @@ kendo.ExcelMixin = {
 
         value: function(value) {
             var that = this;
+            var dataSource = that.dataSource;
 
             if (value === undefined) {
                 value = that._accessor() || that.listView.value()[0];
@@ -36777,9 +36784,18 @@ kendo.ExcelMixin = {
                 that._initialIndex = null;
             }
 
-            that.listView.value(value).done(function() {
-                that._triggerCascade();
+            if (that._request && that.options.cascadeFrom && that.listView.isBound()) {
+                if (that._valueSetter) {
+                    dataSource.unbind(CHANGE, that._valueSetter);
+                }
 
+                that._valueSetter = proxy(function() { that.value(value); }, that);
+
+                dataSource.one(CHANGE, that._valueSetter);
+                return;
+            }
+
+            that.listView.value(value).done(function() {
                 if (that.selectedIndex === -1 && that.text()) {
                     that.text("");
                     that._accessor("", -1);
@@ -37982,7 +37998,7 @@ kendo.ExcelMixin = {
 
             if (length && (page === undefined || page === 1)) {
                 if (options.highlightFirst) {
-                    if (!focusedItem) {
+                    if (!focusedItem && !listView.focusIndex()) {
                         listView.focus(0);
                     }
                 } else {
@@ -38222,8 +38238,6 @@ kendo.ExcelMixin = {
             that.listView
                 .value(value)
                 .done(function() {
-                    that._triggerCascade();
-
                     that._selectValue(that.listView.selectedDataItems()[0]);
 
                     if (that.selectedIndex === -1) {
@@ -42934,7 +42948,7 @@ kendo.ExcelMixin = {
                     '#}#'+
                 '</select>'+
                 '#if(values){#' +
-                    '<select data-#=ns#bind="value:filters[0].value" data-#=ns#text-field="text" data-#=ns#value-field="value" data-#=ns#source=\'#=kendo.stringify(values).replace(/\'/g,"&\\#39;")#\' data-#=ns#role="dropdownlist" data-#=ns#option-label="#=messages.selectValue#">' +
+                    '<select data-#=ns#bind="value:filters[0].value" data-#=ns#text-field="text" data-#=ns#value-field="value" data-#=ns#source=\'#=kendo.stringify(values).replace(/\'/g,"&\\#39;")#\' data-#=ns#role="dropdownlist" data-#=ns#option-label="#=messages.selectValue#" data-#=ns#value-primitive="true">' +
                     '</select>' +
                 '#}else{#' +
                     '<input data-#=ns#bind="value:filters[0].value" class="k-textbox" type="text" #=role ? "data-" + ns + "role=\'" + role + "\'" : ""# />'+
@@ -42950,7 +42964,7 @@ kendo.ExcelMixin = {
                         '#}#'+
                     '</select>'+
                     '#if(values){#' +
-                        '<select data-#=ns#bind="value:filters[1].value" data-#=ns#text-field="text" data-#=ns#value-field="value" data-#=ns#source=\'#=kendo.stringify(values).replace(/\'/g,"&\\#39;")#\' data-#=ns#role="dropdownlist" data-#=ns#option-label="#=messages.selectValue#">' +
+                        '<select data-#=ns#bind="value:filters[1].value" data-#=ns#text-field="text" data-#=ns#value-field="value" data-#=ns#source=\'#=kendo.stringify(values).replace(/\'/g,"&\\#39;")#\' data-#=ns#role="dropdownlist" data-#=ns#option-label="#=messages.selectValue#" data-#=ns#value-primitive="true">' +
                         '</select>'+
                     '#}else{#' +
                         '<input data-#=ns#bind="value: filters[1].value" class="k-textbox" type="text" #=role ? "data-" + ns + "role=\'" + role + "\'" : ""#/>'+
@@ -55102,9 +55116,14 @@ kendo.PDFMixin = {
         return result;
     }
 
-    function appendContent(tbody, table, html) {
+    function appendContent(tbody, table, html, empty) {
         var placeholder,
             tmp = tbody;
+
+        // necessary for AngularJS to cleanup its guts.
+        if (empty) {
+            tbody.empty();
+        }
 
         if (tbodySupportsInnerHtml) {
             tbody[0].innerHTML = html;
@@ -56293,7 +56312,9 @@ kendo.PDFMixin = {
                 headerTable,
                 isLocked,
                 visibleLocked = that.lockedHeader ? leafDataCells(that.lockedHeader.find(">table>thead")).filter(isCellVisible).length : 0,
-                col;
+                col,
+                notGroupOrHierarchyCol = "col:not(.k-group-col):not(.k-hierarchy-col)",
+                notGroupOrHierarchyVisibleCell = "td:visible:not(.k-group-cell):not(.k-hierarchy-cell)";
 
             //  retrieve the column object, depending on the method argument
             if (typeof column == "number") {
@@ -56332,7 +56353,7 @@ kendo.PDFMixin = {
 
             var footerTable = footer.find("table").first();
 
-            if (that.lockedHeader && visibleLocked >= index && !isLocked) {
+            if (that.lockedHeader && !isLocked) {
                 index -= visibleLocked;
             }
 
@@ -56349,11 +56370,11 @@ kendo.PDFMixin = {
 
             // get col elements
             if (options.scrollable) {
-                col = headerTable.find("col:not(.k-group-col):not(.k-hierarchy-col):eq(" + index + ")")
-                    .add(contentTable.children("colgroup").find("col:not(.k-group-col):not(.k-hierarchy-col):eq(" + index + ")"))
-                    .add(footerTable.find("colgroup").find("col:not(.k-group-col):not(.k-hierarchy-col):eq(" + index + ")"));
+                col = headerTable.find(notGroupOrHierarchyCol).eq(index)
+                    .add(contentTable.children("colgroup").find(notGroupOrHierarchyCol).eq(index))
+                    .add(footerTable.find("colgroup").find(notGroupOrHierarchyCol).eq(index));
             } else {
-                col = contentTable.children("colgroup").find("col:not(.k-group-col):not(.k-hierarchy-col):eq(" + index + ")");
+                col = contentTable.children("colgroup").find(notGroupOrHierarchyCol).eq(index);
             }
 
             var tables = headerTable.add(contentTable).add(footerTable);
@@ -56369,7 +56390,11 @@ kendo.PDFMixin = {
             tables.css("table-layout", "");
 
             var newTableWidth = Math.max(headerTable.width(), contentTable.width(), footerTable.width());
-            var newColumnWidth = Math.ceil(Math.max(th.outerWidth(), contentTable.find("tr").eq(0).children("td:visible").eq(index).outerWidth(), footerTable.find("tr").eq(0).children("td:visible").eq(index).outerWidth()));
+            var newColumnWidth = Math.ceil(Math.max(
+                th.outerWidth(),
+                contentTable.find("tr").eq(0).children(notGroupOrHierarchyVisibleCell).eq(index).outerWidth(),
+                footerTable.find("tr").eq(0).children(notGroupOrHierarchyVisibleCell).eq(index).outerWidth()
+            ));
 
             col.width(newColumnWidth);
             column.width = newColumnWidth;
@@ -58973,6 +58998,7 @@ kendo.PDFMixin = {
                                 values: columns[idx].values,
                                 format: columns[idx].format,
                                 closeCallback: closeCallback,
+                                title: columns[idx].title || columns[idx].field,
                                 init: filterInit,
                                 pane: that.pane
                             }
@@ -60788,7 +60814,7 @@ kendo.PDFMixin = {
                 html += that._rowsHtml(data, templates);
             }
 
-            that.tbody = appendContent(that.tbody, that.table, html);
+            that.tbody = appendContent(that.tbody, that.table, html, this.options.$angular);
        },
 
        _renderLockedContent: function(data, colspan, groups) {
@@ -60814,7 +60840,7 @@ kendo.PDFMixin = {
                    html = this._rowsHtml(data, templates);
                }
 
-               appendContent(table.children("tbody"), table, html);
+               appendContent(table.children("tbody"), table, html, this.options.$angular);
 
                this._syncLockedContentHeight();
            }
@@ -65334,6 +65360,10 @@ kendo.PDFMixin = {
                 .on("dragstart" + NS, false)
                 .on("keydown" + NS, function (e) {
                     var range;
+
+                    if ((e.keyCode === keys.BACKSPACE || e.keyCode === keys.DELETE) && editor.body.getAttribute("contenteditable") !== "true") {
+                        return false;
+                    }
 
                     if (e.keyCode === keys.F10) {
                         // Handling with timeout to avoid the default IE menu
@@ -74797,7 +74827,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                     name = getName(descriptor);
 
                     value = getters[name](dataItem);
-                    value = value !== undefined ? value.toString() : value;
+                    value = (value !== undefined && value !== null) ? value.toString() : value;
 
                     name = name + "&" + value;
 
@@ -74873,6 +74903,14 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             return aggregators;
         },
 
+        _normalizeName: function(name) {
+            if (name.indexOf(" ") !== -1) {
+                name = '["' + name + '"]';
+            }
+
+            return name;
+        },
+
         _buildGetters: function(descriptors) {
             var result = {};
             var descriptor;
@@ -74889,7 +74927,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 if (parts.length > 1) {
                     result[parts[0]] = kendo.getter(parts[0], true);
                 } else {
-                    result[name] = kendo.getter(name, true);
+                    result[name] = kendo.getter(this._normalizeName(name), true);
                 }
             }
 
@@ -78217,6 +78255,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
                 if (!row.parentMember || row.parentMember !== parentMember) {
                     row.parentMember = parentMember;
+                    row.collapsed = 0;
                     row.colSpan = 0;
                 }
             }
@@ -78267,10 +78306,11 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             var path;
 
             var idx = 0;
-            var collapsed = 0;
+            var metadata;
 
             var colSpan;
-            var metadata;
+            var collapsed = 0;
+            var memberCollapsed = 0;
 
             if (member.measure) {
                 this._measures(member.children, tuple);
@@ -78295,7 +78335,8 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             if (member.hasChildren) {
                 if (metadata.expanded === false) {
-                    row.collapsed += metadata.maxChildren;
+                    collapsed = metadata.maxChildren;
+                    row.collapsed += collapsed;
 
                     metadata.children = 0;
                     childrenLength = 0;
@@ -78322,22 +78363,26 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 }
 
                 colSpan = childRow.colSpan;
+                collapsed = childRow.collapsed;
+
                 cell.attr.colSpan = colSpan;
 
                 metadata.children = colSpan;
                 metadata.members = 1;
 
                 row.colSpan += colSpan;
+                row.collapsed += collapsed;
                 row.rowSpan = childRow.rowSpan + 1;
-                row.collapsed += childRow.collapsed;
-
-                collapsed += childRow.collapsed;
 
                 if (nextMember) {
                     if (nextMember.measure) {
                         colSpan = this._measures(nextMember.children, tuple, " k-alt");
                     } else {
-                        colSpan = this._buildRows(tuple, memberIdx + 1).colSpan;
+                        childRow = this._buildRows(tuple, memberIdx + 1);
+                        colSpan = childRow.colSpan;
+
+                        row.collapsed += childRow.collapsed;
+                        memberCollapsed = childRow.collapsed;
                     }
 
                     allCell.attr.colSpan = colSpan;
@@ -78350,7 +78395,11 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 if (nextMember.measure) {
                     colSpan = this._measures(nextMember.children, tuple);
                 } else {
-                    colSpan = this._buildRows(tuple, memberIdx + 1).colSpan;
+                    childRow = this._buildRows(tuple, memberIdx + 1);
+                    colSpan = childRow.colSpan;
+
+                    row.collapsed += childRow.collapsed;
+                    memberCollapsed = childRow.collapsed;
                 }
 
                 metadata.members = colSpan;
@@ -78361,12 +78410,14 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 }
             }
 
-            if (metadata.maxChildren < (metadata.children + collapsed)) {
-                metadata.maxChildren = metadata.children + collapsed;
+            if (metadata.maxMembers < (metadata.members + memberCollapsed)) {
+                metadata.maxMembers = metadata.members + memberCollapsed;
             }
 
-            if (metadata.maxMembers < metadata.members) {
-                metadata.maxMembers = metadata.members;
+            children = metadata.children + collapsed;
+
+            if (metadata.maxChildren < children) {
+                metadata.maxChildren = children;
             }
 
             (allCell || cell).tupleAll = true;
@@ -88496,7 +88547,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             var that = this;
             var page = that.dataSource.page();
 
-            if (that._rangeChange === true && that._lastPage !== page) {
+            if (that.isBound() && that._rangeChange === true && that._lastPage !== page) {
                 that._lastPage = page;
                 that.trigger(LISTBOUND);
             }
@@ -88622,6 +88673,9 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                     value: (this.options.selectable === "multiple") ? value : value[0],
                     success: function(indexes) {
                         that._values = [];
+                        that._selectedIndexes = [];
+                        that._selectedDataItems = [];
+
                         indexes = toArray(indexes);
 
                         if (!indexes.length) {
@@ -88818,6 +88872,10 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             }
         },
 
+        focusIndex: function() {
+            return this._focusedIndex;
+        },
+
         first: function() {
             this.scrollTo(0);
             this.focus(0);
@@ -88904,15 +88962,15 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
                 that.focus(indices);
 
-                if (that._valueDeferred) {
-                    that._valueDeferred.resolve();
-                }
-
                 if (added.length || removed.length) {
                     that.trigger(CHANGE, {
                         added: added,
                         removed: removed
                     });
+                }
+
+                if (that._valueDeferred) {
+                    that._valueDeferred.resolve();
                 }
             };
 
@@ -89219,10 +89277,9 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             return list;
         },
 
-        _itemMapper: function(item, index) {
+        _itemMapper: function(item, index, value) {
             var listType = this.options.type,
                 itemHeight = this.options.itemHeight,
-                value = this._values,
                 currentIndex = this._focusedIndex,
                 selected = false,
                 current = false,
@@ -89246,6 +89303,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 for (var i = 0; i < value.length; i++) {
                     match = isPrimitive(item) ? value[i] === item : value[i] === valueGetter(item);
                     if (match) {
+                        value.splice(i , 1);
                         selected = true;
                         break;
                     }
@@ -89269,6 +89327,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
         _range: function(index) {
             var itemCount = this.itemCount,
+                value = this._values.slice(),
                 items = [],
                 item;
 
@@ -89276,7 +89335,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             this._currentGroup = null;
 
             for (var i = index, length = index + itemCount; i < length; i++) {
-                item = this._itemMapper(this.getter(i, index), i);
+                item = this._itemMapper(this.getter(i, index), i, value);
                 items.push(item);
                 this._view[item.index] = item;
             }

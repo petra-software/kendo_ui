@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.616 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.1.624 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -491,6 +491,10 @@
                 .on("dragstart" + NS, false)
                 .on("keydown" + NS, function (e) {
                     var range;
+
+                    if ((e.keyCode === keys.BACKSPACE || e.keyCode === keys.DELETE) && editor.body.getAttribute("contenteditable") !== "true") {
+                        return false;
+                    }
 
                     if (e.keyCode === keys.F10) {
                         // Handling with timeout to avoid the default IE menu
