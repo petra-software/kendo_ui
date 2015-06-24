@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.624 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.624 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -234,6 +234,17 @@ $.extend(true, kendo.ui.FilterMenu.prototype.options.operators,{
       "eq": "Je",
       "neq": "Nie je"
   }
+});
+}
+
+/* FilterMultiCheck messages */
+
+if (kendo.ui.FilterMultiCheck) {
+kendo.ui.FilterMultiCheck.prototype.options.messages =
+$.extend(true, kendo.ui.FilterMultiCheck.prototype.options.messages,{
+  "checkAll": "Všetky",
+  "clear": "Vyčistiť",
+  "filter": "Filtrovať"
 });
 }
 

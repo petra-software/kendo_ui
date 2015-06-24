@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.624 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.624 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -323,7 +323,8 @@ $.extend(true, kendo.ui.Grid.prototype.options.messages,{
     "cancelDelete": "Откажи",
     "confirmation": "Сигурни ли сте, че искате да изтриете записа?",
     "confirmDelete": "Изтрий"
-  }
+  },
+  "noRecords": "Няма налични записи."
 });
 }
 

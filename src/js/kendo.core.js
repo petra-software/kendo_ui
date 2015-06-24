@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.624 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.624 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -38,7 +38,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.624";
+    kendo.version = "2015.2.624";
 
     function Class() {}
 
@@ -1837,6 +1837,10 @@ function pad(number, digits, end) {
         return styles;
     }
 
+    function isScrollable(element) {
+        return getComputedStyles(element, ["overflow"]).overflow != "visible";
+    }
+
     (function () {
         support._scrollbar = undefined;
 
@@ -2483,6 +2487,7 @@ function pad(number, digits, end) {
         wrap: wrap,
         deepExtend: deepExtend,
         getComputedStyles: getComputedStyles,
+        isScrollable: isScrollable,
         size: size,
         toCamelCase: toCamelCase,
         toHyphens: toHyphens,
@@ -4040,6 +4045,35 @@ function pad(number, digits, end) {
         }
 
         return tokens;
+    };
+
+    kendo.cycleForm = function(form) {
+        var firstElement = form.find("input, .k-widget").first();
+        var lastElement = form.find("button, .k-button").last();
+
+        function focus(el) {
+            var widget = kendo.widgetInstance(el);
+
+            if (widget && widget.focus) {
+              widget.focus();
+            } else {
+              el.focus();
+            }
+        }
+
+        lastElement.on("keydown", function(e) {
+          if (e.keyCode == kendo.keys.TAB && !e.shiftKey) {
+            e.preventDefault();
+            focus(firstElement);
+          }
+        });
+
+        firstElement.on("keydown", function(e) {
+          if (e.keyCode == kendo.keys.TAB && e.shiftKey) {
+            e.preventDefault();
+            focus(lastElement);
+          }
+        });
     };
 
     // kendo.saveAs -----------------------------------------------

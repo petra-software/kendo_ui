@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.624 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.624 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.624";
+    kendo.version = "2015.2.624";
 
     function Class() {}
 
@@ -1839,6 +1839,10 @@ function pad(number, digits, end) {
         return styles;
     }
 
+    function isScrollable(element) {
+        return getComputedStyles(element, ["overflow"]).overflow != "visible";
+    }
+
     (function () {
         support._scrollbar = undefined;
 
@@ -2485,6 +2489,7 @@ function pad(number, digits, end) {
         wrap: wrap,
         deepExtend: deepExtend,
         getComputedStyles: getComputedStyles,
+        isScrollable: isScrollable,
         size: size,
         toCamelCase: toCamelCase,
         toHyphens: toHyphens,
@@ -4042,6 +4047,35 @@ function pad(number, digits, end) {
         }
 
         return tokens;
+    };
+
+    kendo.cycleForm = function(form) {
+        var firstElement = form.find("input, .k-widget").first();
+        var lastElement = form.find("button, .k-button").last();
+
+        function focus(el) {
+            var widget = kendo.widgetInstance(el);
+
+            if (widget && widget.focus) {
+              widget.focus();
+            } else {
+              el.focus();
+            }
+        }
+
+        lastElement.on("keydown", function(e) {
+          if (e.keyCode == kendo.keys.TAB && !e.shiftKey) {
+            e.preventDefault();
+            focus(firstElement);
+          }
+        });
+
+        firstElement.on("keydown", function(e) {
+          if (e.keyCode == kendo.keys.TAB && e.shiftKey) {
+            e.preventDefault();
+            focus(lastElement);
+          }
+        });
     };
 
     // kendo.saveAs -----------------------------------------------
@@ -6503,6 +6537,41 @@ function pad(number, digits, end) {
 
             for (; idx < length; idx++) {
                 result[idx] = callback(this[idx], idx, this);
+            }
+
+            return result;
+        },
+
+        reduce: function(callback, initialValue) {
+            var idx = 0,
+                result,
+                length = this.length;
+
+            if (arguments.length == 2) {
+                result = arguments[1];
+            } else if (idx < length) {
+                result = this[idx++];
+            }
+
+            for (; idx < length; idx++) {
+                result = callback(result, this[idx], idx, this);
+            }
+
+            return result;
+        },
+
+        reduceRight: function(callback, initialValue) {
+            var idx = this.length - 1,
+                result;
+
+            if (arguments.length == 2) {
+                result = arguments[1];
+            } else if (idx > 0) {
+                result = this[idx--];
+            }
+
+            for (; idx >= 0; idx--) {
+                result = callback(result, this[idx], idx, this);
             }
 
             return result;
@@ -9164,7 +9233,7 @@ function pad(number, digits, end) {
                         that.transport.read({
                             data: params,
                             success: function(data) {
-                                that.success(data);
+                                that.success(data, params);
 
                                 deferred.resolve();
                             },
@@ -9177,7 +9246,7 @@ function pad(number, digits, end) {
                             }
                         });
                     } else if (that.options.offlineStorage != null){
-                        that.success(that.offlineData());
+                        that.success(that.offlineData(), params);
 
                         deferred.resolve();
                     }
@@ -9220,13 +9289,23 @@ function pad(number, digits, end) {
                 data = that._readData(data);
 
                 var items = [];
+                var itemIds = {};
+                var model = that.reader.model;
+                var idField = model ? model.idField : "id";
+                var idx;
 
-                for (var idx = 0; idx < data.length; idx++) {
+                for (idx = 0; idx < this._destroyed.length; idx++) {
+                    var id = this._destroyed[idx][idField];
+                    itemIds[id] = id;
+                }
+
+                for (idx = 0; idx < data.length; idx++) {
                     var item = data[idx];
                     var state = item.__state__;
-
                     if (state == "destroy") {
-                       this._destroyed.push(this._createNewModel(item));
+                        if (!itemIds[item[idField]]) {
+                            this._destroyed.push(this._createNewModel(item));
+                        }
                     } else {
                         items.push(item);
                     }
@@ -9327,7 +9406,7 @@ function pad(number, digits, end) {
                 start = that._skip || 0,
                 end = start + that._flatData(data, true).length;
 
-            that._ranges.push({ start: start, end: end, data: data });
+            that._ranges.push({ start: start, end: end, data: data, timestamp: new Date().getTime() });
             that._ranges.sort( function(x, y) { return x.start - y.start; } );
         },
 
@@ -9846,7 +9925,14 @@ function pad(number, digits, end) {
             this._skipRequestsInProgress = false;
         },
 
+        _timeStamp: function() {
+            return new Date().getTime();
+        },
+
         range: function(skip, take) {
+            this._currentRequestTimeStamp = this._timeStamp();
+            this._skipRequestsInProgress = true;
+
             skip = math.min(skip || 0, this.total());
 
             var that = this,
@@ -9854,12 +9940,10 @@ function pad(number, digits, end) {
                 size = math.min(pageSkip + take, that.total()),
                 data;
 
-            that._skipRequestsInProgress = false;
-
             data = that._findRange(skip, math.min(skip + take, that.total()));
 
             if (data.length) {
-                that._skipRequestsInProgress = true;
+
                 that._pending = undefined;
 
                 that._skip = skip > that.skip() ? math.min(size, (that.totalPages() - 1) * that.take()) : pageSkip;
@@ -10007,10 +10091,11 @@ function pad(number, digits, end) {
 
         _prefetchSuccessHandler: function (skip, size, callback, force) {
             var that = this;
+            var timestamp = that._timeStamp();
 
             return function(data) {
                 var found = false,
-                    range = { start: skip, end: size, data: [] },
+                    range = { start: skip, end: size, data: [], timestamp: that._timeStamp() },
                     idx,
                     length,
                     temp;
@@ -10024,6 +10109,7 @@ function pad(number, digits, end) {
                 temp = that._readData(data);
 
                 if (temp.length) {
+
                     for (idx = 0, length = that._ranges.length; idx < length; idx++) {
                         if (that._ranges[idx].start === skip) {
                             found = true;
@@ -10041,7 +10127,7 @@ function pad(number, digits, end) {
                 that._ranges.sort( function(x, y) { return x.start - y.start; } );
                 that._total = that.reader.total(data);
 
-                if (force || !that._skipRequestsInProgress) {
+                if (force || (timestamp >= that._currentRequestTimeStamp || !that._skipRequestsInProgress)) {
                     if (callback && temp.length) {
                         callback();
                     } else {
@@ -11136,6 +11222,7 @@ function pad(number, digits, end) {
         SOURCE = "source",
         EVENTS = "events",
         CHECKED = "checked",
+        CSS = "css",
         deleteExpando = true,
         CHANGE = "change";
 
@@ -11424,6 +11511,23 @@ function pad(number, digits, end) {
         }
     });
 
+    binders.css = Binder.extend({
+        init: function(element, bindings, options) {
+            Binder.fn.init.call(this, element, bindings, options);
+            this.classes = {};
+        },
+        refresh: function(className) {
+            var element = $(this.element),
+                binding = this.bindings.css[className],
+                hasClass = this.classes[className] = binding.get();
+            if(hasClass){
+                element.addClass(className);
+            }else{
+                element.removeClass(className);
+            }
+        }
+    });
+
     binders.style = Binder.extend({
         refresh: function(key) {
             this.element.style[key] = this.bindings.style[key].get() || "";
@@ -11493,12 +11597,12 @@ function pad(number, digits, end) {
     binders.text = Binder.extend({
         refresh: function() {
             var text = this.bindings.text.get();
-
+            var dataFormat = this.element.getAttribute("data-format") || "";
             if (text == null) {
                 text = "";
             }
 
-            $(this.element).text(text);
+            $(this.element).text(kendo.toString(text, dataFormat));
         }
     });
 
@@ -12535,6 +12639,7 @@ function pad(number, digits, end) {
                 hasSource,
                 hasEvents,
                 hasChecked,
+                hasCss,
                 widgetBinding = this instanceof WidgetBindingTarget,
                 specificBinders = this.binders();
 
@@ -12547,6 +12652,8 @@ function pad(number, digits, end) {
                     hasEvents = true;
                 } else if (key == CHECKED) {
                     hasChecked = true;
+                } else if (key == CSS) {
+                    hasCss = true;
                 } else {
                     this.applyBinding(key, bindings, specificBinders);
                 }
@@ -12565,6 +12672,10 @@ function pad(number, digits, end) {
 
             if (hasEvents && !widgetBinding) {
                 this.applyBinding(EVENTS, bindings, specificBinders);
+            }
+
+            if (hasCss && !widgetBinding) {
+                this.applyBinding(CSS, bindings, specificBinders);
             }
         },
 
@@ -12750,6 +12861,10 @@ function pad(number, digits, end) {
 
             if (bind.events) {
                 bindings.events = createBindings(bind.events, parents, EventBinding);
+            }
+
+            if (bind.css) {
+                bindings.css = createBindings(bind.css, parents, Binding);
             }
 
             target.bind(bindings);
@@ -14821,6 +14936,7 @@ function pad(number, digits, end) {
     var kendo = window.kendo,
         support = kendo.support,
         document = window.document,
+        $window = $(window),
         Class = kendo.Class,
         Widget = kendo.ui.Widget,
         Observable = kendo.Observable,
@@ -15462,6 +15578,7 @@ function pad(number, digits, end) {
             filter: null,
             ignore: null,
             holdToDrag: false,
+            autoScroll: false,
             dropped: false
         },
 
@@ -15599,7 +15716,9 @@ function pad(number, digits, end) {
 
             e.preventDefault();
 
-            that._withDropTarget(e, function(target, targetElement) {
+            var cursorElement = this._elementUnderCursor(e);
+
+            that._withDropTarget(cursorElement, function(target, targetElement) {
                 if (!target) {
                     if (lastDropTarget) {
                         lastDropTarget._trigger(DRAGLEAVE, extend(e, { dropTarget: $(lastDropTarget.targetElement) }));
@@ -15620,30 +15739,99 @@ function pad(number, digits, end) {
                 lastDropTarget = extend(target, { targetElement: targetElement });
             });
 
-            that._trigger(DRAG, extend(e, { dropTarget: lastDropTarget }));
+            that._trigger(DRAG, extend(e, { dropTarget: lastDropTarget, elementUnderCursor: cursorElement }));
+
+            if (this.options.autoScroll) {
+                if (this._cursorElement !== cursorElement) {
+                    this._scrollableParent = findScrollableParent(cursorElement);
+                    this._cursorElement = cursorElement;
+                }
+
+                // chrome seems to trigger mousemove when mouse is moved outside of the window (over the Chrome), too.
+                if (this._scrollableParent[0]) {
+                    var velocity = autoScrollVelocity(e.x.location, e.y.location, scrollableViewPort(this._scrollableParent));
+
+                    this._scrollCompenstation = $.extend({}, this.hintOffset);
+                    this._scrollVelocity = velocity;
+
+                    if (velocity.y === 0 && velocity.x === 0) {
+                        clearInterval(this._scrollInterval);
+                        this._scrollInterval = null;
+                    } else if(!this._scrollInterval) {
+                        this._scrollInterval = setInterval($.proxy(this, "_autoScroll"), 50);
+                    }
+                }
+            }
 
             if (that.hint) {
                 that._updateHint(e);
             }
         },
 
-        _end: function(e) {
-            var that = this;
+        _autoScroll: function() {
+            var parent = this._scrollableParent[0],
+                velocity = this._scrollVelocity,
+                compensation = this._scrollCompenstation;
 
-            that._withDropTarget(e, function(target, targetElement) {
+            if (!parent) {
+                return;
+            }
+
+            var yIsScrollable, xIsScrollable;
+            var isBody = parent === document.body;
+
+            if (isBody) {
+                yIsScrollable = document.body.offsetHeight > $window.height();
+                xIsScrollable = document.body.offsetWidth > $window.width();
+            } else {
+                yIsScrollable = parent.offsetHeight <= parent.scrollHeight;
+                xIsScrollable = parent.offsetWidth <= parent.scrollWidth;
+            }
+
+            var yDelta = parent.scrollTop + velocity.y;
+            var yInBounds = yIsScrollable && yDelta > 0 && yDelta < parent.scrollHeight;
+
+            var xDelta = parent.scrollLeft + velocity.x;
+            var xInBounds = xIsScrollable && xDelta > 0 && xDelta < parent.scrollWidth;
+
+            if (yInBounds) {
+                parent.scrollTop += velocity.y;
+            }
+
+            if (xInBounds) {
+                parent.scrollLeft += velocity.x;
+            }
+
+            if (isBody && (xInBounds || yInBounds)) {
+                if (yInBounds) {
+                    compensation.top += velocity.y;
+                }
+
+                if (xInBounds) {
+                    compensation.left += velocity.x;
+                }
+
+                this.hint.css(compensation);
+            }
+        },
+
+        _end: function(e) {
+            this._withDropTarget(this._elementUnderCursor(e), function(target, targetElement) {
                 if (target) {
                     target._drop(extend({}, e, { dropTarget: $(targetElement) }));
                     lastDropTarget = null;
                 }
             });
 
-            that._trigger(DRAGEND, e);
-            that._cancel(e.event);
+            this._trigger(DRAGEND, e);
+            this._cancel(e.event);
         },
 
         _cancel: function() {
             var that = this;
 
+            that._scrollableParent = null;
+            clearInterval(this._scrollInterval);
             that._activated = false;
 
             if (that.hint && !that.dropped) {
@@ -15668,33 +15856,37 @@ function pad(number, digits, end) {
                     y: e.y,
                     currentTarget: that.currentTarget,
                     initialTarget: e.touch ? e.touch.initialTouch : null,
-                    dropTarget: e.dropTarget
+                    dropTarget: e.dropTarget,
+                    elementUnderCursor: e.elementUnderCursor
                 }
             ));
         },
 
-        _withDropTarget: function(e, callback) {
-            var that = this,
-                target, result,
-                options = that.options,
-                targets = dropTargets[options.group],
-                areas = dropAreas[options.group];
+        _elementUnderCursor: function(e) {
+            var target = elementUnderCursor(e),
+                hint = this.hint;
+
+            if (hint && contains(hint[0], target)) {
+                hint.hide();
+                target = elementUnderCursor(e);
+                // IE8 does not return the element in iframe from first attempt
+                if (!target) {
+                    target = elementUnderCursor(e);
+                }
+                hint.show();
+            }
+
+            return target;
+        },
+
+        _withDropTarget: function(element, callback) {
+            var result,
+                group = this.options.group,
+                targets = dropTargets[group],
+                areas = dropAreas[group];
 
             if (targets && targets.length || areas && areas.length) {
-
-                target = elementUnderCursor(e);
-
-                if (that.hint && contains(that.hint[0], target)) {
-                    that.hint.hide();
-                    target = elementUnderCursor(e);
-                    // IE8 does not return the element in iframe from first attempt
-                    if (!target) {
-                        target = elementUnderCursor(e);
-                    }
-                    that.hint.show();
-                }
-
-                result = checkTarget(target, targets, areas);
+                result = checkTarget(element, targets, areas);
 
                 if (result) {
                     callback(result.target, result.targetElement);
@@ -15712,6 +15904,10 @@ function pad(number, digits, end) {
             that._afterEnd();
 
             that.userEvents.destroy();
+
+            this._scrollableParent = null;
+            this._cursorElement = null;
+            clearInterval(this._scrollInterval);
 
             that.currentTarget = null;
         },
@@ -15742,6 +15938,75 @@ function pad(number, digits, end) {
         PaneDimensions: PaneDimensions,
         Movable: Movable
     });
+
+    function scrollableViewPort(element) {
+        var body = document.body,
+            offset,
+            top,
+            left;
+
+        if (element[0] === body) {
+            top = body.scrollTop;
+            left = body.scrollLeft;
+
+            return {
+                top: top,
+                left: left,
+                bottom: top + $window.height(),
+                right: left + $window.width()
+            };
+        } else {
+            offset = element.offset();
+            offset.bottom = offset.top + element.height();
+            offset.right =  offset.left + element.width();
+            return offset;
+        }
+    }
+
+    function isRootNode(element) {
+        return element === document.body || element === document.documentElement || element === document;
+    }
+
+    function findScrollableParent(element) {
+        if (!element || isRootNode(element)) {
+            return $(document.body);
+        }
+
+        var parent = $(element)[0];
+
+        while (!kendo.isScrollable(parent) && !isRootNode(parent)) {
+            parent = parent.parentNode;
+        }
+
+        return $(parent);
+    }
+
+    function autoScrollVelocity(mouseX, mouseY, rect) {
+        var velocity = { x: 0, y: 0 };
+
+        var AUTO_SCROLL_AREA = 50;
+
+        if (mouseX - rect.left < AUTO_SCROLL_AREA) {
+            velocity.x = -(AUTO_SCROLL_AREA - (mouseX - rect.left));
+        } else if (rect.right - mouseX < AUTO_SCROLL_AREA) {
+            velocity.x = AUTO_SCROLL_AREA - (rect.right - mouseX);
+        }
+
+        if (mouseY - rect.top < AUTO_SCROLL_AREA) {
+            velocity.y = -(AUTO_SCROLL_AREA - (mouseY - rect.top));
+        } else if (rect.bottom - mouseY < AUTO_SCROLL_AREA) {
+            velocity.y = AUTO_SCROLL_AREA - (rect.bottom - mouseY);
+        }
+
+        return velocity;
+    }
+
+    // export for testing
+    kendo.ui.Draggable.utils = {
+        autoScrollVelocity: autoScrollVelocity,
+        scrollableViewPort: scrollableViewPort,
+        findScrollableParent: findScrollableParent
+    };
 
  })(window.kendo.jQuery);
 
@@ -16188,8 +16453,7 @@ function pad(number, digits, end) {
             return $(this.options.anchor)
                        .parentsUntil("body")
                        .filter(function(index, element) {
-                            var computedStyle = kendo.getComputedStyles(element, ["overflow"]);
-                            return computedStyle.overflow != "visible";
+                           return kendo.isScrollable(element);
                        });
         },
 
@@ -16378,47 +16642,6 @@ function pad(number, digits, end) {
         abs = Math.abs,
         MAX_DOUBLE_TAP_DISTANCE = 20;
 
-    var Swipe = kendo.Class.extend({
-        init: function(element, callback, options) {
-            options = $.extend({
-                minXDelta: 30,
-                maxYDelta: 20,
-                maxDuration: 1000
-            }, options);
-
-            new kendo.UserEvents(element, {
-                surface: options.surface,
-                allowSelection: true,
-
-                start: function(e) {
-                    if (abs(e.x.velocity) * 2 >= abs(e.y.velocity)) {
-                        e.sender.capture();
-                    }
-                },
-
-                move: function(e) {
-                    var touch = e.touch,
-                    duration = e.event.timeStamp - touch.startTime,
-                    direction = touch.x.initialDelta > 0 ? "right" : "left";
-
-                    if (
-                        abs(touch.x.initialDelta) >= options.minXDelta &&
-                        abs(touch.y.initialDelta) < options.maxYDelta &&
-                    duration < options.maxDuration)
-                    {
-                        callback({
-                            direction: direction,
-                            touch: touch,
-                            target: touch.target
-                        });
-
-                        touch.cancel();
-                    }
-                }
-            });
-        }
-    });
-
     var Touch = Widget.extend({
         init: function(element, options) {
             var that = this;
@@ -16554,13 +16777,6 @@ function pad(number, digits, end) {
             }
         }
     });
-
-
-    window.jQuery.fn.kendoMobileSwipe = function(callback, options) {
-        this.each(function() {
-            new Swipe(this, callback, options);
-        });
-    };
 
     kendo.ui.plugin(Touch);
 })(window.kendo.jQuery);
@@ -19343,6 +19559,7 @@ function pad(number, digits, end) {
         DEFAULT_OS = "ios7",
         OS = support.mobileOS,
         BERRYPHONEGAP = OS.device == "blackberry" && OS.flatVersion >= 600 && OS.flatVersion < 1000 && OS.appMode,
+        FONT_SIZE_COEF = 0.93,
         VERTICAL = "km-vertical",
         CHROME =  OS.browser === "chrome",
         BROKEN_WEBVIEW_RESIZE = OS.ios && OS.flatVersion >= 700 && OS.flatVersion < 800 && (OS.appMode || CHROME),
@@ -19358,13 +19575,12 @@ function pad(number, digits, end) {
             wp: { wp: true, browser: "default", device: "wp", flatVersion: "800", majorVersion: "8", minorVersion: "0.0", name: "wp", tablet: false }
         },
 
-        viewportTemplate = kendo.template('<meta content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no#=data.height#" name="viewport" />', {usedWithBlock: false}),
+        viewportTemplate = kendo.template('<meta content="initial-scale=#: data.scale #, maximum-scale=#: data.scale #, user-scalable=no#=data.height#" name="viewport" />', {usedWithBlock: false}),
         systemMeta = kendo.template('<meta name="apple-mobile-web-app-capable" content="#= data.webAppCapable === false ? \'no\' : \'yes\' #" /> ' +
                      '<meta name="apple-mobile-web-app-status-bar-style" content="#=data.statusBarStyle#" /> ' +
                      '<meta name="msapplication-tap-highlight" content="no" /> ', {usedWithBlock: false}),
         clipTemplate = kendo.template('<style>.km-view { clip: rect(0 #= data.width #px #= data.height #px 0); }</style>', {usedWithBlock: false}),
         ENABLE_CLIP = OS.android && OS.browser != "chrome" || OS.blackberry,
-        viewportMeta = viewportTemplate({ height: "" }),
 
         iconMeta = kendo.template('<link rel="apple-touch-icon' + (OS.android ? '-precomposed' : '') + '" # if(data.size) { # sizes="#=data.size#" #}# href="#=data.icon#" />', {usedWithBlock: false}),
 
@@ -19444,7 +19660,7 @@ function pad(number, digits, end) {
 
     function applyViewportHeight() {
         $("meta[name=viewport]").remove();
-        HEAD.append(viewportTemplate({
+            HEAD.append(viewportTemplate({
             height: ", width=device-width" +  // width=device-width was removed for iOS6, but this should stay for BB PhoneGap.
                         (isOrientationHorizontal() ?
                             ", height=" + window.innerHeight + "px"  :
@@ -19506,6 +19722,7 @@ function pad(number, digits, end) {
             modelScope: window,
             statusBarStyle: "black",
             transition: "",
+            retina: false,
             platform: null,
             skin: null,
             updateDocumentTitle: true,
@@ -19706,6 +19923,11 @@ function pad(number, digits, end) {
                 element.parent().css("font-size", support.wpDevicePixelRatio + "em");
             }
 
+            if (this.options.retina) {
+                element.parent().addClass("km-retina");
+                element.parent().css("font-size", (support.devicePixelRatio * FONT_SIZE_COEF) + "em");
+            }
+
             if (BERRYPHONEGAP) {
                 applyViewportHeight();
             }
@@ -19754,7 +19976,7 @@ function pad(number, digits, end) {
             this._clearExistingMeta();
 
             if (!BERRYPHONEGAP) {
-                HEAD.prepend(viewportMeta);
+                HEAD.prepend(viewportTemplate({ height: "", scale : this.options.retina ? 1 / support.devicePixelRatio : "1.0" }));
             }
 
             HEAD.prepend(systemMeta(options));
@@ -21466,6 +21688,17 @@ function pad(number, digits, end) {
 
             this._style();
 
+            if (this.options.$angular && (this.virtual || this.options.pullToRefresh)) {
+                setTimeout($.proxy(this, "_start"));
+            } else {
+                this._start();
+            }
+
+        },
+
+        _start: function() {
+            var options = this.options;
+
             if (this.options.filterable) {
                 this._filter = new ListViewFilter(this);
             }
@@ -22111,6 +22344,7 @@ function pad(number, digits, end) {
             this.pageSize = options.pageSize || 1;
             this.contentHeight = options.contentHeight;
             this.enablePager = options.enablePager;
+            this.pagerOverlay = options.pagerOverlay;
         },
 
         scrollTo: function(page, instant) {
@@ -22173,7 +22407,7 @@ function pad(number, digits, end) {
 
                 if (this.enablePager === true) {
                     var pager = this.element.parent().find("ol.km-pages");
-                    if (pager.length) {
+                    if (!this.pagerOverlay && pager.length) {
                         containerHeight -= pager.outerHeight(true);
                     }
                 }
@@ -22314,7 +22548,7 @@ function pad(number, digits, end) {
 
                 if (this.options.enablePager === true) {
                     var pager = this.element.parent().find("ol.km-pages");
-                    if (pager.length) {
+                    if (!this.options.pagerOverlay && pager.length) {
                         containerHeight -= pager.outerHeight(true);
                     }
                 }
@@ -22558,6 +22792,10 @@ function pad(number, digits, end) {
 
             if (this.options.enablePager) {
                 this.pager = new Pager(this);
+
+                if (this.options.pagerOverlay) {
+                    element.addClass("km-scrollview-overlay");
+                }
             }
 
             that.inner = element.children().first();
@@ -22630,6 +22868,7 @@ function pad(number, digits, end) {
             itemsPerPage: 1,
             bounceVelocityThreshold: 1.6,
             enablePager: true,
+            pagerOverlay: false,
             autoBind: true,
             template: "",
             emptyTemplate: ""
@@ -23177,7 +23416,7 @@ function pad(number, digits, end) {
 
         refresh: function(e) {
             var url = e.view.element.attr(kendo.attr("url"));
-            if (!this.switchTo(e.view.id) && url) {
+            if (url && !this.switchTo(e.view.id)) {
                 this.switchTo(url);
             }
         },
@@ -23605,28 +23844,26 @@ function pad(number, digits, end) {
         widget.$angular_setLogicValue(getter(scope));
 
         // keep in sync
-        scope.$apply(function() {
-            var watchHandler = function(newValue, oldValue) {
-                if (newValue === undefined) {
-                    // because widget's value() method usually checks if the new value is undefined,
-                    // in which case it returns the current value rather than clearing the field.
-                    // https://github.com/telerik/kendo-ui-core/issues/299
-                    newValue = null;
-                }
-                if (updating) {
-                    return;
-                }
-                if (newValue === oldValue) {
-                    return;
-                }
-                widget.$angular_setLogicValue(newValue);
-            };
-            if (kendo.ui.MultiSelect && widget instanceof kendo.ui.MultiSelect) {
-                scope.$watchCollection(kNgModel, watchHandler);
-            } else {
-                scope.$watch(kNgModel, watchHandler);
+        var watchHandler = function(newValue, oldValue) {
+            if (newValue === undefined) {
+                // because widget's value() method usually checks if the new value is undefined,
+                // in which case it returns the current value rather than clearing the field.
+                // https://github.com/telerik/kendo-ui-core/issues/299
+                newValue = null;
             }
-        });
+            if (updating) {
+                return;
+            }
+            if (newValue === oldValue) {
+                return;
+            }
+            widget.$angular_setLogicValue(newValue);
+        };
+        if (kendo.ui.MultiSelect && widget instanceof kendo.ui.MultiSelect) {
+            scope.$watchCollection(kNgModel, watchHandler);
+        } else {
+            scope.$watch(kNgModel, watchHandler);
+        }
 
         widget.first("change", function(){
             updating = true;
@@ -23779,14 +24016,13 @@ function pad(number, digits, end) {
     }
 
     module.factory('directiveFactory', [ '$compile', function(compile) {
-        var KENDO_COUNT = 0;
+        var kendoRenderedTimeout;
         var RENDERED = false;
 
         // caching $compile for the dirty hack upstairs. This is awful, but we happen to have elements outside of the bootstrapped root :(.
         $defaultCompile = compile;
 
         var create = function(role, origAttr) {
-
             return {
                 // Parse the directive for attributes and classes
                 restrict: "AC",
@@ -23817,39 +24053,30 @@ function pad(number, digits, end) {
                     // but we still keep the attribute without the
                     // `data-` prefix, so k-rebind would work.
                     var roleattr = role.replace(/([A-Z])/g, "-$1");
-                    var isVisible = $element.css("visibility") !== "hidden";
 
                     $element.attr(roleattr, $element.attr("data-" + roleattr));
                     $element[0].removeAttribute("data-" + roleattr);
 
-                    if (isVisible) {
-                        $element.css("visibility", "hidden");
+                    var widget = createWidget(scope, element, attrs, role, origAttr, controllers);
+
+                    if (!widget) {
+                        return;
                     }
 
-                    ++KENDO_COUNT;
+                    if (kendoRenderedTimeout) {
+                        clearTimeout(kendoRenderedTimeout);
+                    }
 
-                    $timeout(function() {
-                        if (isVisible) {
-                            $element.css("visibility", "");
-                        }
-                        var widget = createWidget(scope, element, attrs, role, origAttr, controllers);
-
-                        if (!widget) {
-                            return;
-                        }
-
-                        --KENDO_COUNT;
-                        if (KENDO_COUNT === 0) {
-                            scope.$emit("kendoRendered");
-                            if (!RENDERED) {
-                                RENDERED = true;
-                                $("form").each(function(){
-                                    var form = $(this).controller("form");
-                                    if (form) {
-                                        form.$setPristine();
-                                    }
-                                });
-                            }
+                    kendoRenderedTimeout = setTimeout(function() {
+                        scope.$emit("kendoRendered");
+                        if (!RENDERED) {
+                            RENDERED = true;
+                            $("form").each(function(){
+                                var form = $(this).controller("form");
+                                if (form) {
+                                    form.$setPristine();
+                                }
+                            });
                         }
                     });
                 }

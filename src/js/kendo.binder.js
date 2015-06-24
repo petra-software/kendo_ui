@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.624 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.624 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -26,6 +26,7 @@
         SOURCE = "source",
         EVENTS = "events",
         CHECKED = "checked",
+        CSS = "css",
         deleteExpando = true,
         CHANGE = "change";
 
@@ -314,6 +315,23 @@
         }
     });
 
+    binders.css = Binder.extend({
+        init: function(element, bindings, options) {
+            Binder.fn.init.call(this, element, bindings, options);
+            this.classes = {};
+        },
+        refresh: function(className) {
+            var element = $(this.element),
+                binding = this.bindings.css[className],
+                hasClass = this.classes[className] = binding.get();
+            if(hasClass){
+                element.addClass(className);
+            }else{
+                element.removeClass(className);
+            }
+        }
+    });
+
     binders.style = Binder.extend({
         refresh: function(key) {
             this.element.style[key] = this.bindings.style[key].get() || "";
@@ -383,12 +401,12 @@
     binders.text = Binder.extend({
         refresh: function() {
             var text = this.bindings.text.get();
-
+            var dataFormat = this.element.getAttribute("data-format") || "";
             if (text == null) {
                 text = "";
             }
 
-            $(this.element).text(text);
+            $(this.element).text(kendo.toString(text, dataFormat));
         }
     });
 
@@ -1425,6 +1443,7 @@
                 hasSource,
                 hasEvents,
                 hasChecked,
+                hasCss,
                 widgetBinding = this instanceof WidgetBindingTarget,
                 specificBinders = this.binders();
 
@@ -1437,6 +1456,8 @@
                     hasEvents = true;
                 } else if (key == CHECKED) {
                     hasChecked = true;
+                } else if (key == CSS) {
+                    hasCss = true;
                 } else {
                     this.applyBinding(key, bindings, specificBinders);
                 }
@@ -1455,6 +1476,10 @@
 
             if (hasEvents && !widgetBinding) {
                 this.applyBinding(EVENTS, bindings, specificBinders);
+            }
+
+            if (hasCss && !widgetBinding) {
+                this.applyBinding(CSS, bindings, specificBinders);
             }
         },
 
@@ -1640,6 +1665,10 @@
 
             if (bind.events) {
                 bindings.events = createBindings(bind.events, parents, EventBinding);
+            }
+
+            if (bind.css) {
+                bindings.css = createBindings(bind.css, parents, Binding);
             }
 
             target.bind(bindings);

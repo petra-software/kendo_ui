@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.624 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.624 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -133,6 +133,7 @@
 
         options: {
             name: "MultiSelect",
+            tagMode: "multiple",
             enabled: true,
             autoBind: true,
             autoClose: true,
@@ -309,7 +310,12 @@
         _wrapperMousedown: function(e) {
             var that = this;
             var notInput = e.target.nodeName.toLowerCase() !== "input";
-            var closeButton = $(e.target).hasClass("k-select") || $(e.target).parent().hasClass("k-select");
+            var target = $(e.target);
+            var closeButton = target.hasClass("k-select") || target.hasClass("k-icon");
+
+            if (closeButton) {
+                closeButton = !target.closest(".k-select").children(".k-i-arrow-s").length;
+            }
 
             if (notInput && !(closeButton && kendo.support.mobileOS)) {
                 e.preventDefault();
@@ -381,7 +387,11 @@
         },
 
         _tagListClick: function(e) {
-            this._removeTag($(e.target).closest(LI));
+            var target = $(e.currentTarget);
+
+            if (!target.children(".k-i-arrow-s").length) {
+                this._removeTag(target.closest(LI));
+            }
         },
 
         _editable: function(options) {
@@ -501,7 +511,6 @@
             that._hideBusy();
             that._makeUnselectable();
 
-            that._hideBusy();
             that.trigger("dataBound");
         },
 
@@ -997,6 +1006,8 @@
 
         _selectValue: function(added, removed) {
             var that = this;
+            var values = that.value();
+            var total = that.dataSource.total();
             var tagList = that.tagList;
             var getter = that._value;
             var removedItem;
@@ -1005,20 +1016,37 @@
 
             that._angularTagItems("cleanup");
 
-            for (idx = removed.length - 1; idx > -1; idx--) {
-                removedItem = removed[idx];
+            if (that.options.tagMode === "multiple") {
+                for (idx = removed.length - 1; idx > -1; idx--) {
+                    removedItem = removed[idx];
 
-                tagList[0].removeChild(tagList[0].children[removedItem.position]);
+                    tagList[0].removeChild(tagList[0].children[removedItem.position]);
 
-                that._setOption(getter(removedItem.dataItem), false);
-            }
+                    that._setOption(getter(removedItem.dataItem), false);
+                }
 
-            for (idx = 0; idx < added.length; idx++) {
-                addedItem = added[idx];
+                for (idx = 0; idx < added.length; idx++) {
+                    addedItem = added[idx];
 
-                tagList.append(that.tagTemplate(addedItem.dataItem));
+                    tagList.append(that.tagTemplate(addedItem.dataItem));
 
-                that._setOption(getter(addedItem.dataItem), true);
+                    that._setOption(getter(addedItem.dataItem), true);
+                }
+            } else {
+                if (!that._maxTotal || that._maxTotal < total) {
+                    that._maxTotal = total;
+                }
+
+                tagList.html("");
+
+                if (values.length) {
+                    tagList.append(that.tagTemplate({
+                        values: values,
+                        dataItems: that.dataItems(),
+                        maxTotal: that._maxTotal,
+                        currentTotal: total
+                    }));
+                }
             }
 
             that._angularTagItems("compile");
@@ -1082,17 +1110,25 @@
             var options = that.options;
             var tagTemplate = options.tagTemplate;
             var hasDataSource = options.dataSource;
+            var isMultiple = options.tagMode === "multiple";
+            var defaultTemplate;
 
             if (that.element[0].length && !hasDataSource) {
                 options.dataTextField = options.dataTextField || "text";
                 options.dataValueField = options.dataValueField || "value";
             }
 
-            tagTemplate = tagTemplate ? kendo.template(tagTemplate) : kendo.template("#:" + kendo.expr(options.dataTextField, "data") + "#", { useWithBlock: false });
+            defaultTemplate = isMultiple ? kendo.template("#:" + kendo.expr(options.dataTextField, "data") + "#", { useWithBlock: false }) : kendo.template("#:values.length# item(s) selected");
 
-            that.tagTextTemplate = tagTemplate;
+            that.tagTextTemplate = tagTemplate = tagTemplate ? kendo.template(tagTemplate) : defaultTemplate;
+
             that.tagTemplate = function(data) {
-                return '<li class="k-button" unselectable="on"><span unselectable="on">' + tagTemplate(data) + '</span><span unselectable="on" class="k-select"><span unselectable="on" class="k-icon k-i-close">delete</span></span></li>';
+                return '<li class="k-button" unselectable="on"><span unselectable="on">' +
+                        tagTemplate(data) +
+                        '</span><span unselectable="on" class="k-select"><span unselectable="on" class="k-icon ' +
+                        (isMultiple ? "k-i-close" : "k-i-arrow-s") + '">' +
+                        (isMultiple ? "delete" : "open") +
+                        '</span></span></li>';
             };
         },
 

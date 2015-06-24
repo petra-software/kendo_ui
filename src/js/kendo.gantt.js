@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.624 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.624 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1142,6 +1142,8 @@
                     target: that.options.target
                 })
                 .data("kendoEditable");
+
+            kendo.cycleForm(container);
 
             if (!this.trigger("edit", { container: container, model: task })) {
                 container.data("kendoWindow").center().open();

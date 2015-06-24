@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.624 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.624 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.1.624";
+    kendo.version = "2015.2.624";
 
     function Class() {}
 
@@ -1839,6 +1839,10 @@ function pad(number, digits, end) {
         return styles;
     }
 
+    function isScrollable(element) {
+        return getComputedStyles(element, ["overflow"]).overflow != "visible";
+    }
+
     (function () {
         support._scrollbar = undefined;
 
@@ -2485,6 +2489,7 @@ function pad(number, digits, end) {
         wrap: wrap,
         deepExtend: deepExtend,
         getComputedStyles: getComputedStyles,
+        isScrollable: isScrollable,
         size: size,
         toCamelCase: toCamelCase,
         toHyphens: toHyphens,
@@ -4042,6 +4047,35 @@ function pad(number, digits, end) {
         }
 
         return tokens;
+    };
+
+    kendo.cycleForm = function(form) {
+        var firstElement = form.find("input, .k-widget").first();
+        var lastElement = form.find("button, .k-button").last();
+
+        function focus(el) {
+            var widget = kendo.widgetInstance(el);
+
+            if (widget && widget.focus) {
+              widget.focus();
+            } else {
+              el.focus();
+            }
+        }
+
+        lastElement.on("keydown", function(e) {
+          if (e.keyCode == kendo.keys.TAB && !e.shiftKey) {
+            e.preventDefault();
+            focus(firstElement);
+          }
+        });
+
+        firstElement.on("keydown", function(e) {
+          if (e.keyCode == kendo.keys.TAB && e.shiftKey) {
+            e.preventDefault();
+            focus(lastElement);
+          }
+        });
     };
 
     // kendo.saveAs -----------------------------------------------
@@ -7031,6 +7065,41 @@ function pad(number, digits, end) {
             return result;
         },
 
+        reduce: function(callback, initialValue) {
+            var idx = 0,
+                result,
+                length = this.length;
+
+            if (arguments.length == 2) {
+                result = arguments[1];
+            } else if (idx < length) {
+                result = this[idx++];
+            }
+
+            for (; idx < length; idx++) {
+                result = callback(result, this[idx], idx, this);
+            }
+
+            return result;
+        },
+
+        reduceRight: function(callback, initialValue) {
+            var idx = this.length - 1,
+                result;
+
+            if (arguments.length == 2) {
+                result = arguments[1];
+            } else if (idx > 0) {
+                result = this[idx--];
+            }
+
+            for (; idx >= 0; idx--) {
+                result = callback(result, this[idx], idx, this);
+            }
+
+            return result;
+        },
+
         filter: function(callback) {
             var idx = 0,
                 result = [],
@@ -9687,7 +9756,7 @@ function pad(number, digits, end) {
                         that.transport.read({
                             data: params,
                             success: function(data) {
-                                that.success(data);
+                                that.success(data, params);
 
                                 deferred.resolve();
                             },
@@ -9700,7 +9769,7 @@ function pad(number, digits, end) {
                             }
                         });
                     } else if (that.options.offlineStorage != null){
-                        that.success(that.offlineData());
+                        that.success(that.offlineData(), params);
 
                         deferred.resolve();
                     }
@@ -9743,13 +9812,23 @@ function pad(number, digits, end) {
                 data = that._readData(data);
 
                 var items = [];
+                var itemIds = {};
+                var model = that.reader.model;
+                var idField = model ? model.idField : "id";
+                var idx;
 
-                for (var idx = 0; idx < data.length; idx++) {
+                for (idx = 0; idx < this._destroyed.length; idx++) {
+                    var id = this._destroyed[idx][idField];
+                    itemIds[id] = id;
+                }
+
+                for (idx = 0; idx < data.length; idx++) {
                     var item = data[idx];
                     var state = item.__state__;
-
                     if (state == "destroy") {
-                       this._destroyed.push(this._createNewModel(item));
+                        if (!itemIds[item[idField]]) {
+                            this._destroyed.push(this._createNewModel(item));
+                        }
                     } else {
                         items.push(item);
                     }
@@ -9850,7 +9929,7 @@ function pad(number, digits, end) {
                 start = that._skip || 0,
                 end = start + that._flatData(data, true).length;
 
-            that._ranges.push({ start: start, end: end, data: data });
+            that._ranges.push({ start: start, end: end, data: data, timestamp: new Date().getTime() });
             that._ranges.sort( function(x, y) { return x.start - y.start; } );
         },
 
@@ -10369,7 +10448,14 @@ function pad(number, digits, end) {
             this._skipRequestsInProgress = false;
         },
 
+        _timeStamp: function() {
+            return new Date().getTime();
+        },
+
         range: function(skip, take) {
+            this._currentRequestTimeStamp = this._timeStamp();
+            this._skipRequestsInProgress = true;
+
             skip = math.min(skip || 0, this.total());
 
             var that = this,
@@ -10377,12 +10463,10 @@ function pad(number, digits, end) {
                 size = math.min(pageSkip + take, that.total()),
                 data;
 
-            that._skipRequestsInProgress = false;
-
             data = that._findRange(skip, math.min(skip + take, that.total()));
 
             if (data.length) {
-                that._skipRequestsInProgress = true;
+
                 that._pending = undefined;
 
                 that._skip = skip > that.skip() ? math.min(size, (that.totalPages() - 1) * that.take()) : pageSkip;
@@ -10530,10 +10614,11 @@ function pad(number, digits, end) {
 
         _prefetchSuccessHandler: function (skip, size, callback, force) {
             var that = this;
+            var timestamp = that._timeStamp();
 
             return function(data) {
                 var found = false,
-                    range = { start: skip, end: size, data: [] },
+                    range = { start: skip, end: size, data: [], timestamp: that._timeStamp() },
                     idx,
                     length,
                     temp;
@@ -10547,6 +10632,7 @@ function pad(number, digits, end) {
                 temp = that._readData(data);
 
                 if (temp.length) {
+
                     for (idx = 0, length = that._ranges.length; idx < length; idx++) {
                         if (that._ranges[idx].start === skip) {
                             found = true;
@@ -10564,7 +10650,7 @@ function pad(number, digits, end) {
                 that._ranges.sort( function(x, y) { return x.start - y.start; } );
                 that._total = that.reader.total(data);
 
-                if (force || !that._skipRequestsInProgress) {
+                if (force || (timestamp >= that._currentRequestTimeStamp || !that._skipRequestsInProgress)) {
                     if (callback && temp.length) {
                         callback();
                     } else {
@@ -11558,6 +11644,7 @@ function pad(number, digits, end) {
         SOURCE = "source",
         EVENTS = "events",
         CHECKED = "checked",
+        CSS = "css",
         deleteExpando = true,
         CHANGE = "change";
 
@@ -11846,6 +11933,23 @@ function pad(number, digits, end) {
         }
     });
 
+    binders.css = Binder.extend({
+        init: function(element, bindings, options) {
+            Binder.fn.init.call(this, element, bindings, options);
+            this.classes = {};
+        },
+        refresh: function(className) {
+            var element = $(this.element),
+                binding = this.bindings.css[className],
+                hasClass = this.classes[className] = binding.get();
+            if(hasClass){
+                element.addClass(className);
+            }else{
+                element.removeClass(className);
+            }
+        }
+    });
+
     binders.style = Binder.extend({
         refresh: function(key) {
             this.element.style[key] = this.bindings.style[key].get() || "";
@@ -11915,12 +12019,12 @@ function pad(number, digits, end) {
     binders.text = Binder.extend({
         refresh: function() {
             var text = this.bindings.text.get();
-
+            var dataFormat = this.element.getAttribute("data-format") || "";
             if (text == null) {
                 text = "";
             }
 
-            $(this.element).text(text);
+            $(this.element).text(kendo.toString(text, dataFormat));
         }
     });
 
@@ -12957,6 +13061,7 @@ function pad(number, digits, end) {
                 hasSource,
                 hasEvents,
                 hasChecked,
+                hasCss,
                 widgetBinding = this instanceof WidgetBindingTarget,
                 specificBinders = this.binders();
 
@@ -12969,6 +13074,8 @@ function pad(number, digits, end) {
                     hasEvents = true;
                 } else if (key == CHECKED) {
                     hasChecked = true;
+                } else if (key == CSS) {
+                    hasCss = true;
                 } else {
                     this.applyBinding(key, bindings, specificBinders);
                 }
@@ -12987,6 +13094,10 @@ function pad(number, digits, end) {
 
             if (hasEvents && !widgetBinding) {
                 this.applyBinding(EVENTS, bindings, specificBinders);
+            }
+
+            if (hasCss && !widgetBinding) {
+                this.applyBinding(CSS, bindings, specificBinders);
             }
         },
 
@@ -13172,6 +13283,10 @@ function pad(number, digits, end) {
 
             if (bind.events) {
                 bindings.events = createBindings(bind.events, parents, EventBinding);
+            }
+
+            if (bind.css) {
+                bindings.css = createBindings(bind.css, parents, Binding);
             }
 
             target.bind(bindings);
@@ -14384,6 +14499,7 @@ function pad(number, digits, end) {
     var kendo = window.kendo,
         support = kendo.support,
         document = window.document,
+        $window = $(window),
         Class = kendo.Class,
         Widget = kendo.ui.Widget,
         Observable = kendo.Observable,
@@ -15025,6 +15141,7 @@ function pad(number, digits, end) {
             filter: null,
             ignore: null,
             holdToDrag: false,
+            autoScroll: false,
             dropped: false
         },
 
@@ -15162,7 +15279,9 @@ function pad(number, digits, end) {
 
             e.preventDefault();
 
-            that._withDropTarget(e, function(target, targetElement) {
+            var cursorElement = this._elementUnderCursor(e);
+
+            that._withDropTarget(cursorElement, function(target, targetElement) {
                 if (!target) {
                     if (lastDropTarget) {
                         lastDropTarget._trigger(DRAGLEAVE, extend(e, { dropTarget: $(lastDropTarget.targetElement) }));
@@ -15183,30 +15302,99 @@ function pad(number, digits, end) {
                 lastDropTarget = extend(target, { targetElement: targetElement });
             });
 
-            that._trigger(DRAG, extend(e, { dropTarget: lastDropTarget }));
+            that._trigger(DRAG, extend(e, { dropTarget: lastDropTarget, elementUnderCursor: cursorElement }));
+
+            if (this.options.autoScroll) {
+                if (this._cursorElement !== cursorElement) {
+                    this._scrollableParent = findScrollableParent(cursorElement);
+                    this._cursorElement = cursorElement;
+                }
+
+                // chrome seems to trigger mousemove when mouse is moved outside of the window (over the Chrome), too.
+                if (this._scrollableParent[0]) {
+                    var velocity = autoScrollVelocity(e.x.location, e.y.location, scrollableViewPort(this._scrollableParent));
+
+                    this._scrollCompenstation = $.extend({}, this.hintOffset);
+                    this._scrollVelocity = velocity;
+
+                    if (velocity.y === 0 && velocity.x === 0) {
+                        clearInterval(this._scrollInterval);
+                        this._scrollInterval = null;
+                    } else if(!this._scrollInterval) {
+                        this._scrollInterval = setInterval($.proxy(this, "_autoScroll"), 50);
+                    }
+                }
+            }
 
             if (that.hint) {
                 that._updateHint(e);
             }
         },
 
-        _end: function(e) {
-            var that = this;
+        _autoScroll: function() {
+            var parent = this._scrollableParent[0],
+                velocity = this._scrollVelocity,
+                compensation = this._scrollCompenstation;
 
-            that._withDropTarget(e, function(target, targetElement) {
+            if (!parent) {
+                return;
+            }
+
+            var yIsScrollable, xIsScrollable;
+            var isBody = parent === document.body;
+
+            if (isBody) {
+                yIsScrollable = document.body.offsetHeight > $window.height();
+                xIsScrollable = document.body.offsetWidth > $window.width();
+            } else {
+                yIsScrollable = parent.offsetHeight <= parent.scrollHeight;
+                xIsScrollable = parent.offsetWidth <= parent.scrollWidth;
+            }
+
+            var yDelta = parent.scrollTop + velocity.y;
+            var yInBounds = yIsScrollable && yDelta > 0 && yDelta < parent.scrollHeight;
+
+            var xDelta = parent.scrollLeft + velocity.x;
+            var xInBounds = xIsScrollable && xDelta > 0 && xDelta < parent.scrollWidth;
+
+            if (yInBounds) {
+                parent.scrollTop += velocity.y;
+            }
+
+            if (xInBounds) {
+                parent.scrollLeft += velocity.x;
+            }
+
+            if (isBody && (xInBounds || yInBounds)) {
+                if (yInBounds) {
+                    compensation.top += velocity.y;
+                }
+
+                if (xInBounds) {
+                    compensation.left += velocity.x;
+                }
+
+                this.hint.css(compensation);
+            }
+        },
+
+        _end: function(e) {
+            this._withDropTarget(this._elementUnderCursor(e), function(target, targetElement) {
                 if (target) {
                     target._drop(extend({}, e, { dropTarget: $(targetElement) }));
                     lastDropTarget = null;
                 }
             });
 
-            that._trigger(DRAGEND, e);
-            that._cancel(e.event);
+            this._trigger(DRAGEND, e);
+            this._cancel(e.event);
         },
 
         _cancel: function() {
             var that = this;
 
+            that._scrollableParent = null;
+            clearInterval(this._scrollInterval);
             that._activated = false;
 
             if (that.hint && !that.dropped) {
@@ -15231,33 +15419,37 @@ function pad(number, digits, end) {
                     y: e.y,
                     currentTarget: that.currentTarget,
                     initialTarget: e.touch ? e.touch.initialTouch : null,
-                    dropTarget: e.dropTarget
+                    dropTarget: e.dropTarget,
+                    elementUnderCursor: e.elementUnderCursor
                 }
             ));
         },
 
-        _withDropTarget: function(e, callback) {
-            var that = this,
-                target, result,
-                options = that.options,
-                targets = dropTargets[options.group],
-                areas = dropAreas[options.group];
+        _elementUnderCursor: function(e) {
+            var target = elementUnderCursor(e),
+                hint = this.hint;
+
+            if (hint && contains(hint[0], target)) {
+                hint.hide();
+                target = elementUnderCursor(e);
+                // IE8 does not return the element in iframe from first attempt
+                if (!target) {
+                    target = elementUnderCursor(e);
+                }
+                hint.show();
+            }
+
+            return target;
+        },
+
+        _withDropTarget: function(element, callback) {
+            var result,
+                group = this.options.group,
+                targets = dropTargets[group],
+                areas = dropAreas[group];
 
             if (targets && targets.length || areas && areas.length) {
-
-                target = elementUnderCursor(e);
-
-                if (that.hint && contains(that.hint[0], target)) {
-                    that.hint.hide();
-                    target = elementUnderCursor(e);
-                    // IE8 does not return the element in iframe from first attempt
-                    if (!target) {
-                        target = elementUnderCursor(e);
-                    }
-                    that.hint.show();
-                }
-
-                result = checkTarget(target, targets, areas);
+                result = checkTarget(element, targets, areas);
 
                 if (result) {
                     callback(result.target, result.targetElement);
@@ -15275,6 +15467,10 @@ function pad(number, digits, end) {
             that._afterEnd();
 
             that.userEvents.destroy();
+
+            this._scrollableParent = null;
+            this._cursorElement = null;
+            clearInterval(this._scrollInterval);
 
             that.currentTarget = null;
         },
@@ -15305,6 +15501,75 @@ function pad(number, digits, end) {
         PaneDimensions: PaneDimensions,
         Movable: Movable
     });
+
+    function scrollableViewPort(element) {
+        var body = document.body,
+            offset,
+            top,
+            left;
+
+        if (element[0] === body) {
+            top = body.scrollTop;
+            left = body.scrollLeft;
+
+            return {
+                top: top,
+                left: left,
+                bottom: top + $window.height(),
+                right: left + $window.width()
+            };
+        } else {
+            offset = element.offset();
+            offset.bottom = offset.top + element.height();
+            offset.right =  offset.left + element.width();
+            return offset;
+        }
+    }
+
+    function isRootNode(element) {
+        return element === document.body || element === document.documentElement || element === document;
+    }
+
+    function findScrollableParent(element) {
+        if (!element || isRootNode(element)) {
+            return $(document.body);
+        }
+
+        var parent = $(element)[0];
+
+        while (!kendo.isScrollable(parent) && !isRootNode(parent)) {
+            parent = parent.parentNode;
+        }
+
+        return $(parent);
+    }
+
+    function autoScrollVelocity(mouseX, mouseY, rect) {
+        var velocity = { x: 0, y: 0 };
+
+        var AUTO_SCROLL_AREA = 50;
+
+        if (mouseX - rect.left < AUTO_SCROLL_AREA) {
+            velocity.x = -(AUTO_SCROLL_AREA - (mouseX - rect.left));
+        } else if (rect.right - mouseX < AUTO_SCROLL_AREA) {
+            velocity.x = AUTO_SCROLL_AREA - (rect.right - mouseX);
+        }
+
+        if (mouseY - rect.top < AUTO_SCROLL_AREA) {
+            velocity.y = -(AUTO_SCROLL_AREA - (mouseY - rect.top));
+        } else if (rect.bottom - mouseY < AUTO_SCROLL_AREA) {
+            velocity.y = AUTO_SCROLL_AREA - (rect.bottom - mouseY);
+        }
+
+        return velocity;
+    }
+
+    // export for testing
+    kendo.ui.Draggable.utils = {
+        autoScrollVelocity: autoScrollVelocity,
+        scrollableViewPort: scrollableViewPort,
+        findScrollableParent: findScrollableParent
+    };
 
  })(window.kendo.jQuery);
 
@@ -16410,8 +16675,7 @@ function pad(number, digits, end) {
             return $(this.options.anchor)
                        .parentsUntil("body")
                        .filter(function(index, element) {
-                            var computedStyle = kendo.getComputedStyles(element, ["overflow"]);
-                            return computedStyle.overflow != "visible";
+                           return kendo.isScrollable(element);
                        });
         },
 
@@ -27168,6 +27432,7 @@ function pad(number, digits, end) {
         map = $.map,
         noop = $.noop,
         indexOf = $.inArray,
+        isPlainObject = $.isPlainObject,
         trim = $.trim,
         math = Math,
         deepExtend = kendo.deepExtend;
@@ -28472,9 +28737,7 @@ function pad(number, digits, end) {
         reflow: function(targetBox) {
             var options = this.options;
             var visualFn = options.visual;
-            var align = options.align;
-            var rotation = options.rotation;
-            this.container.options.align = align;
+            this.container.options.align = options.align;
 
             if (visualFn && !this._boxReflow) {
                 if (!targetBox.hasSize()) {
@@ -28497,13 +28760,12 @@ function pad(number, digits, end) {
             } else {
                 BoxElement.fn.reflow.call(this, targetBox);
 
-                if (rotation) {
+                if (options.rotation) {
                     var margin = getSpacing(options.margin);
                     var box = this.box.unpad(margin);
+                    this.targetBox = targetBox;
                     this.normalBox = box.clone();
-                    box.rotate(rotation);
-                    this.align(targetBox, X, align);
-                    this.align(targetBox, Y, options.vAlign);
+                    box = this.rotate();
                     box.translate(margin.left - margin.right, margin.top - margin.bottom);
                     this.rotatedBox = box.clone();
                     box.pad(margin);
@@ -28574,6 +28836,14 @@ function pad(number, digits, end) {
             var visual = this.visual;
             delete this.visual;
             return visual;
+        },
+
+        rotate: function() {
+            var options = this.options;
+            this.box.rotate(options.rotation);
+            this.align(this.targetBox, X, options.align);
+            this.align(this.targetBox, Y, options.vAlign);
+            return this.box;
         },
 
         rotationTransform: function() {
@@ -28672,6 +28942,70 @@ function pad(number, digits, end) {
                 dataItem: label.dataItem,
                 axis: label.parent.options
             });
+        },
+
+        rotate: function() {
+            if (this.options.alignRotation != CENTER) {
+                var box = this.normalBox.toRect();
+                var transform = this.rotationTransform();
+                this.box = rectToBox(box.bbox(transform.matrix()));
+            } else {
+                TextBox.fn.rotate.call(this);
+            }
+            return this.box;
+        },
+
+        rotationTransform: function() {
+            var options = this.options;
+            var rotation = options.rotation;
+            if (!rotation) {
+                return null;
+            }
+
+            if (options.alignRotation == CENTER) {
+                return TextBox.fn.rotationTransform.call(this);
+            }
+
+            var rotationMatrix = geom.transform().rotate(rotation).matrix();
+            var box = this.normalBox.toRect();
+            var rect = this.targetBox.toRect();
+
+            var rotationOrigin = options.rotationOrigin || TOP;
+            var alignAxis = rotationOrigin == TOP || rotationOrigin == BOTTOM ? X : Y;
+            var distanceAxis = rotationOrigin == TOP || rotationOrigin == BOTTOM ? Y : X;
+            var axisAnchor = rotationOrigin == TOP || rotationOrigin == LEFT ? rect.origin : rect.bottomRight();
+
+            var topLeft = box.topLeft().transformCopy(rotationMatrix);
+            var topRight = box.topRight().transformCopy(rotationMatrix);
+            var bottomRight = box.bottomRight().transformCopy(rotationMatrix);
+            var bottomLeft = box.bottomLeft().transformCopy(rotationMatrix);
+            var rotatedBox = geom.Rect.fromPoints(topLeft, topRight, bottomRight, bottomLeft);
+
+            var translate = {};
+            translate[distanceAxis] = rect.origin[distanceAxis] - rotatedBox.origin[distanceAxis];
+
+            var distanceLeft = math.abs(topLeft[distanceAxis] + translate[distanceAxis] - axisAnchor[distanceAxis]);
+            var distanceRight = math.abs(topRight[distanceAxis] + translate[distanceAxis] - axisAnchor[distanceAxis]);
+            var alignStart;
+            var alignEnd;
+
+            if (round(distanceLeft, DEFAULT_PRECISION) === round(distanceRight, DEFAULT_PRECISION)) {
+                alignStart = topLeft;
+                alignEnd = topRight;
+            } else if (distanceRight < distanceLeft) {
+                alignStart = topRight;
+                alignEnd = bottomRight;
+            } else {
+                alignStart = topLeft;
+                alignEnd = bottomLeft;
+            }
+
+            var alignCenter = alignStart[alignAxis] + (alignEnd[alignAxis] - alignStart[alignAxis]) / 2;
+            translate[alignAxis] = rect.center()[alignAxis] - alignCenter;
+
+            return geom.transform()
+                .translate(translate.x, translate.y)
+                .rotate(rotation);
         }
     });
 
@@ -28852,8 +29186,19 @@ function pad(number, digits, end) {
 
             if (labelOptions.visible) {
                 var labelsCount = axis.labelsCount(),
+                    rotation = labelOptions.rotation,
                     label,
                     i;
+
+                if (isPlainObject(rotation)) {
+                    labelOptions.alignRotation = rotation.align;
+                    labelOptions.rotation = rotation.angle;
+                }
+
+                if (labelOptions.rotation == "auto") {
+                    labelOptions.rotation = 0;
+                    options.autoRotateLabels = true;
+                }
 
                 for (i = labelOptions.skip; i < labelsCount; i += step) {
                     label = axis.createAxisLabel(i, labelOptions);
@@ -28876,17 +29221,11 @@ function pad(number, digits, end) {
                 mirror = options.labels.mirror,
                 axisX = mirror ? box.x1 : box.x2,
                 axisY = mirror ? box.y2 : box.y1,
-                startMargin = 0,
-                endMargin = options.line.width;
-
-            if (justified && labels.length > 1) {
-                startMargin = labels[0].box[labelSize]() / 2;
-                endMargin = last(labels).box[labelSize]() / 2;
-            }
+                lineWidth = options.line.width || 0;
 
             return vertical ?
-                Box2D(axisX, box.y1 + startMargin, axisX, box.y2 - endMargin) :
-                Box2D(box.x1 + startMargin, axisY, box.x2 - endMargin, axisY);
+                Box2D(axisX, box.y1, axisX, box.y2 - lineWidth) :
+                Box2D(box.x1, axisY, box.x2 - lineWidth, axisY);
         },
 
         createTitle: function() {
@@ -29243,8 +29582,10 @@ function pad(number, digits, end) {
 
                     if (mirror) {
                         labelX += labelOffset;
+                        label.options.rotationOrigin = LEFT;
                     } else {
                         labelX -= labelOffset + label.box.width();
+                        label.options.rotationOrigin = RIGHT;
                     }
 
                     labelBox = label.box.move(labelX, labelPos);
@@ -29261,8 +29602,10 @@ function pad(number, digits, end) {
 
                     if (mirror) {
                         labelY -= labelOffset + label.box.height();
+                        label.options.rotationOrigin = BOTTOM;
                     } else {
                         labelY += labelOffset;
+                        label.options.rotationOrigin = TOP;
                     }
 
                     labelBox = Box2D(firstTickPosition, labelY,
@@ -29270,6 +29613,34 @@ function pad(number, digits, end) {
                 }
 
                 label.reflow(labelBox);
+            }
+        },
+
+        autoRotateLabels: function() {
+            if (this.options.autoRotateLabels && !this.options.vertical) {
+                var tickPositions = this.getMajorTickPositions();
+                var labels = this.labels;
+                var labelBox, angle, width, idx;
+                for (idx = 0; idx < labels.length; idx++) {
+                    width = tickPositions[idx + 1] - tickPositions[idx];
+                    labelBox = labels[idx].box;
+                    if (labelBox.height() > width) {
+                        angle = -90;
+                        break;
+                    }
+
+                    if (labelBox.width() > width) {
+                        angle = -45;
+                    }
+                }
+
+                if (angle) {
+                    for (idx = 0; idx < labels.length; idx++) {
+                        labels[idx].options.rotation = angle;
+                        labels[idx].reflow(Box2D());
+                    }
+                    return true;
+                }
             }
         },
 
@@ -29354,6 +29725,14 @@ function pad(number, digits, end) {
             if (slot) {
                 return slot.toRect();
             }
+        },
+
+        contentBox: function() {
+            var box = this.box.clone();
+            if (this.labels.length) {
+                box.wrap(this.labels[0].box).wrap(last(this.labels).box);
+            }
+            return box;
         }
     });
 
@@ -29757,6 +30136,9 @@ function pad(number, digits, end) {
                 visible: true,
                 width: 1,
                 color: BLACK
+            },
+            labels: {
+                format: "#.####################"
             },
             zIndex: 1
         },
@@ -42340,7 +42722,7 @@ function pad(number, digits, end) {
         },
 
         highlightVisual: function() {
-            return this.visual;
+            return this.visual.children[0];
         },
 
         highlightVisualArgs: function() {
@@ -43848,6 +44230,7 @@ function pad(number, digits, end) {
 
                 if (i !== 0 && yAnchor.pane === axis.pane) {
                     axis.alignTo(yAnchor);
+                    axis.reflow(axis.box);
                 }
             }
 
@@ -43891,6 +44274,7 @@ function pad(number, digits, end) {
 
                 if (i !== 0) {
                     axis.alignTo(xAnchor);
+                    axis.reflow(axis.box);
                 }
             }
         },
@@ -43913,18 +44297,21 @@ function pad(number, digits, end) {
                 }
             }
 
-            for (i = 0; i < axes.length; i++) {
-                currentAxis = axes[i];
+            if (overflowX !== 0) {
+                for (i = 0; i < axes.length; i++) {
+                    currentAxis = axes[i];
 
-                if (!currentAxis.options.vertical) {
-                    currentAxis.reflow(currentAxis.box.shrink(overflowX, 0));
+                    if (!currentAxis.options.vertical) {
+                        currentAxis.reflow(currentAxis.box.shrink(overflowX, 0));
+                    }
                 }
             }
         },
 
         shrinkAxisHeight: function(panes) {
             var i, currentPane, axes,
-                overflowY, j, currentAxis;
+                overflowY, j, currentAxis,
+                shrinked;
 
             for (i = 0; i < panes.length; i++) {
                 currentPane = panes[i];
@@ -43934,16 +44321,21 @@ function pad(number, digits, end) {
                     axisGroupBox(axes).height() - currentPane.contentBox.height()
                 );
 
-                for (j = 0; j < axes.length; j++) {
-                    currentAxis = axes[j];
+                if (overflowY !== 0) {
+                    for (j = 0; j < axes.length; j++) {
+                        currentAxis = axes[j];
 
-                    if (currentAxis.options.vertical) {
-                        currentAxis.reflow(
-                            currentAxis.box.shrink(0, overflowY)
-                        );
+                        if (currentAxis.options.vertical) {
+                            currentAxis.reflow(
+                                currentAxis.box.shrink(0, overflowY)
+                            );
+                        }
                     }
+                    shrinked = true;
                 }
             }
+
+            return shrinked;
         },
 
         fitAxes: function(panes) {
@@ -43998,10 +44390,46 @@ function pad(number, digits, end) {
             if (axes.x.length > 0 && axes.y.length > 0) {
                 plotArea.alignAxes(axes.x, axes.y);
                 plotArea.shrinkAxisWidth(panes);
+
+                plotArea.autoRotateAxisLabels(axes);
+
                 plotArea.alignAxes(axes.x, axes.y);
+                if (plotArea.shrinkAxisWidth(panes)) {
+                    plotArea.alignAxes(axes.x, axes.y);
+                }
+
                 plotArea.shrinkAxisHeight(panes);
                 plotArea.alignAxes(axes.x, axes.y);
+
+                if (plotArea.shrinkAxisHeight(panes)) {
+                    plotArea.alignAxes(axes.x, axes.y);
+                }
+
                 plotArea.fitAxes(panes);
+            }
+        },
+
+        autoRotateAxisLabels: function(groupedAxes) {
+            var axes = this.axes;
+            var panes = this.panes;
+            var axis, idx, rotated;
+
+            for (idx = 0; idx < axes.length; idx++) {
+                axis = axes[idx];
+                if (axis.autoRotateLabels()) {
+                    rotated = true;
+                }
+            }
+
+            if (rotated) {
+                for (idx = 0; idx < panes.length; idx++) {
+                    this.reflowPaneAxes(panes[idx]);
+                }
+
+                if (groupedAxes.x.length > 0 && groupedAxes.y.length > 0) {
+                    this.alignAxes(groupedAxes.x, groupedAxes.y);
+                    this.shrinkAxisWidth(panes);
+                }
             }
         },
 
@@ -47072,7 +47500,7 @@ function pad(number, digits, end) {
 
         if (length > 0) {
             for (i = 0; i < length; i++) {
-                axisBox = axes[i].box;
+                axisBox = axes[i].contentBox();
 
                 if (!box) {
                     box = axisBox.clone();
@@ -49333,7 +49761,7 @@ function pad(number, digits, end) {
                 series: series,
                 dataItem: fields.dataItem,
                 index: fields.index
-            }, { defaults: series._defaults, excluded: ["data"] });
+            }, { defaults: series._defaults, excluded: ["data", "toggle", "visual"] });
         },
 
         createSegment: function(value, fields) {
@@ -49566,6 +49994,19 @@ function pad(number, digits, end) {
             return draw.Path.fromPoints(this.points, style);
         },
 
+        highlightVisual: function() {
+            return this.visual.children[0];
+        },
+
+        highlightVisualArgs: function() {
+            var path = draw.Path.fromPoints(this.points).close();
+
+            return {
+                options: this.options,
+                path: path
+            };
+        },
+
         highlightOverlay: function(view, opt) {
             var options = this.options,
                 hlOptions = options.highlight || {};
@@ -49607,7 +50048,8 @@ function pad(number, digits, end) {
     );
 
     deepExtend(dataviz, {
-        FunnelChart: FunnelChart
+        FunnelChart: FunnelChart,
+        FunnelSegment: FunnelSegment
     });
 
 })(window.kendo.jQuery);
@@ -62731,7 +63173,13 @@ function pad(number, digits, end) {
             });
             var fill = options.fill;
 
-            this.drawingElement.fill(fill.color, fill.opacity);
+            if (fill.gradient) {
+                var gradient = fill.gradient;
+                var GradientClass = (gradient.type === "radial" ? d.RadialGradient : d.LinearGradient);
+                this.drawingElement.fill(new GradientClass(gradient));
+            } else {
+                this.drawingElement.fill(fill.color, fill.opacity);
+            }
         }
     });
 
@@ -62762,10 +63210,10 @@ function pad(number, digits, end) {
             var options = this.options;
 
             this.drawingElement = new d.Text(defined(options.text) ? options.text : "", new g.Point(), {
-                fill: options.fill,
                 font: options.font
             });
 
+            this._fill();
             this._stroke();
         },
 
@@ -62856,10 +63304,11 @@ function pad(number, digits, end) {
         _initPath: function() {
             var options = this.options;
             var drawingElement = this.drawingElement = new d.Path({
-                fill: options.fill,
                 stroke: options.stroke,
                 closed: true
             });
+
+            this._fill();
             this._drawPath();
         },
 
@@ -63202,9 +63651,10 @@ function pad(number, digits, end) {
             var options = this.options;
 
             this.drawingElement = d.Path.parse(options.data || "", {
-                fill: options.fill,
                 stroke: options.stroke
             });
+
+            this._fill();
             this.container.append(this.drawingElement);
             this._createMarkers();
         },
@@ -63260,9 +63710,10 @@ function pad(number, digits, end) {
         _initPath: function() {
             var options = this.options;
             var drawingElement = this.drawingElement = new d.Path({
-                fill: options.fill,
                 stroke: options.stroke
             });
+
+            this._fill();
             this._drawPath();
             this.container.append(drawingElement);
         },
@@ -63321,10 +63772,10 @@ function pad(number, digits, end) {
         _initPath: function() {
             var options = this.options;
             this.drawingElement = new d.Path({
-                fill: options.fill,
                 stroke: options.stroke
             });
 
+            this._fill();
             this.container.append(this.drawingElement);
 
             if (options.points) {
@@ -63575,9 +64026,10 @@ function pad(number, digits, end) {
             this._center = new g.Point(center.x, center.y);
             this._circle = new g.Circle(this._center, radius);
             this.drawingElement = new d.Circle(this._circle, {
-                fill: options.fill,
                 stroke: options.stroke
             });
+
+            this._fill();
         }
     });
     deepExtend(Circle.fn, AutoSizeableMixin);
@@ -63768,6 +64220,7 @@ function pad(number, digits, end) {
             Movable = kendo.ui.Movable,
             browser = kendo.support.browser,
             defined = kendo.util.defined,
+            inArray = $.inArray,
             proxy = $.proxy;
 
         // Constants ==============================================================
@@ -63785,7 +64238,7 @@ function pad(number, digits, end) {
                 rowresize: "row-resize",
                 colresize: "col-resize"
             },
-            HITTESTDISTANCE = 10,
+            HIT_TEST_DISTANCE = 10,
             AUTO = "Auto",
             TOP = "Top",
             RIGHT = "Right",
@@ -63794,6 +64247,9 @@ function pad(number, digits, end) {
             DEFAULTCONNECTORNAMES = [TOP, RIGHT, BOTTOM, LEFT, AUTO],
             DEFAULT_SNAP_SIZE = 10,
             DEFAULT_SNAP_ANGLE = 10,
+            DRAG_START = "dragStart",
+            DRAG = "drag",
+            DRAG_END = "dragEnd",
             ITEMROTATE = "itemRotate",
             ITEMBOUNDSCHANGE = "itemBoundsChange",
             MIN_SNAP_SIZE = 5,
@@ -64267,6 +64723,14 @@ function pad(number, digits, end) {
              * Returns the number of undoable unit in the stack.
              * @returns {Number}
              */
+
+            pop: function() {
+                if (this.index > 0) {
+                    this.stack.pop();
+                    this.index--;
+                }
+            },
+
             count: function () {
                 return this.stack.length;
             },
@@ -64462,26 +64926,41 @@ function pad(number, digits, end) {
                 }
 
                 if (this.adorner) {
-                    this.adorner.start(p);
+                    if (!this.adorner.isDragHandle(this.handle) || !diagram.trigger(DRAG_START, { shapes: this.adorner.shapes, connections: [] })) {
+                        this.adorner.start(p);
+                    } else {
+                        toolService.startPoint = p;
+                        toolService.end(p);
+                    }
                 }
             },
+
             move: function (p) {
-                var that = this;
                 if (this.adorner) {
-                    this.adorner.move(that.handle, p);
+                    this.adorner.move(this.handle, p);
+                    if (this.adorner.isDragHandle(this.handle)) {
+                        this.toolService.diagram.trigger(DRAG, { shapes: this.adorner.shapes, connections: [] });
+                    }
                 }
             },
+
             end: function (p, meta) {
                 var diagram = this.toolService.diagram,
                     service = this.toolService,
+                    adorner = this.adorner,
                     unit;
 
-                if (this.adorner) {
-                    unit = this.adorner.stop();
-                    if (unit) {
-                        diagram.undoRedoService.add(unit, false);
+                if (adorner) {
+                    if (!adorner.isDragHandle(this.handle) || !diagram.trigger(DRAG_END, { shapes: adorner.shapes, connections: [] })) {
+                        unit = adorner.stop();
+                        if (unit) {
+                            diagram.undoRedoService.add(unit, false);
+                        }
+                    } else {
+                        adorner.cancel();
                     }
                 }
+
                 if(service.hoveredItem) {
                     this.toolService.triggerClick({item: service.hoveredItem, point: p, meta: meta});
                 }
@@ -64541,23 +65020,31 @@ function pad(number, digits, end) {
                     connector = this.toolService._hoveredConnector,
                     connection = diagram._createConnection({}, connector._c, p);
 
-                if (diagram._addConnection(connection)) {
+                if (canDrag(connection) && !diagram.trigger(DRAG_START, { shapes: [], connections: [connection]}) && diagram._addConnection(connection)) {
                     this.toolService._connectionManipulation(connection, connector._c.shape, true);
                     this.toolService._removeHover();
                     selectSingle(this.toolService.activeConnection, meta);
                 } else {
                     connection.source(null);
-                    this.toolService.end();
+                    this.toolService.end(p);
                 }
             },
+
             move: function (p) {
-                this.toolService.activeConnection.target(p);
+                var toolService = this.toolService;
+                var connection = toolService.activeConnection;
+
+                connection.target(p);
+                toolService.diagram.trigger(DRAG, { shapes: [], connections: [connection] });
                 return true;
             },
+
             end: function (p) {
-                var connection = this.toolService.activeConnection,
-                    hoveredItem = this.toolService.hoveredItem,
-                    connector = this.toolService._hoveredConnector,
+                var toolService = this.toolService,
+                    d = toolService.diagram,
+                    connection = toolService.activeConnection,
+                    hoveredItem = toolService.hoveredItem,
+                    connector = toolService._hoveredConnector,
                     target;
 
                 if (!connection) {
@@ -64573,10 +65060,17 @@ function pad(number, digits, end) {
                 }
 
                 connection.target(target);
-                connection.updateModel(true);
 
-                this.toolService._connectionManipulation();
+                if (!d.trigger(DRAG_END, { shapes: [], connections: [connection] })) {
+                    connection.updateModel();
+                    d._syncConnectionChanges();
+                } else {
+                    d.remove(connection, false);
+                    d.undoRedoService.pop();
+                }
+                toolService._connectionManipulation();
             },
+
             getCursor: function () {
                 return Cursors.arrow;
             }
@@ -64602,29 +65096,54 @@ function pad(number, digits, end) {
 
                 return isActive;
             },
+
             start: function (p, meta) {
-                selectSingle(this._c, meta);
-                var adorner = this._c.adorner;
-                if (adorner) {
+                var connection = this._c;
+
+                selectSingle(connection, meta);
+
+                var adorner = connection.adorner;
+
+                if (canDrag(connection) && adorner && !this.toolService.diagram.trigger(DRAG_START, { shapes: [], connections: [connection] })) {
                     this.handle = adorner._hitTest(p);
                     adorner.start(p);
+                } else {
+                    this.toolService.startPoint = p;
+                    this.toolService.end(p);
                 }
             },
+
             move: function (p) {
                 var adorner = this._c.adorner;
-                if (adorner) {
+                if (canDrag(this._c) && adorner) {
                     adorner.move(this.handle, p);
+                    this.toolService.diagram.trigger(DRAG, { shapes: [], connections: [this._c] });
+
                     return true;
                 }
             },
+
             end: function (p, meta) {
-                var adorner = this._c.adorner;
+                var connection = this._c;
+                var adorner = connection.adorner;
+                var toolService = this.toolService;
+                var diagram = toolService.diagram;
+
                 if (adorner) {
-                    this.toolService.triggerClick({item: this._c, point: p, meta: meta});
-                    var unit = adorner.stop(p);
-                    this.toolService.diagram.undoRedoService.add(unit, false);
+                    toolService.triggerClick({item: connection, point: p, meta: meta});
+                    if (canDrag(connection)) {
+                        var unit = adorner.stop(p);
+                        if (!diagram.trigger(DRAG_END, { shapes: [], connections: [connection] })) {
+                            diagram.undoRedoService.add(unit, false);
+                            connection.updateModel();
+                            diagram._syncConnectionChanges();
+                        } else {
+                            unit.undo();
+                        }
+                    }
                 }
             },
+
             getCursor: function () {
                 return Cursors.move;
             }
@@ -64872,9 +65391,25 @@ function pad(number, digits, end) {
                     }
                     hit = this._hitTestItems(selectedConnections, point);
                 }
-                // Shapes | Connectors
-                return hit || this._hitTestItems(d.shapes, point) || this._hitTestItems(d.connections, point);
+
+                return hit || this._hitTestElements(point);
             },
+
+            _hitTestElements: function(point) {
+                var diagram = this.diagram;
+                var shapeHit = this._hitTestItems(diagram.shapes, point);
+                var connectionHit = this._hitTestItems(diagram.connections, point);
+                var hit;
+
+                if ((!this.activeTool || this.activeTool.type != "ConnectionTool") && shapeHit && connectionHit && !hitTestShapeConnectors(shapeHit, point)) {
+                    var mainLayer = diagram.mainLayer;
+                    var shapeIdx = inArray(shapeHit.visual, mainLayer.children);
+                    var connectionIdx = inArray(connectionHit.visual, mainLayer.children);
+                    hit = shapeIdx > connectionIdx ? shapeHit : connectionHit;
+                }
+                return hit || shapeHit || connectionHit;
+            },
+
             _hitTestItems: function (array, point) {
                 var i, item, hit;
                 for (i = array.length - 1; i >= 0; i--) {
@@ -64918,11 +65453,11 @@ function pad(number, digits, end) {
              * Hit testing for polyline paths.
              */
             hitTest: function (p) {
-                var rec = this.getBounds().inflate(10);
+                var rec = this.getBounds().inflate(HIT_TEST_DISTANCE);
                 if (!rec.contains(p)) {
                     return false;
                 }
-                return diagram.Geometry.distanceToPolyline(p, this.connection.allPoints()) < HITTESTDISTANCE;
+                return diagram.Geometry.distanceToPolyline(p, this.connection.allPoints()) < HIT_TEST_DISTANCE;
             },
 
             /**
@@ -65244,8 +65779,6 @@ function pad(number, digits, end) {
                 } else if (this.handle === 1) {
                     this.connection.target(target);
                 }
-
-                this.connection.updateModel(true);
 
                 this.handle = undefined;
                 this._ts._connectionManipulation();
@@ -65670,7 +66203,7 @@ function pad(number, digits, end) {
                     }
                     this.refresh();
                 } else {
-                    if (this.diagram.options.snap) {
+                    if (this.shouldSnap()) {
                         var thr = this._truncateDistance(p.minus(this._lp));
                         // threshold
                         if (thr.x === 0 && thr.y === 0) {
@@ -65683,7 +66216,7 @@ function pad(number, digits, end) {
                         delta = p.minus(this._cp);
                     }
 
-                    if (handle.x === 0 && handle.y === 0) {
+                    if (this.isDragHandle(handle)) {
                         dbr = dtl = delta; // dragging
                         dragging = true;
                     } else {
@@ -65712,6 +66245,9 @@ function pad(number, digits, end) {
                         shape = this.shapes[i];
                         bounds = shape.bounds();
                         if (dragging) {
+                            if (!canDrag(shape)) {
+                                continue;
+                            }
                             newBounds = this._displaceBounds(bounds, dtl, dbr, dragging);
                         } else {
                             newBounds = bounds.clone();
@@ -65733,9 +66269,13 @@ function pad(number, digits, end) {
                         }
                     }
 
-                    if (changed == i) {
-                        newBounds = this._displaceBounds(this._innerBounds, dtl, dbr, dragging);
-                        this.bounds(newBounds);
+                    if (changed) {
+                        if (changed == i) {
+                            newBounds = this._displaceBounds(this._innerBounds, dtl, dbr, dragging);
+                            this.bounds(newBounds);
+                        } else {
+                            this.refreshBounds();
+                        }
                         this.refresh();
                     }
 
@@ -65743,6 +66283,23 @@ function pad(number, digits, end) {
                 }
 
                 this._cp = p;
+            },
+
+            isDragHandle: function(handle) {
+                return handle.x === 0 && handle.y === 0;
+            },
+
+            cancel: function() {
+                var shapes = this.shapes;
+                var states = this.shapeStates;
+                for (var idx = 0; idx < shapes.length; idx++) {
+                    shapes[idx].bounds(states[idx]);
+                }
+                this.refreshBounds();
+                this.refresh();
+                this._manipulating = undefined;
+                this._internalChange = undefined;
+                this._rotating = undefined;
             },
 
             _truncatePositionToGuides: function (bounds) {
@@ -65760,7 +66317,7 @@ function pad(number, digits, end) {
             },
 
             _truncateAngle: function (a) {
-                var snap = this.diagram.options.snap;
+                var snap = this.snapOptions();
                 var snapAngle = Math.max(snap.angle || DEFAULT_SNAP_ANGLE, MIN_SNAP_ANGLE);
                 return snap ? Math.floor((a % 360) / snapAngle) * snapAngle : (a % 360);
             },
@@ -65769,10 +66326,23 @@ function pad(number, digits, end) {
                 if (d instanceof diagram.Point) {
                     return new diagram.Point(this._truncateDistance(d.x), this._truncateDistance(d.y));
                 } else {
-                    var snap = this.diagram.options.snap;
+                    var snap = this.snapOptions() || {};
                     var snapSize = Math.max(snap.size || DEFAULT_SNAP_SIZE, MIN_SNAP_SIZE);
                     return snap ? Math.floor(d / snapSize) * snapSize : d;
                 }
+            },
+
+            snapOptions: function() {
+                var editable = this.diagram.options.editable;
+                var snap = ((editable || {}).drag || {}).snap || {};
+                return snap;
+            },
+
+            shouldSnap: function() {
+                var editable = this.diagram.options.editable;
+                var drag = (editable || {}).drag;
+                var snap = (drag || {}).snap;
+                return editable !== false && drag !== false && snap !== false;
             },
 
             _displaceBounds: function (bounds, dtl, dbr, dragging) {
@@ -65952,6 +66522,24 @@ function pad(number, digits, end) {
                 return this._visualBounds.contains(tp);
             }
         });
+
+        function canDrag(element) {
+            var editable = element.options.editable;
+            return editable && editable.drag !== false;
+        }
+
+        function hitTestShapeConnectors(shape, point) {
+            var connector, position, rect;
+            for (var idx = 0; idx < shape.connectors.length; idx++) {
+                connector = shape.connectors[idx];
+                position = connector.position();
+                rect = new Rect(position.x, position.y);
+                rect.inflate(HIT_TEST_DISTANCE, HIT_TEST_DISTANCE);
+                if (rect.contains(point)) {
+                    return connector;
+                }
+            }
+        }
 
         deepExtend(diagram, {
             CompositeUnit: CompositeUnit,
@@ -69770,6 +70358,7 @@ function pad(number, digits, end) {
         RESIZABLE_TOOLBAR = "k-toolbar-resizable",
         STATE_ACTIVE = "k-state-active",
         STATE_DISABLED = "k-state-disabled",
+        STATE_HIDDEN = "k-state-hidden",
         GROUP_START = "k-group-start",
         GROUP_END = "k-group-end",
         PRIMARY = "k-primary",
@@ -69801,335 +70390,604 @@ function pad(number, digits, end) {
 
         KENDO_UID_ATTR = kendo.attr("uid"),
 
-        template = kendo.template,
-        components = {
-            button: {
-                base: createButton,
-                toolbar: createToolbarButton,
-                overflow: createOverflowButton
+        template = kendo.template;
+
+        var Item = kendo.Class.extend({
+            addOverflowAttr: function() {
+                this.element.attr(kendo.attr("overflow"), this.options.overflow || OVERFLOW_AUTO);
             },
 
-            buttonGroup: {
-                base: function (options, initializer, element) {
-                    var items = options.buttons,
-                        item;
+            addUidAttr: function() {
+                this.element.attr(KENDO_UID_ATTR, this.options.uid);
+            },
 
-                    if (!items) {
-                        return;
-                    }
-
-                    if (options.attributes) {
-                        element.attr(options.attributes);
-                    }
-
-                    element.data({ type: "buttonGroup" });
-                    element.attr(KENDO_UID_ATTR, options.uid);
-
-                    for (var i = 0; i < items.length; i++) {
-                        if (!items[i].uid) {
-                            items[i].uid = kendo.guid();
-                        }
-                        item = initializer($.extend({mobile: options.mobile}, items[i]));
-                        item.appendTo(element);
-                    }
-
-                    element.children().first().addClass(GROUP_START);
-                    element.children().last().addClass(GROUP_END);
-                },
-                toolbar: function (options) {
-                    var element = $('<div></div>');
-
-                    components.buttonGroup.base(options, components.button.toolbar, element);
-
-                    element.addClass(BUTTON_GROUP);
-
-                    if (options.align) {
-                        element.addClass("k-align-" + options.align);
-                    }
-
-                    if (options.id) {
-                        element.attr("id", options.id);
-                    }
-
-                    return element;
-                },
-                overflow: function (options) {
-                    var element = $('<li></li>');
-
-                    components.buttonGroup.base(options, components.button.overflow, element);
-
-                    element.addClass((options.mobile ? "" : BUTTON_GROUP) + " k-overflow-group");
-
-                    if (options.id) {
-                        element.attr("id", options.id + "_overflow");
-                    }
-
-                    return element;
+            addIdAttr: function() {
+                if (this.options.id) {
+                    this.element.attr("id", this.options.id);
                 }
             },
 
-            splitButton: {
-                toolbar: function(options) {
-                    var element = $('<div class="' + SPLIT_BUTTON + '"></div>'),
-                        mainButton = components.button.toolbar(options),
-                        arrowButton = $('<a class="' + BUTTON + " " + SPLIT_BUTTON_ARROW + '"><span class="' +
-                                       (options.mobile ? "km-icon km-arrowdown" : "k-icon k-i-arrow-s") + '"></span></a>'),
-                        popupElement = $('<ul class="' + LIST_CONTAINER + '"></ul>'),
-                        popup,
-                        items = options.menuButtons,
-                        item;
+            addOverflowIdAttr: function() {
+                if (this.options.id) {
+                    this.element.attr("id", this.options.id + "_overflow");
+                }
+            },
 
-                    mainButton.appendTo(element);
-                    arrowButton.appendTo(element);
-                    popupElement.appendTo(element);
+            attributes: function() {
+                if (this.options.attributes) {
+                    this.element.attr(this.options.attributes);
+                }
+            },
 
-                    for (var i = 0; i < items.length; i++) {
-                        item = components.button.toolbar($.extend({mobile: options.mobile, click: options.click}, items[i]));
-                        item.wrap("<li></li>").parent().appendTo(popupElement);
-                    }
+            show: function() {
+                this.element.removeClass(STATE_HIDDEN).show();
+                this.options.hidden = false;
+            },
 
-                    if (options.align) {
-                        element.addClass("k-align-" + options.align);
-                    }
+            hide: function() {
+                this.element.addClass(STATE_HIDDEN).hide();
+                this.options.hidden = true;
+            },
 
-                    if (!options.id) {
-                        options.id = options.uid;
-                    }
+            remove: function() {
+                this.element.remove();
+            },
 
-                    element.attr("id", options.id + "_wrapper");
-                    popupElement.attr("id", options.id + "_optionlist")
-                                .attr(KENDO_UID_ATTR, options.rootUid);
+            enable: function(isEnabled) {
+                if (isEnabled === undefined) {
+                    isEnabled = true;
+                }
+                this.element.toggleClass(STATE_DISABLED, !isEnabled);
+                this.options.enable = isEnabled;
+            },
 
+            twin: function() {
+                var uid = this.element.attr(KENDO_UID_ATTR);
+                if (this.overflow) {
+                    return this.toolbar
+                            .element
+                            .find("[" + KENDO_UID_ATTR + "='" + uid + "']")
+                            .data(this.options.type);
+                } else if (this.toolbar.options.resizable) {
+                    return this.toolbar
+                            .popup.element
+                            .find("[" + KENDO_UID_ATTR + "='" + uid + "']")
+                            .data(this.options.type);
+                }
+            }
+        });
+
+        var Button = Item.extend({
+            init: function(options, toolbar) {
+                var element = options.useButtonTag ? $('<button></button>') : $('<a></a>');
+
+                this.element = element;
+                this.options = options;
+                this.toolbar = toolbar;
+
+                this.attributes();
+
+                if (options.primary) {
+                    element.addClass(PRIMARY);
+                }
+
+                if (options.togglable) {
+                    element.addClass(TOGGLE_BUTTON);
+                    this.toggle(options.selected);
+                }
+
+                if (options.url !== undefined && !options.useButtonTag) {
+                    element.attr("href", options.url);
                     if (options.mobile) {
-                        popupElement = actionSheetWrap(popupElement);
+                        element.attr(kendo.attr("role"), "button");
                     }
+                }
 
-                    popup = popupElement.kendoPopup({
-                        appendTo: options.mobile ? $(options.mobile).children(".km-pane") : null,
-                        anchor: element,
-                        copyAnchorStyles: false,
-                        animation: options.animation,
-                        open: adjustPopupWidth
-                    }).data("kendoPopup");
+                if (options.group) {
+                    element.attr(kendo.attr("group"), options.group);
+                    if ((this.overflow && this.options.overflow === OVERFLOW_ALWAYS) || !this.overflow) {
+                        this.group = this.toolbar.addToGroup(this, options.group);
+                    }
+                }
 
-                    element.data({
-                        type: "splitButton",
-                        kendoPopup: popup
+                if (!options.togglable && options.click && isFunction(options.click)) {
+                    this.clickHandler = options.click;
+                }
+
+                if (options.togglable && options.toggle && isFunction(options.toggle)) {
+                    this.toggleHandler = options.toggle;
+                }
+            },
+
+            toggle: function(state, propagate) {
+                state = !!state;
+
+                if (this.group && state) {
+                    this.group.select(this);
+                } else if (!this.group) {
+                    this.select(state);
+                }
+
+                if (propagate && this.twin()) {
+                    this.twin().toggle(state);
+                }
+            },
+
+            getParentGroup: function() {
+                if (this.options.isChild) {
+                    return this.element.closest("." + BUTTON_GROUP).data("buttonGroup");
+                }
+            },
+
+            _addGraphics: function() {
+                var element = this.element,
+                    icon = this.options.icon,
+                    spriteCssClass = this.options.spriteCssClass,
+                    imageUrl = this.options.imageUrl,
+                    isEmpty, span, img;
+
+                if (spriteCssClass || imageUrl || icon) {
+                    isEmpty = true;
+
+                    element.contents().not("span.k-sprite,span." + ICON + ",img.k-image").each(function(idx, el){
+                        if (el.nodeType == 1 || el.nodeType == 3 && $.trim(el.nodeValue).length > 0) {
+                            isEmpty = false;
+                        }
                     });
-                    element.attr(KENDO_UID_ATTR, options.uid);
 
-                    return element;
-                },
-                overflow: function(options) {
-                    var element = $('<li class="' + SPLIT_BUTTON + '"></li>'),
-                        mainButton = components.button.overflow(options),
-                        items = options.menuButtons,
-                        item;
-
-                    mainButton.appendTo(element);
-
-                    for (var i = 0; i < items.length; i++) {
-                        item = components.button.overflow($.extend({mobile: options.mobile}, items[i]));
-                        item.appendTo(element);
+                    if (isEmpty) {
+                        element.addClass(BUTTON_ICON);
+                    } else {
+                        element.addClass(BUTTON_ICON_TEXT);
                     }
-
-                    element.data({ type: "splitButton" });
-                    element.attr(KENDO_UID_ATTR, options.uid);
-
-                    return element;
                 }
-            },
 
-            separator: {
-                base: function(options, overflow) {
-                    var element = overflow ? $('<li>&nbsp;</li>') : $('<div>&nbsp;</div>');
-                    element.data({ type: "separator" });
-                    element.attr(KENDO_UID_ATTR, options.uid);
-
-                    if (options.attributes) {
-                        element.attr(options.attributes);
+                if (icon) {
+                    span = element.children("span." + ICON).first();
+                    if (!span[0]) {
+                        span = $('<span class="' + ICON + '"></span>').prependTo(element);
                     }
-
-                    element.addClass(SEPARATOR);
-
-                    return element;
-                },
-                toolbar: function(options) {
-                   var element = components.separator.base(options, false);
-
-                   if (options.id) {
-                       element.attr("id", options.id);
-                   }
-
-                   return element;
-                },
-                overflow: function(options) {
-                    var element = components.separator.base(options, true);
-
-                    if (options.id) {
-                        element.attr("id", options.id + "_overflow");
+                    span.addClass(ICON_PREFIX + icon);
+                } else if (spriteCssClass) {
+                    span = element.children("span.k-sprite").first();
+                    if (!span[0]) {
+                        span = $('<span class="k-sprite"></span>').prependTo(element);
                     }
-
-                    return  element;
-                }
-            },
-
-            overflowAnchor: '<div class="k-overflow-anchor"></div>',
-
-            overflowContainer: '<ul class="k-overflow-container k-list-container"></ul>'
-        };
-
-        function createButton(options) {
-            var element = options.useButtonTag ? $('<button></button>') : $('<a></a>');
-
-            element.data({ type: "button" });
-            element.attr(KENDO_UID_ATTR, options.uid);
-
-            if (options.attributes) {
-                element.attr(options.attributes);
-            }
-
-            if (options.togglable) {
-                element.addClass(TOGGLE_BUTTON);
-                if (options.selected) {
-                    element.addClass(STATE_ACTIVE);
-                }
-            }
-
-            if (options.enable === false) {
-                element.addClass(STATE_DISABLED);
-            }
-
-            if (options.url !== undefined && !options.useButtonTag) {
-                element.attr("href", options.url);
-                if (options.mobile) {
-                    element.attr(kendo.attr("role"), "button");
-                }
-            }
-
-            if (options.group) {
-                element.attr(kendo.attr("group"), options.group);
-            }
-
-            if (!options.togglable && options.click && isFunction(options.click)) {
-                element.data("click", options.click);
-            }
-
-            if (options.togglable && options.toggle && isFunction(options.toggle)) {
-                element.data("toggle", options.toggle);
-            }
-
-            return element;
-        }
-
-        function createToolbarButton(options) {
-            var element = components.button.base(options),
-                hasIcon;
-
-            element.addClass(BUTTON);
-
-            if (options.primary) {
-                element.addClass(PRIMARY);
-            }
-
-            if (options.align) {
-                element.addClass("k-align-" + options.align);
-            }
-
-            if (options.id) {
-                element.attr("id", options.id);
-            }
-
-            if (options.showText != "overflow" && options.text) {
-                if (options.mobile) {
-                    element.html('<span class="km-text">' + options.text + "</span>");
-                } else {
-                    element.html(options.text);
-                }
-            }
-
-            hasIcon = (options.showIcon != "overflow") && (options.icon || options.spriteCssClass || options.imageUrl);
-
-            if (hasIcon) {
-                addGraphic(options, element);
-            }
-
-            return element;
-        }
-
-        function createOverflowButton(options) {
-            var element = components.button.base(options),
-                hasIcon;
-
-            element.addClass(OVERFLOW_BUTTON + " " + BUTTON);
-
-            if (options.primary) {
-                element.addClass(PRIMARY);
-            }
-
-            if (options.id) {
-                element.attr("id", options.id + "_overflow");
-            }
-
-            if (options.showText != "toolbar" && options.text) {
-                if (options.mobile) {
-                    element.html('<span class="km-text">' + options.text + "</span>");
-                } else {
-                    element.html(options.text);
-                }
-            }
-
-            hasIcon = (options.showIcon != "toolbar") && (options.icon || options.spriteCssClass || options.imageUrl);
-
-            if (hasIcon) {
-                addGraphic(options, element);
-            }
-
-            return element;
-        }
-
-        function addGraphic(options, element) {
-            var icon = options.icon,
-                spriteCssClass = options.spriteCssClass,
-                imageUrl = options.imageUrl,
-                isEmpty, span, img;
-
-            if (spriteCssClass || imageUrl || icon) {
-                isEmpty = true;
-
-                element.contents().not("span.k-sprite,span." + ICON + ",img.k-image").each(function(idx, el){
-                    if (el.nodeType == 1 || el.nodeType == 3 && $.trim(el.nodeValue).length > 0) {
-                        isEmpty = false;
+                    span.addClass(spriteCssClass);
+                } else if (imageUrl) {
+                    img = element.children("img.k-image").first();
+                    if (!img[0]) {
+                        img = $('<img alt="icon" class="k-image" />').prependTo(element);
                     }
+                    img.attr("src", imageUrl);
+                }
+            }
+        });
+
+        var ToolBarButton = Button.extend({
+            init: function(options, toolbar) {
+                Button.fn.init.call(this, options, toolbar);
+
+                var element = this.element;
+
+                element.addClass(BUTTON);
+
+                this.addIdAttr();
+
+                if (options.align) {
+                    element.addClass("k-align-" + options.align);
+                }
+
+                if (options.showText != "overflow" && options.text) {
+                    if (options.mobile) {
+                        element.html('<span class="km-text">' + options.text + "</span>");
+                    } else {
+                        element.html(options.text);
+                    }
+                }
+
+                options.hasIcon = (options.showIcon != "overflow") && (options.icon || options.spriteCssClass || options.imageUrl);
+                if (options.hasIcon) {
+                    this._addGraphics();
+                }
+
+                this.attributes();
+                this.addUidAttr();
+                this.addOverflowAttr();
+                this.enable(options.enable);
+
+                if (options.hidden) {
+                    this.hide();
+                }
+
+                this.element.data({
+                    type: "button",
+                    button: this
                 });
+            },
 
-                if (isEmpty) {
-                    element.addClass(BUTTON_ICON);
+            select: function(selected) {
+                if (selected === undefined) {
+                    selected = false;
+                }
+
+                this.element.toggleClass(STATE_ACTIVE, selected);
+                this.options.selected = selected;
+            }
+        });
+
+        var OverflowButton = Button.extend({
+            init: function(options, toolbar) {
+                this.overflow = true;
+
+                Button.fn.init.call(this, options, toolbar);
+
+                var element = this.element;
+
+                element.addClass(OVERFLOW_BUTTON + " " + BUTTON);
+
+                if (options.showText != "toolbar" && options.text) {
+                    if (options.mobile) {
+                        element.html('<span class="km-text">' + options.text + "</span>");
+                    } else {
+                        element.html(options.text);
+                    }
+                }
+
+                options.hasIcon = (options.showIcon != "toolbar") && (options.icon || options.spriteCssClass || options.imageUrl);
+                if (options.hasIcon) {
+                    this._addGraphics();
+                }
+
+                if (!options.isChild) {
+                    this._wrap();
+                }
+
+                this.addOverflowIdAttr();
+                this.attributes();
+                this.addUidAttr();
+                this.addOverflowAttr();
+                this.enable(options.enable);
+
+                if (options.hidden) {
+                    this.hide();
+                }
+
+                this.element.data({
+                    type: "button",
+                    button: this
+                });
+            },
+
+            _wrap: function() {
+                this.element = this.element.wrap("<li></li>").parent();
+            },
+
+            overflowHidden: function() {
+                this.element.addClass(OVERFLOW_HIDDEN);
+            },
+
+            select: function(selected) {
+                if (selected === undefined) {
+                    selected = false;
+                }
+
+                if (this.options.isChild) {
+                    this.element.toggleClass(STATE_ACTIVE, selected);
                 } else {
-                    element.addClass(BUTTON_ICON_TEXT);
+                    this.element.find(".k-button").toggleClass(STATE_ACTIVE, selected);
                 }
+                this.options.selected = selected;
+            }
+        });
+
+        var ButtonGroup = Item.extend({
+            createButtons: function(buttonConstructor) {
+                var options = this.options;
+                var items = options.buttons || [];
+                var item;
+
+                for (var i = 0; i < items.length; i++) {
+                    if (!items[i].uid) {
+                        items[i].uid = kendo.guid();
+                    }
+                    item = new buttonConstructor($.extend({ mobile: options.mobile, isChild: true, type: "button" }, items[i]), this.toolbar);
+                    item.element.appendTo(this.element);
+                }
+            },
+
+            refresh: function() {
+                this.element.children().filter(":not('." + STATE_HIDDEN + "'):first").addClass(GROUP_START);
+                this.element.children().filter(":not('." + STATE_HIDDEN + "'):last").addClass(GROUP_END);
+            }
+        });
+
+        var ToolBarButtonGroup = ButtonGroup.extend({
+            init: function(options, toolbar) {
+                var element = this.element = $('<div></div>');
+                this.options = options;
+                this.toolbar = toolbar;
+
+                this.addIdAttr();
+
+                if (options.align) {
+                    element.addClass("k-align-" + options.align);
+                }
+
+                this.createButtons(ToolBarButton);
+                this.attributes();
+                this.addUidAttr();
+                this.addOverflowAttr();
+                this.refresh();
+
+                element.addClass(BUTTON_GROUP);
+
+                this.element.data({
+                    type: "buttonGroup",
+                    buttonGroup: this
+                });
+            }
+        });
+
+        var OverflowButtonGroup = ButtonGroup.extend({
+            init: function(options, toolbar) {
+                var element = this.element = $('<li></li>');
+                this.options = options;
+                this.toolbar = toolbar;
+                this.overflow = true;
+
+                this.addOverflowIdAttr();
+
+                this.createButtons(OverflowButton);
+                this.attributes();
+                this.addUidAttr();
+                this.addOverflowAttr();
+                this.refresh();
+
+                element.addClass((options.mobile ? "" : BUTTON_GROUP) + " k-overflow-group");
+
+                this.element.data({
+                    type: "buttonGroup",
+                    buttonGroup: this
+                });
+            },
+
+            overflowHidden: function() {
+                this.element.addClass(OVERFLOW_HIDDEN);
+            }
+        });
+
+        var ToolBarSplitButton = Item.extend({
+            init: function(options, toolbar) {
+                var element = this.element = $('<div class="' + SPLIT_BUTTON + '"></div>');
+
+                this.options = options;
+                this.toolbar = toolbar;
+
+                this.mainButton = new ToolBarButton(options, toolbar);
+                this.arrowButton = $('<a class="' + BUTTON + " " + SPLIT_BUTTON_ARROW + '"><span class="' + (options.mobile ? "km-icon km-arrowdown" : "k-icon k-i-arrow-s") + '"></span></a>');
+                this.popupElement = $('<ul class="' + LIST_CONTAINER + '"></ul>');
+
+                this.mainButton.element.appendTo(element);
+                this.arrowButton.appendTo(element);
+                this.popupElement.appendTo(element);
+
+                if (options.align) {
+                    element.addClass("k-align-" + options.align);
+                }
+
+                if (!options.id) {
+                    options.id = options.uid;
+                }
+
+                element.attr("id", options.id + "_wrapper");
+
+                this.addOverflowAttr();
+                this.addUidAttr();
+
+                this.createMenuButtons();
+                this.createPopup();
+
+                this.mainButton.main = true;
+
+                element.data({
+                    type: "splitButton",
+                    splitButton: this,
+                    kendoPopup: this.popup
+                });
+            },
+
+            createMenuButtons: function() {
+                var options = this.options;
+                var items = options.menuButtons;
+                var item;
+
+                for (var i = 0; i < items.length; i++) {
+                    item = new ToolBarButton($.extend({ mobile: options.mobile, type: "button", click: options.click }, items[i]), this.toolbar);
+                    item.element.wrap("<li></li>").parent().appendTo(this.popupElement);
+                }
+            },
+
+            createPopup: function() {
+                var options = this.options;
+                var element = this.element;
+
+                this.popupElement
+                        .attr("id", options.id + "_optionlist")
+                        .attr(KENDO_UID_ATTR, options.rootUid);
+
+                if (options.mobile) {
+                    this.popupElement = actionSheetWrap(this.popupElement);
+                }
+
+                this.popup = this.popupElement.kendoPopup({
+                    appendTo: options.mobile ? $(options.mobile).children(".km-pane") : null,
+                    anchor: element,
+                    copyAnchorStyles: false,
+                    animation: options.animation,
+                    open: adjustPopupWidth
+                }).data("kendoPopup");
+            },
+
+            remove: function() {
+                this.popup.destroy();
+                this.element.remove();
+            },
+
+            toggle: function() {
+                this.popup.toggle();
+            },
+
+            enable: function(isEnabled) {
+                if (isEnabled === undefined) {
+                    isEnabled = true;
+                }
+                this.mainButton.enable(isEnabled);
+                this.options.enable = isEnabled;
             }
 
-            if (icon) {
-                span = element.children("span." + ICON).first();
-                if (!span[0]) {
-                    span = $('<span class="' + ICON + '"></span>').prependTo(element);
+        });
+
+        var OverflowSplitButton = Item.extend({
+            init: function(options, toolbar) {
+                var element = this.element = $('<li class="' + SPLIT_BUTTON + '"></li>'),
+                    items = options.menuButtons,
+                    item;
+
+                this.options = options;
+                this.toolbar = toolbar;
+                this.overflow = true;
+
+                this.mainButton = new OverflowButton($.extend({ isChild: true }, options));
+                this.mainButton.element.appendTo(element);
+
+                for (var i = 0; i < items.length; i++) {
+                    item = new OverflowButton($.extend({ mobile: options.mobile, isChild: true }, items[i]), this.toolbar);
+                    item.element.appendTo(element);
                 }
-                span.addClass(ICON_PREFIX + icon);
-            } else if (spriteCssClass) {
-                span = element.children("span.k-sprite").first();
-                if (!span[0]) {
-                    span = $('<span class="k-sprite"></span>').prependTo(element);
-                }
-                span.addClass(spriteCssClass);
-            } else if (imageUrl) {
-                img = element.children("img.k-image").first();
-                if (!img[0]) {
-                    img = $('<img alt="icon" class="k-image" />').prependTo(element);
-                }
-                img.attr("src", imageUrl);
+
+                this.addUidAttr();
+                this.addOverflowAttr();
+
+                this.mainButton.main = true;
+
+                element.data({
+                    type: "splitButton",
+                    splitButton: this
+                });
+            },
+
+            overflowHidden: function() {
+                this.element.addClass(OVERFLOW_HIDDEN);
             }
-        }
+        });
+
+        var ToolBarSeparator = Item.extend({
+            init: function(options, toolbar) {
+                var element = this.element = $('<div>&nbsp;</div>');
+
+                this.element = element;
+                this.options = options;
+                this.toolbar = toolbar;
+
+                this.attributes();
+                this.addIdAttr();
+                this.addUidAttr();
+                this.addOverflowAttr();
+
+                element.addClass(SEPARATOR);
+
+                element.data({
+                    type: "separator",
+                    separator: this
+                });
+            }
+        });
+
+        var OverflowSeparator = Item.extend({
+            init: function(options, toolbar) {
+                var element = this.element = $('<li>&nbsp;</li>');
+
+                this.element = element;
+                this.options = options;
+                this.toolbar = toolbar;
+                this.overflow = true;
+
+                this.attributes();
+                this.addUidAttr();
+                this.addOverflowIdAttr();
+
+                element.addClass(SEPARATOR);
+
+                element.data({
+                    type: "separator",
+                    separator: this
+                });
+            },
+
+            overflowHidden: function() {
+                this.element.addClass(OVERFLOW_HIDDEN);
+            }
+        });
+
+        var TemplateItem = Item.extend({
+            init: function(template, options, toolbar) {
+                var element = isFunction(template) ? template(options) : template;
+
+                if (!(element instanceof jQuery)) {
+                    element = $("<div></div>").html(element);
+                } else {
+                    element = element.wrap("<div></div>").parent();
+                }
+
+                this.element = element;
+                this.options = options;
+                this.options.type = "template";
+                this.toolbar = toolbar;
+
+                this.attributes();
+                this.addUidAttr();
+                this.addIdAttr();
+                this.addOverflowAttr();
+
+                element.data({
+                    type: "template",
+                    template: this
+                });
+            }
+        });
+
+        var OverflowTemplateItem = Item.extend({
+            init: function(template, options, toolbar) {
+                var element = isFunction(template) ? $(template(options)) : $(template);
+
+                if (!(element instanceof jQuery)) {
+                    element = $("<li></li>").html(element);
+                } else {
+                    element = element.wrap("<li></li>").parent();
+                }
+
+                this.element = element;
+                this.options = options;
+                this.options.type = "template";
+                this.toolbar = toolbar;
+                this.overflow = true;
+
+                this.attributes();
+                this.addUidAttr();
+                this.addOverflowIdAttr();
+                this.addOverflowAttr();
+
+                element.data({
+                    type: "template",
+                    template: this
+                });
+            },
+
+            overflowHidden: function() {
+                this.element.addClass(OVERFLOW_HIDDEN);
+            }
+        });
 
         function adjustPopupWidth(e) {
             var anchor = this.options.anchor,
@@ -70168,6 +71026,55 @@ function pad(number, digits, end) {
             e.preventDefault();
         }
 
+        var components = {
+            button: {
+                toolbar: ToolBarButton,
+                overflow: OverflowButton
+            },
+
+            buttonGroup: {
+                toolbar: ToolBarButtonGroup,
+                overflow: OverflowButtonGroup
+            },
+
+            splitButton: {
+                toolbar: ToolBarSplitButton,
+                overflow: OverflowSplitButton
+            },
+
+            separator: {
+                toolbar: ToolBarSeparator,
+                overflow: OverflowSeparator
+            },
+
+            overflowAnchor: '<div class="k-overflow-anchor"></div>',
+            overflowContainer: '<ul class="k-overflow-container k-list-container"></ul>'
+        };
+
+        var Group = Class.extend({
+            init: function(name) {
+                this.name = name;
+                this.buttons = [];
+            },
+
+            add: function(button) {
+                this.buttons[this.buttons.length] = button;
+            },
+
+            remove: function(button) {
+                var index = $.inArray(button, this.buttons);
+                this.buttons.splice(index, 1);
+            },
+
+            select: function(button) {
+                for (var i = 0; i < this.buttons.length; i ++) {
+                    this.buttons[i].select(false);
+                }
+
+                button.select(true);
+            }
+        });
+
         var ToolBar = Widget.extend({
             init: function(element, options) {
                 var that = this;
@@ -70180,6 +71087,7 @@ function pad(number, digits, end) {
                 element.addClass(TOOLBAR + " k-widget");
 
                 this.uid = kendo.guid();
+                this._groups = {};
                 element.attr(KENDO_UID_ATTR, this.uid);
 
                 that.isMobile = (typeof options.mobile === "boolean") ? options.mobile : that.element.closest(".km-root")[0];
@@ -70258,6 +71166,19 @@ function pad(number, digits, end) {
                 mobile: null
             },
 
+            addToGroup: function(button, groupName) {
+                var group;
+
+                if (!this._groups[groupName]) {
+                    group = this._groups[groupName] = new Group();
+                } else {
+                    group = this._groups[groupName];
+                }
+
+                group.add(button);
+                return group;
+            },
+
             destroy: function() {
                 var that = this;
 
@@ -70279,10 +71200,10 @@ function pad(number, digits, end) {
             add: function(options) {
                 var component = components[options.type],
                     template = options.template,
-                    element, that = this,
+                    tool, that = this,
                     itemClasses = that.isMobile ? "" : "k-item k-state-default",
                     overflowTemplate = options.overflowTemplate,
-                    overflowElement;
+                    overflowTool;
 
                 $.extend(options, {
                     uid: kendo.guid(),
@@ -70293,40 +71214,27 @@ function pad(number, digits, end) {
 
                 if (template && !overflowTemplate) {
                     options.overflow = OVERFLOW_NEVER;
+                } else if (!options.overflow) {
+                    options.overflow = OVERFLOW_AUTO;
                 }
 
                 //add the command in the overflow popup
                 if (options.overflow !== OVERFLOW_NEVER && that.options.resizable) {
                     if (overflowTemplate) { //template command
-                        overflowElement = isFunction(overflowTemplate) ? $(overflowTemplate(options)) : $(overflowTemplate);
-
-                        if (options.id) {
-                            overflowElement.attr("id", options.id + "_overflow");
-                        }
+                         overflowTool = new OverflowTemplateItem(overflowTemplate, options, that);
                     } else if (component) { //build-in command
-                        overflowElement = (component.overflow || $.noop)(options);
+                        overflowTool = new component.overflow(options, that);
+                        overflowTool.element.addClass(itemClasses);
                     }
 
-                    if (overflowElement && overflowElement.length) {
-                        if(overflowElement.prop("tagName") !== "LI") {
-                            overflowElement.removeAttr(KENDO_UID_ATTR);
-                            overflowElement = overflowElement.wrap("<li></li>").parent();
-                            overflowElement.attr(KENDO_UID_ATTR, options.uid);
-
-                            if (options.type === "button" && options.enable === false) {
-                                overflowElement.find("." + BUTTON).removeClass(STATE_DISABLED);
-                                overflowElement.addClass(STATE_DISABLED);
-                            }
-                        }
-                        that._attributes(overflowElement, options);
-                        overflowElement.addClass(itemClasses).appendTo(that.popup.container);
-
-                        if (overflowElement.data("overflow") === OVERFLOW_AUTO) {
-                            overflowElement.addClass(OVERFLOW_HIDDEN);
+                    if (overflowTool) {
+                        if (options.overflow === OVERFLOW_AUTO) {
+                            overflowTool.overflowHidden();
                         }
 
+                        overflowTool.element.appendTo(that.popup.container);
                         that.angular("compile", function(){
-                            return { elements: overflowElement.get() };
+                            return { elements: overflowTool.element.get() };
                         });
                     }
                 }
@@ -70334,101 +71242,129 @@ function pad(number, digits, end) {
                 //add the command in the toolbar container
                 if (options.overflow !== OVERFLOW_ALWAYS) {
                     if (template) { //template command
-                        element = isFunction(template) ? template(options) : template;
-
-                        if (!(element instanceof jQuery)) {
-                            element = $("<div></div>").html(element);
-                        } else {
-                            element = element.wrap("<div></div>").parent();
-                        }
-
-                        if (options.id) {
-                           element.attr("id", options.id);
-                        }
-                        if (options.attributes) {
-                            element.attr(options.attributes);
-                        }
-                        element.attr(KENDO_UID_ATTR, options.uid);
+                        tool = new TemplateItem(template, options, that);
                     } else if (component) { //build-in command
-                        element = (component.toolbar || $.noop)(options);
+                        tool = new component.toolbar(options, that);
                     }
 
-                    if (element && element.length) {
-                        that._attributes(element, options);
-
+                    if (tool) {
                         if (that.options.resizable) {
-                            element.appendTo(that.element).css("visibility", "hidden");
+                            tool.element.appendTo(that.element).css("visibility", "hidden");
                             that._shrink(that.element.innerWidth());
-                            element.css("visibility", "visible");
+                            tool.element.css("visibility", "visible");
                         } else {
-                            element.appendTo(that.element);
+                            tool.element.appendTo(that.element);
                         }
 
                         that.angular("compile", function(){
-                            return { elements: element.get() };
+                            return { elements: tool.element.get() };
                         });
                     }
                 }
             },
 
-            remove: function(element) {
-                var toolbarElement,
-                    overflowElement,
+            _getItem: function(candidate) {
+                var element,
+                    toolbarItem,
+                    overflowItem,
                     isResizable = this.options.resizable,
                     type, uid;
 
-                toolbarElement = this.element.find(element);
+                element = this.element.find(candidate);
+                type = element.length ? element.data("type") : "";
+                toolbarItem = element.data(type);
 
-                if (isResizable) {
-                    overflowElement = this.popup.element.find(element);
+                if (toolbarItem && toolbarItem.main) {
+                    element = element.parent("." + SPLIT_BUTTON);
+                    type = "splitButton";
+                    toolbarItem = element.data(type);
                 }
 
-                if (toolbarElement.length) {
-                    type = toolbarElement.data("type");
-                    uid = toolbarElement.attr(KENDO_UID_ATTR);
+                if (!element.length && isResizable) {
+                    element = this.popup.element.find(candidate);
+                    type = element.data("type");
+                    overflowItem = element.data(type);
+                }
 
-                    if (toolbarElement.parent("." + SPLIT_BUTTON).data("type") === "splitButton") {
-                        type = "splitButton";
-                        toolbarElement = toolbarElement.parent();
+                if (overflowItem && overflowItem.main) {
+                    element = element.parent("." + SPLIT_BUTTON);
+                    type = "splitButton";
+                    overflowItem = element.data(type);
+                }
+
+                if (toolbarItem && isResizable) {
+                    overflowItem = toolbarItem.twin();
+                }
+
+                return {
+                    type: type,
+                    toolbar: toolbarItem,
+                    overflow: overflowItem
+                };
+            },
+
+            remove: function(candidate) {
+                var item = this._getItem(candidate);
+
+                if (item.toolbar) { item.toolbar.remove(); }
+                if (item.overflow) { item.overflow.remove(); }
+
+                this.resize(true);
+            },
+
+            hide: function(candidate) {
+                var item = this._getItem(candidate);
+
+                if (item.toolbar) {
+                    item.toolbar.hide();
+
+                    if (item.toolbar.options.type === "button" && item.toolbar.options.isChild) {
+                        item.toolbar.getParentGroup().refresh();
                     }
+                }
 
-                    overflowElement = isResizable ? this.popup.element.find("li[" + KENDO_UID_ATTR + "='" + uid + "']") : $([]);
-                } else if (overflowElement.length) {
-                    type = overflowElement.data("type");
-                    overflowElement = overflowElement.parent();
+                if (item.overflow) {
+                    item.overflow.hide();
 
-                    if (overflowElement.data("type") === "splitButton") {
-                        type = "splitButton";
+                    if (item.overflow.options.type === "button" && item.overflow.options.isChild) {
+                        item.overflow.getParentGroup().refresh();
                     }
-
-                    uid = overflowElement.attr(KENDO_UID_ATTR);
-                    toolbarElement = this.element.find("div." + SPLIT_BUTTON + "[" + KENDO_UID_ATTR + "='" + uid + "']");
                 }
 
-                if (type === "splitButton" && toolbarElement.data("kendoPopup")) {
-                    toolbarElement.data("kendoPopup").destroy();
+                this.resize(true);
+            },
+
+            show: function(candidate) {
+                var item = this._getItem(candidate);
+
+                if (item.toolbar) { 
+                    item.toolbar.show();
+
+                    if (item.toolbar.options.type === "button" && item.toolbar.options.isChild) {
+                        item.toolbar.getParentGroup().refresh();
+                    }
                 }
 
-                toolbarElement.remove();
-                overflowElement.remove();
+                if (item.overflow) {
+                    item.overflow.show();
+
+                    if (item.overflow.options.type === "button" && item.overflow.options.isChild) {
+                        item.overflow.getParentGroup().refresh();
+                    }
+                }
+
+                this.resize(true);
             },
 
             enable: function(element, enable) {
-                var uid = this.element.find(element).attr(KENDO_UID_ATTR);
-
-                if (!uid && this.popup) {
-                    uid = this.popup.element.find(element).parent("li").attr(KENDO_UID_ATTR);
-                }
+                var item = this._getItem(element);
 
                 if (typeof enable == "undefined") {
                     enable = true;
                 }
 
-                if (enable) {
-                    $("[" + KENDO_UID_ATTR + "='" + uid + "']").removeClass(STATE_DISABLED);
-                } else {
-                    $("[" + KENDO_UID_ATTR + "='" + uid + "']").addClass(STATE_DISABLED);
-                }
+                if (item.toolbar) { item.toolbar.enable(enable); }
+                if (item.overflow) { item.overflow.enable(enable); }
             },
 
             getSelectedFromGroup: function(groupName) {
@@ -70437,36 +71373,11 @@ function pad(number, digits, end) {
 
             toggle: function(button, checked) {
                 var element = $(button),
-                    uid = element.data("uid"),
-                    group = element.data("group"),
-                    twinElement;
+                    item = element.data("button");
 
-                if (element.hasClass(TOGGLE_BUTTON)) {
-
-                    if (group) { //find all buttons from the same group
-                        this.element
-                            .add(this.popup.element)
-                            .find("." + TOGGLE_BUTTON + "[data-group='" + group + "']")
-                            .filter("." + STATE_ACTIVE)
-                            .removeClass(STATE_ACTIVE);
-                    }
-
-                    if ($.contains(this.element[0], element[0])) {
-                        twinElement = this.popup.element.find("[" + KENDO_UID_ATTR + "='" + uid + "']");
-                        if (twinElement.prop("tagName") === "LI") {
-                            twinElement = twinElement.find("." + TOGGLE_BUTTON + ":first");
-                        }
-                    } else {
-                        uid = uid ? uid : element.parent().data("uid");
-                        twinElement = this.element.find("[" + KENDO_UID_ATTR + "='" + uid + "']");
-                    }
-
-                    element.add(twinElement).toggleClass(STATE_ACTIVE, checked);
+                if (item.options.togglable) {
+                    item.toggle(checked ? checked : !item.options.selectable, true);
                 }
-            },
-
-            _attributes: function(element, options) {
-                element.attr(kendo.attr("overflow"), options.overflow || OVERFLOW_AUTO);
             },
 
             _renderOverflow: function() {
@@ -70517,7 +71428,7 @@ function pad(number, digits, end) {
                 } else {
                     that.popup.container = that.popup.element;
                 }
-                
+
                 that.popup.container.attr(KENDO_UID_ATTR, this.uid);
                 that.popup.element.toggleClass("k-rtl", kendo.support.isRtl(that.element));
             },
@@ -70538,11 +71449,17 @@ function pad(number, digits, end) {
 
             _buttonClick: function(e) {
                 var that = this, popup,
-                    target, splitContainer,
-                    isDisabled, isChecked,
-                    group, handler, eventData, id;
+                    target, item, splitContainer,
+                    isDisabled,
+                    isSplitButtonArrow = e.target.closest("." + SPLIT_BUTTON_ARROW).length,
+                    handler, eventData;
 
                 e.preventDefault();
+
+                if (isSplitButtonArrow) {
+                    that._toggle(e);
+                    return;
+                }
 
                 target = $(e.target).closest("." + BUTTON, that.element);
 
@@ -70550,36 +71467,28 @@ function pad(number, digits, end) {
                     return;
                 }
 
-                if (!target.length && that.popup) {
+                item = target.data("button");
+
+                if (!item && that.popup) {
                     target = $(e.target).closest("." + OVERFLOW_BUTTON, that.popup.container);
+                    item = target.parent("li").data("button");
                 }
 
-                isDisabled = target.hasClass(OVERFLOW_BUTTON) ? target.parent("li").hasClass(STATE_DISABLED) : target.hasClass(STATE_DISABLED);
-
-                if (isDisabled) {
+                if (!item.options.enable) {
                     return;
                 }
 
-                if (e.target.closest("." + SPLIT_BUTTON_ARROW).length) {
-                    that._toggle(e);
-                    return;
-                }
+                if (item.options.togglable) {
+                    handler = isFunction(item.toggleHandler) ? item.toggleHandler : null;
 
-                id = target.attr("id") ? target.attr("id").replace(/(_overflow$)/, "") : undefined;
-
-                if (target.hasClass(TOGGLE_BUTTON)) {
-                    group = target.data("group");
-                    handler = isFunction(target.data("toggle")) ? target.data("toggle") : null;
-
-                    that.toggle(target);
-                    isChecked = target.hasClass(STATE_ACTIVE);
-                    eventData = { target: target, group: group, checked: isChecked, id: id };
+                    item.toggle(!item.options.selected, true);
+                    eventData = { target: target, group: item.options.group, checked: item.options.selected, id: item.options.id };
 
                     if (handler) { handler.call(that, eventData); }
                     that.trigger(TOGGLE, eventData);
                 } else {
-                    handler = isFunction(target.data("click")) ? target.data("click") : null;
-                    eventData = { target: target, id: id };
+                    handler = isFunction(item.clickHandler) ? item.clickHandler : null;
+                    eventData = { target: target, id: item.options.id };
 
                     if (handler) { handler.call(that, eventData); }
                     that.trigger(CLICK, eventData);
@@ -70597,24 +71506,23 @@ function pad(number, digits, end) {
             },
 
             _toggle: function(e) {
-                var splitButton = $(e.target).closest("." + SPLIT_BUTTON),
-                    popup = splitButton.data("kendoPopup"),
+                var splitButton = $(e.target).closest("." + SPLIT_BUTTON).data("splitButton"),
                     isDefaultPrevented;
 
                 e.preventDefault();
 
-                if (splitButton.hasClass(STATE_DISABLED)) {
+                if (!splitButton.options.enable) {
                     return;
                 }
 
-                if (popup.element.is(":visible")) {
-                    isDefaultPrevented = this.trigger(CLOSE, { target: splitButton });
+                if (splitButton.popup.element.is(":visible")) {
+                    isDefaultPrevented = this.trigger(CLOSE, { target: splitButton.element });
                 } else {
-                    isDefaultPrevented = this.trigger(OPEN, { target: splitButton });
+                    isDefaultPrevented = this.trigger(OPEN, { target: splitButton.element });
                 }
 
                 if (!isDefaultPrevented) {
-                    popup.toggle();
+                    splitButton.toggle();
                 }
             },
 
@@ -70642,7 +71550,7 @@ function pad(number, digits, end) {
             _childrenWidth: function() {
                 var childrenWidth = 0;
 
-                this.element.children(":visible").each(function() {
+                this.element.children(":visible:not('." + STATE_HIDDEN + "')").each(function() {
                     childrenWidth += $(this).outerWidth(true);
                 });
 
@@ -70672,7 +71580,7 @@ function pad(number, digits, end) {
                     hiddenCommands;
 
                 if (containerWidth > this._childrenWidth()) {
-                    hiddenCommands = this.element.children(":hidden");
+                    hiddenCommands = this.element.children(":hidden:not('." + STATE_HIDDEN + "')");
 
                     for (var i = 0; i < hiddenCommands.length ; i++) {
                         commandElement = hiddenCommands.eq(i);
@@ -75640,7 +76548,7 @@ function pad(number, digits, end) {
         CLOSE = "close",
         SELECT = "select",
         SELECTED = "selected",
-        PROGRESS = "progress",
+        REQUESTSTART = "requestStart",
         REQUESTEND = "requestEnd",
         WIDTH = "width",
         extend = $.extend,
@@ -75776,7 +76684,6 @@ function pad(number, digits, end) {
 
             if (!hasVirtual) {
                 that.listView = new kendo.ui.StaticList(that.ul, listOptions);
-                that.listView.setTouchScroller(that._touchScroller);
             } else {
                 that.listView = new kendo.ui.VirtualList(that.ul, listOptions);
             }
@@ -75905,10 +76812,6 @@ function pad(number, digits, end) {
 
             that.listView.destroy();
             that.list.off(ns);
-
-            if (that._touchScroller) {
-                that._touchScroller.destroy();
-            }
 
             that.popup.destroy();
 
@@ -76047,6 +76950,23 @@ function pad(number, digits, end) {
             return value;
         },
 
+        _offsetHeight: function() {
+            var offsetHeight = 0;
+            var siblings = this.listView.content.prevAll(":visible");
+
+            siblings.each(function() {
+                var element = $(this);
+
+                if (element.hasClass("k-list-filter")) {
+                    offsetHeight += element.children().outerHeight();
+                } else {
+                    offsetHeight += element.outerHeight();
+                }
+            });
+
+            return offsetHeight;
+        },
+
         _height: function(length) {
             var that = this;
             var list = that.list;
@@ -76058,19 +76978,19 @@ function pad(number, digits, end) {
             if (length) {
                 popups = list.add(list.parent(".k-animation-container")).show();
 
-                height = that.ul[0].scrollHeight > height ? height : "auto";
+                height = that.listView.content[0].scrollHeight > height ? height : "auto";
 
                 popups.height(height);
 
                 if (height !== "auto") {
-                    offsetTop = that.ul[0].offsetTop;
+                    offsetTop = that._offsetHeight();
 
                     if (offsetTop) {
-                        height = list.height() - offsetTop;
+                        height -= offsetTop;
                     }
                 }
 
-                that.ul.height(height);
+                that.listView.content.height(height);
 
                 if (!visible) {
                     popups.hide();
@@ -76151,9 +77071,8 @@ function pad(number, digits, end) {
         },
 
         _calculateGroupPadding: function(height) {
-            var ul = this.ul;
-            var li = ul.children(".k-first:first");
-            var groupHeader = ul.prev(".k-group-header");
+            var li = this.ul.children(".k-first:first");
+            var groupHeader = this.listView.content.prev(".k-group-header");
             var padding = 0;
 
             if (groupHeader[0] && groupHeader[0].style.display !== "none") {
@@ -76186,8 +77105,6 @@ function pad(number, digits, end) {
             if (!that.options.virtual) {
                 that.popup.one(OPEN, proxy(that._firstOpen, that));
             }
-
-            that._touchScroller = kendo.touchScroller(that.popup.element);
         },
 
         _makeUnselectable: function() {
@@ -76227,7 +77144,7 @@ function pad(number, digits, end) {
         _unbindDataSource: function() {
             var that = this;
 
-            that.dataSource.unbind(PROGRESS, that._progressHandler)
+            that.dataSource.unbind(REQUESTSTART, that._requestStartHandler)
                            .unbind(REQUESTEND, that._requestEndHandler)
                            .unbind("error", that._errorHandler);
         }
@@ -76365,7 +77282,7 @@ function pad(number, digits, end) {
                     idx = -1;
                 }
 
-                if (value !== "" && idx == -1) {
+                if (value !== null && value !== "" && idx == -1) {
                     this._custom(value);
                 } else {
                     if (value) {
@@ -76429,6 +77346,7 @@ function pad(number, digits, end) {
 
         _requestEnd: function() {
             this._request = false;
+            this._hideBusy();
         },
 
         _dataSource: function() {
@@ -76454,13 +77372,13 @@ function pad(number, digits, end) {
             if (that.dataSource) {
                 that._unbindDataSource();
             } else {
-                that._progressHandler = proxy(that._showBusy, that);
+                that._requestStartHandler = proxy(that._showBusy, that);
                 that._requestEndHandler = proxy(that._requestEnd, that);
                 that._errorHandler = proxy(that._hideBusy, that);
             }
 
             that.dataSource = kendo.data.DataSource.create(dataSource)
-                                   .bind(PROGRESS, that._progressHandler)
+                                   .bind(REQUESTSTART, that._requestStartHandler)
                                    .bind(REQUESTEND, that._requestEndHandler)
                                    .bind("error", that._errorHandler);
         },
@@ -76778,13 +77696,18 @@ function pad(number, digits, end) {
             Widget.fn.init.call(this, element, options);
 
             this.element.attr("role", "listbox")
-                        .css({ overflow: support.kineticScrollNeeded ? "": "auto" })
                         .on("click" + STATIC_LIST_NS, "li", proxy(this._click, this))
                         .on("mouseenter" + STATIC_LIST_NS, "li", function() { $(this).addClass(HOVER); })
                         .on("mouseleave" + STATIC_LIST_NS, "li", function() { $(this).removeClass(HOVER); });
 
-
-            this.header = this.element.before('<div class="k-group-header" style="display:none"></div>').prev();
+            this.content = this.element
+                        .wrap("<div unselectable='on'></div>")
+                        .parent()
+                        .css({
+                            "overflow": "auto",
+                            "position": "relative"
+                        });
+            this.header = this.content.before('<div class="k-group-header" style="display:none"></div>').prev();
 
             this._bound = false;
 
@@ -76887,28 +77810,6 @@ function pad(number, digits, end) {
             }
         },
 
-        _offsetHeight: function() {
-            var offsetHeight = 0;
-            var siblings = this.element.prevAll();
-
-            siblings.each(function() {
-                var element = $(this);
-                if (element.is(":visible")) {
-                    if (element.hasClass("k-list-filter")) {
-                        offsetHeight += element.children().height();
-                    } else {
-                        offsetHeight += element.outerHeight();
-                    }
-                }
-            });
-
-            return offsetHeight;
-        },
-
-        setTouchScroller: function (touchScroller) {
-            this._touchScroller = touchScroller;
-        },
-
         scroll: function (item) {
             if (!item) {
                 return;
@@ -76918,34 +77819,21 @@ function pad(number, digits, end) {
                 item = item[0];
             }
 
-            var ul = this.element[0],
+            var content = this.content[0],
                 itemOffsetTop = item.offsetTop,
                 itemOffsetHeight = item.offsetHeight,
-                ulScrollTop = ul.scrollTop,
-                ulOffsetHeight = ul.clientHeight,
+                contentScrollTop = content.scrollTop,
+                contentOffsetHeight = content.clientHeight,
                 bottomDistance = itemOffsetTop + itemOffsetHeight,
-                touchScroller = this._touchScroller,
                 yDimension, offsetHeight;
 
-            if (touchScroller) {
-                yDimension = touchScroller.dimensions.y;
-                yDimension.update(true);
-
-                if (yDimension.enabled && itemOffsetTop > yDimension.size) {
-                    itemOffsetTop = itemOffsetTop - yDimension.size + itemOffsetHeight + 4;
-
-                    touchScroller.scrollTo(0, -itemOffsetTop);
-                }
-            } else {
-                offsetHeight = this._offsetHeight();
-                if (ulScrollTop > (itemOffsetTop - offsetHeight)) {
-                    ulScrollTop = (itemOffsetTop - offsetHeight);
-                } else if (bottomDistance > (ulScrollTop + ulOffsetHeight + offsetHeight)) {
-                    ulScrollTop = (bottomDistance - ulOffsetHeight - offsetHeight);
+                if (contentScrollTop > itemOffsetTop) {
+                    contentScrollTop = itemOffsetTop;
+                } else if (bottomDistance > (contentScrollTop + contentOffsetHeight)) {
+                    contentScrollTop = (bottomDistance - contentOffsetHeight);
                 }
 
-                ul.scrollTop = ulScrollTop;
-           }
+                content.scrollTop = contentScrollTop;
         },
 
         selectedDataItems: function(dataItems) {
@@ -77432,22 +78320,22 @@ function pad(number, digits, end) {
 
         _firstVisibleItem: function() {
             var element = this.element[0];
-            var scrollTop = element.scrollTop;
+            var content = this.content[0];
+            var scrollTop = content.scrollTop;
             var itemHeight = $(element.children[0]).height();
             var itemIndex = Math.floor(scrollTop / itemHeight) || 0;
             var item = element.children[itemIndex] || element.lastChild;
-            var offsetHeight = this._offsetHeight();
-            var forward = (item.offsetTop - offsetHeight) < scrollTop;
+            var forward = item.offsetTop < scrollTop;
 
             while (item) {
                 if (forward) {
-                    if ((item.offsetTop + itemHeight - offsetHeight) > scrollTop || !item.nextSibling) {
+                    if ((item.offsetTop + itemHeight) > scrollTop || !item.nextSibling) {
                         break;
                     }
 
                     item = item.nextSibling;
                 } else {
-                    if ((item.offsetTop - offsetHeight) <= scrollTop || !item.previousSibling) {
+                    if (item.offsetTop <= scrollTop || !item.previousSibling) {
                         break;
                     }
 
@@ -77461,10 +78349,10 @@ function pad(number, digits, end) {
         _fixedHeader: function() {
             if (this.isGrouped() && this.templates.fixedGroupTemplate) {
                 this.header.show();
-                this.element.scroll(this._onScroll);
+                this.content.scroll(this._onScroll);
             } else {
                 this.header.hide();
-                this.element.off("scroll", this._onScroll);
+                this.content.off("scroll", this._onScroll);
             }
         },
 
@@ -77721,6 +78609,7 @@ function pad(number, digits, end) {
             that._mobile();
 
             that._dataSource();
+
             that._ignoreCase();
 
             that._filterHeader();
@@ -78080,7 +78969,6 @@ function pad(number, digits, end) {
                 that._options(data, optionLabel, value);
             }
 
-            that._hideBusy();
             that._makeUnselectable();
 
             if (!filtered) {
@@ -78926,6 +79814,9 @@ function pad(number, digits, end) {
             ITEMBOUNDSCHANGE = "itemBoundsChange",
             CHANGE = "change",
             CLICK = "click",
+            DRAG = "drag",
+            DRAG_END = "dragEnd",
+            DRAG_START = "dragStart",
             MOUSE_ENTER = "mouseEnter",
             MOUSE_LEAVE = "mouseLeave",
             ERROR = "error",
@@ -79764,6 +80655,7 @@ function pad(number, digits, end) {
                     }
                 }
             },
+
             toJSON: function() {
                 return {
                     shapeId: this.options.id
@@ -79862,6 +80754,11 @@ function pad(number, digits, end) {
                             this.target(new Point(options.toX, options.toY));
                         }
 
+                        if (defined(options.type) && this.type() !== options.type) {
+                            this.points([]);
+                            this.type(options.type);
+                        }
+
                         this.dataItem = model;
 
                         this._template();
@@ -79896,6 +80793,10 @@ function pad(number, digits, end) {
                                 model.set("to", this.options.to);
                                 model.set("toX", null);
                                 model.set("toY", null);
+                            }
+
+                            if (defined(this.options.type) && defined(model.type)) {
+                                model.set("type", this.options.type);
                             }
 
                             this.dataItem = model;
@@ -79938,6 +80839,9 @@ function pad(number, digits, end) {
                     if (source !== undefined) {
                         this.from = source;
                     }
+
+                    this._removeFromSourceConnector();
+
                     if (source === null) { // detach
                         if (this.sourceConnector) {
                             this._sourcePoint = this._resolvedSourceConnector.position();
@@ -80035,6 +80939,8 @@ function pad(number, digits, end) {
                     if (target !== undefined) {
                         this.to = target;
                     }
+
+                    this._removeFromTargetConnector();
 
                     if (target === null) { // detach
                         if (this.targetConnector) {
@@ -80135,7 +81041,22 @@ function pad(number, digits, end) {
             },
 
             content: function(content) {
-                return this._content(content);
+                var result = this._content(content);
+                if (defined(content)) {
+                    this._alignContent();
+                }
+                return result;
+            },
+
+            _alignContent: function() {
+                if (this._contentVisual) {
+                    var boundsTopLeft = this._bounds.topLeft();
+                    var localSourcePoint = this.sourcePoint().minus(boundsTopLeft);
+                    var localSinkPoint = this.targetPoint().minus(boundsTopLeft);
+                    var middle = Point.fn.middleOf(localSourcePoint, localSinkPoint);
+
+                    this._contentVisual.position(new Point(middle.x + boundsTopLeft.x, middle.y + boundsTopLeft.y));
+                }
             },
 
             /**
@@ -80162,7 +81083,11 @@ function pad(number, digits, end) {
                                 deselected.push(this);
                             }
                         }
-                        this.refresh();
+
+                        if (this.adorner) {
+                            this.adorner.refresh();
+                        }
+
                         if (!diagram._internalSelection) {
                             diagram._selectionChanged(selected, deselected);
                         }
@@ -80257,18 +81182,8 @@ function pad(number, digits, end) {
 
             refresh: function () {
                 this._resolveConnectors();
-                var globalSourcePoint = this.sourcePoint(), globalSinkPoint = this.targetPoint(),
-                    boundsTopLeft, localSourcePoint, localSinkPoint, middle;
-
                 this._refreshPath();
-
-                boundsTopLeft = this._bounds.topLeft();
-                localSourcePoint = globalSourcePoint.minus(boundsTopLeft);
-                localSinkPoint = globalSinkPoint.minus(boundsTopLeft);
-                if (this._contentVisual) {
-                    middle = Point.fn.middleOf(localSourcePoint, localSinkPoint);
-                    this._contentVisual.position(new Point(middle.x + boundsTopLeft.x, middle.y + boundsTopLeft.y));
-                }
+                this._alignContent();
 
                 if (this.adorner) {
                     this.adorner.refresh();
@@ -80398,14 +81313,15 @@ function pad(number, digits, end) {
 
                     var points = this.options.points;
 
-                    if ((options && options.content) || options.text) {
-                        this.content(options.content);
-                    }
-
                     if (defined(points) && points.length > 0) {
                         this.points(points);
                         this._refreshPath();
                     }
+
+                    if ((options && options.content) || options.text) {
+                        this.content(options.content);
+                    }
+
                     this.path.redraw({
                         fill: options.fill,
                         stroke: options.stroke,
@@ -80511,6 +81427,18 @@ function pad(number, digits, end) {
                 Utils.remove(this.targetConnector.connections, this);
                 this.targetConnector = undefined;
                 this._resolvedTargetConnector = undefined;
+            },
+
+            _removeFromSourceConnector: function() {
+                if (this.sourceConnector) {
+                    Utils.remove(this.sourceConnector.connections, this);
+                }
+            },
+
+            _removeFromTargetConnector: function() {
+                if (this.targetConnector) {
+                    Utils.remove(this.targetConnector.connections, this);
+                }
             }
         });
 
@@ -80522,6 +81450,7 @@ function pad(number, digits, end) {
                 Widget.fn.init.call(that, element, userOptions);
 
                 that._initTheme();
+
                 that._initElements();
                 that._extendLayoutOptions(that.options);
                 that._initDefaults(userOptions);
@@ -80547,6 +81476,7 @@ function pad(number, digits, end) {
                 that._initialize();
                 that._fetchFreshData();
                 that._createGlobalToolBar();
+
                 that._resizingAdorner = new ResizingAdorner(that, { editable: that.options.editable });
                 that._connectorsAdorner = new ConnectorsAdorner(that);
 
@@ -80587,7 +81517,14 @@ function pad(number, digits, end) {
                     rotate: {},
                     resize: {},
                     text: true,
-                    tools: []
+                    tools: [],
+                    drag: {
+                        snap: {
+                            size: 10,
+                            angle: 10
+                        }
+                    },
+                    remove: true
                 },
                 pannable: {
                     key: "ctrl"
@@ -80601,15 +81538,12 @@ function pad(number, digits, end) {
                     offsetX: 20,
                     offsetY: 20
                 },
-                snap: {
-                    size: 10,
-                    angle: 10
-                },
                 shapeDefaults: diagram.shapeDefaults({ undoable: true }),
                 connectionDefaults: {
                     editable: {
                         tools: []
-                    }
+                    },
+                    type: CASCADING
                 },
                 shapes: [],
                 connections: []
@@ -80631,7 +81565,10 @@ function pad(number, digits, end) {
                 "edit",
                 "remove",
                 "add",
-                "dataBound"
+                "dataBound",
+                DRAG_START,
+                DRAG,
+                DRAG_END
             ],
 
             _createGlobalToolBar: function() {
@@ -80650,14 +81587,11 @@ function pad(number, digits, end) {
                         });
 
                         this.toolBar.element.css({
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            width: this.element.width(),
                             textAlign: "left"
                         });
 
-                        this.element.append(this.toolBar.element);
+                        this.element.prepend(this.toolBar.element);
+                        this._resize();
                     }
                 }
             },
@@ -80805,16 +81739,21 @@ function pad(number, digits, end) {
                     .attr("tabindex", 0)
                     .addClass("k-widget k-diagram");
 
-
                 this.scrollable = $("<div />").appendTo(this.element);
             },
 
             _initDefaults: function(userOptions) {
                 var options = this.options;
+                var editable = options.editable;
+                var shapeDefaults = options.shapeDefaults;
+                var connectionDefaults = options.connectionDefaults;
                 var userShapeDefaults = (userOptions || {}).shapeDefaults;
-                if (options.editable === false) {
-                    options.shapeDefaults.editable = false;
-                    options.connectionDefaults.editable = false;
+                if (editable === false) {
+                    shapeDefaults.editable = false;
+                    connectionDefaults.editable = false;
+                } else {
+                    copyDefaultOptions(editable, shapeDefaults.editable, ["drag", "remove", "connect"]);
+                    copyDefaultOptions(editable, connectionDefaults.editable, ["drag", "remove"]);
                 }
 
                 if (userShapeDefaults && userShapeDefaults.connectors) {
@@ -80950,13 +81889,14 @@ function pad(number, digits, end) {
                 });
             },
 
-            _resize: function(size) {
+            _resize: function() {
+                var viewport = this.viewport();
                 if (this.canvas) {
-                    this.canvas.size(size);
+                    this.canvas.size(viewport);
                 }
 
-                if (this.toolBar) {
-                    this.toolBar._toolBar.element.width(this.element.width());
+                if (this.scrollable && this.toolBar) {
+                    this.scrollable.height(viewport.height);
                 }
             },
 
@@ -81176,7 +82116,7 @@ function pad(number, digits, end) {
                 }
 
                 connection.diagram = this;
-                connection.updateOptionsFromModel();
+                connection._setOptionsFromModel();
                 connection.refresh();
                 this.mainLayer.append(connection.visual);
                 this.connections.push(connection);
@@ -81334,16 +82274,17 @@ function pad(number, digits, end) {
 
             _triggerRemove: function(items){
                 var toRemove = [];
-                var item, args;
+                var item, args, editable;
 
                 for (var idx = 0; idx < items.length; idx++) {
                     item = items[idx];
+                    editable = item.options.editable;
                     if (item instanceof Shape) {
                         args = { shape: item };
                     } else {
                         args = { connection: item };
                     }
-                    if (!this.trigger("remove", args)) {
+                    if (editable && editable.remove !== false && !this.trigger("remove", args)) {
                         toRemove.push(item);
                     }
                 }
@@ -81659,8 +82600,14 @@ function pad(number, digits, end) {
 
             viewport: function () {
                 var element = this.element;
+                var width = element.width();
+                var height = element.height();
 
-                return new Rect(0, 0, element.width(), element.height());
+                if (this.toolBar) {
+                    height -= this.toolBar.element.outerHeight();
+                }
+
+                return new Rect(0, 0, width, height);
             },
             copy: function () {
                 if (this.options.copy.enabled) {
@@ -81774,13 +82721,22 @@ function pad(number, digits, end) {
                 }
                 return rect;
             },
-            documentToView: function(point) {
+
+            _containerOffset: function() {
                 var containerOffset = this.element.offset();
+                if (this.toolBar) {
+                    containerOffset.top += this.toolBar.element.outerHeight();
+                }
+                return containerOffset;
+            },
+
+            documentToView: function(point) {
+                var containerOffset = this._containerOffset();
 
                 return new Point(point.x - containerOffset.left, point.y - containerOffset.top);
             },
             viewToDocument: function(point) {
-                var containerOffset = this.element.offset();
+                var containerOffset = this._containerOffset();
 
                 return new Point(point.x + containerOffset.left, point.y + containerOffset.top);
             },
@@ -82149,7 +83105,6 @@ function pad(number, digits, end) {
                     parentShape = this._addDataItemByUid(parent);
                     if (parentShape && !this.connected(parentShape, shape)) { // check if connected to not duplicate connections.
                         connection = this.connect(parentShape, shape);
-                        connection.type(CASCADING);
                     }
                 }
             },
@@ -82215,12 +83170,17 @@ function pad(number, digits, end) {
                 if (!this.singleToolBar && diagram.select().length === 1) {
                     var element = diagram.select()[0];
                     if (element && element.options.editable !== false) {
-                        var tools = element.options.editable.tools;
+                        var editable = element.options.editable;
+                        var tools = editable.tools;
                         if (this._isEditable && tools.length === 0) {
                             if (element instanceof Shape) {
-                                tools = ["edit", "rotateClockwise", "rotateAnticlockwise", "delete"];
+                                tools = ["edit", "rotateClockwise", "rotateAnticlockwise"];
                             } else if (element instanceof Connection) {
-                                tools = ["edit", "delete"];
+                                tools = ["edit"];
+                            }
+
+                            if (editable && editable.remove !== false) {
+                                tools.push("delete");
                             }
                         }
 
@@ -82583,7 +83543,7 @@ function pad(number, digits, end) {
                         var options = deepExtend({}, this.options.connectionDefaults);
                         options.dataItem = dataItem;
                         var connection = new Connection(from, to, options);
-                        connection.type(options.type || CASCADING);
+
                         this._connectionsDataMap[dataItem.uid] = connection;
                         this.addConnection(connection, undoable);
                     }
@@ -83671,6 +84631,16 @@ function pad(number, digits, end) {
             }
 
             return new kendo.data.ObservableObject(model);
+        }
+
+        function copyDefaultOptions(mainOptions, elementOptions, fields) {
+            var field;
+            for (var idx = 0; idx < fields.length; idx++) {
+                field = fields[idx];
+                if (elementOptions && !defined(elementOptions[field])) {
+                    elementOptions[field] = mainOptions[field];
+                }
+            }
         }
 
         dataviz.ui.plugin(Diagram);
@@ -85046,28 +86016,26 @@ function pad(number, digits, end) {
         widget.$angular_setLogicValue(getter(scope));
 
         // keep in sync
-        scope.$apply(function() {
-            var watchHandler = function(newValue, oldValue) {
-                if (newValue === undefined) {
-                    // because widget's value() method usually checks if the new value is undefined,
-                    // in which case it returns the current value rather than clearing the field.
-                    // https://github.com/telerik/kendo-ui-core/issues/299
-                    newValue = null;
-                }
-                if (updating) {
-                    return;
-                }
-                if (newValue === oldValue) {
-                    return;
-                }
-                widget.$angular_setLogicValue(newValue);
-            };
-            if (kendo.ui.MultiSelect && widget instanceof kendo.ui.MultiSelect) {
-                scope.$watchCollection(kNgModel, watchHandler);
-            } else {
-                scope.$watch(kNgModel, watchHandler);
+        var watchHandler = function(newValue, oldValue) {
+            if (newValue === undefined) {
+                // because widget's value() method usually checks if the new value is undefined,
+                // in which case it returns the current value rather than clearing the field.
+                // https://github.com/telerik/kendo-ui-core/issues/299
+                newValue = null;
             }
-        });
+            if (updating) {
+                return;
+            }
+            if (newValue === oldValue) {
+                return;
+            }
+            widget.$angular_setLogicValue(newValue);
+        };
+        if (kendo.ui.MultiSelect && widget instanceof kendo.ui.MultiSelect) {
+            scope.$watchCollection(kNgModel, watchHandler);
+        } else {
+            scope.$watch(kNgModel, watchHandler);
+        }
 
         widget.first("change", function(){
             updating = true;
@@ -85220,14 +86188,13 @@ function pad(number, digits, end) {
     }
 
     module.factory('directiveFactory', [ '$compile', function(compile) {
-        var KENDO_COUNT = 0;
+        var kendoRenderedTimeout;
         var RENDERED = false;
 
         // caching $compile for the dirty hack upstairs. This is awful, but we happen to have elements outside of the bootstrapped root :(.
         $defaultCompile = compile;
 
         var create = function(role, origAttr) {
-
             return {
                 // Parse the directive for attributes and classes
                 restrict: "AC",
@@ -85258,39 +86225,30 @@ function pad(number, digits, end) {
                     // but we still keep the attribute without the
                     // `data-` prefix, so k-rebind would work.
                     var roleattr = role.replace(/([A-Z])/g, "-$1");
-                    var isVisible = $element.css("visibility") !== "hidden";
 
                     $element.attr(roleattr, $element.attr("data-" + roleattr));
                     $element[0].removeAttribute("data-" + roleattr);
 
-                    if (isVisible) {
-                        $element.css("visibility", "hidden");
+                    var widget = createWidget(scope, element, attrs, role, origAttr, controllers);
+
+                    if (!widget) {
+                        return;
                     }
 
-                    ++KENDO_COUNT;
+                    if (kendoRenderedTimeout) {
+                        clearTimeout(kendoRenderedTimeout);
+                    }
 
-                    $timeout(function() {
-                        if (isVisible) {
-                            $element.css("visibility", "");
-                        }
-                        var widget = createWidget(scope, element, attrs, role, origAttr, controllers);
-
-                        if (!widget) {
-                            return;
-                        }
-
-                        --KENDO_COUNT;
-                        if (KENDO_COUNT === 0) {
-                            scope.$emit("kendoRendered");
-                            if (!RENDERED) {
-                                RENDERED = true;
-                                $("form").each(function(){
-                                    var form = $(this).controller("form");
-                                    if (form) {
-                                        form.$setPristine();
-                                    }
-                                });
-                            }
+                    kendoRenderedTimeout = setTimeout(function() {
+                        scope.$emit("kendoRendered");
+                        if (!RENDERED) {
+                            RENDERED = true;
+                            $("form").each(function(){
+                                var form = $(this).controller("form");
+                                if (form) {
+                                    form.$setPristine();
+                                }
+                            });
                         }
                     });
                 }

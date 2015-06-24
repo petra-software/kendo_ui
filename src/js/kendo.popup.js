@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.1.624 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.624 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -449,8 +449,7 @@
             return $(this.options.anchor)
                        .parentsUntil("body")
                        .filter(function(index, element) {
-                            var computedStyle = kendo.getComputedStyles(element, ["overflow"]);
-                            return computedStyle.overflow != "visible";
+                           return kendo.isScrollable(element);
                        });
         },
 

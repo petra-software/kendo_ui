@@ -406,6 +406,7 @@
     <Compile Include="UI\Calendar\Fluent\CalendarEventBuilder.cs" />
     <Compile Include="UI\Calendar\Fluent\CalendarSelectionSettingsBuilder.cs" />
     <Compile Include="UI\Chart\Axes\ChartAxisLabels.cs" />
+    <Compile Include="UI\Chart\Axes\ChartAxisLabelsRotation.cs" />
     <Compile Include="UI\Chart\Axes\ChartCategoryAxis.cs" />
     <Compile Include="UI\Chart\Axes\ChartAxisBase.cs" />
     <Compile Include="UI\Chart\Axes\ChartAxisNotes.cs" />
@@ -445,6 +446,7 @@
     <Compile Include="UI\Chart\ChartLineBase.cs" />
     <Compile Include="UI\Chart\ChartLegendLabels.cs" />
     <Compile Include="UI\Chart\Axes\ChartAxisNoteItem.cs" />
+    <Compile Include="UI\Chart\Enums\ChartAxisLabelRotationAlignment.cs" />
     <Compile Include="UI\Chart\Enums\ChartLegendAlign.cs" />
     <Compile Include="UI\Chart\Enums\ChartScatterLineStyle.cs" />
     <Compile Include="UI\Chart\Enums\ChartZoomDireciton.cs" />
@@ -460,12 +462,14 @@
     <Compile Include="UI\Chart\Enums\ChartStackType.cs" />
     <Compile Include="UI\Chart\Enums\ChartLegendOrientation.cs" />
     <Compile Include="UI\Chart\Fluent\ChartAreaLineBuilder.cs" />
+    <Compile Include="UI\Chart\Fluent\ChartAxisLabelsRotationBuilder.cs" />
     <Compile Include="UI\Chart\Fluent\ChartLegendItemBuilder.cs" />
     <Compile Include="UI\Chart\Fluent\ChartRangeBarLabelsBuilder.cs" />
     <Compile Include="UI\Chart\Fluent\ChartRangeBarSeriesBuilder.cs" />
     <Compile Include="UI\Chart\Fluent\ChartWaterfallSeriesBuilder.cs" />
     <Compile Include="UI\Chart\Fluent\ChartLineSeriesHighlightBuilder.cs" />
     <Compile Include="UI\Chart\Fluent\ChartPolarAxisBuilder.cs" />
+    <Compile Include="UI\Chart\Serialization\ChartLabelRotationSerializer.cs" />
     <Compile Include="UI\Chart\Serialization\ChartLegendItemSerializer.cs" />
     <Compile Include="UI\Chart\Serialization\ChartLogarithmicAxisSerializer.cs" />
     <Compile Include="UI\Chart\Serialization\ChartRangeBarLabelsSerializer.cs" />
@@ -768,11 +772,24 @@
     <Compile Include="UI\CheckBox\Fluent\CheckBoxBuilder.cs" />
     <Compile Include="UI\CheckBox\Html\CheckBoxHtmlBuilder.cs" />
     <Compile Include="UI\CheckBox\CheckBox.cs" />
+    <Compile Include="UI\Diagram\DiagramConnectionType.cs" />
+    <Compile Include="UI\Diagram\DiagramShapeDefaultsFillGradientSettingsStop.cs" />
+    <Compile Include="UI\Diagram\DiagramShapeFillGradientSettingsStop.cs" />
     <Compile Include="UI\Diagram\Fluent\DiagramPdfMarginSettingsBuilder.cs" />
     <Compile Include="UI\Diagram\Fluent\DiagramPdfSettingsBuilder.cs" />
+    <Compile Include="UI\Diagram\Fluent\DiagramShapeDefaultsFillGradientSettingsBuilder.cs" />
+    <Compile Include="UI\Diagram\Fluent\DiagramShapeDefaultsFillGradientSettingsStopBuilder.cs" />
+    <Compile Include="UI\Diagram\Fluent\DiagramShapeDefaultsFillGradientSettingsStopFactory.cs" />
+    <Compile Include="UI\Diagram\Fluent\DiagramShapeFillGradientSettingsBuilder.cs" />
+    <Compile Include="UI\Diagram\Fluent\DiagramShapeFillGradientSettingsStopBuilder.cs" />
+    <Compile Include="UI\Diagram\Fluent\DiagramShapeFillGradientSettingsStopFactory.cs" />
     <Compile Include="UI\Diagram\Settings\DiagramEditableResizeHandlesHoverStrokeSettings.cs" />
     <Compile Include="UI\Diagram\Settings\DiagramPdfMarginSettings.cs" />
     <Compile Include="UI\Diagram\Settings\DiagramPdfSettings.cs" />
+    <Compile Include="UI\DropDownListBase\Fluent\PopupSettingsBuilder.cs" />
+    <Compile Include="UI\DropDownListBase\PopupSettings.cs" />
+    <Compile Include="UI\Diagram\Settings\DiagramShapeDefaultsFillGradientSettings.cs" />
+    <Compile Include="UI\Diagram\Settings\DiagramShapeFillGradientSettings.cs" />
     <Compile Include="UI\DropDownListBase\Fluent\VirtualSettingsBuilder.cs" />
     <Compile Include="UI\DropDownListBase\VirtualSettings.cs" />
     <Compile Include="UI\Editor\Fluent\EditorPdfMarginSettingsBuilder.cs" />
@@ -787,13 +804,16 @@
     <Compile Include="UI\Diagram\Fluent\DiagramEditableResizeSettingsBuilder.cs" />
     <Compile Include="UI\Diagram\Settings\DiagramEditableResizeSettings.cs" />
     <Compile Include="UI\Grid\Fluent\GridAllowCopyBuilder.cs" />
+    <Compile Include="UI\Grid\Fluent\GridNoRecordsSettingsBuilder.cs" />
     <Compile Include="UI\Grid\Settings\AllowCopySettings.cs" />
+    <Compile Include="UI\Grid\Settings\GridNoRecordsSettings.cs" />
     <Compile Include="UI\MobileApplication\Fluent\MobileApplicationIconBuilder.cs" />
     <Compile Include="UI\MobileCollapsible\Fluent\MobileCollapsibleBuilder.cs" />
     <Compile Include="UI\MobileCollapsible\Fluent\MobileCollapsibleEventBuilder.cs" />
     <Compile Include="UI\MobileCollapsible\Html\MobileCollapsibleHtmlBuilder.cs" />
     <Compile Include="UI\MobileCollapsible\IconPosition.cs" />
     <Compile Include="UI\MobileCollapsible\MobileCollapsible.cs" />
+    <Compile Include="UI\MultiSelect\TagMode.cs" />
     <Compile Include="UI\PivotDataSource\Fluent\PivotDataSourceMeasureDescriptorFactory.cs" />
     <Compile Include="UI\PivotDataSource\Fluent\PivotDataSourceMeasureDescriptorBuilder.cs" />
     <Compile Include="UI\PivotDataSource\PivotDataSourceMeasureDescriptor.cs" />
@@ -1627,6 +1647,8 @@
     <Compile Include="UI\StockChart\Serialization\ChartNavigatorSerializer.cs" />
     <Compile Include="UI\StockChart\Serialization\ChartNavigatorHintSerializer.cs" />
     <Compile Include="UI\StockChart\StockChart.cs" />
+    <Compile Include="UI\TabStrip\Fluent\TabStripScrollSettingsBuilder.cs" />
+    <Compile Include="UI\TabStrip\TabStripScrollableSettings.cs" />
     <Compile Include="UI\TextBox\Fluent\TextBoxBuilder.cs" />
     <Compile Include="UI\TextBox\Html\TextBoxHtmlBuilder.cs" />
     <Compile Include="UI\TextBox\TextBox.cs" />
@@ -2536,5 +2558,11 @@
     <Compile Include="UI\ResponsivePanel\Fluent\ResponsivePanelBuilder.cs" />
     <Compile Include="UI\ResponsivePanel\Fluent\ResponsivePanelEventBuilder.cs" />
     <Compile Include="UI\ResponsivePanel\Html\ResponsivePanelHtmlBuilder.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="UI\Diagram\Settings\DiagramEditableDragSettings.cs" />
+    <Compile Include="UI\Diagram\Fluent\DiagramEditableDragSettingsBuilder.cs" />
+    <Compile Include="UI\Diagram\Settings\DiagramEditableDragSnapSettings.cs" />
+    <Compile Include="UI\Diagram\Fluent\DiagramEditableDragSnapSettingsBuilder.cs" />
   </ItemGroup>
 </Project>
