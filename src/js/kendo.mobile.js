@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.624 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.2.624";
+    kendo.version = "2015.2.703";
 
     function Class() {}
 
@@ -1840,7 +1840,8 @@ function pad(number, digits, end) {
     }
 
     function isScrollable(element) {
-        return getComputedStyles(element, ["overflow"]).overflow != "visible";
+        var overflow = getComputedStyles(element, ["overflow"]).overflow;
+        return overflow == "auto" || overflow == "scroll";
     }
 
     (function () {
@@ -12328,7 +12329,7 @@ function pad(number, digits, end) {
                         value = null;
                     } else {
                         if (!source || source instanceof kendo.data.DataSource) {
-                            source = this.widget.dataSource.view();
+                            source = this.widget.dataSource.flatView();
                         }
 
                         if (isArray) {
@@ -12401,7 +12402,7 @@ function pad(number, digits, end) {
                             text = value;
                         }
 
-                        if (!text && value && options.valuePrimitive) {
+                        if (!text && (value || value === 0) && options.valuePrimitive) {
                             widget.value(value);
                         } else {
                             widget._preselect(value, text);
@@ -23691,12 +23692,10 @@ function pad(number, digits, end) {
             $log.warn("k-ng-disabled specified on a widget that does not have the enable() method: " + (widget.options.name));
             return;
         }
-        scope.$apply(function() {
-            scope.$watch(kNgDisabled, function(newValue, oldValue) {
-                if (newValue != oldValue) {
-                    widget.enable(!newValue);
-                }
-            });
+        scope.$watch(kNgDisabled, function(newValue, oldValue) {
+            if (newValue != oldValue) {
+                widget.enable(!newValue);
+            }
         });
     }
 
@@ -23705,14 +23704,11 @@ function pad(number, digits, end) {
             $log.warn("k-ng-readonly specified on a widget that does not have the readonly() method: " + (widget.options.name));
             return;
         }
-        scope.$apply(function() {
-            scope.$watch(kNgReadonly, function(newValue, oldValue) {
-                if (newValue != oldValue) {
-                    widget.readonly(newValue);
-                }
-            });
+        scope.$watch(kNgReadonly, function(newValue, oldValue) {
+            if (newValue != oldValue) {
+                widget.readonly(newValue);
+            }
         });
-
     }
 
     function exposeWidget(widget, scope, attrs, kendoWidget, origAttr) {

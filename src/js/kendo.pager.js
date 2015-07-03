@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.624 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -378,7 +378,7 @@
 
             if (!isNaN(pageSize)){
                 dataSource.pageSize(pageSize);
-            } else if (value == "all") {
+            } else if ((value + "").toLowerCase() == "all") {
                 dataSource.pageSize(dataSource.total());
             }
         },
@@ -398,7 +398,7 @@
         },
 
         totalPages: function() {
-            return Math.ceil((this.dataSource.total() || 0) / this.pageSize());
+            return Math.ceil((this.dataSource.total() || 0) / (this.pageSize() || 1));
         },
 
         pageSize: function() {

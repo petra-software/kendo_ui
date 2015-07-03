@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.624 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -3515,8 +3515,8 @@
         last = util.last,
         round = util.round;
 
-    var SEGMENT_REGEX = /([a-z]{1})([^a-z]*)(z)?/gi,
-        SPLIT_REGEX = /[,\s]?(-?(?:\d+\.)?\d+)/g,
+    var SEGMENT_REGEX = /([a-df-z]{1})([^a-df-z]*)(z)?/gi,
+        SPLIT_REGEX = /[,\s]?([+\-]?(?:\d*\.\d+|\d+)(?:[eE][+\-]?\d+)?)/g,
         MOVE = "m",
         CLOSE = "z";
 
@@ -7758,7 +7758,10 @@
                     add(bg.url);
                 }
             });
-            slice.call(element.children).forEach(dive);
+
+            if (element.children) {
+                slice.call(element.children).forEach(dive);
+            }
         })(element);
         var count = urls.length;
         function next() {

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.624 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -385,9 +385,9 @@ kendo.ExcelExporter = kendo.Class.extend({
     _freezePane: function() {
         var columns = this._visibleColumns(this.options.columns || []);
 
-        var colSplit = this._trimColumns(this._leafColumns($.grep(columns, function(column) {
+        var colSplit = this._visibleColumns(this._trimColumns(this._leafColumns($.grep(columns, function(column) {
             return column.locked;
-        }))).length;
+        })))).length;
 
         return {
             rowSplit: this._headerDepth(columns),

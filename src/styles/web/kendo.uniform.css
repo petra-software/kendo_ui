@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.624 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -266,9 +266,6 @@ textarea.k-textbox:hover,
   background-image: none, linear-gradient(to bottom, rgba(0,0,0,.01) 0%, rgba(0,0,0,.08) 100%);
   background-position: 50% 50%;
   background-color: #ffffff;
-}
-.k-widget.k-tooltip {
-  background-image: url('textures/highlight.png');
 }
 .k-block,
 .k-header,
@@ -785,9 +782,17 @@ div.k-filebrowser-dropzone em {
 }
 /* Tooltip */
 .k-widget.k-tooltip {
-  border-color: #e6e6e6;
-  background-color: #eeeeee;
-  color: #454545;
+  background-image: url('textures/highlight.png');
+  background-image: none, -webkit-linear-gradient(top, rgba(0,0,0,.01) 0%, rgba(0,0,0,.08) 100%);
+  background-image: none, -moz-linear-gradient(top, rgba(0,0,0,.01) 0%, rgba(0,0,0,.08) 100%);
+  background-image: none, -o-linear-gradient(top, rgba(0,0,0,.01) 0%, rgba(0,0,0,.08) 100%);
+  background-image: none, linear-gradient(to bottom, rgba(0,0,0,.01) 0%, rgba(0,0,0,.08) 100%);
+  background-position: 50% 50%;
+  background-color: #ffffff;
+  color: #464646;
+  border-color: transparent;
+  -webkit-box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 .k-widget.k-tooltip-validation {
   border-color: #ffe5a6;
@@ -802,16 +807,16 @@ div.k-filebrowser-dropzone em {
   top: 3px;
 }
 .k-callout-n {
-  border-bottom-color: #e6e6e6;
+  border-bottom-color: #ffffff;
 }
 .k-callout-w {
-  border-right-color: #e6e6e6;
+  border-right-color: #ffffff;
 }
 .k-callout-s {
-  border-top-color: #e6e6e6;
+  border-top-color: #ffffff;
 }
 .k-callout-e {
-  border-left-color: #e6e6e6;
+  border-left-color: #ffffff;
 }
 .k-tooltip-validation .k-callout-n {
   border-bottom-color: #ffe5a6;

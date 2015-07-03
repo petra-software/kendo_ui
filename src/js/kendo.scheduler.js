@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.624 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -3801,7 +3801,7 @@
         kendo.PDFMixin.extend(Scheduler.prototype);
 
         var SCHEDULER_EXPORT = "k-scheduler-pdf-export";
-        Scheduler.fn._drawPDF = function() {
+        Scheduler.fn._drawPDF = function(progress) {
             var wrapper = this.wrapper;
             var styles = wrapper[0].style.cssText;
 
@@ -3813,10 +3813,26 @@
             wrapper.addClass(SCHEDULER_EXPORT);
 
             this.resize(true);
-            var promise = this._drawPDFShadow();
 
             var scheduler = this;
-            promise.always(function() {
+            var promise = new $.Deferred();
+
+            this._drawPDFShadow()
+            .done(function(group) {
+                var args = {
+                    page: group,
+                    pageNumber: 1,
+                    progress: 1,
+                    totalPages: 1
+                };
+
+                progress.notify(args);
+                promise.resolve(args.page);
+            })
+            .fail(function(err) {
+                promise.reject(err);
+            })
+            .always(function() {
                 wrapper[0].style.cssText = styles;
                 wrapper.removeClass(SCHEDULER_EXPORT);
                 scheduler.resize(true);

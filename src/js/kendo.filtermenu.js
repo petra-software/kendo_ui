@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.624 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -521,20 +521,22 @@
             return found;
         },
 
+        _stripFilters: function(filters) {
+           return $.grep(filters, function(filter) {
+                return filter.value !== "" && filter.value != null;
+            });
+        },
+
         _merge: function(expression) {
             var that = this,
                 logic = expression.logic || "and",
-                filters = expression.filters,
+                filters = this._stripFilters(expression.filters),
                 filter,
                 result = that.dataSource.filter() || { filters:[], logic: "and" },
                 idx,
                 length;
 
             removeFiltersForField(result, that.field);
-
-            filters = $.grep(filters, function(filter) {
-                return filter.value !== "" && filter.value != null;
-            });
 
             for (idx = 0, length = filters.length; idx < length; idx++) {
                 filter = filters[idx];
@@ -1014,6 +1016,7 @@
             })).prop("checked", true);
             this.updateCheckAllState();
         },
+
         _filter: function(e) {
             e.preventDefault();
             e.stopPropagation();
@@ -1031,6 +1034,12 @@
             }
 
             this._closeForm();
+        },
+
+        _stripFilters: function(filters) {
+           return $.grep(filters, function(filter) {
+                return filter.value != null;
+            });
         },
 
         destroy: function() {

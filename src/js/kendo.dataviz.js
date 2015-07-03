@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.624 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.2.624";
+    kendo.version = "2015.2.703";
 
     function Class() {}
 
@@ -1840,7 +1840,8 @@ function pad(number, digits, end) {
     }
 
     function isScrollable(element) {
-        return getComputedStyles(element, ["overflow"]).overflow != "visible";
+        var overflow = getComputedStyles(element, ["overflow"]).overflow;
+        return overflow == "auto" || overflow == "scroll";
     }
 
     (function () {
@@ -12750,7 +12751,7 @@ function pad(number, digits, end) {
                         value = null;
                     } else {
                         if (!source || source instanceof kendo.data.DataSource) {
-                            source = this.widget.dataSource.view();
+                            source = this.widget.dataSource.flatView();
                         }
 
                         if (isArray) {
@@ -12823,7 +12824,7 @@ function pad(number, digits, end) {
                             text = value;
                         }
 
-                        if (!text && value && options.valuePrimitive) {
+                        if (!text && (value || value === 0) && options.valuePrimitive) {
                             widget.value(value);
                         } else {
                             widget._preselect(value, text);
@@ -21149,8 +21150,8 @@ function pad(number, digits, end) {
         last = util.last,
         round = util.round;
 
-    var SEGMENT_REGEX = /([a-z]{1})([^a-z]*)(z)?/gi,
-        SPLIT_REGEX = /[,\s]?(-?(?:\d+\.)?\d+)/g,
+    var SEGMENT_REGEX = /([a-df-z]{1})([^a-df-z]*)(z)?/gi,
+        SPLIT_REGEX = /[,\s]?([+\-]?(?:\d*\.\d+|\d+)(?:[eE][+\-]?\d+)?)/g,
         MOVE = "m",
         CLOSE = "z";
 
@@ -25392,7 +25393,10 @@ function pad(number, digits, end) {
                     add(bg.url);
                 }
             });
-            slice.call(element.children).forEach(dive);
+
+            if (element.children) {
+                slice.call(element.children).forEach(dive);
+            }
         })(element);
         var count = urls.length;
         function next() {
@@ -63169,7 +63173,7 @@ function pad(number, digits, end) {
         _fill: function(fillOptions) {
             var options = this.options;
             deepExtend(options, {
-                fill: fillOptions
+                fill: fillOptions || {}
             });
             var fill = options.fill;
 
@@ -70591,7 +70595,6 @@ function pad(number, digits, end) {
                     this._addGraphics();
                 }
 
-                this.attributes();
                 this.addUidAttr();
                 this.addOverflowAttr();
                 this.enable(options.enable);
@@ -75631,8 +75634,13 @@ function pad(number, digits, end) {
 
         _object: function(element) {
             var content = element.children(KWINDOWCONTENT);
+            var widget = kendo.widgetInstance(content);
 
-            return content.data("kendoWindow") || content.data("kendo" + this.options.name);
+            if (widget instanceof Window) {
+                return widget;
+            }
+
+            return undefined;
         },
 
         center: function () {
@@ -75869,12 +75877,15 @@ function pad(number, digits, end) {
             }
         },
 
-        _deactivate: function() {
-            this.wrapper.hide().css("opacity","");
-            this.trigger(DEACTIVATE);
-            var lastModal = this._object(this._modals().last());
-            if (lastModal) {
-                lastModal.toFront();
+        _deactivate: function () {
+            var that = this;
+            that.wrapper.hide().css("opacity", "");
+            that.trigger(DEACTIVATE);
+            if (that.options.modal) {
+                var lastModal = that._object(that._modals().last());
+                if (lastModal) {
+                    lastModal.toFront();
+                }
             }
         },
 
@@ -77193,7 +77204,7 @@ function pad(number, digits, end) {
             parent = that._parentWidget();
 
             if (parent) {
-                parent.trigger("cascade");
+                that._cascadeSelect(parent);
             }
         },
 
@@ -77616,75 +77627,76 @@ function pad(number, digits, end) {
                 }
 
                 options.autoBind = false;
-                valueField = options.cascadeFromField || parent.options.dataValueField;
-
-                change = function() {
-                    that.dataSource.unbind(CHANGE, change);
-
-                    var value = that._accessor();
-
-                    if (that._userTriggered) {
-                        that._clearSelection(parent, true);
-                    } else if (value) {
-                        if (value !== that.listView.value()[0]) {
-                            that.value(value);
-                        }
-
-                        if (!that.dataSource.view()[0] || that.selectedIndex === -1) {
-                            that._clearSelection(parent, true);
-                        }
-                    } else if (that.dataSource.flatView().length) {
-                        that.select(options.index);
-                    }
-
-                    that.enable();
-                    that._triggerCascade();
-                    that._userTriggered = false;
-                };
-                select = function() {
-                    var dataItem = parent.dataItem(),
-                        filterValue = dataItem ? parent._value(dataItem) : null,
-                        expressions, filters;
-
-                    if (filterValue || filterValue === 0) {
-                        expressions = that.dataSource.filter() || {};
-                        removeFiltersForField(expressions, valueField);
-                        filters = expressions.filters || [];
-
-                        filters.push({
-                            field: valueField,
-                            operator: "eq",
-                            value: filterValue
-                        });
-
-                        var handler = function() {
-                            that.unbind("dataBound", handler);
-                            change.apply(that, arguments);
-                        };
-
-                        that.first("dataBound", handler);
-
-                        that.dataSource.filter(filters);
-
-                    } else {
-                        that.enable(false);
-                        that._clearSelection(parent);
-                        that._triggerCascade();
-                        that._userTriggered = false;
-                    }
-                };
 
                 parent.first("cascade", function(e) {
                     that._userTriggered = e.userTriggered;
-                    select();
+                    that._cascadeSelect(parent);
                 });
 
                 //refresh was called
                 if (parent.listView.isBound()) {
-                    select();
+                    that._cascadeSelect(parent);
                 } else if (!parent.value()) {
                     that.enable(false);
                 }
+            }
+        },
+
+        _cascadeChange: function(parent) {
+            var that = this;
+            var value = that._accessor();
+
+            if (that._userTriggered) {
+                that._clearSelection(parent, true);
+            } else if (value) {
+                if (value !== that.listView.value()[0]) {
+                    that.value(value);
+                }
+
+                if (!that.dataSource.view()[0] || that.selectedIndex === -1) {
+                    that._clearSelection(parent, true);
+                }
+            } else if (that.dataSource.flatView().length) {
+                that.select(that.options.index);
+            }
+
+            that.enable();
+            that._triggerCascade();
+            that._userTriggered = false;
+        },
+
+        _cascadeSelect: function(parent) {
+            var that = this;
+            var dataItem = parent.dataItem();
+            var filterValue = dataItem ? parent._value(dataItem) : null;
+            var valueField = that.options.cascadeFromField || parent.options.dataValueField;
+            var expressions, filters;
+
+            if (filterValue || filterValue === 0) {
+                expressions = that.dataSource.filter() || {};
+                removeFiltersForField(expressions, valueField);
+                filters = expressions.filters || [];
+
+                filters.push({
+                    field: valueField,
+                    operator: "eq",
+                    value: filterValue
+                });
+
+                var handler = function() {
+                    that.unbind("dataBound", handler);
+                    that._cascadeChange(parent);
+                };
+
+                that.first("dataBound", handler);
+
+                that.dataSource.filter(filters);
+
+            } else {
+                that.enable(false);
+                that._clearSelection(parent);
+                that._triggerCascade();
+                that._userTriggered = false;
             }
         }
     });
@@ -83297,23 +83309,10 @@ function pad(number, digits, end) {
 
                 if (that.options.autoBind) {
                     if (that._isEditable) {
-                        that._preventRefresh = true;
-                        that._preventConnectionsRefresh = true;
-
-                        var promises = $.map([
-                            that.dataSource,
-                            that.connectionsDataSource
-                        ],
-                        function(dataSource) {
-                            return dataSource.fetch();
-                        });
-
-                        $.when.apply(null, promises)
-                            .done(function() {
-                                that._preventRefresh = false;
-                                that._preventConnectionsRefresh = false;
-                                that.refresh();
-                            });
+                        this._loadingShapes = true;
+                        this._loadingConnections = true;
+                        that.dataSource.fetch();
+                        that.connectionsDataSource.fetch();
                     } else {
                         that.dataSource.fetch();
                     }
@@ -83329,14 +83328,17 @@ function pad(number, digits, end) {
                     if (this.dataSource && this._shapesRefreshHandler) {
                         this.dataSource
                             .unbind("change", this._shapesRefreshHandler)
+                            .unbind("requestStart", this._shapesRequestStartHandler)
                             .unbind("error", this._shapesErrorHandler);
                     } else {
                         this._shapesRefreshHandler = proxy(this._refreshShapes, this);
+                        this._shapesRequestStartHandler = proxy(this._shapesRequestStart, this);
                         this._shapesErrorHandler = proxy(this._error, this);
                     }
 
                     this.dataSource = kendo.data.DataSource.create(ds)
                         .bind("change", this._shapesRefreshHandler)
+                        .bind("requestStart", this._shapesRequestStartHandler)
                         .bind("error", this._shapesErrorHandler);
                 } else {
                     this._treeDataSource();
@@ -83352,16 +83354,39 @@ function pad(number, digits, end) {
                     if (this.connectionsDataSource && this._connectionsRefreshHandler) {
                         this.connectionsDataSource
                             .unbind("change", this._connectionsRefreshHandler)
+                            .unbind("requestStart", this._connectionsRequestStartHandler)
                             .unbind("error", this._connectionsErrorHandler);
                     } else {
                         this._connectionsRefreshHandler = proxy(this._refreshConnections, this);
-                        this._connectionsErrorHandler = proxy(this._error, this);
+                        this._connectionsRequestStartHandler = proxy(this._connectionsRequestStart, this);
+                        this._connectionsErrorHandler = proxy(this._connectionsError, this);
                     }
 
                     this.connectionsDataSource = kendo.data.DataSource.create(ds)
                         .bind("change", this._connectionsRefreshHandler)
+                        .bind("requestStart", this._connectionsRequestStartHandler)
                         .bind("error", this._connectionsErrorHandler);
                 }
+            },
+
+            _shapesRequestStart: function(e) {
+                if (e.type == "read") {
+                    this._loadingShapes = true;
+                }
+            },
+
+            _connectionsRequestStart: function(e) {
+                if (e.type == "read") {
+                    this._loadingConnections = true;
+                }
+            },
+
+            _error: function () {
+                this._loadingShapes = false;
+            },
+
+            _connectionsError: function() {
+                this._loadingConnections = false;
             },
 
             _refreshShapes: function(e) {
@@ -83395,11 +83420,14 @@ function pad(number, digits, end) {
             },
 
             refresh: function() {
-                if (this._preventRefresh) {
-                    return;
+                this._loadingShapes = false;
+                if (!this._loadingConnections) {
+                    this.trigger("dataBound");
+                    this._rebindShapesAndConnections();
                 }
+            },
 
-                this.trigger("dataBound");
+            _rebindShapesAndConnections: function() {
                 this.clear();
                 this._addShapes(this.dataSource.view());
                 if (this.connectionsDataSource) {
@@ -83412,16 +83440,10 @@ function pad(number, digits, end) {
             },
 
             refreshConnections: function() {
-                if (this._preventConnectionsRefresh) {
-                    return;
-                }
-
-                this.trigger("dataBound");
-
-                this._addConnections(this.connectionsDataSource.view(), false);
-
-                if (this.options.layout) {
-                    this.layout(this.options.layout);
+                this._loadingConnections = false;
+                if (!this._loadingShapes) {
+                    this.trigger("dataBound");
+                    this._rebindShapesAndConnections();
                 }
             },
 
@@ -83592,8 +83614,7 @@ function pad(number, digits, end) {
 
                 that.dataSource.unbind(CHANGE, that._refreshHandler).unbind(ERROR, that._errorHandler);
             },
-            _error: function () {
-            },
+
             _adorn: function (adorner, isActive) {
                 if (isActive !== undefined && adorner) {
                     if (isActive) {
@@ -83652,23 +83673,21 @@ function pad(number, digits, end) {
 
             exportDOMVisual: function() {
                 var viewBox = this.canvas._viewBox;
-                var scrollOffset = geom.transform().translate(
-                    -viewBox.x, -viewBox.y
-                );
+                var scrollOffset = geom.transform()
+                                       .translate(-viewBox.x, -viewBox.y);
 
-                var viewRect = new geom.Rect(
-                    [0, 0], [viewBox.width, viewBox.height]
-                );
+                var viewRect = new geom.Rect([0, 0], [viewBox.width, viewBox.height]);
                 var clipPath = draw.Path.fromRect(viewRect);
-
-                var wrap = new draw.Group({
-                    transform: scrollOffset,
-                    clip: clipPath
-                });
-
+                var wrap = new draw.Group({ transform: scrollOffset });
+                var clipWrap = new draw.Group({ clip: clipPath });
                 var root = this.canvas.drawingElement.children[0];
+
+                clipWrap.append(wrap);
+
+                // Don't reparent the root
                 wrap.children.push(root);
-                return wrap;
+
+                return clipWrap;
             },
 
             exportVisual: function() {
@@ -85863,12 +85882,10 @@ function pad(number, digits, end) {
             $log.warn("k-ng-disabled specified on a widget that does not have the enable() method: " + (widget.options.name));
             return;
         }
-        scope.$apply(function() {
-            scope.$watch(kNgDisabled, function(newValue, oldValue) {
-                if (newValue != oldValue) {
-                    widget.enable(!newValue);
-                }
-            });
+        scope.$watch(kNgDisabled, function(newValue, oldValue) {
+            if (newValue != oldValue) {
+                widget.enable(!newValue);
+            }
         });
     }
 
@@ -85877,14 +85894,11 @@ function pad(number, digits, end) {
             $log.warn("k-ng-readonly specified on a widget that does not have the readonly() method: " + (widget.options.name));
             return;
         }
-        scope.$apply(function() {
-            scope.$watch(kNgReadonly, function(newValue, oldValue) {
-                if (newValue != oldValue) {
-                    widget.readonly(newValue);
-                }
-            });
+        scope.$watch(kNgReadonly, function(newValue, oldValue) {
+            if (newValue != oldValue) {
+                widget.readonly(newValue);
+            }
         });
-
     }
 
     function exposeWidget(widget, scope, attrs, kendoWidget, origAttr) {

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.624 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1755,8 +1755,14 @@ var Dom = {
     },
 
     closestEditable: function(node, types) {
-        var closest = Dom.parentOfType(node, types);
+        var closest;
         var editable = Dom.editableParent(node);
+
+        if (Dom.ofType(node, types)) {
+            closest = node;
+        } else {
+            closest = Dom.parentOfType(node, types);
+        }
 
         if (closest && editable && $.contains(closest, editable)) {
             closest = editable;
@@ -1805,8 +1811,12 @@ var Dom = {
         }
     },
 
-    ensureTrailingBreak: function(node) {
+    removeTrailingBreak: function(node) {
         $(node).find("br[type=_moz],.k-br").remove();
+    },
+
+    ensureTrailingBreak: function(node) {
+        Dom.removeTrailingBreak(node);
 
         var lastChild = node.lastChild;
         var name = lastChild && Dom.name(lastChild);
@@ -1863,6 +1873,7 @@ var Serializer = {
             })
             .replace(/(<\/?img[^>]*>)[\r\n\v\f\t ]+/ig, "$1")
             .replace(/^<(table|blockquote)/i, br + '<$1')
+            .replace(/^[\s]*(&nbsp;|\u00a0)/i, '$1')
             .replace(/<\/(table|blockquote)>$/i, '</$1>' + br);
     },
 
@@ -3243,6 +3254,21 @@ var Marker = Class.extend({
         }
     },
 
+    _normalizedIndex: function(node) {
+        var index = findNodeIndex(node);
+        var pointer = node;
+
+        while (pointer.previousSibling) {
+            if (pointer.nodeType == 3 && pointer.previousSibling.nodeType == 3) {
+                index--;
+            }
+
+            pointer = pointer.previousSibling;
+        }
+
+        return index;
+    },
+
     remove: function (range) {
         var that = this,
             start = that.start,
@@ -3308,23 +3334,12 @@ var Marker = Class.extend({
             }
         }
 
-        var startIndex = findNodeIndex(start), startParent = start.parentNode;
-        var endIndex = findNodeIndex(end), endParent = end.parentNode;
-
-        for (var startPointer = start; startPointer.previousSibling; startPointer = startPointer.previousSibling) {
-            if (startPointer.nodeType == 3 && startPointer.previousSibling.nodeType == 3) {
-                startIndex--;
-            }
-        }
-
-        for (var endPointer = end; endPointer.previousSibling; endPointer = endPointer.previousSibling) {
-            if (endPointer.nodeType == 3 && endPointer.previousSibling.nodeType == 3) {
-                endIndex--;
-            }
-        }
+        var startParent = start.parentNode;
+        var endParent = end.parentNode;
+        var startIndex = this._normalizedIndex(start);
+        var endIndex = this._normalizedIndex(end);
 
         normalize(startParent);
-
         if (start.nodeType == 3) {
             start = startParent.childNodes[startIndex];
         }
@@ -3356,11 +3371,11 @@ var Marker = Class.extend({
                 range.setEndAfter(end);
             }
         }
+
         if (that.caret) {
             that.removeCaret(range);
         }
     }
-
 });
 
 var boundary = /[\u0009-\u000d]|\u0020|\u00a0|\ufeff|\.|,|;|:|!|\(|\)|\?/;
@@ -3488,6 +3503,34 @@ var RangeUtils = {
         }
 
         return range.startOffset === 0 && range.startContainer == node;
+    },
+
+    isEndOf: function(range, node) {
+        range = range.cloneRange();
+
+        range.collapse(false);
+
+        var start = range.startContainer;
+
+        if (dom.isDataNode(start) &&
+            range.startOffset == dom.getNodeLength(start)) {
+            range.setStart(start.parentNode, dom.findNodeIndex(start) + 1);
+            range.collapse(true);
+        }
+
+        range.setEnd(node, dom.getNodeLength(node));
+
+        var nodes = [];
+
+        function visit(node) {
+            if (!dom.insignificant(node)) {
+                nodes.push(node);
+            }
+        }
+
+        new RangeIterator(range).traverse(visit);
+
+        return !nodes.length;
     },
 
     wrapSelectedElements: function(range) {
@@ -3836,11 +3879,46 @@ var BackspaceHandler = Class.extend({
     init: function(editor) {
         this.editor = editor;
     },
-    _handleCaret: function(range) {
+    _addCaret: function(container) {
+        var caret = dom.create(this.editor.document, "a");
+        container.appendChild(caret);
+        return caret;
+    },
+    _restoreCaret: function(caret) {
+        var range = this.editor.createRange();
+        range.setStartAfter(caret);
+        range.collapse(true);
+        this.editor.selectRange(range);
+        dom.remove(caret);
+    },
+    _handleDelete: function(range) {
+        var node = range.endContainer;
+        var block = dom.closestEditableOfType(node, dom.blockElements);
+
+        if (block && editorNS.RangeUtils.isEndOf(range, block)) {
+            // join with next sibling
+            var caret = this._addCaret(block);
+
+            var next = dom.next(block);
+            if (!next || dom.name(next) != "p") {
+                dom.remove(caret);
+                return false;
+            }
+
+            this._merge(block, next);
+
+            this._restoreCaret(caret);
+
+            return true;
+        }
+
+        return false;
+    },
+    _handleBackspace: function(range) {
         var node = range.startContainer;
         var i = range.startOffset;
         var li = dom.closestEditableOfType(node, ['li']);
-        var header = dom.closestEditableOfType(node, 'h1,h2,h3,h4,h5,h6'.split(','));
+        var block = dom.closestEditableOfType(node, 'p,h1,h2,h3,h4,h5,h6'.split(','));
 
         if (dom.isDataNode(node)) {
             while (i >= 0 && node.nodeValue[i-1] == "\ufeff") {
@@ -3854,22 +3932,13 @@ var BackspaceHandler = Class.extend({
             this.editor.selectRange(range);
         }
 
-        // unwrap header
-        if (header && header.previousSibling && editorNS.RangeUtils.isStartOf(range, header)) {
-            var prev = header.previousSibling;
-            var caret = dom.create(this.editor.document, "a");
+        // unwrap block
+        if (block && block.previousSibling && editorNS.RangeUtils.isStartOf(range, block)) {
+            var prev = block.previousSibling;
+            var caret = this._addCaret(prev);
+            this._merge(prev, block);
 
-            prev.appendChild(caret);
-            while (header.firstChild) {
-                prev.appendChild(header.firstChild);
-            }
-
-            dom.remove(header);
-
-            range.setStartAfter(caret);
-            range.collapse(true);
-            this.editor.selectRange(range);
-            dom.remove(caret);
+            this._restoreCaret(caret);
 
             return true;
         }
@@ -3892,18 +3961,25 @@ var BackspaceHandler = Class.extend({
         var ancestor = range.commonAncestorContainer;
         var table = dom.closest(ancestor, "table");
         var emptyParagraphContent = editorNS.emptyElementContent;
-        var result = false;
 
         if (/t(able|body)/i.test(dom.name(ancestor))) {
             range.selectNode(table);
         }
+
+        var marker = new Marker();
+        marker.add(range, false);
+
+        range.setStartAfter(marker.start);
+        range.setEndBefore(marker.end);
+
+        var start = range.startContainer;
+        var end = range.endContainer;
 
         range.deleteContents();
 
         if (table && $(table).text() === "") {
             range.selectNode(table);
             range.deleteContents();
-            result = true;
         }
 
         ancestor = range.commonAncestorContainer;
@@ -3911,24 +3987,63 @@ var BackspaceHandler = Class.extend({
         if (dom.name(ancestor) === "p" && ancestor.innerHTML === "") {
             ancestor.innerHTML = emptyParagraphContent;
             range.setStart(ancestor, 0);
-            range.collapse(true);
-            this.editor.selectRange(range);
-
-            result = true;
         }
 
-        return result;
+        this._join(start, end);
+
+        dom.insertAfter(this.editor.document.createTextNode("\ufeff"), marker.start);
+        marker.remove(range);
+
+        start = range.startContainer;
+        if (dom.name(start) == "tr") {
+            start = start.childNodes[Math.max(0, range.startOffset-1)];
+            range.setStart(start, dom.getNodeLength(start));
+        }
+
+        range.collapse(true);
+
+        this.editor.selectRange(range);
+
+        return true;
+    },
+    _root: function(node) {
+        while (node && node.parentNode && dom.name(node.parentNode) != "body") {
+            node = node.parentNode;
+        }
+
+        return node;
+    },
+    _join: function(start, end) {
+        start = this._root(start);
+        end = this._root(end);
+
+        if (start != end && dom.is(end, "p")) {
+            this._merge(start, end);
+        }
+    },
+    _merge: function(dest, src) {
+        dom.removeTrailingBreak(dest);
+
+        while (src.firstChild) {
+            dest.appendChild(src.firstChild);
+        }
+
+        dom.remove(src);
     },
     keydown: function(e) {
         var method, startRestorePoint;
         var range = this.editor.getRange();
         var keyCode = e.keyCode;
         var keys = kendo.keys;
+        var backspace = keyCode === keys.BACKSPACE;
+        var del = keyCode == keys.DELETE;
 
-        if (keyCode === keys.BACKSPACE) {
-            method = range.collapsed ? "_handleCaret" : "_handleSelection";
-        } else if (keyCode == keys.DELETE) {
-            method = range.collapsed ? "" : "_handleSelection";
+        if ((backspace || del) && !range.collapsed) {
+            method = "_handleSelection";
+        } else if (backspace) {
+            method = "_handleBackspace";
+        } else if (del) {
+            method = "_handleDelete";
         }
 
         if (!method) {

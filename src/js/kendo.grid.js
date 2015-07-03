@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.624 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -4884,7 +4884,7 @@
                 }
 
                 if (!that.dataSource || !that.dataSource.view().length) {
-                    $(that.noRecordsTemplate({})).appendTo(that.table.parent());
+                    $(that.noRecordsTemplate({})).insertAfter(that.table);
                 }
             }
         },
@@ -5831,7 +5831,8 @@
 
         _noRecordsTmpl: function () {
             var wrapper = '<div class="{0}">{1}</div>';
-            var defaultTemplate = '<div class="k-grid-norecords-template">{0}</div>';
+            var defaultTemplate = '<div class="k-grid-norecords-template"{1}>{0}</div>';
+            var scrollableNoGridHeightStyles = (this.options.scrollable && !this.wrapper[0].style.height) ? ' style="margin:0 auto;position:static;"' : '';
             var state = { storage: {}, count: 0 };
             var settings = $.extend({}, kendo.Template, this.options.templateSettings);
             var paramName = settings.paramName;
@@ -5843,7 +5844,7 @@
             if (this.options.noRecords.template) {
                 template = this.options.noRecords.template;
             } else {
-                template = kendo.format(defaultTemplate, this.options.messages.noRecords);
+                template = kendo.format(defaultTemplate, this.options.messages.noRecords, scrollableNoGridHeightStyles);
             }
 
             type = typeof template;
@@ -6560,12 +6561,15 @@
         _autoColumns: function(schema) {
             if (schema && schema.toJSON) {
                 var that = this,
-                    field;
+                    field,
+                    encoded;
 
                 schema = schema.toJSON();
 
+                encoded = !(that.table.find("tbody tr").length > 0 && (!that.dataSource || !that.dataSource.transport));
+
                 for (field in schema) {
-                    that.columns.push({ field: field, headerAttributes: {id: kendo.guid()} });
+                    that.columns.push({ field: field, encoded: encoded, headerAttributes: {id: kendo.guid()} });
                 }
 
                 that._thead();
@@ -7608,7 +7612,7 @@
            isHeader = currentTarget.is("th"),
            table = this.table.add(this.lockedTable),
            headerTable = this.thead.parent().add($(">table", this.lockedHeader)),
-           isInput = $(e.target).is(":button,a,:input,a>.k-icon,textarea,span.k-icon,span.k-link,.k-input,.k-multiselect-wrap"),
+           isInput = $(e.target).is(":button,a,:input,a>.k-icon,textarea,span.k-icon,span.k-link,.k-input,.k-multiselect-wrap,.k-tool-icon"),
            currentTable = currentTarget.closest("table")[0];
 
        if (kendo.support.touch) {

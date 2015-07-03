@@ -224,24 +224,29 @@ div.k-grid-footer
     position: absolute;
     visibility: hidden;
     height: 1px;
+    margin-top: -1px;
 }
 
 .k-grid-norecords
 {
-    width:100%;
+    width: 100%;
     height: 100%;
+    text-align: center;
 }
 
 .k-grid-norecords-template {
     width: 20em;
     height: 4em;
+    line-height: 4em;
+    vertical-align: middle;
+    margin: 0 auto;
+}
+
+.k-grid-content > .k-grid-norecords > .k-grid-norecords-template {
     top: 50%;
     left: 50%;
     margin-left: -10em;
     margin-top: -2em;
-    line-height: 4em;
-    vertical-align: middle;
-    text-align: center;
     position: absolute;
 }
 
@@ -952,9 +957,15 @@ html .k-grid-edit-row .k-tooltip
 
 /* Remove all sizes and scrolling */
 .k-pdf-export-shadow .k-grid,
-.k-pdf-export-shadow .k-grid-content {
+.k-pdf-export-shadow .k-grid-content,
+.k-pdf-export-shadow .k-grid-content-locked {
     height: auto !important;
     overflow: visible;
+}
+
+.k-pdf-export-shadow .k-grid-header-locked + .k-grid-header-wrap,
+.k-pdf-export-shadow .k-grid-content-locked + .k-grid-content {
+    width: auto !important;
 }
 
 /* Remove empty space reserved above the scrollbar */
