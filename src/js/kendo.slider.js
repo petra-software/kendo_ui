@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -65,6 +65,10 @@
             that._outerSize = that._isHorizontal ? "outerWidth" : "outerHeight";
 
             options.tooltip.format = options.tooltip.enabled ? options.tooltip.format || "{0}" : "{0}";
+
+            if (options.smallStep <= 0) {
+                throw new Error('Kendo UI Slider smallStep must be a positive number.');
+            }
 
             that._createHtml();
             that.wrapper = that.element.closest(".k-slider");

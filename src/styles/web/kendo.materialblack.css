@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -697,7 +697,6 @@ div.k-filebrowser-dropzone em {
 .k-state-disabled {
   opacity: .7;
 }
-.k-ie7 .k-state-disabled,
 .k-ie8 .k-state-disabled {
   filter: alpha(opacity=70);
 }
@@ -929,22 +928,22 @@ div.k-filebrowser-dropzone em {
 /* Notification */
 .k-widget.k-notification.k-notification-info {
   background-color: #207ec8;
-  color: #fefefe;
+  color: #0b2b44;
   border-color: #207ec8;
 }
 .k-widget.k-notification.k-notification-success {
   background-color: #429246;
-  color: #ffffff;
+  color: #122913;
   border-color: #429246;
 }
 .k-widget.k-notification.k-notification-warning {
   background-color: #cdaa1d;
-  color: #ffffff;
+  color: #473b0a;
   border-color: #cdaa1d;
 }
 .k-widget.k-notification.k-notification-error {
   background-color: #c93b31;
-  color: #ffffff;
+  color: #4e1713;
   border-color: #c93b31;
 }
 /* Gantt */
@@ -2878,7 +2877,6 @@ div.k-scheduler-marquee:after {
   .k-ff .k-pager-input,
   .k-ie11 .k-pager-input,
   .k-safari .k-pager-input {
-    float: none;
     display: inline-block;
     vertical-align: top;
   }
@@ -2897,11 +2895,20 @@ div.k-scheduler-marquee:after {
     display: inline-flex;
     -webkit-flex-direction: column-reverse;
     flex-direction: column-reverse;
+    overflow: visible;
+    height: auto;
+  }
+  .k-webkit .k-pager-numbers.k-state-expanded,
+  .k-ff .k-pager-numbers.k-state-expanded,
+  .k-ie11 .k-pager-numbers.k-state-expanded,
+  .k-safari .k-pager-numbers.k-state-expanded,
+  .k-webkit .k-grid .k-pager-numbers.k-state-expanded,
+  .k-ff .k-grid .k-pager-numbers.k-state-expanded,
+  .k-ie11 .k-grid .k-pager-numbers.k-state-expanded,
+  .k-safari .k-grid .k-pager-numbers.k-state-expanded {
     -webkit-transform: translatey(-100%);
     -moz-transform: translatey(-100%);
     transform: translatey(-100%);
-    overflow: visible;
-    height: auto;
   }
   .k-webkit .km-pane-wrapper .k-pager-numbers .k-link,
   .k-ff .km-pane-wrapper .k-pager-numbers .k-link,
@@ -2943,9 +2950,6 @@ div.k-scheduler-marquee:after {
   .k-safari .k-grid .k-pager-numbers .k-current-page {
     display: block;
     border-left: 0;
-    -webkit-transform: translatey(100%);
-    -moz-transform: translatey(100%);
-    transform: translatey(100%);
   }
   .k-webkit .k-pager-numbers li:not(.k-current-page),
   .k-ff .k-pager-numbers li:not(.k-current-page),

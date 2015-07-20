@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.2.703";
+    kendo.version = "2015.2.720";
 
     function Class() {}
 
@@ -3213,9 +3213,10 @@ function pad(number, digits, end) {
     }
 
     function visible(element) {
-        return !$(element).parents().addBack().filter(function() {
-            return $.css(this,"visibility") === "hidden" || $.expr.filters.hidden(this);
-        }).length;
+        return $.expr.filters.visible(element) &&
+            !$(element).parents().addBack().filter(function() {
+                return $.css(this,"visibility") === "hidden";
+            }).length;
     }
 
     $.extend($.expr[ ":" ], {
@@ -7297,11 +7298,7 @@ function pad(number, digits, end) {
     function indexOfPristineModel(data, model) {
         if (model) {
             return indexOf(data, function(item) {
-                if (item.uid) {
-                    return item.uid == model.uid;
-                }
-
-                return item[model.idField] === model.id;
+                return (item.uid && item.uid == model.uid) || (item[model.idField] === model.id && model.id !== model._defaultId);
             });
         }
         return -1;
@@ -7476,6 +7473,10 @@ function pad(number, digits, end) {
             serverGrouping: false,
             serverAggregates: false,
             batch: false
+        },
+
+        clone: function() {
+            return this;
         },
 
         online: function(value) {
@@ -23648,10 +23649,17 @@ kendo.ExcelMixin = {
     }
 
     function actuallyGetRangeBoundingRect(range) {
-        if (browser.msie) {
+        if (browser.msie || browser.chrome) {
+            // Workaround browser bugs: IE and Chrome would sometimes
+            // return 0 or 1-width rectangles before or after the main
+            // one.  https://github.com/telerik/kendo/issues/4674
+            // These are probably not the only cases.
             var a = range.getClientRects();
-            if (a.length == 2 && a[1].width === 0) {
+            if (a.length == 2 && a[1].width <= 1) {
                 return a[0];
+            }
+            if (a.length == 3 && a[0].width <= 1 && a[2].width <= 1) {
+                return a[1];
             }
         }
         return range.getBoundingClientRect();
@@ -24862,8 +24870,65 @@ kendo.ExcelMixin = {
         return element.options[element.selectedIndex];
     }
 
+    function renderCheckbox(element, group) {
+        var style = getComputedStyle(element);
+        var color = getPropertyValue(style, "color");
+        var box = element.getBoundingClientRect();
+        if (element.type == "checkbox") {
+            group.append(
+                drawing.Path.fromRect(
+                    new geo.Rect([ box.left+1, box.top+1 ],
+                                 [ box.width-2, box.height-2 ])
+                ).stroke(color, 1)
+            );
+            if (element.checked) {
+                // fill a rectangle inside?  looks kinda ugly.
+                // group.append(
+                //     drawing.Path.fromRect(
+                //         new geo.Rect([ box.left+4, box.top+4 ],
+                //                      [ box.width-8, box.height-8])
+                //     ).fill(color).stroke(null)
+                // );
+
+                // let's draw a checkmark instead.  artistic, eh?
+                group.append(
+                    new drawing.Path()
+                        .stroke(color, 1.2)
+                        .moveTo(box.left + 0.22 * box.width,
+                                box.top + 0.55 * box.height)
+                        .lineTo(box.left + 0.45 * box.width,
+                                box.top + 0.75 * box.height)
+                        .lineTo(box.left + 0.78 * box.width,
+                                box.top + 0.22 * box.width)
+                );
+            }
+        } else {
+            group.append(
+                new drawing.Circle(
+                    new geo.Circle([
+                        (box.left + box.right) / 2,
+                        (box.top + box.bottom) / 2
+                    ], Math.min(box.width-2, box.height-2) / 2)
+                ).stroke(color, 1)
+            );
+            if (element.checked) {
+                group.append(
+                    new drawing.Circle(
+                        new geo.Circle([
+                            (box.left + box.right) / 2,
+                            (box.top + box.bottom) / 2
+                        ], Math.min(box.width-8, box.height-8) / 2)
+                    ).fill(color).stroke(null)
+                );
+            }
+        }
+    }
+
     function renderFormField(element, group) {
         var tag = element.tagName.toLowerCase();
+        if (tag == "input" && (element.type == "checkbox" || element.type == "radio")) {
+            return renderCheckbox(element, group);
+        }
         var p = element.parentNode;
         var doc = element.ownerDocument;
         var el = doc.createElement(KENDO_PSEUDO_ELEMENT);
@@ -27284,14 +27349,14 @@ kendo.ExcelMixin = {
                 that.boundaries = containerBoundaries(container, that.hint);
             }
 
+            $(document).on(KEYUP, that._captureEscape);
+
             if (that._trigger(DRAGSTART, e)) {
                 that.userEvents.cancel();
                 that._afterEnd();
             }
 
             that.userEvents.capture();
-
-            $(document).on(KEYUP, that._captureEscape);
         },
 
         _hold: function(e) {
@@ -30324,7 +30389,7 @@ kendo.ExcelMixin = {
 
             that.element
                 .on(CLICK + NS , "a", proxy(that._click, that))
-                .addClass("k-pager-wrap k-widget");
+                .addClass("k-pager-wrap k-widget k-floatwrap");
 
             that.element.on(CLICK + NS , ".k-current-page", proxy(that._toggleActive, that));
 
@@ -31237,7 +31302,7 @@ kendo.ExcelMixin = {
             that._compileTemplates(options.templates);
             that._guid = "_" + kendo.guid();
             that._isRtl = kendo.support.isRtl(element);
-            that._compileStacking(options.stacking, options.position.top);
+            that._compileStacking(options.stacking, options.position.top, options.position.left);
 
             kendo.notify(that);
         },
@@ -31298,15 +31363,16 @@ kendo.ExcelMixin = {
             return type ? that._compiled[type] || defaultCompiled : defaultCompiled;
         },
 
-        _compileStacking: function(stacking, top) {
+        _compileStacking: function(stacking, top, left) {
             var that = this,
                 paddings = { paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0 },
+                horizontalAlignment = left !== null ? LEFT : RIGHT,
                 origin, position;
 
             switch (stacking) {
                 case "down":
-                    origin = BOTTOM + " " + LEFT;
-                    position = TOP + " " + LEFT;
+                    origin = BOTTOM + " " + horizontalAlignment;
+                    position = TOP + " " + horizontalAlignment;
                     delete paddings.paddingBottom;
                 break;
                 case RIGHT:
@@ -31320,18 +31386,18 @@ kendo.ExcelMixin = {
                     delete paddings.paddingLeft;
                 break;
                 case UP:
-                    origin = TOP + " " + LEFT;
-                    position = BOTTOM + " " + LEFT;
+                    origin = TOP + " " + horizontalAlignment;
+                    position = BOTTOM + " " + horizontalAlignment;
                     delete paddings.paddingTop;
                 break;
                 default:
                     if (top !== null) {
-                        origin = BOTTOM + " " + LEFT;
-                        position = TOP + " " + LEFT;
+                        origin = BOTTOM + " " + horizontalAlignment;
+                        position = TOP + " " + horizontalAlignment;
                         delete paddings.paddingBottom;
                     } else {
-                        origin = TOP + " " + LEFT;
-                        position = BOTTOM + " " + LEFT;
+                        origin = TOP + " " + horizontalAlignment;
+                        position = BOTTOM + " " + horizontalAlignment;
                         delete paddings.paddingTop;
                     }
                 break;
@@ -31349,8 +31415,17 @@ kendo.ExcelMixin = {
                 closeIcon;
 
             function attachClick(target) {
-                target.on(CLICK + NS, function() {
-                    popup.close();
+                target.on(CLICK + NS, function () {
+                    that._hidePopup(popup);
+                });
+            }
+
+            if (popup.options.anchor !== document.body && popup.options.origin.indexOf(RIGHT) > 0) {
+                popup.bind("open", function (e) {
+                    var shadows = kendo.getShadows(popup.element);
+                    setTimeout(function () {
+                        popup.wrapper.css("left", parseFloat(popup.wrapper.css("left")) + shadows.left + shadows.right);
+                    });
                 });
             }
 
@@ -31384,7 +31459,7 @@ kendo.ExcelMixin = {
                 allowHideAfter = options.allowHideAfter,
                 popup, openPopup, attachClick, closeIcon;
 
-            openPopup = $("." + that._guid).last();
+            openPopup = $("." + that._guid + ":not(.k-hiding)").last();
 
             popup = new kendo.ui.Popup(wrapper, {
                 anchor: openPopup[0] ? openPopup : document.body,
@@ -31432,10 +31507,15 @@ kendo.ExcelMixin = {
             }
 
             if (autoHideAfter > 0) {
-                setTimeout(function(){
-                    popup.close();
+                setTimeout(function () {
+                    that._hidePopup(popup);
                 }, autoHideAfter);
             }
+        },
+
+        _hidePopup: function (popup) {
+            popup.wrapper.addClass("k-hiding");
+            popup.close();
         },
 
         _togglePin: function(wrapper, pin) {
@@ -31591,7 +31671,7 @@ kendo.ExcelMixin = {
                 openedNotifications.each(function(idx, element){
                     var popup = $(element).data("kendoPopup");
                     if (popup) {
-                        popup.close();
+                        that._hidePopup(popup);
                     }
                 });
             }
@@ -31623,7 +31703,7 @@ kendo.ExcelMixin = {
             }
 
             if (newOptions.stacking !== undefined || newOptions.position !== undefined) {
-                that._compileStacking(options.stacking, options.position.top);
+                that._compileStacking(options.stacking, options.position.top, options.position.left);
             }
         },
 
@@ -40005,6 +40085,10 @@ kendo.ExcelMixin = {
             that._outerSize = that._isHorizontal ? "outerWidth" : "outerHeight";
 
             options.tooltip.format = options.tooltip.enabled ? options.tooltip.format || "{0}" : "{0}";
+
+            if (options.smallStep <= 0) {
+                throw new Error('Kendo UI Slider smallStep must be a positive number.');
+            }
 
             that._createHtml();
             that.wrapper = that.element.closest(".k-slider");
@@ -56796,12 +56880,12 @@ kendo.PDFMixin = {
             tables.addClass("k-autofitting");
             tables.css("table-layout", "");
 
-            var newTableWidth = Math.max(headerTable.width(), contentTable.width(), footerTable.width());
+            // +1 is required by IE, regardless of the border widths, otherwise unexpected wrapping may occur with hyphenated text
             var newColumnWidth = Math.ceil(Math.max(
                 th.outerWidth(),
-                contentTable.find("tr").eq(0).children(notGroupOrHierarchyVisibleCell).eq(index).outerWidth(),
+                contentTable.find("tr:not(.k-grouping-row)").eq(0).children(notGroupOrHierarchyVisibleCell).eq(index).outerWidth(),
                 footerTable.find("tr").eq(0).children(notGroupOrHierarchyVisibleCell).eq(index).outerWidth()
-            ));
+            )) + 1;
 
             col.width(newColumnWidth);
             column.width = newColumnWidth;
@@ -60554,7 +60638,7 @@ kendo.PDFMixin = {
                     }
 
                     if (th.title) {
-                        html += kendo.attr("title") + '="' + th.title.replace(/'/g, "\'") + '" ';
+                        html += kendo.attr("title") + '="' + th.title.replace('"', '&quot;').replace(/'/g, "\'") + '" ';
                     }
 
                     if (th.groupable !== undefined) {
@@ -70013,13 +70097,20 @@ var Clipboard = Class.extend({
         this._contentModification($.noop, $.noop);
     },
 
-    _fileToDataURL: function(clipboardItem, complete) {
-        var blob = clipboardItem.getAsFile();
+    _fileToDataURL: function(blob) {
+        var deferred = $.Deferred();
+
         var reader = new FileReader();
 
-        reader.onload = complete || $.noop;
+        if (!(blob instanceof window.File)) {
+            blob = blob.getAsFile();
+        }
+
+        reader.onload = $.proxy(deferred.resolve, deferred);
 
         reader.readAsDataURL(blob);
+
+        return deferred.promise();
     },
 
     _triggerPaste: function(html, options) {
@@ -70030,7 +70121,6 @@ var Clipboard = Class.extend({
         this.editor.trigger("paste", args);
 
         this.paste(args.html, options || {});
-
     },
 
     _handleImagePaste: function(e) {
@@ -70038,35 +70128,40 @@ var Clipboard = Class.extend({
             return;
         }
 
-        var that = this;
-        var clipboardData = e.clipboardData || e.originalEvent.clipboardData;
+        var clipboardData = e.clipboardData || e.originalEvent.clipboardData || window.clipboardData;
         var items = clipboardData && (clipboardData.items || clipboardData.files);
+        var images = items && $.grep(items, function(item) {
+            return (/^image\//i).test(item.type);
+        });
 
-        if (!items || !items.length) {
+        if (!images.length) {
             return;
         }
 
-        if (!/^image\//i.test(items[0].type)) {
-            return;
-        }
-
-        var modificationInfo = that._startModification();
+        var modificationInfo = this._startModification();
 
         if (!modificationInfo) {
             return;
         }
 
-        this._fileToDataURL(items[0], function(e) {
-            that._triggerPaste('<img src="' + e.target.result + '" />');
+        $.when.apply($, $.map(images, this._fileToDataURL))
+            .done($.proxy(function() {
+                var results = Array.prototype.slice.call(arguments);
+                var html = $.map(results, function(e) {
+                    return '<img src="' + e.target.result + '" />';
+                }).join("");
 
-            that._endModification(modificationInfo);
-        });
+                this._triggerPaste(html);
+
+                this._endModification(modificationInfo);
+            }, this));
 
         return true;
     },
 
     onpaste: function(e) {
         if (this._handleImagePaste(e)) {
+            e.preventDefault();
             return;
         }
 
@@ -75484,6 +75579,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         isFunction = kendo.isFunction,
         CHANGE = "change",
         ERROR = "error",
+        MEASURES = "Measures",
         PROGRESS = "progress",
         STATERESET = "stateReset",
         AUTO = "auto",
@@ -75652,7 +75748,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
         if (measures.length > 1) {
             members.push({
-                name: "Measures",
+                name: MEASURES,
                 measure: true,
                 children: normalizeMembers(measures)
             });
@@ -75869,26 +75965,25 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             return descriptors;
         },
 
-        _asTuples: function(map, descriptors, measureAggregators) {
-            measureAggregators = measureAggregators || [];
-
-            var dimensionsSchema = this.dimensions || [];
-            var result = [];
-            var root;
-            var idx;
-            var length;
-            var measureIdx;
-            var tuple;
-            var name;
+        _rootTuples: function(rootNames, measureAggregators) {
             var aggregatorsLength = measureAggregators.length || 1;
+            var dimensionsSchema = this.dimensions || [];
+            var root, name, parts;
+            var measureIdx = 0;
+            var idx;
 
-            if (descriptors.length || measureAggregators.length) {
+            var rootNamesLength = rootNames.length;
+            var result = [];
+            var keys = [];
+
+            if (rootNamesLength || measureAggregators.length) {
                 for (measureIdx = 0; measureIdx < aggregatorsLength; measureIdx++) {
 
                     root = { members: [] };
 
-                    for (idx = 0, length = descriptors.length; idx < length; idx++) {
-                        name = getName(descriptors[idx].name);
+                    for (idx = 0; idx < rootNamesLength; idx++) {
+                        name = rootNames[idx];
+                        parts = name.split("&");
 
                         root.members[root.members.length] = {
                             children: [],
@@ -75897,7 +75992,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                             levelName: name,
                             levelNum: "0",
                             hasChildren: true,
-                            parentName: undefined,
+                            parentName: parts.length > 1 ? parts[0] : undefined,
                             hierarchy: name
                         };
                     }
@@ -75914,28 +76009,68 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                             hierarchy: "MEASURES"
                         };
                     }
+
                     result[result.length] = root;
                 }
+
+                keys.push(ROW_TOTAL_KEY);
             }
 
-            for (var key in map) {
+            return {
+                keys: keys,
+                tuples: result
+            };
+        },
+
+        _expandedTuples: function(map, expanded, measureAggregators) {
+            var aggregatorsLength = measureAggregators.length || 1;
+            var dimensionsSchema = this.dimensions || [];
+            var measureIdx;
+            var tuple;
+
+            var key;
+            var mapItem;
+            var current;
+            var currentKeys;
+            var accumulator = [];
+            var accumulatorKeys = [];
+            var memberInfo;
+
+            var expandedNames;
+            var parts;
+            var name;
+            var idx;
+
+            for (key in map) {
+                mapItem = map[key];
+                memberInfo = this._findExpandedMember(expanded, mapItem.uniquePath);
+
+                current = accumulator[memberInfo.index] || [];
+                currentKeys = accumulatorKeys[memberInfo.index] || [];
+
+                expandedNames = memberInfo.member.names;
+
                 for (measureIdx = 0; measureIdx < aggregatorsLength; measureIdx++) {
                     tuple = { members: [] };
-                    for (idx = 0, length = descriptors.length; idx < length; idx++) {
-                        name = getName(descriptors[idx].name);
-
-                        if (map[key].parentName.indexOf(name) === 0) {
+                    for (idx = 0; idx < expandedNames.length; idx++) {
+                        if (idx === memberInfo.member.expandedIdx) {
                             tuple.members[tuple.members.length] = {
                                 children: [],
-                                caption: map[key].value,
-                                name: map[key].name,
-                                levelName: map[key].name,
-                                levelNum: 1,
+                                caption: mapItem.value,
+                                name: mapItem.name,
                                 hasChildren: false,
-                                parentName: name,
-                                hierarchy: name
+                                levelNum: 1,
+                                levelName: mapItem.parentName + mapItem.name,
+                                parentName: mapItem.parentName,
+                                hierarchy: mapItem.parentName + mapItem.name
                             };
+
+                            if (measureIdx === 0) {
+                                currentKeys.push(buildPath(tuple, idx).join(""));
+                            }
                         } else {
+                            name = expandedNames[idx];
+                            parts = name.split("&");
                             tuple.members[tuple.members.length] = {
                                 children: [],
                                 caption: (dimensionsSchema[name] || {}).caption || "All",
@@ -75943,7 +76078,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                                 levelName: name,
                                 levelNum: "0",
                                 hasChildren: true,
-                                parentName: undefined,
+                                parentName: parts.length > 1 ? parts[0] : undefined,
                                 hierarchy: name
                             };
                         }
@@ -75962,85 +76097,169 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                         };
                     }
 
-                    result[result.length] = tuple;
+                    current[current.length] = tuple;
                 }
+
+                accumulator[memberInfo.index] = current;
+                accumulatorKeys[memberInfo.index] = currentKeys;
             }
 
-            return result;
+            return {
+                keys: accumulatorKeys,
+                tuples: accumulator
+            };
         },
 
-        _toDataArray: function(map, rowStartOffset, measures, offset, addFunc) {
-            var formats = {};
-            var resultFuncs = {};
-            var descriptors, measure, name;
+        _findExpandedMember: function(members, parentName) {
+            for (var idx = 0; idx < members.length; idx++) {
+                if (members[idx].uniquePath === parentName) {
+                    return {
+                        member: members[idx],
+                        index: idx
+                    };
+                }
+            }
+        },
 
+        _asTuples: function(map, descriptor, measureAggregators) {
+            measureAggregators = measureAggregators || [];
+
+            var rootInfo = this._rootTuples(descriptor.root, measureAggregators);
+            var expandedInfo = this._expandedTuples(map, descriptor.expanded, measureAggregators);
+
+            return {
+                keys: [].concat.apply(rootInfo.keys, expandedInfo.keys),
+                tuples: [].concat.apply(rootInfo.tuples, expandedInfo.tuples)
+            };
+        },
+
+        _measuresInfo: function(measures, rowAxis) {
             var idx = 0;
             var length = measures && measures.length;
 
-            if (length) {
-                descriptors = (this.measures || {});
-                for (; idx < length; idx++) {
-                    name = measures[idx].name;
-                    measure = descriptors[name];
+            var aggregateNames = [];
+            var resultFuncs= {};
+            var formats = {};
 
-                    if (measure.result) {
-                        resultFuncs[name] = measure.result;
-                    }
+            var descriptors = (this.measures || {});
+            var measure;
+            var name;
 
-                    if (measure.format) {
-                        formats[name] = measure.format;
-                    }
+            for (; idx < length; idx++) {
+                name = measures[idx].descriptor.name;
+                measure = descriptors[name] || {};
+
+                aggregateNames.push(name);
+
+                if (measure.result) {
+                    resultFuncs[name] = measure.result;
+                }
+
+                if (measure.format) {
+                    formats[name] = measure.format;
                 }
             }
 
+            return {
+                names: aggregateNames,
+                formats: formats,
+                resultFuncs: resultFuncs,
+                rowAxis: rowAxis
+            };
+        },
+
+        _toDataArray: function(map, measuresInfo, rowKeys, columnKeys) {
             var result = [];
-            var items;
-            var rowIndex = 0;
 
-            addFunc(result, rowIndex, map, ROW_TOTAL_KEY, resultFuncs, formats, rowStartOffset);
+            var aggregates;
+            var name, i, j, k, n;
+            var row, column, columnKey;
 
-            for (var key in map) {
-                if (key === ROW_TOTAL_KEY) {
-                    continue;
+            var rowMeasureNamesLength = 1;
+            var rowMeasureNames = [];
+            var columnMeasureNames;
+
+            var rowLength = rowKeys.length || 1;
+            var columnLength = columnKeys.length || 1;
+
+            if (measuresInfo.rowAxis) {
+                rowMeasureNames = measuresInfo.names;
+                rowMeasureNamesLength = rowMeasureNames.length;
+            } else {
+                columnMeasureNames = measuresInfo.names;
+            }
+
+            for (i = 0; i < rowLength; i++) {
+                row = map[rowKeys[i] || ROW_TOTAL_KEY];
+
+                for (n = 0; n < rowMeasureNamesLength; n++) {
+                    if (measuresInfo.rowAxis) {
+                        columnMeasureNames = [rowMeasureNames[n]];
+                    }
+
+                    for (j = 0; j < columnLength; j++) {
+                        columnKey = columnKeys[j] || ROW_TOTAL_KEY;
+                        column = row.items[columnKey];
+
+                        if (columnKey === ROW_TOTAL_KEY) {
+                            aggregates = row.aggregates;
+                        } else {
+                            aggregates = column ? column.aggregates : {};
+                        }
+
+                        for (k = 0; k < columnMeasureNames.length; k++) {
+                            name = columnMeasureNames[k];
+                            this._addData(result, aggregates[name], measuresInfo.formats[name], measuresInfo.resultFuncs[name]);
+                        }
+                    }
                 }
-
-                rowIndex += offset;
-                addFunc(result, rowIndex, map, key, resultFuncs, formats, rowStartOffset);
             }
 
             return result;
         },
 
-        _matchDescriptors: function(dataItem, descriptors, getters, idx) {
-            var descriptor;
+        _addData: function(result, value, format, resultFunc) {
+            var fmtValue = "";
+            var ordinal;
+
+            if (value) {
+                value = resultFunc ? resultFunc(value) : value.accumulator;
+                fmtValue = format ? kendo.format(format, value) : value;
+            }
+
+            ordinal = result.length;
+
+            result[ordinal] = {
+                ordinal: ordinal,
+                value: value || "",
+                fmtValue: fmtValue
+            };
+        },
+
+        _matchDescriptors: function(dataItem, descriptor, getters) {
             var parts;
             var parentField;
             var expectedValue;
-            var parentGetter;
+
+            var names = descriptor.names;
+            var idx = descriptor.expandedIdx;
+            var value;
 
             while (idx > 0) {
-                descriptor = descriptors[--idx];
-                parts = getName(descriptor).split("&");
+                parts = names[--idx].split("&");
                 if (parts.length > 1) {
                     parentField = parts[0];
                     expectedValue = parts[1];
-                    parentGetter = getters[parentField];
 
-                    if (parentGetter(dataItem) != expectedValue) {
+                    value = getters[parentField](dataItem);
+                    value = (value !== undefined && value !== null) ? value.toString() : value;
+
+                    if (value != expectedValue) {
                         return false;
                     }
                 }
             }
             return true;
-        },
-
-        _isExpanded: function(descriptors) {
-            for (var idx = 0, length = descriptors.length; idx < length; idx++) {
-                if (descriptors[idx].expand) {
-                    return true;
-                }
-            }
-            return false;
         },
 
         _calculateAggregate: function(measureAggregators, aggregatorContext, totalItem) {
@@ -76061,48 +76280,53 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         _processColumns: function(measureAggregators, descriptors, getters, columns, aggregatorContext, rowTotal, state, updateColumn) {
             var value;
             var descriptor;
-            var name;
             var column;
             var totalItem;
+            var key, name, parentName, path;
             var dataItem = aggregatorContext.dataItem;
+            var idx = 0;
 
-            for (var idx = 0; idx < descriptors.length; idx++) {
+            for (; idx < descriptors.length; idx++) {
                 descriptor = descriptors[idx];
 
-                if (descriptor.expand) {
-                    if (!this._matchDescriptors(dataItem, descriptors, getters, idx)) {
-                        continue;
+                //checks whether the dataItem is relevant to the descriptors
+                if (!this._matchDescriptors(dataItem, descriptor, getters)) {
+                    continue;
+                }
+
+                path = descriptor.names.slice(0, descriptor.expandedIdx).join("");
+                name = descriptor.names[descriptor.expandedIdx];
+
+
+                value = getters[name](dataItem);
+                value = (value !== undefined && value !== null) ? value.toString() : value;
+
+                parentName = name;
+                name = name + "&" + value;
+                key = path + name;
+
+                column = columns[key] || {
+                    index: state.columnIndex,
+                    parentName: parentName,
+                    name: name,
+                    uniquePath: path + parentName,
+                    value: value
+                };
+
+                totalItem = rowTotal.items[key] || {
+                    aggregates: {}
+                };
+
+                rowTotal.items[key] = {
+                    index: column.index,
+                    aggregates: this._calculateAggregate(measureAggregators, aggregatorContext, totalItem)
+                };
+
+                if (updateColumn) {
+                    if (!columns[key]) {
+                        state.columnIndex++;
                     }
-
-                    name = getName(descriptor);
-
-                    value = getters[name](dataItem);
-                    value = (value !== undefined && value !== null) ? value.toString() : value;
-
-                    name = name + "&" + value;
-
-                    column = columns[name] || {
-                        index: state.columnIndex,
-                        name: name,
-                        parentName: name,
-                        value: value
-                    };
-
-                    totalItem = rowTotal.items[name] || {
-                        aggregates: {}
-                    };
-
-                    rowTotal.items[name] = {
-                        index: column.index,
-                        aggregates: this._calculateAggregate(measureAggregators, aggregatorContext, totalItem)
-                    };
-
-                    if (updateColumn) {
-                        if (!columns[name]) {
-                            state.columnIndex++;
-                        }
-                        columns[name] = column;
-                    }
+                    columns[key] = column;
                 }
             }
         },
@@ -76161,17 +76385,13 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             return name;
         },
 
-        _buildGetters: function(descriptors) {
+        _buildGetters: function(names) {
             var result = {};
-            var descriptor;
             var parts;
             var name;
 
-            for (var idx = 0, length = descriptors.length; idx < length; idx++) {
-                descriptor = descriptors[idx];
-
-                name = getName(descriptor);
-
+            for (var idx = 0; idx < names.length; idx++) {
+                name = names[idx];
                 parts = name.split("&");
 
                 if (parts.length > 1) {
@@ -76184,6 +76404,22 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             return result;
         },
 
+        _parseDescriptors: function (descriptors) {
+            var parsedDescriptors = parseDescriptors(descriptors);
+            var rootNames = getRootNames(parsedDescriptors.root);
+            var expanded = parsedDescriptors.expanded;
+            var result = [];
+
+            for (var idx = 0; idx < expanded.length; idx++) {
+                result.push(mapNames(expanded[idx].name, rootNames));
+            }
+
+            return {
+                root: rootNames,
+                expanded: result
+            };
+        },
+
         process: function(data, options) {
             data = data || [];
             options = options || {};
@@ -76192,8 +76428,8 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             var measuresRowAxis = options.measuresAxis === "rows";
 
-            var columnDescriptors = (measuresRowAxis ? options.rows : options.columns) || [];
-            var rowDescriptors = (!measuresRowAxis ? options.rows : options.columns) || [];
+            var columnDescriptors = options.columns || [];
+            var rowDescriptors = options.rows || [];
 
             if (!columnDescriptors.length && rowDescriptors.length && (!measures.length || (measures.length && measuresRowAxis))) {
                 columnDescriptors = rowDescriptors;
@@ -76209,6 +76445,9 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 columnDescriptors = normalizeMembers(options.measures);
             }
 
+            columnDescriptors = this._parseDescriptors(columnDescriptors);
+            rowDescriptors = this._parseDescriptors(rowDescriptors);
+
             var aggregatedData = {};
             var columns = {};
             var rows = {};
@@ -76217,19 +76456,29 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             var state = { columnIndex: 0 };
 
             var measureAggregators = this._measureAggregators(options);
-            var columnGetters = this._buildGetters(columnDescriptors);
-            var rowGetters = this._buildGetters(rowDescriptors);
+
+            var columnGetters = this._buildGetters(columnDescriptors.root);
+            var rowGetters = this._buildGetters(rowDescriptors.root);
 
             var processed = false;
 
-            if (columnDescriptors.length || rowDescriptors.length) {
-                var dataItem;
-                var aggregatorContext;
-                var hasExpandedRows = this._isExpanded(rowDescriptors);
+            var expandedColumns = columnDescriptors.expanded;
+            var expandedRows = rowDescriptors.expanded;
 
+            var dataItem;
+            var aggregatorContext;
+            var hasExpandedRows = expandedRows.length !== 0;
+
+            var rowIdx, rowDescriptor, rowName, rowTotal;
+            var key, path, parentName, value;
+            var columnsInfo, rowsInfo;
+            var length = data.length;
+            var idx = 0;
+
+            if (columnDescriptors.root.length || rowDescriptors.root.length) {
                 processed = true;
 
-                for (var idx = 0, length = data.length; idx < length; idx++) {
+                for (idx = 0; idx < length; idx++) {
                     dataItem = data[idx];
 
                     aggregatorContext = {
@@ -76237,68 +76486,70 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                         index: idx
                     };
 
-                    var rowTotal = aggregatedData[ROW_TOTAL_KEY] || {
+                    rowTotal = aggregatedData[ROW_TOTAL_KEY] || {
                         items: {},
                         aggregates: {}
                     };
 
-                    this._processColumns(measureAggregators, columnDescriptors, columnGetters, columns, aggregatorContext, rowTotal, state, !hasExpandedRows);
+                    this._processColumns(measureAggregators, expandedColumns, columnGetters, columns, aggregatorContext, rowTotal, state, !hasExpandedRows);
 
                     rowTotal.aggregates = this._calculateAggregate(measureAggregators, aggregatorContext, rowTotal);
                     aggregatedData[ROW_TOTAL_KEY] = rowTotal;
 
-                    for (var rowIdx = 0, rowLength = rowDescriptors.length; rowIdx < rowLength; rowIdx++) {
-                        var rowDescriptor = rowDescriptors[rowIdx];
+                    for (rowIdx = 0; rowIdx < expandedRows.length; rowIdx++) {
+                        rowDescriptor = expandedRows[rowIdx];
 
-                        if (rowDescriptor.expand) {
-                            if (!this._matchDescriptors(dataItem, rowDescriptors, rowGetters, rowIdx)) {
-                                continue;
-                            }
-
-                            var rowName = getName(rowDescriptor);
-
-                            rowValue = rowGetters[rowName](dataItem);
-                            rowValue = rowValue !== undefined ? rowValue.toString() : rowValue;
-                            rows[rowValue] = {
-                                name: rowName + "&" + rowValue,
-                                parentName: rowName,
-                                value: rowValue
-                            };
-
-                            var value = aggregatedData[rowValue] || {
-                                items: {},
-                                aggregates: {}
-                            };
-
-                            this._processColumns(measureAggregators, columnDescriptors, columnGetters, columns, aggregatorContext, value, state, true);
-
-                            value.aggregates = this._calculateAggregate(measureAggregators, aggregatorContext, value);
-                            aggregatedData[rowValue] = value;
+                        if (!this._matchDescriptors(dataItem, rowDescriptor, rowGetters)) {
+                            this._processColumns(measureAggregators, expandedColumns, columnGetters, columns, aggregatorContext, { items: {}, aggregates: {} }, state, true);
+                            continue;
                         }
+
+                        path = rowDescriptor.names.slice(0, rowDescriptor.expandedIdx).join("");
+                        rowName = rowDescriptor.names[rowDescriptor.expandedIdx];
+
+                        parentName = rowName;
+
+                        rowValue = rowGetters[rowName](dataItem);
+                        rowValue = rowValue !== undefined ? rowValue.toString() : rowValue;
+
+                        rowName = rowName + "&" + rowValue;
+                        key = path + rowName;
+
+                        rows[key] = {
+                            uniquePath: path + parentName,
+                            parentName: parentName,
+                            name: rowName,
+                            value: rowValue
+                        };
+
+                        value = aggregatedData[key] || {
+                            items: {},
+                            aggregates: {}
+                        };
+
+                        this._processColumns(measureAggregators, expandedColumns, columnGetters, columns, aggregatorContext, value, state, true);
+
+                        value.aggregates = this._calculateAggregate(measureAggregators, aggregatorContext, value);
+                        aggregatedData[key] = value;
                     }
                 }
             }
 
-            if (processed && data.length) {
+            if (processed && length) {
                 if (measureAggregators.length > 1 && (!options.columns || !options.columns.length)) {
-                    columnDescriptors = [];
+                    columnDescriptors = {
+                        root: [],
+                        expanded: []
+                    };
                 }
 
-                columns = this._asTuples(columns, columnDescriptors, measureAggregators);
-                rows = this._asTuples(rows, rowDescriptors, []);
+                columnsInfo = this._asTuples(columns, columnDescriptors, measuresRowAxis ? [] : measureAggregators);
+                rowsInfo = this._asTuples(rows, rowDescriptors, measuresRowAxis ? measureAggregators : []);
 
-                var offset = columns.length;
+                columns = columnsInfo.tuples;
+                rows = rowsInfo.tuples;
 
-                if (measuresRowAxis) {
-                    offset = 1;
-
-                    var tmp = columns;
-                    columns = rows;
-                    rows = tmp;
-                }
-
-                aggregatedData = this._toDataArray(aggregatedData, columns.length, options.measures, offset, measuresRowAxis ? addDataCellVertical : addDataCell);
-                aggregatedData = this._normalizeData(aggregatedData, columns.length, rows.length);
+                aggregatedData = this._toDataArray(aggregatedData, this._measuresInfo(measureAggregators, measuresRowAxis), rowsInfo.keys, columnsInfo.keys);
             } else {
                 aggregatedData = columns = rows = [];
             }
@@ -76310,30 +76561,6 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 },
                 data: aggregatedData
             };
-        },
-
-        _normalizeData: function(data, columns, rows) {
-            var axesLength = (columns || 1) * (rows || 1);
-            var result = new Array(axesLength);
-            var length = data.length;
-            var cell, idx;
-
-            if (length === axesLength) {
-                return data;
-            }
-
-            for (idx = 0; idx < axesLength; idx++) {
-                result[idx] = { value: "", fmtValue: "", ordinal: idx };
-            }
-
-            for (idx = 0; idx < length; idx++) {
-               cell = data[idx];
-               if (cell) {
-                   result[cell.ordinal] = cell;
-               }
-            }
-
-            return result;
         }
     });
 
@@ -76458,9 +76685,9 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
                     if (cube.measures) {
                         result.push({
-                            name: "Measures",
-                            caption: "Measures",
-                            uniqueName: "Measures",
+                            name: MEASURES,
+                            caption: MEASURES,
+                            uniqueName: MEASURES,
                             type: 2
                         });
                     }
@@ -76778,11 +77005,13 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                     axisToSkip = "columns";
                     axes.columns = resultAxis;
                     adjustDataByColumn(tuples, resultAxis.tuples, axes.rows.tuples.length, measures, data);
-                    data = this._normalizeData({
-                        columnsLength: membersCount(axes.columns.tuples, measures),
-                        rowsLength: axes.rows.tuples.length,
-                        data: data
-                    });
+                    if (!this.cubeBuilder) {
+                        data = this._normalizeData({
+                            columnsLength: membersCount(axes.columns.tuples, measures),
+                            rowsLength: axes.rows.tuples.length,
+                            data: data
+                        });
+                    }
                 }
             } else if (this._lastExpanded == "columns") {
                 tuples = axes.rows.tuples;
@@ -76794,11 +77023,13 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                     axes.rows = resultAxis;
                     adjustDataByRow(tuples, resultAxis.tuples, axes.columns.tuples.length, measures, data);
 
-                    data = this._normalizeData({
-                        columnsLength: membersCount(axes.rows.tuples, measures),
-                        rowsLength: axes.columns.tuples.length,
-                        data: data
-                    });
+                    if (!this.cubeBuilder) {
+                        data = this._normalizeData({
+                            columnsLength: membersCount(axes.rows.tuples, measures),
+                            rowsLength: axes.columns.tuples.length,
+                            data: data
+                        });
+                    }
                 }
             }
 
@@ -76944,6 +77175,11 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             } else {
                 //rows are expanded
                 startIndex = mergedRows.index + findDataIndex(mergedRows.parsedRoot, mergedRows.memberIndex, rowMeasures);
+
+                //var colLength = findDataIndex(mergedColumns.parsedRoot, mergedColumns.parsedRoot.members.length, columnMeasures);
+                //startIndex = (startIndex + 1) * colLength;
+
+                //: start index should be 8... current index * columns length
                 data = this._mergeRowData(data, startIndex, newRowsLength, newColumnsLength);
             }
 
@@ -77443,12 +77679,19 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             return 0;
         }
 
-        var counter = Math.max(measures.length, 1);
+        var measuresLength = Math.max(measures.length, 1);
         var tuples = tuple.members.slice(0, memberIndex);
+        var counter = measuresLength;
         var current = tuples.shift();
 
+        if (measuresLength > 1) {
+            measuresLength += 1;
+        }
+
         while (current) {
-            if (current.children) {
+            if (current.name === MEASURES) {
+                counter += measuresLength;
+            } else if (current.children) {
                 //is member
                 [].push.apply(tuples, current.children);
             } else {
@@ -77643,7 +77886,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             return;
         }
         var member = {
-            name: "Measures",
+            name: MEASURES,
             measure: true,
             children: [
                 $.extend({ members: [], dataIndex: tuple.dataIndex }, tuple.members[index])
@@ -77912,7 +78155,11 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             }
         }
 
-        return rootNames;
+        return {
+            names: rootNames,
+            expandedIdx: j,
+            uniquePath: rootNames.slice(0, j + 1).join("")
+        };
     }
 
     function parseDescriptors(members) {
@@ -77993,7 +78240,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             for (; idx < length; idx++) {
                 memberName = expandMemberDescriptor(expanded[idx].name, sort);
-                names = mapNames(memberName, rootNames);
+                names = mapNames(memberName, rootNames).names;
 
                 crossJoinCommands.push(crossJoinCommand(names, measures));
             }
@@ -81485,7 +81732,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 if (checkbox.prop(INDETERMINATE) === false) {
                     this.dataItem(parentNode).set(CHECKED, checkbox.prop(CHECKED));
                 } else {
-                    this.dataItem(parentNode).checked = false;
+                    delete this.dataItem(parentNode).checked;
                 }
 
                 this._bubbleIndeterminate(parentNode);
@@ -84813,6 +85060,8 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         init: function(element, options) {
             Widget.fn.init.call(this, element, options);
 
+            this._guid = "_" + kendo.guid();
+
             this._toggleHandler = proxy(this._toggleButtonClick, this);
             this._closeHandler = proxy(this._close, this);
 
@@ -84821,20 +85070,23 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             this._registerBreakpoint();
 
             this.element
-                .addClass("k-rpanel k-rpanel-" + this.options.orientation);
+                .addClass("k-rpanel k-rpanel-" + this.options.orientation + " " + this._guid);
 
             this._resizeHandler = proxy(this.resize, this, false);
             $(window).on("resize" + NS, this._resizeHandler);
         },
         _mediaQuery:
             "@media (max-width: #= breakpoint-1 #px) {" +
-                ".k-rpanel-animate.k-rpanel-left," +
-                ".k-rpanel-animate.k-rpanel-right {" +
+                ".#= guid #.k-rpanel-animate.k-rpanel-left," +
+                ".#= guid #.k-rpanel-animate.k-rpanel-right {" +
                     "-webkit-transition: -webkit-transform .2s ease-out;" +
                     "-ms-transition: -ms-transform .2s ease-out;" +
                     "transition: transform .2s ease-out;" +
                 "} " +
-                ".k-rpanel-animate.k-rpanel-top {" +
+                ".#= guid #.k-rpanel-top {" +
+                    "overflow: hidden;" +
+                "}" +
+                ".#= guid #.k-rpanel-animate.k-rpanel-top {" +
                     "-webkit-transition: max-height .2s linear;" +
                     "-ms-transition: max-height .2s linear;" +
                     "transition: max-height .2s linear;" +
@@ -84842,22 +85094,23 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             "} " +
             "@media (min-width: #= breakpoint #px) {" +
                 "#= toggleButton # { display: none; } " +
-                ".k-rpanel-left { float: left; } " +
-                ".k-rpanel-right { float: right; } " +
-                ".k-rpanel-left, .k-rpanel-right {" +
+                ".#= guid #.k-rpanel-left { float: left; } " +
+                ".#= guid #.k-rpanel-right { float: right; } " +
+                ".#= guid #.k-rpanel-left, .#= guid #.k-rpanel-right {" +
                     "position: relative;" +
                     "-webkit-transform: translateX(0) translateZ(0);" +
                     "-ms-transform: translateX(0) translateZ(0);" +
                     "transform: translateX(0) translateZ(0);" +
                 "} " +
-                ".k-rpanel-top { max-height: none; }" +
+                ".#= guid #.k-rpanel-top { max-height: none; }" +
             "}",
         _registerBreakpoint: function() {
             var options = this.options;
 
             this._registerStyle(kendo.template(this._mediaQuery)({
                 breakpoint: options.breakpoint,
-                toggleButton: options.toggleButton
+                toggleButton: options.toggleButton,
+                guid: this._guid
             }));
         },
         _registerStyle: function(cssText) {
@@ -85931,9 +86184,13 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 } else if (that._scrollableModeActive && tabGroupScrollWidth <= wrapperOffsetWidth) {
                     that._scrollableModeActive = false;
 
+                    that.wrapper.removeClass("k-tabstrip-scrollable");
+
                     that._scrollPrevButton.off().remove();
                     that._scrollNextButton.off().remove();
                     that.tabGroup.css({ marginLeft: "", marginRight: "" });
+                } else if (!that._scrollableModeActive) {
+                    that.wrapper.removeClass("k-tabstrip-scrollable");
                 }
             }
         },
@@ -87755,6 +88012,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 this.popup = this.popupElement.kendoPopup({
                     appendTo: options.mobile ? $(options.mobile).children(".km-pane") : null,
                     anchor: element,
+                    isRtl: this.toolbar._isRtl,
                     copyAnchorStyles: false,
                     animation: options.animation,
                     open: adjustPopupWidth
@@ -88019,6 +88277,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 element.addClass(TOOLBAR + " k-widget");
 
                 this.uid = kendo.guid();
+                this._isRtl = kendo.support.isRtl(element);
                 this._groups = {};
                 element.attr(KENDO_UID_ATTR, this.uid);
 
@@ -88308,13 +88567,15 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                     item = element.data("button");
 
                 if (item.options.togglable) {
-                    item.toggle(checked ? checked : !item.options.selectable, true);
+                    item.toggle(checked ? checked : !item.options.selected, true);
                 }
             },
 
             _renderOverflow: function() {
                 var that = this,
-                    overflowContainer = components.overflowContainer;
+                    overflowContainer = components.overflowContainer,
+                    isRtl = that._isRtl,
+                    horizontalDirection = isRtl ? "left" : "right";
 
                 that.overflowAnchor = $(components.overflowAnchor).addClass(BUTTON);
 
@@ -88328,9 +88589,10 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 }
 
                 that.popup = new kendo.ui.Popup(overflowContainer, {
-                    origin: "bottom right",
-                    position: "top right",
+                    origin: "bottom " + horizontalDirection,
+                    position: "top " + horizontalDirection,
                     anchor: that.overflowAnchor,
+                    isRtl: isRtl,
                     animation: that.animation,
                     appendTo: that.isMobile ? $(that.isMobile).children(".km-pane") : null,
                     copyAnchorStyles: false,
@@ -88339,7 +88601,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                             .addClass("k-overflow-wrapper");
 
                         if (!that.isMobile) {
-                            wrapper.css("margin-left", (wrapper.outerWidth() - wrapper.width()) / 2 + 1);
+                            wrapper.css("margin-left", (isRtl ? -1 : 1) * ((wrapper.outerWidth() - wrapper.width()) / 2 + 1));
                         } else {
                             that.popup.container.css("max-height", (parseFloat($(".km-content:visible").innerHeight()) - 15) + "px");
                         }
@@ -88362,7 +88624,6 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 }
 
                 that.popup.container.attr(KENDO_UID_ATTR, this.uid);
-                that.popup.element.toggleClass("k-rtl", kendo.support.isRtl(that.element));
             },
 
             _toggleOverflowAnchor: function() {
@@ -105548,6 +105809,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
     var extend = $.extend;
     var map = $.map;
     var isFunction = $.isFunction;
+    var oldIE = browser.msie && browser.version < 9;
     var keys = kendo.keys;
     var titleFromField = {
         "title": "Title",
@@ -105580,6 +105842,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         iconHidden: "k-i-none",
         iconPlaceHolder: "k-icon k-i-none",
         input: "k-input",
+        link: "k-link",
         dropPositions: "k-insert-top k-insert-bottom k-add k-insert-middle",
         dropTop: "k-insert-top",
         dropBottom: "k-insert-bottom",
@@ -105661,6 +105924,8 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             }
 
             this.content.off(NS);
+            this.header.find(DOT + GanttList.link).off(NS);
+
             this.header = null;
             this.content = null;
             this.levels = null;
@@ -105925,11 +106190,18 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         },
 
         _sortable: function() {
+            var that = this;
             var resourcesField = this.options.resourcesField;
             var columns = this.columns;
             var column;
             var sortableInstance;
             var cells = this.header.find("th");
+            var handler = function(e) {
+                if (that.editable && that.editable.trigger("validate")) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                }
+            };
             var cell;
 
             for (var idx = 0, length = cells.length; idx < length; idx++) {
@@ -105945,7 +106217,9 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                     }
 
                     cell.attr("data-" + kendo.ns + "field", column.field)
-                        .kendoColumnSorter({ dataSource: this.dataSource });
+                        .kendoColumnSorter({ dataSource: this.dataSource })
+                        .find(DOT + GanttList.link)
+                        .on("click" + NS, handler);
                 }
             }
             cells = null;
@@ -105959,6 +106233,10 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 this.content
                    .on(CLICK + NS, "tr", function(e) {
                        var element = $(this);
+
+                       if (that.editable) {
+                           that.editable.trigger("validate");
+                       }
 
                        if (!e.ctrlKey) {
                            that.select(element);
@@ -106009,8 +106287,14 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             var listStyles = GanttList.styles;
             var iconSelector = "span." + listStyles.icon + ":not(" + listStyles.iconHidden +")";
             var finishEdit = function() {
-                if (that.editable && that.editable.end()) {
-                    that._closeCell();
+                var editable = that.editable;
+
+                if (editable) {
+                    if (editable.end()) {
+                        that._closeCell();
+                    } else {
+                        editable.trigger("validate");
+                    }
                 }
             };
             var mousedown = function(e) {
@@ -106046,7 +106330,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 .on("focusout" + NS, function() {
                     that.timer = setTimeout(finishEdit, 1);
                 })
-                .on("keydown" + NS, function(e) {
+                .on("keyup" + NS, function(e) {
                     var key = e.keyCode;
                     var cell;
                     var model;
@@ -106105,12 +106389,14 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             var validation = field.validation;
             var DATATYPE = kendo.attr("type");
             var BINDING = kendo.attr("bind");
+            var FORMAT = kendo.attr("format");
             var attr = {
                 "name": column.field,
                 "required": field.validation ?
                     field.validation.required === true : false
             };
             var editor;
+            var that = this;
 
             if (column.field === resourcesField) {
                 column.editor(cell, modelCopy);
@@ -106123,13 +106409,15 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             cell.data("modelCopy", modelCopy);
 
             if ((field.type === "date" || $.type(field) === "date") &&
-                /H|m|s|F|g|u/.test(column.format)) {
-                if (column.field === "start") {
-                    delete field.validation.dateCompare;
-                }
+                (!column.format || /H|m|s|F|g|u/.test(column.format))) {
 
                 attr[BINDING] = "value:" + column.field;
                 attr[DATATYPE] = "date";
+
+                if (column.format) {
+                    attr[FORMAT] = kendo._extractFormat(column.format);
+                }
+
                 editor = function(container, options) {
                     $('<input type="text"/>').attr(attr)
                         .appendTo(container).kendoDateTimePicker({ format: options.format });
@@ -106161,6 +106449,16 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             if (this.trigger("edit", { model: model, cell: cell })) {
                 this._closeCell(true);
             }
+
+            this.editable.bind("validate", function(e) {
+                var focusable = this.element.find(":kendoFocusable:first").focus();
+
+                if (oldIE) {
+                    focusable.focus();
+                }
+
+                e.preventDefault();
+            });
         },
 
         _closeCell: function(cancelUpdate) {
@@ -106179,6 +106477,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 .removeClass(listStyles.editCell)
                 .append(this._editableContent);
 
+            this.editable.unbind();
             this.editable.destroy();
             this.editable = null;
 
@@ -106285,8 +106584,9 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                     cursorOffset: { top: -20, left: 0 },
                     container: this.content,
                     "dragstart": function(e) {
-                        if (that.editable) {
+                        if (that.editable && that.editable.trigger("validate")) {
                             e.preventDefault();
+                            return;
                         }
                         draggedTask = that._modelFromElement(e.currentTarget);
                         this.hint.children(DOT + listStyles.dragClueText)
@@ -108618,6 +108918,11 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             this._percentDraggable
                 .bind("dragstart", function(e) {
+                    if (that.trigger("percentResizeStart")) {
+                        e.preventDefault();
+                        return;
+                    }
+
                     taskElement = e.currentTarget.siblings(DOT + styles.task);
 
                     task = that._taskByUid(taskElement.attr("data-uid"));
@@ -108721,6 +109026,11 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             this._dependencyDraggable
                 .bind("dragstart", function(e) {
+                    if (that.trigger("dependencyDragStart")) {
+                        e.preventDefault();
+                        return;
+                    }
+
                     originalHandle = e.currentTarget
                         .css("display", "block")
                         .addClass(styles.hovered);
@@ -108728,7 +109038,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                     originalHandle.parent().addClass(styles.origin);
 
                     var elementOffset = originalHandle.offset();
-					var tablesOffset = $(DOT + styles.tasksWrapper).offset();
+                    var tablesOffset = $(DOT + styles.tasksWrapper).offset();
 
                     startX = Math.round(elementOffset.left - tablesOffset.left + (originalHandle.outerHeight() / 2));
                     startY = Math.round(elementOffset.top - tablesOffset.top + (originalHandle.outerWidth() / 2));
@@ -108744,7 +109054,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                     that.view()._removeDependencyDragHint();
 
                     var target = $(kendo.elementUnderCursor(e));
-					var tablesOffset = $(DOT + styles.tasksWrapper).offset();
+                    var tablesOffset = $(DOT + styles.tasksWrapper).offset();
                     var currentX = e.x.location - tablesOffset.left;
                     var currentY = e.y.location - tablesOffset.top;
 
@@ -108905,7 +109215,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                         }
                     });
 
-                if (!mobileOS) {
+                if (!kendo.support.mobileOS) {
                     this.wrapper
                         .on(DBLCLICK + NS, DOT + styles.task, function(e) {
                             that.trigger("editTask", { uid: $(this).attr("data-uid") });
@@ -108938,28 +109248,59 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 return;
             }
 
-            this.wrapper
-                    .on(MOUSEENTER + NS, DOT + styles.task, function(e) {
-                        var element = this;
-                        var task = that._taskByUid($(this).attr("data-uid"));
+            if (!kendo.support.mobileOS) {
+                this.wrapper
+                        .on(MOUSEENTER + NS, DOT + styles.task, function(e) {
+                            var element = this;
+                            var task = that._taskByUid($(this).attr("data-uid"));
 
-                        if (that.dragInProgress) {
-                            return;
-                        }
+                            if (that.dragInProgress) {
+                                return;
+                            }
 
-                        that._tooltipTimeout = setTimeout(function() {
-                            that.view()._createTaskTooltip(task, element, currentMousePosition);
-                        }, 800);
+                            that._tooltipTimeout = setTimeout(function() {
+                                that.view()._createTaskTooltip(task, element, currentMousePosition);
+                            }, 800);
 
-                        $(this).on(MOUSEMOVE, mouseMoveHandler);
+                            $(this).on(MOUSEMOVE, mouseMoveHandler);
+                        })
+                        .on(MOUSELEAVE + NS, DOT + styles.task, function(e) {
+                            clearTimeout(that._tooltipTimeout);
+
+                            that.view()._removeTaskTooltip();
+
+                            $(this).off(MOUSEMOVE, mouseMoveHandler);
+                        });
+            } else {
+                this.wrapper
+                    .on(CLICK + NS, DOT + styles.taskDelete, function(e) {
+                        e.stopPropagation();
+                        that.view()._removeTaskTooltip();
                     })
                     .on(MOUSELEAVE + NS, DOT + styles.task, function(e) {
-                        clearTimeout(that._tooltipTimeout);
+                        var parents = $(e.relatedTarget).parents(DOT + styles.taskWrap, DOT + styles.task);
 
-                        that.view()._removeTaskTooltip();
-
-                        $(this).off(MOUSEMOVE, mouseMoveHandler);
+                        if (parents.length === 0) {
+                            that.view()._removeTaskTooltip();
+                        }
                     });
+
+                this.touch
+                    .bind("tap", function(e) {
+                        var element = e.touch.target;
+                        var task = that._taskByUid($(element).attr("data-uid"));
+                        var currentPosition = e.touch.x.client;
+
+                        if (that.view()._taskTooltip) {
+                            that.view()._removeTaskTooltip();
+                        }
+
+                        that.view()._createTaskTooltip(task, element, currentPosition);
+                    })
+                    .bind("doubletap", function(e) {
+                        that.view()._removeTaskTooltip();
+                    });
+            }
         }
 
     });
@@ -108976,6 +109317,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
     var kendo = window.kendo;
     var browser = kendo.support.browser;
+    var mobileOS = kendo.support.mobileOS;
     var Observable = kendo.Observable;
     var Widget = kendo.ui.Widget;
     var DataSource = kendo.data.DataSource;
@@ -109249,6 +109591,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             var that = this;
             var ganttStyles = Gantt.styles;
             var itemSelector = "li" + DOT + ganttStyles.item;
+            var appendButtonSelector = DOT + ganttStyles.toolbar.appendButton;
             var actions = this.options.messages.actions;
             var navigatable = this.options.navigatable;
 
@@ -109274,7 +109617,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             this.popup = new kendo.ui.Popup(this.list,
                 extend({
-                    anchor: this.element,
+                    anchor: this.element.find(appendButtonSelector),
                     open: function(e) {
                         that._adjustListWidth();
                     },
@@ -109283,7 +109626,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             );
 
             this.element
-                .on(CLICK + NS, DOT + ganttStyles.toolbar.appendButton, function(e) {
+                .on(CLICK + NS, appendButtonSelector, function(e) {
                     var target = $(this);
                     var action = target.attr(kendo.attr("action"));
 
@@ -109369,8 +109712,9 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
         _adjustListWidth: function() {
             var list = this.list;
+            var ganttStyles = Gantt.styles;
             var width = list[0].style.width;
-            var wrapper = this.element;
+            var wrapper = this.element.find(DOT + ganttStyles.toolbar.appendButton);
             var computedStyle;
             var computedWidth;
 
@@ -109506,13 +109850,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             parentId: { type: "number", defaultValue: null, validation: { required: true } },
             orderId: { type: "number", validation: { required: true } },
             title: { type: "string", defaultValue: "" },
-            start: {
-                type: "date", validation: {
-                    required: true,
-                    dateCompare: dateCompareValidator,
-                    message: "Start date should be before or equal to the end date"
-                }
-            },
+            start: { type: "date", validation: { required: true } },
             end: {
                 type: "date", validation: {
                     required: true,
@@ -110600,7 +110938,12 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 .on(CLICK + NS, viewsSelector, function(e) {
                     e.preventDefault();
 
+                    var list = that.list;
                     var name = $(this).attr(kendo.attr("name"));
+
+                    if (list.editable && list.editable.trigger("validate")) {
+                        return;
+                    }
 
                     if (!that.trigger("navigate", { view: name })) {
                         that.view(name);
@@ -110732,6 +111075,11 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 var parent = dataSource.taskParent(selected);
                 var firstSlot = timeline.view()._timeSlots()[0];
                 var target = type === "add" ? selected : parent;
+                var editable = that.list.editable;
+
+                if (editable && editable.trigger("validate")) {
+                    return;
+                }
 
                 task.set("title", "New task");
 
@@ -110863,6 +111211,8 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             this.timeline
                 .bind("navigate", function(e) {
+                    var treelist = that.list;
+
                     that.toolbar
                         .find(DOT + ganttStyles.toolbar.views +" > li")
                         .removeClass(ganttStyles.selected)
@@ -110873,6 +111223,13 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                     that.refresh();
                 })
                 .bind("moveStart", function(e) {
+                    var editable = that.list.editable;
+
+                    if (editable && editable.trigger("validate")) {
+                        e.preventDefault();
+                        return;
+                    }
+
                     if (that.trigger("moveStart", { task: e.task })) {
                         e.preventDefault();
                     }
@@ -110899,6 +111256,13 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                     }
                 })
                 .bind("resizeStart", function(e) {
+                    var editable = that.list.editable;
+
+                    if (editable && editable.trigger("validate")) {
+                        e.preventDefault();
+                        return;
+                    }
+
                     if (that.trigger("resizeStart", { task: e.task })) {
                         e.preventDefault();
                     }
@@ -110922,8 +111286,22 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                         that._updateTask(that.dataSource.getByUid(task.uid), updateInfo);
                     }
                 })
+                .bind("percentResizeStart", function(e) {
+                    var editable = that.list.editable;
+
+                    if (editable && editable.trigger("validate")) {
+                        e.preventDefault();
+                    }
+                })
                 .bind("percentResizeEnd", function(e) {
                     that._updateTask(that.dataSource.getByUid(e.task.uid), { percentComplete: e.percentComplete });
+                })
+                .bind("dependencyDragStart", function(e) {
+                    var editable = that.list.editable;
+
+                    if (editable && editable.trigger("validate")) {
+                        e.preventDefault();
+                    }
                 })
                 .bind("dependencyDragEnd", function(e) {
                     var dependency = that.dependencies._createNewModel({
@@ -110935,18 +111313,42 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                     that._createDependency(dependency);
                 })
                 .bind("select", function(e) {
+                    var editable = that.list.editable;
+
+                    if (editable) {
+                        editable.trigger("validate");
+                    }
+
                     that.select("[data-uid='" + e.uid + "']");
                 })
                 .bind("editTask", function(e) {
+                    var editable = that.list.editable;
+
+                    if (editable && editable.trigger("validate")) {
+                        return;
+                    }
+
                     that.editTask(e.uid);
                 })
                 .bind("clear", function(e) {
                     that.clearSelection();
                 })
                 .bind("removeTask", function(e) {
+                    var editable = that.list.editable;
+
+                    if (editable && editable.trigger("validate")) {
+                        return;
+                    }
+
                     that.removeTask(that.dataSource.getByUid(e.uid));
                 })
                 .bind("removeDependency", function(e) {
+                    var editable = that.list.editable;
+
+                    if (editable && editable.trigger("validate")) {
+                        return;
+                    }
+
                     that.removeDependency(that.dependencies.getByUid(e.uid));
                 });
         },
@@ -111687,21 +112089,27 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             var ganttStyles = Gantt.styles;
             var contentSelector = DOT + ganttStyles.gridContent;
             var headerSelector = DOT + ganttStyles.gridHeaderWrap;
-            var timelineWrapper = this.timeline.element;
-            var treeListWrapper = this.list.element;
+            var timelineHeader = this.timeline.element.find(headerSelector);
+            var timelineContent = this.timeline.element.find(contentSelector);
+            var treeListHeader = this.list.element.find(headerSelector);
+            var treeListContent = this.list.element.find(contentSelector);
 
-            timelineWrapper.find(contentSelector).on("scroll", function(e) {
-                timelineWrapper.find(headerSelector).scrollLeft(this.scrollLeft);
-                treeListWrapper.find(contentSelector).scrollTop(this.scrollTop);
+            if (mobileOS) {
+                treeListContent.css("overflow-y", "auto");
+            }
+
+            timelineContent.on("scroll", function(e) {
+                timelineHeader.scrollLeft(this.scrollLeft);
+                treeListContent.scrollTop(this.scrollTop);
             });
 
-            treeListWrapper.find(contentSelector)
+            treeListContent
                 .on("scroll", function(e) {
-                    treeListWrapper.find(headerSelector).scrollLeft(this.scrollLeft);
+                    treeListHeader.scrollLeft(this.scrollLeft);
+                    timelineContent.scrollTop(this.scrollTop);
                 })
                 .on("DOMMouseScroll" + NS + " mousewheel" + NS, function(e) {
-                    var content = timelineWrapper.find(contentSelector);
-                    var scrollTop = content.scrollTop();
+                    var scrollTop = timelineContent.scrollTop();
                     var delta = kendo.wheelDeltaY(e);
 
                     if (delta) {
@@ -111709,7 +112117,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                         //In Firefox DOMMouseScroll event cannot be canceled
                         $(e.currentTarget).one("wheel" + NS, false);
 
-                        content.scrollTop(scrollTop + (-delta));
+                        timelineContent.scrollTop(scrollTop + (-delta));
                     }
                 });
         },
@@ -112048,6 +112456,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
     var COLUMNMENUINIT = "columnMenuInit";
     var COLUMNLOCK = "columnLock";
     var COLUMNUNLOCK = "columnUnlock";
+    var PARENTIDFIELD = "parentId";
 
     var classNames = {
         wrapper: "k-treelist k-grid k-widget",
@@ -112135,6 +112544,8 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
     var TreeListModel = Model.define({
         id: "id",
 
+        parentId: PARENTIDFIELD,
+
         fields: {
             id: { type: "number" },
             parentId: { type: "number", nullable: true }
@@ -112144,6 +112555,18 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             Model.fn.init.call(this, value);
 
             this._loaded = false;
+
+            if (!this.parentIdField) {
+                this.parentIdField = PARENTIDFIELD;
+            }
+
+            this.parentId = this.get(this.parentIdField);
+        },
+
+        accept: function(data) {
+            Model.fn.accept.call(this, data);
+
+            this.parentId = this.get(this.parentIdField);
         },
 
         loaded: function(value) {
@@ -112155,9 +112578,31 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         },
 
         shouldSerialize: function(field) {
-            return Model.fn.shouldSerialize.call(this, field) && field !== "_loaded" && field != "_error" && field != "_edit";
+            return Model.fn.shouldSerialize.call(this, field) && field !== "_loaded" && field != "_error" && field != "_edit" && !(this.parentIdField !== "parentId" && field === "parentId");
         }
     });
+
+    TreeListModel.parentIdField = PARENTIDFIELD;
+
+    TreeListModel.define = function(base, options) {
+        if (options === undefined) {
+            options = base;
+            base = TreeListModel;
+        }
+
+        var parentId = options.parentId || PARENTIDFIELD;
+
+        delete options.parentId;
+        options.parentIdField = parentId;
+
+        var model = Model.define(base, options);
+
+        if (parentId) {
+            model.parentIdField = parentId;
+        }
+
+        return model;
+    };
 
     function is(field) {
         return function(object) {
@@ -112192,6 +112637,9 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             model = DataSource.fn._createNewModel.call(this, model);
 
             if (!fromModel) {
+                if (data.parentId) {
+                    data[model.parentIdField] = data.parentId;
+                }
                 model.accept(data);
             }
 
@@ -112454,7 +112902,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
         },
 
         _defaultParentId: function() {
-            return this.reader.model.fn.defaults.parentId;
+            return this.reader.model.fn.defaults[this.reader.model.parentIdField];
         },
 
         childNodes: function(model) {
@@ -114692,7 +115140,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                     parent = this.dataItem(parent);
                 }
 
-                model.parentId = parent.id;
+                model[parent.parentIdField] = parent.id;
                 index = this.dataSource.indexOf(parent) + 1;
                 parent.set("expanded", true);
 
@@ -115485,13 +115933,15 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 return;
             }
 
-            if (element.is(":visible")) {
-                element.height(height);
+            element.height(height);
 
+            if (element.is(":visible")) {
                 fields = element.children(".k-columns")
                                 .children("div.k-state-default");
 
-                border = (element.outerHeight() - element.innerHeight()) / 2;
+                height = element.innerHeight();
+
+                border = (element.outerHeight() - height) / 2;
                 height = height - (fields.outerHeight(true) - fields.height()) - border;
 
                 fields.height(height);
@@ -116092,15 +116542,6 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             if (newValue !== oldValue) {
                 unregister(); // this watcher will be re-added if we compile again!
 
-                /****************************************************************
-                // XXX: this is a gross hack that might not even work with all
-                // widgets.  we need to destroy the current widget and get its
-                // wrapper element out of the DOM, then make the original element
-                // visible so we can initialize a new widget on it.
-                //
-                // kRebind is probably impossible to get right at the moment.
-                ****************************************************************/
-
                 var templateOptions = WIDGET_TEMPLATE_OPTIONS[widget.options.name];
 
                 if (templateOptions) {
@@ -116452,8 +116893,6 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
                       case "compile":
                         var injector = self.element.injector();
-                        // gross gross gross hack :(. Works for popups that may be out of the ng-app directive.
-                        // they don't have injectors. Same thing happens in our tests, too.
                         var compile = injector ? injector.get("$compile") : $defaultCompile;
 
                         angular.forEach(elements, function(el, i){

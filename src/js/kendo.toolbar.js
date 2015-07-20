@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -493,6 +493,7 @@
                 this.popup = this.popupElement.kendoPopup({
                     appendTo: options.mobile ? $(options.mobile).children(".km-pane") : null,
                     anchor: element,
+                    isRtl: this.toolbar._isRtl,
                     copyAnchorStyles: false,
                     animation: options.animation,
                     open: adjustPopupWidth
@@ -757,6 +758,7 @@
                 element.addClass(TOOLBAR + " k-widget");
 
                 this.uid = kendo.guid();
+                this._isRtl = kendo.support.isRtl(element);
                 this._groups = {};
                 element.attr(KENDO_UID_ATTR, this.uid);
 
@@ -1046,13 +1048,15 @@
                     item = element.data("button");
 
                 if (item.options.togglable) {
-                    item.toggle(checked ? checked : !item.options.selectable, true);
+                    item.toggle(checked ? checked : !item.options.selected, true);
                 }
             },
 
             _renderOverflow: function() {
                 var that = this,
-                    overflowContainer = components.overflowContainer;
+                    overflowContainer = components.overflowContainer,
+                    isRtl = that._isRtl,
+                    horizontalDirection = isRtl ? "left" : "right";
 
                 that.overflowAnchor = $(components.overflowAnchor).addClass(BUTTON);
 
@@ -1066,9 +1070,10 @@
                 }
 
                 that.popup = new kendo.ui.Popup(overflowContainer, {
-                    origin: "bottom right",
-                    position: "top right",
+                    origin: "bottom " + horizontalDirection,
+                    position: "top " + horizontalDirection,
                     anchor: that.overflowAnchor,
+                    isRtl: isRtl,
                     animation: that.animation,
                     appendTo: that.isMobile ? $(that.isMobile).children(".km-pane") : null,
                     copyAnchorStyles: false,
@@ -1077,7 +1082,7 @@
                             .addClass("k-overflow-wrapper");
 
                         if (!that.isMobile) {
-                            wrapper.css("margin-left", (wrapper.outerWidth() - wrapper.width()) / 2 + 1);
+                            wrapper.css("margin-left", (isRtl ? -1 : 1) * ((wrapper.outerWidth() - wrapper.width()) / 2 + 1));
                         } else {
                             that.popup.container.css("max-height", (parseFloat($(".km-content:visible").innerHeight()) - 15) + "px");
                         }
@@ -1100,7 +1105,6 @@
                 }
 
                 that.popup.container.attr(KENDO_UID_ATTR, this.uid);
-                that.popup.element.toggleClass("k-rtl", kendo.support.isRtl(that.element));
             },
 
             _toggleOverflowAnchor: function() {

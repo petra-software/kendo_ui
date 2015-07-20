@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -374,13 +374,15 @@
                 return;
             }
 
-            if (element.is(":visible")) {
-                element.height(height);
+            element.height(height);
 
+            if (element.is(":visible")) {
                 fields = element.children(".k-columns")
                                 .children("div.k-state-default");
 
-                border = (element.outerHeight() - element.innerHeight()) / 2;
+                height = element.innerHeight();
+
+                border = (element.outerHeight() - height) / 2;
                 height = height - (fields.outerHeight(true) - fields.height()) - border;
 
                 fields.height(height);

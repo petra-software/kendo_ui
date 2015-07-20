@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -738,7 +738,6 @@ div.k-filebrowser-dropzone em {
 .k-state-disabled {
   opacity: .7;
 }
-.k-ie7 .k-state-disabled,
 .k-ie8 .k-state-disabled {
   filter: alpha(opacity=70);
 }
@@ -978,7 +977,7 @@ div.k-filebrowser-dropzone em {
 /* Notification */
 .k-widget.k-notification.k-notification-info {
   background-color: #e5f5fa;
-  color: #4d6591;
+  color: #2498bc;
   border-color: #b6e3f1;
 }
 .k-widget.k-notification.k-notification-success {
@@ -993,7 +992,7 @@ div.k-filebrowser-dropzone em {
 }
 .k-widget.k-notification.k-notification-error {
   background-color: #ffe0d9;
-  color: #526c9b;
+  color: #d92800;
   border-color: #ffb6a6;
 }
 /* Gantt */

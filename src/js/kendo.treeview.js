@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -864,7 +864,7 @@
                 if (checkbox.prop(INDETERMINATE) === false) {
                     this.dataItem(parentNode).set(CHECKED, checkbox.prop(CHECKED));
                 } else {
-                    this.dataItem(parentNode).checked = false;
+                    delete this.dataItem(parentNode).checked;
                 }
 
                 this._bubbleIndeterminate(parentNode);

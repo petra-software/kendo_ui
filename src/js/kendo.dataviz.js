@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.2.703";
+    kendo.version = "2015.2.720";
 
     function Class() {}
 
@@ -3213,9 +3213,10 @@ function pad(number, digits, end) {
     }
 
     function visible(element) {
-        return !$(element).parents().addBack().filter(function() {
-            return $.css(this,"visibility") === "hidden" || $.expr.filters.hidden(this);
-        }).length;
+        return $.expr.filters.visible(element) &&
+            !$(element).parents().addBack().filter(function() {
+                return $.css(this,"visibility") === "hidden";
+            }).length;
     }
 
     $.extend($.expr[ ":" ], {
@@ -8869,11 +8870,7 @@ function pad(number, digits, end) {
     function indexOfPristineModel(data, model) {
         if (model) {
             return indexOf(data, function(item) {
-                if (item.uid) {
-                    return item.uid == model.uid;
-                }
-
-                return item[model.idField] === model.id;
+                return (item.uid && item.uid == model.uid) || (item[model.idField] === model.id && model.id !== model._defaultId);
             });
         }
         return -1;
@@ -9048,6 +9045,10 @@ function pad(number, digits, end) {
             serverGrouping: false,
             serverAggregates: false,
             batch: false
+        },
+
+        clone: function() {
+            return this;
         },
 
         online: function(value) {
@@ -15255,14 +15256,14 @@ function pad(number, digits, end) {
                 that.boundaries = containerBoundaries(container, that.hint);
             }
 
+            $(document).on(KEYUP, that._captureEscape);
+
             if (that._trigger(DRAGSTART, e)) {
                 that.userEvents.cancel();
                 that._afterEnd();
             }
 
             that.userEvents.capture();
-
-            $(document).on(KEYUP, that._captureEscape);
         },
 
         _hold: function(e) {
@@ -25553,10 +25554,17 @@ function pad(number, digits, end) {
     }
 
     function actuallyGetRangeBoundingRect(range) {
-        if (browser.msie) {
+        if (browser.msie || browser.chrome) {
+            // Workaround browser bugs: IE and Chrome would sometimes
+            // return 0 or 1-width rectangles before or after the main
+            // one.  https://github.com/telerik/kendo/issues/4674
+            // These are probably not the only cases.
             var a = range.getClientRects();
-            if (a.length == 2 && a[1].width === 0) {
+            if (a.length == 2 && a[1].width <= 1) {
                 return a[0];
+            }
+            if (a.length == 3 && a[0].width <= 1 && a[2].width <= 1) {
+                return a[1];
             }
         }
         return range.getBoundingClientRect();
@@ -26767,8 +26775,65 @@ function pad(number, digits, end) {
         return element.options[element.selectedIndex];
     }
 
+    function renderCheckbox(element, group) {
+        var style = getComputedStyle(element);
+        var color = getPropertyValue(style, "color");
+        var box = element.getBoundingClientRect();
+        if (element.type == "checkbox") {
+            group.append(
+                drawing.Path.fromRect(
+                    new geo.Rect([ box.left+1, box.top+1 ],
+                                 [ box.width-2, box.height-2 ])
+                ).stroke(color, 1)
+            );
+            if (element.checked) {
+                // fill a rectangle inside?  looks kinda ugly.
+                // group.append(
+                //     drawing.Path.fromRect(
+                //         new geo.Rect([ box.left+4, box.top+4 ],
+                //                      [ box.width-8, box.height-8])
+                //     ).fill(color).stroke(null)
+                // );
+
+                // let's draw a checkmark instead.  artistic, eh?
+                group.append(
+                    new drawing.Path()
+                        .stroke(color, 1.2)
+                        .moveTo(box.left + 0.22 * box.width,
+                                box.top + 0.55 * box.height)
+                        .lineTo(box.left + 0.45 * box.width,
+                                box.top + 0.75 * box.height)
+                        .lineTo(box.left + 0.78 * box.width,
+                                box.top + 0.22 * box.width)
+                );
+            }
+        } else {
+            group.append(
+                new drawing.Circle(
+                    new geo.Circle([
+                        (box.left + box.right) / 2,
+                        (box.top + box.bottom) / 2
+                    ], Math.min(box.width-2, box.height-2) / 2)
+                ).stroke(color, 1)
+            );
+            if (element.checked) {
+                group.append(
+                    new drawing.Circle(
+                        new geo.Circle([
+                            (box.left + box.right) / 2,
+                            (box.top + box.bottom) / 2
+                        ], Math.min(box.width-8, box.height-8) / 2)
+                    ).fill(color).stroke(null)
+                );
+            }
+        }
+    }
+
     function renderFormField(element, group) {
         var tag = element.tagName.toLowerCase();
+        if (tag == "input" && (element.type == "checkbox" || element.type == "radio")) {
+            return renderCheckbox(element, group);
+        }
         var p = element.parentNode;
         var doc = element.ownerDocument;
         var el = doc.createElement(KENDO_PSEUDO_ELEMENT);
@@ -41096,7 +41161,13 @@ function pad(number, digits, end) {
                 style = (currentSeries.line || {}).style;
 
             if (isStacked && seriesIx > 0 && prevSegment) {
-                stackPoints = prevSegment.linePoints;
+                var missingValues = this.seriesMissingValues(currentSeries);
+                if (missingValues != "gap") {
+                    stackPoints = prevSegment.linePoints;
+                } else {
+                    stackPoints = this._gapStackPoints(linePoints, seriesIx, style);
+                }
+
                 if (style !== STEP) {
                     stackPoints = stackPoints.slice(0).reverse();
                 }
@@ -41113,6 +41184,82 @@ function pad(number, digits, end) {
             }
 
             return new pointType(linePoints, stackPoints, currentSeries, seriesIx);
+        },
+
+        reflow: function(targetBox) {
+            LineChart.fn.reflow.call(this, targetBox);
+            var stackPoints = this._stackPoints;
+            if (stackPoints) {
+                var stackPoint, pointSlot, point;
+                for (var idx = 0; idx < stackPoints.length; idx++) {
+                    stackPoint = stackPoints[idx];
+                    pointSlot = this.categoryAxis.getSlot(stackPoint.categoryIx);
+                    stackPoint.reflow(pointSlot);
+                }
+            }
+        },
+
+        _gapStackPoints: function(linePoints, seriesIx, style) {
+            var seriesPoints = this.seriesPoints;
+            var startIdx = linePoints[0].categoryIx;
+            var endIdx = startIdx + linePoints.length;
+            var stackPoints = [];
+            var currentSeriesIx;
+            var point, gapStackPoint;
+
+            this._stackPoints = this._stackPoints || [];
+            for (var idx = startIdx; idx < endIdx; idx++) {
+               currentSeriesIx = seriesIx;
+               do {
+                    currentSeriesIx--;
+                    point = seriesPoints[currentSeriesIx][idx];
+               } while(currentSeriesIx > 0 && !point);
+
+               if (point) {
+                    if (style !== STEP && idx > startIdx && !seriesPoints[currentSeriesIx][idx - 1]) {
+                        stackPoints.push(this._previousSegmentPoint(idx, idx - 1, currentSeriesIx));
+                    }
+
+                    stackPoints.push(point);
+
+                    if (style !== STEP && idx + 1 < endIdx && !seriesPoints[currentSeriesIx][idx + 1]) {
+                        stackPoints.push(this._previousSegmentPoint(idx, idx + 1, currentSeriesIx));
+                    }
+                } else {
+                    gapStackPoint = this._createGapStackPoint(idx);
+                    this._stackPoints.push(gapStackPoint);
+                    stackPoints.push(gapStackPoint);
+                }
+            }
+
+            return stackPoints;
+        },
+
+        _previousSegmentPoint: function(categoryIx, segmentIx, seriesIdx) {
+            var seriesPoints = this.seriesPoints;
+            var point;
+
+            while(seriesIdx > 0 && !point) {
+                seriesIdx--;
+                point = seriesPoints[seriesIdx][segmentIx];
+            }
+
+            if (!point) {
+                point = this._createGapStackPoint(categoryIx);
+                this._stackPoints.push(point);
+            } else {
+               point =  seriesPoints[seriesIdx][categoryIx];
+            }
+
+            return point;
+        },
+
+        _createGapStackPoint: function(categoryIx) {
+            var options = this.pointOptions({}, 0);
+            var point = new LinePoint(0, options);
+            point.categoryIx = categoryIx;
+            point.series = {};
+            return point;
         },
 
         seriesMissingValues: function(series) {
@@ -70826,6 +70973,7 @@ function pad(number, digits, end) {
                 this.popup = this.popupElement.kendoPopup({
                     appendTo: options.mobile ? $(options.mobile).children(".km-pane") : null,
                     anchor: element,
+                    isRtl: this.toolbar._isRtl,
                     copyAnchorStyles: false,
                     animation: options.animation,
                     open: adjustPopupWidth
@@ -71090,6 +71238,7 @@ function pad(number, digits, end) {
                 element.addClass(TOOLBAR + " k-widget");
 
                 this.uid = kendo.guid();
+                this._isRtl = kendo.support.isRtl(element);
                 this._groups = {};
                 element.attr(KENDO_UID_ATTR, this.uid);
 
@@ -71379,13 +71528,15 @@ function pad(number, digits, end) {
                     item = element.data("button");
 
                 if (item.options.togglable) {
-                    item.toggle(checked ? checked : !item.options.selectable, true);
+                    item.toggle(checked ? checked : !item.options.selected, true);
                 }
             },
 
             _renderOverflow: function() {
                 var that = this,
-                    overflowContainer = components.overflowContainer;
+                    overflowContainer = components.overflowContainer,
+                    isRtl = that._isRtl,
+                    horizontalDirection = isRtl ? "left" : "right";
 
                 that.overflowAnchor = $(components.overflowAnchor).addClass(BUTTON);
 
@@ -71399,9 +71550,10 @@ function pad(number, digits, end) {
                 }
 
                 that.popup = new kendo.ui.Popup(overflowContainer, {
-                    origin: "bottom right",
-                    position: "top right",
+                    origin: "bottom " + horizontalDirection,
+                    position: "top " + horizontalDirection,
                     anchor: that.overflowAnchor,
+                    isRtl: isRtl,
                     animation: that.animation,
                     appendTo: that.isMobile ? $(that.isMobile).children(".km-pane") : null,
                     copyAnchorStyles: false,
@@ -71410,7 +71562,7 @@ function pad(number, digits, end) {
                             .addClass("k-overflow-wrapper");
 
                         if (!that.isMobile) {
-                            wrapper.css("margin-left", (wrapper.outerWidth() - wrapper.width()) / 2 + 1);
+                            wrapper.css("margin-left", (isRtl ? -1 : 1) * ((wrapper.outerWidth() - wrapper.width()) / 2 + 1));
                         } else {
                             that.popup.container.css("max-height", (parseFloat($(".km-content:visible").innerHeight()) - 15) + "px");
                         }
@@ -71433,7 +71585,6 @@ function pad(number, digits, end) {
                 }
 
                 that.popup.container.attr(KENDO_UID_ATTR, this.uid);
-                that.popup.element.toggleClass("k-rtl", kendo.support.isRtl(that.element));
             },
 
             _toggleOverflowAnchor: function() {
@@ -86158,15 +86309,6 @@ function pad(number, digits, end) {
             if (newValue !== oldValue) {
                 unregister(); // this watcher will be re-added if we compile again!
 
-                /****************************************************************
-                // XXX: this is a gross hack that might not even work with all
-                // widgets.  we need to destroy the current widget and get its
-                // wrapper element out of the DOM, then make the original element
-                // visible so we can initialize a new widget on it.
-                //
-                // kRebind is probably impossible to get right at the moment.
-                ****************************************************************/
-
                 var templateOptions = WIDGET_TEMPLATE_OPTIONS[widget.options.name];
 
                 if (templateOptions) {
@@ -86518,8 +86660,6 @@ function pad(number, digits, end) {
 
                       case "compile":
                         var injector = self.element.injector();
-                        // gross gross gross hack :(. Works for popups that may be out of the ng-app directive.
-                        // they don't have injectors. Same thing happens in our tests, too.
                         var compile = injector ? injector.get("$compile") : $defaultCompile;
 
                         angular.forEach(elements, function(el, i){

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.2.703";
+    kendo.version = "2015.2.720";
 
     function Class() {}
 
@@ -3213,9 +3213,10 @@ function pad(number, digits, end) {
     }
 
     function visible(element) {
-        return !$(element).parents().addBack().filter(function() {
-            return $.css(this,"visibility") === "hidden" || $.expr.filters.hidden(this);
-        }).length;
+        return $.expr.filters.visible(element) &&
+            !$(element).parents().addBack().filter(function() {
+                return $.css(this,"visibility") === "hidden";
+            }).length;
     }
 
     $.extend($.expr[ ":" ], {
@@ -8346,11 +8347,7 @@ function pad(number, digits, end) {
     function indexOfPristineModel(data, model) {
         if (model) {
             return indexOf(data, function(item) {
-                if (item.uid) {
-                    return item.uid == model.uid;
-                }
-
-                return item[model.idField] === model.id;
+                return (item.uid && item.uid == model.uid) || (item[model.idField] === model.id && model.id !== model._defaultId);
             });
         }
         return -1;
@@ -8525,6 +8522,10 @@ function pad(number, digits, end) {
             serverGrouping: false,
             serverAggregates: false,
             batch: false
+        },
+
+        clone: function() {
+            return this;
         },
 
         online: function(value) {
@@ -15692,14 +15693,14 @@ function pad(number, digits, end) {
                 that.boundaries = containerBoundaries(container, that.hint);
             }
 
+            $(document).on(KEYUP, that._captureEscape);
+
             if (that._trigger(DRAGSTART, e)) {
                 that.userEvents.cancel();
                 that._afterEnd();
             }
 
             that.userEvents.capture();
-
-            $(document).on(KEYUP, that._captureEscape);
         },
 
         _hold: function(e) {
@@ -23968,15 +23969,6 @@ function pad(number, digits, end) {
             if (newValue !== oldValue) {
                 unregister(); // this watcher will be re-added if we compile again!
 
-                /****************************************************************
-                // XXX: this is a gross hack that might not even work with all
-                // widgets.  we need to destroy the current widget and get its
-                // wrapper element out of the DOM, then make the original element
-                // visible so we can initialize a new widget on it.
-                //
-                // kRebind is probably impossible to get right at the moment.
-                ****************************************************************/
-
                 var templateOptions = WIDGET_TEMPLATE_OPTIONS[widget.options.name];
 
                 if (templateOptions) {
@@ -24328,8 +24320,6 @@ function pad(number, digits, end) {
 
                       case "compile":
                         var injector = self.element.injector();
-                        // gross gross gross hack :(. Works for popups that may be out of the ng-app directive.
-                        // they don't have injectors. Same thing happens in our tests, too.
                         var compile = injector ? injector.get("$compile") : $defaultCompile;
 
                         angular.forEach(elements, function(el, i){

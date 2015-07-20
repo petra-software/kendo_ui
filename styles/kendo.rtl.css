@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -509,9 +509,14 @@
 
 .k-rtl .k-multiselect-wrap li
 {
-    padding-left:.15em;
+    padding-left: 1.6em;
     padding-right: .4em;
     float: right;
+}
+
+.k-rtl .k-multiselect-wrap .k-select {
+  right: auto;
+  left: 0;
 }
 
 /* Notification */
@@ -903,7 +908,7 @@
 }
 
 .k-rtl.k-overflow-container .k-overflow-button,
-.k-rtl .k-split-container .k-button
+.k-rtl.k-split-container .k-button
 {
     text-align: right;
 }

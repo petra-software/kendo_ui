@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -14,6 +14,7 @@
 
     var kendo = window.kendo;
     var browser = kendo.support.browser;
+    var mobileOS = kendo.support.mobileOS;
     var Observable = kendo.Observable;
     var Widget = kendo.ui.Widget;
     var DataSource = kendo.data.DataSource;
@@ -287,6 +288,7 @@
             var that = this;
             var ganttStyles = Gantt.styles;
             var itemSelector = "li" + DOT + ganttStyles.item;
+            var appendButtonSelector = DOT + ganttStyles.toolbar.appendButton;
             var actions = this.options.messages.actions;
             var navigatable = this.options.navigatable;
 
@@ -312,7 +314,7 @@
 
             this.popup = new kendo.ui.Popup(this.list,
                 extend({
-                    anchor: this.element,
+                    anchor: this.element.find(appendButtonSelector),
                     open: function(e) {
                         that._adjustListWidth();
                     },
@@ -321,7 +323,7 @@
             );
 
             this.element
-                .on(CLICK + NS, DOT + ganttStyles.toolbar.appendButton, function(e) {
+                .on(CLICK + NS, appendButtonSelector, function(e) {
                     var target = $(this);
                     var action = target.attr(kendo.attr("action"));
 
@@ -407,8 +409,9 @@
 
         _adjustListWidth: function() {
             var list = this.list;
+            var ganttStyles = Gantt.styles;
             var width = list[0].style.width;
-            var wrapper = this.element;
+            var wrapper = this.element.find(DOT + ganttStyles.toolbar.appendButton);
             var computedStyle;
             var computedWidth;
 
@@ -544,13 +547,7 @@
             parentId: { type: "number", defaultValue: null, validation: { required: true } },
             orderId: { type: "number", validation: { required: true } },
             title: { type: "string", defaultValue: "" },
-            start: {
-                type: "date", validation: {
-                    required: true,
-                    dateCompare: dateCompareValidator,
-                    message: "Start date should be before or equal to the end date"
-                }
-            },
+            start: { type: "date", validation: { required: true } },
             end: {
                 type: "date", validation: {
                     required: true,
@@ -1638,7 +1635,12 @@
                 .on(CLICK + NS, viewsSelector, function(e) {
                     e.preventDefault();
 
+                    var list = that.list;
                     var name = $(this).attr(kendo.attr("name"));
+
+                    if (list.editable && list.editable.trigger("validate")) {
+                        return;
+                    }
 
                     if (!that.trigger("navigate", { view: name })) {
                         that.view(name);
@@ -1770,6 +1772,11 @@
                 var parent = dataSource.taskParent(selected);
                 var firstSlot = timeline.view()._timeSlots()[0];
                 var target = type === "add" ? selected : parent;
+                var editable = that.list.editable;
+
+                if (editable && editable.trigger("validate")) {
+                    return;
+                }
 
                 task.set("title", "New task");
 
@@ -1901,6 +1908,8 @@
 
             this.timeline
                 .bind("navigate", function(e) {
+                    var treelist = that.list;
+
                     that.toolbar
                         .find(DOT + ganttStyles.toolbar.views +" > li")
                         .removeClass(ganttStyles.selected)
@@ -1911,6 +1920,13 @@
                     that.refresh();
                 })
                 .bind("moveStart", function(e) {
+                    var editable = that.list.editable;
+
+                    if (editable && editable.trigger("validate")) {
+                        e.preventDefault();
+                        return;
+                    }
+
                     if (that.trigger("moveStart", { task: e.task })) {
                         e.preventDefault();
                     }
@@ -1937,6 +1953,13 @@
                     }
                 })
                 .bind("resizeStart", function(e) {
+                    var editable = that.list.editable;
+
+                    if (editable && editable.trigger("validate")) {
+                        e.preventDefault();
+                        return;
+                    }
+
                     if (that.trigger("resizeStart", { task: e.task })) {
                         e.preventDefault();
                     }
@@ -1960,8 +1983,22 @@
                         that._updateTask(that.dataSource.getByUid(task.uid), updateInfo);
                     }
                 })
+                .bind("percentResizeStart", function(e) {
+                    var editable = that.list.editable;
+
+                    if (editable && editable.trigger("validate")) {
+                        e.preventDefault();
+                    }
+                })
                 .bind("percentResizeEnd", function(e) {
                     that._updateTask(that.dataSource.getByUid(e.task.uid), { percentComplete: e.percentComplete });
+                })
+                .bind("dependencyDragStart", function(e) {
+                    var editable = that.list.editable;
+
+                    if (editable && editable.trigger("validate")) {
+                        e.preventDefault();
+                    }
                 })
                 .bind("dependencyDragEnd", function(e) {
                     var dependency = that.dependencies._createNewModel({
@@ -1973,18 +2010,42 @@
                     that._createDependency(dependency);
                 })
                 .bind("select", function(e) {
+                    var editable = that.list.editable;
+
+                    if (editable) {
+                        editable.trigger("validate");
+                    }
+
                     that.select("[data-uid='" + e.uid + "']");
                 })
                 .bind("editTask", function(e) {
+                    var editable = that.list.editable;
+
+                    if (editable && editable.trigger("validate")) {
+                        return;
+                    }
+
                     that.editTask(e.uid);
                 })
                 .bind("clear", function(e) {
                     that.clearSelection();
                 })
                 .bind("removeTask", function(e) {
+                    var editable = that.list.editable;
+
+                    if (editable && editable.trigger("validate")) {
+                        return;
+                    }
+
                     that.removeTask(that.dataSource.getByUid(e.uid));
                 })
                 .bind("removeDependency", function(e) {
+                    var editable = that.list.editable;
+
+                    if (editable && editable.trigger("validate")) {
+                        return;
+                    }
+
                     that.removeDependency(that.dependencies.getByUid(e.uid));
                 });
         },
@@ -2725,21 +2786,27 @@
             var ganttStyles = Gantt.styles;
             var contentSelector = DOT + ganttStyles.gridContent;
             var headerSelector = DOT + ganttStyles.gridHeaderWrap;
-            var timelineWrapper = this.timeline.element;
-            var treeListWrapper = this.list.element;
+            var timelineHeader = this.timeline.element.find(headerSelector);
+            var timelineContent = this.timeline.element.find(contentSelector);
+            var treeListHeader = this.list.element.find(headerSelector);
+            var treeListContent = this.list.element.find(contentSelector);
 
-            timelineWrapper.find(contentSelector).on("scroll", function(e) {
-                timelineWrapper.find(headerSelector).scrollLeft(this.scrollLeft);
-                treeListWrapper.find(contentSelector).scrollTop(this.scrollTop);
+            if (mobileOS) {
+                treeListContent.css("overflow-y", "auto");
+            }
+
+            timelineContent.on("scroll", function(e) {
+                timelineHeader.scrollLeft(this.scrollLeft);
+                treeListContent.scrollTop(this.scrollTop);
             });
 
-            treeListWrapper.find(contentSelector)
+            treeListContent
                 .on("scroll", function(e) {
-                    treeListWrapper.find(headerSelector).scrollLeft(this.scrollLeft);
+                    treeListHeader.scrollLeft(this.scrollLeft);
+                    timelineContent.scrollTop(this.scrollTop);
                 })
                 .on("DOMMouseScroll" + NS + " mousewheel" + NS, function(e) {
-                    var content = timelineWrapper.find(contentSelector);
-                    var scrollTop = content.scrollTop();
+                    var scrollTop = timelineContent.scrollTop();
                     var delta = kendo.wheelDeltaY(e);
 
                     if (delta) {
@@ -2747,7 +2814,7 @@
                         //In Firefox DOMMouseScroll event cannot be canceled
                         $(e.currentTarget).one("wheel" + NS, false);
 
-                        content.scrollTop(scrollTop + (-delta));
+                        timelineContent.scrollTop(scrollTop + (-delta));
                     }
                 });
         },

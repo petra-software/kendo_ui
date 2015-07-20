@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -2224,6 +2224,11 @@
 
             this._percentDraggable
                 .bind("dragstart", function(e) {
+                    if (that.trigger("percentResizeStart")) {
+                        e.preventDefault();
+                        return;
+                    }
+
                     taskElement = e.currentTarget.siblings(DOT + styles.task);
 
                     task = that._taskByUid(taskElement.attr("data-uid"));
@@ -2327,6 +2332,11 @@
 
             this._dependencyDraggable
                 .bind("dragstart", function(e) {
+                    if (that.trigger("dependencyDragStart")) {
+                        e.preventDefault();
+                        return;
+                    }
+
                     originalHandle = e.currentTarget
                         .css("display", "block")
                         .addClass(styles.hovered);
@@ -2334,7 +2344,7 @@
                     originalHandle.parent().addClass(styles.origin);
 
                     var elementOffset = originalHandle.offset();
-					var tablesOffset = $(DOT + styles.tasksWrapper).offset();
+                    var tablesOffset = $(DOT + styles.tasksWrapper).offset();
 
                     startX = Math.round(elementOffset.left - tablesOffset.left + (originalHandle.outerHeight() / 2));
                     startY = Math.round(elementOffset.top - tablesOffset.top + (originalHandle.outerWidth() / 2));
@@ -2350,7 +2360,7 @@
                     that.view()._removeDependencyDragHint();
 
                     var target = $(kendo.elementUnderCursor(e));
-					var tablesOffset = $(DOT + styles.tasksWrapper).offset();
+                    var tablesOffset = $(DOT + styles.tasksWrapper).offset();
                     var currentX = e.x.location - tablesOffset.left;
                     var currentY = e.y.location - tablesOffset.top;
 
@@ -2511,7 +2521,7 @@
                         }
                     });
 
-                if (!mobileOS) {
+                if (!kendo.support.mobileOS) {
                     this.wrapper
                         .on(DBLCLICK + NS, DOT + styles.task, function(e) {
                             that.trigger("editTask", { uid: $(this).attr("data-uid") });
@@ -2544,28 +2554,59 @@
                 return;
             }
 
-            this.wrapper
-                    .on(MOUSEENTER + NS, DOT + styles.task, function(e) {
-                        var element = this;
-                        var task = that._taskByUid($(this).attr("data-uid"));
+            if (!kendo.support.mobileOS) {
+                this.wrapper
+                        .on(MOUSEENTER + NS, DOT + styles.task, function(e) {
+                            var element = this;
+                            var task = that._taskByUid($(this).attr("data-uid"));
 
-                        if (that.dragInProgress) {
-                            return;
-                        }
+                            if (that.dragInProgress) {
+                                return;
+                            }
 
-                        that._tooltipTimeout = setTimeout(function() {
-                            that.view()._createTaskTooltip(task, element, currentMousePosition);
-                        }, 800);
+                            that._tooltipTimeout = setTimeout(function() {
+                                that.view()._createTaskTooltip(task, element, currentMousePosition);
+                            }, 800);
 
-                        $(this).on(MOUSEMOVE, mouseMoveHandler);
+                            $(this).on(MOUSEMOVE, mouseMoveHandler);
+                        })
+                        .on(MOUSELEAVE + NS, DOT + styles.task, function(e) {
+                            clearTimeout(that._tooltipTimeout);
+
+                            that.view()._removeTaskTooltip();
+
+                            $(this).off(MOUSEMOVE, mouseMoveHandler);
+                        });
+            } else {
+                this.wrapper
+                    .on(CLICK + NS, DOT + styles.taskDelete, function(e) {
+                        e.stopPropagation();
+                        that.view()._removeTaskTooltip();
                     })
                     .on(MOUSELEAVE + NS, DOT + styles.task, function(e) {
-                        clearTimeout(that._tooltipTimeout);
+                        var parents = $(e.relatedTarget).parents(DOT + styles.taskWrap, DOT + styles.task);
 
-                        that.view()._removeTaskTooltip();
-
-                        $(this).off(MOUSEMOVE, mouseMoveHandler);
+                        if (parents.length === 0) {
+                            that.view()._removeTaskTooltip();
+                        }
                     });
+
+                this.touch
+                    .bind("tap", function(e) {
+                        var element = e.touch.target;
+                        var task = that._taskByUid($(element).attr("data-uid"));
+                        var currentPosition = e.touch.x.client;
+
+                        if (that.view()._taskTooltip) {
+                            that.view()._removeTaskTooltip();
+                        }
+
+                        that.view()._createTaskTooltip(task, element, currentPosition);
+                    })
+                    .bind("doubletap", function(e) {
+                        that.view()._removeTaskTooltip();
+                    });
+            }
         }
 
     });

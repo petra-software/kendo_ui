@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -729,7 +729,6 @@ div.k-filebrowser-dropzone em {
 .k-state-disabled {
   opacity: .7;
 }
-.k-ie7 .k-state-disabled,
 .k-ie8 .k-state-disabled {
   filter: alpha(opacity=70);
 }

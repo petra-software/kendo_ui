@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.703 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -4682,6 +4682,9 @@ body:before {
 .km-nova .km-tabstrip .km-icon {
   font-size: 2rem;
   margin-bottom: .29rem;
+}
+.km-nova .km-tabstrip .km-icon {
+  margin: 0 auto .1em;
 }
 /* Badges */
 .km-nova .km-tabstrip .km-badge {
