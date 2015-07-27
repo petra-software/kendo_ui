@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.727 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.2.720";
+    kendo.version = "2015.2.727";
 
     function Class() {}
 
@@ -1188,6 +1188,8 @@ function pad(number, digits, end) {
                 var i = 0,
                     length = names.length,
                     name, nameLength,
+                    matchLength = 0,
+                    matchIdx = 0,
                     subValue;
 
                 for (; i < length; i++) {
@@ -1199,11 +1201,17 @@ function pad(number, digits, end) {
                         subValue = subValue.toLowerCase();
                     }
 
-                    if (subValue == name) {
-                        valueIdx += nameLength;
-                        return i + 1;
+                    if (subValue == name && nameLength > matchLength) {
+                        matchLength = nameLength;
+                        matchIdx = i;
                     }
                 }
+
+                if (matchLength) {
+                    valueIdx += matchLength;
+                    return matchIdx + 1;
+                }
+
                 return null;
             },
             checkLiteral = function() {
@@ -9076,7 +9084,7 @@ function pad(number, digits, end) {
                 return this._storage.setItem(state);
             }
 
-            return this._storage.getItem() || {};
+            return this._storage.getItem() || [];
         },
 
         _isServerGrouped: function() {
@@ -10338,8 +10346,8 @@ function pad(number, digits, end) {
                 return that._filter;
             }
 
-            that._query({ filter: val, page: 1 });
             that.trigger("reset");
+            that._query({ filter: val, page: 1 });
         },
 
         group: function(val) {
@@ -24711,6 +24719,22 @@ function pad(number, digits, end) {
             var container = doc.createElement("KENDO-PDF-DOCUMENT");
             var adjust = 0;
 
+            // make sure <tfoot> elements are at the end (Grid widget
+            // places TFOOT before TBODY, tricking our algorithm to
+            // insert a page break right after the header).
+            // https://github.com/telerik/kendo/issues/4699
+            $(copy).find("tfoot").each(function(){
+                this.parentNode.appendChild(this);
+            });
+
+            // remember the index of each LI from an ordered list.
+            // we'll use it to reconstruct the proper numbering.
+            $(copy).find("ol").each(function(){
+                $(this).children().each(function(index){
+                    this.setAttribute("kendo-split-index", index);
+                });
+            });
+
             $(container).css({
                 display   : "block",
                 position  : "absolute",
@@ -26331,6 +26355,10 @@ function pad(number, digits, end) {
 
             function elementIndex(f) {
                 var a = element.parentNode.children;
+                var k = element.getAttribute("kendo-split-index");
+                if (k != null) {
+                    return f(k|0, a.length);
+                }
                 for (var i = 0; i < a.length; ++i) {
                     if (a[i] === element) {
                         return f(i, a.length);
@@ -29168,7 +29196,7 @@ function pad(number, digits, end) {
                 align: axis.options.majorTickType
             });
 
-            if (!this.options._deferLables) {
+            if (!this.options._deferLabels) {
                 axis.createLabels();
             }
 
@@ -71628,7 +71656,7 @@ function pad(number, digits, end) {
                     item = target.parent("li").data("button");
                 }
 
-                if (!item.options.enable) {
+                if (!item || !item.options.enable) {
                     return;
                 }
 
@@ -78153,6 +78181,7 @@ function pad(number, digits, end) {
         removeAt: function(position) {
             this._selectedIndices.splice(position, 1);
             this._values.splice(position, 1);
+            this._valueComparer = null;
 
             return {
                 position: position,
@@ -79546,7 +79575,8 @@ function pad(number, digits, end) {
 
         _get: function(candidate) {
             var data, found, idx;
-            var jQueryCandidate = $(candidate);
+            var isFunction = typeof candidate === "function";
+            var jQueryCandidate = !isFunction ? $(candidate) : $();
 
             if (this.optionLabel[0]) {
                 if (typeof candidate === "number") {
@@ -79558,7 +79588,7 @@ function pad(number, digits, end) {
                 }
             }
 
-            if (typeof candidate === "function") {
+            if (isFunction) {
                 data = this.dataSource.flatView();
 
                 for (idx = 0; idx < data.length; idx++) {
@@ -83847,7 +83877,7 @@ function pad(number, digits, end) {
                     transform: scale
                 });
 
-                var root = this.canvas.drawingElement.children[0];
+                var root = this.mainLayer.drawingElement;
                 wrap.children.push(root);
 
                 return wrap;

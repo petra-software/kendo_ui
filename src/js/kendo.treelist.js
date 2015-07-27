@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.727 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1658,6 +1658,15 @@
             return grep(this.columns, not(is("locked")));
         },
 
+        _flushCache: function() {
+            if (this.options.$angular) {
+                this._contentTree.render([]);
+                if (this._hasLockedColumns) {
+                    this._lockedContentTree.render([]);
+                }
+            }
+        },
+
         _render: function(options) {
             options = options || {};
 
@@ -1672,6 +1681,7 @@
 
             this._angularItems("cleanup");
             this._angularFooters("cleanup");
+            this._flushCache();
 
             if (options.error) {
                 // root-level error message
@@ -1686,6 +1696,7 @@
                 // no rows message
                 this._showStatus(kendo.htmlEncode(messages.noRows));
             } else {
+
                 // render rows
                 this._hideStatus();
                 this._contentTree.render(this._trs({

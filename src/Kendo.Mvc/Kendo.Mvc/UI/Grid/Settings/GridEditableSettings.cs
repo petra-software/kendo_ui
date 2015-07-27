@@ -167,8 +167,9 @@ namespace Kendo.Mvc.UI
             if (grid.DataSource.Schema.Model != null && 
                 grid.DataSource.Schema.Model.Fields.Any())
             {
-                grid.DataSource.Schema.Model.Fields.Each(f => {
-                    var property = typeof(T).GetProperty(f.Member, BindingFlags.Public | BindingFlags.Instance);
+                grid.DataSource.Schema.Model.Fields.Each(f =>
+                {
+                    var property = typeof(T).GetProperty(f.Member, BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
                     if (property != null && property.CanWrite)
 	                {
                         if (f.DefaultValue == null || f.DefaultValue.GetType() != typeof(ClientHandlerDescriptor))

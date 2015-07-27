@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.727 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -7075,6 +7075,22 @@
             var container = doc.createElement("KENDO-PDF-DOCUMENT");
             var adjust = 0;
 
+            // make sure <tfoot> elements are at the end (Grid widget
+            // places TFOOT before TBODY, tricking our algorithm to
+            // insert a page break right after the header).
+            // https://github.com/telerik/kendo/issues/4699
+            $(copy).find("tfoot").each(function(){
+                this.parentNode.appendChild(this);
+            });
+
+            // remember the index of each LI from an ordered list.
+            // we'll use it to reconstruct the proper numbering.
+            $(copy).find("ol").each(function(){
+                $(this).children().each(function(index){
+                    this.setAttribute("kendo-split-index", index);
+                });
+            });
+
             $(container).css({
                 display   : "block",
                 position  : "absolute",
@@ -8695,6 +8711,10 @@
 
             function elementIndex(f) {
                 var a = element.parentNode.children;
+                var k = element.getAttribute("kendo-split-index");
+                if (k != null) {
+                    return f(k|0, a.length);
+                }
                 for (var i = 0; i < a.length; ++i) {
                     if (a[i] === element) {
                         return f(i, a.length);

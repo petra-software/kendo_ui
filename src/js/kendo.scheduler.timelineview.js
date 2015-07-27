@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.727 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -273,9 +273,15 @@
 
         _touchEditable: function() {
             var that = this;
+            var threshold = 0;
+
+            if (kendo.support.mobileOS.android) {
+                threshold = 5;
+            }
 
             if (that.options.editable.create !== false) {
                 that._addUserEvents = new kendo.UserEvents(that.element, {
+                    threshold: threshold,
                     filter:  ".k-scheduler-content td",
                     tap: function(e) {
                         var slot = that._slotByPosition(e.x.location, e.y.location);
@@ -292,6 +298,7 @@
 
             if (that.options.editable.update !== false) {
                 that._editUserEvents = new kendo.UserEvents(that.element, {
+                    threshold: threshold,
                     filter: ".k-event",
                     tap: function(e) {
                         var eventElement = $(e.target).closest(".k-event");

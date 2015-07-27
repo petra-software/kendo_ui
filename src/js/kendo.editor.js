@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.727 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -7906,6 +7906,7 @@ registerTool("cleanFormatting", new Tool({ command: CleanFormatCommand, template
     var EditorUtils = kendo.ui.editor.EditorUtils;
     var ToolTemplate = kendo.ui.editor.ToolTemplate;
     var Tool = kendo.ui.editor.Tool;
+    var OVERFLOWANCHOR = "overflowAnchor";
 
     var focusable = ".k-tool-group:visible a.k-tool:not(.k-state-disabled)," +
                     ".k-tool.k-overflow-anchor," +
@@ -7925,7 +7926,7 @@ registerTool("cleanFormatting", new Tool({ command: CleanFormatCommand, template
         },
 
         options: {
-            name: "overflowAnchor"
+            name: OVERFLOWANCHOR
         },
 
         command: $.noop,
@@ -7934,7 +7935,7 @@ registerTool("cleanFormatting", new Tool({ command: CleanFormatCommand, template
 
     });
 
-    EditorUtils.registerTool("overflowAnchor", new OverflowAnchorTool({
+    EditorUtils.registerTool(OVERFLOWANCHOR, new OverflowAnchorTool({
         key: "",
         ctrl: true,
         template: new ToolTemplate({ template: EditorUtils.overflowAnchorTemplate })
@@ -7977,7 +7978,7 @@ registerTool("cleanFormatting", new Tool({ command: CleanFormatCommand, template
             colors: [ "foreColor", "backColor" ]
         },
 
-        overflowFlaseTools: [ "formatting", "fontName", "fontSize", "foreColor", "backColor" ],
+        overflowFlaseTools: [ "formatting", "fontName", "fontSize", "foreColor", "backColor", "insertHtml" ],
 
         _initPopup: function() {
             this.window = $(this.element)
@@ -8090,7 +8091,7 @@ registerTool("cleanFormatting", new Tool({ command: CleanFormatCommand, template
             that._editor = editor;
 
             if (that.options.resizable && that.options.resizable.toolbar) {
-                editor.options.tools.push("overflowAnchor");
+                editor.options.tools.push(OVERFLOWANCHOR);
             }
 
             // re-initialize the tools
@@ -8348,7 +8349,7 @@ registerTool("cleanFormatting", new Tool({ command: CleanFormatCommand, template
             }
 
             function startGroup(toolName) {
-                if (toolName !== "overflowAnchor") {
+                if (toolName !== OVERFLOWANCHOR) {
                     group = $("<li class='k-tool-group' role='presentation' />");
                     group.data("overflow", $.inArray(toolName, overflowFlaseTools) === -1 ? true : false);
                 } else {
@@ -8385,7 +8386,7 @@ registerTool("cleanFormatting", new Tool({ command: CleanFormatCommand, template
 
                 newGroupName = that.toolGroupFor(toolName);
 
-                if (groupName != newGroupName) {
+                if (groupName != newGroupName || toolName == OVERFLOWANCHOR) {
                     endGroup();
                     startGroup(toolName, overflowFlaseTools);
                     groupName = newGroupName;

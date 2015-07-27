@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.727 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -163,10 +163,11 @@
                 return;
             }
 
-            var scrollTop = this.verticalScrollbar.scrollTop(),
+            var scrollbar = this.verticalScrollbar,
+                scrollTop = scrollbar.scrollTop(),
                 delta = kendo.wheelDeltaY(e);
 
-            if (delta) {
+            if (delta && !(delta > 0 && scrollTop === 0) && !(delta < 0 && scrollTop + scrollbar[0].clientHeight == scrollbar[0].scrollHeight)) {
                 e.preventDefault();
                 //In Firefox DOMMouseScroll event cannot be canceled
                 $(e.currentTarget).one("wheel" + NS, false);
@@ -1235,6 +1236,26 @@
             if (item.hasSubgroups) {
                 result = result.concat(groupRows(item.items));
             }
+        }
+
+        return result;
+    }
+
+    function groupFooters(data) {
+        var result = [];
+        var item;
+
+        for (var idx = 0; idx < data.length; idx++) {
+            item = data[idx];
+            if (!("field" in item && "value" in item && "items" in item)) {
+                break;
+            }
+
+            if (item.hasSubgroups) {
+                result = result.concat(groupFooters(item.items));
+            }
+
+            result.push(item.aggregates);
         }
 
         return result;
@@ -7263,6 +7284,8 @@
            }
 
            this._angularGroupItems(cmd);
+
+           this._angularGroupFooterItems(cmd);
        },
 
        _cleanupDetailItems: function() {
@@ -7285,6 +7308,22 @@
                    return {
                        elements: that.tbody.children(".k-grouping-row"),
                        data: $.map(groupRows(that.dataSource.view()), function(dataItem){
+                           return { dataItem: dataItem };
+                       })
+                   };
+               });
+           }
+       },
+
+       _angularGroupFooterItems: function(cmd) {
+           var that = this;
+
+           if (that._group && that.groupFooterTemplate) {
+
+               that.angular(cmd, function() {
+                   return {
+                       elements: that.tbody.children(".k-group-footer"),
+                       data: $.map(groupFooters(that.dataSource.view()), function(dataItem){
                            return { dataItem: dataItem };
                        })
                    };

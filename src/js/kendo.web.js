@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.727 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.2.720";
+    kendo.version = "2015.2.727";
 
     function Class() {}
 
@@ -1188,6 +1188,8 @@ function pad(number, digits, end) {
                 var i = 0,
                     length = names.length,
                     name, nameLength,
+                    matchLength = 0,
+                    matchIdx = 0,
                     subValue;
 
                 for (; i < length; i++) {
@@ -1199,11 +1201,17 @@ function pad(number, digits, end) {
                         subValue = subValue.toLowerCase();
                     }
 
-                    if (subValue == name) {
-                        valueIdx += nameLength;
-                        return i + 1;
+                    if (subValue == name && nameLength > matchLength) {
+                        matchLength = nameLength;
+                        matchIdx = i;
                     }
                 }
+
+                if (matchLength) {
+                    valueIdx += matchLength;
+                    return matchIdx + 1;
+                }
+
                 return null;
             },
             checkLiteral = function() {
@@ -7504,7 +7512,7 @@ function pad(number, digits, end) {
                 return this._storage.setItem(state);
             }
 
-            return this._storage.getItem() || {};
+            return this._storage.getItem() || [];
         },
 
         _isServerGrouped: function() {
@@ -8766,8 +8774,8 @@ function pad(number, digits, end) {
                 return that._filter;
             }
 
-            that._query({ filter: val, page: 1 });
             that.trigger("reset");
+            that._query({ filter: val, page: 1 });
         },
 
         group: function(val) {
@@ -14841,6 +14849,11 @@ kendo.ExcelExporter = kendo.Class.extend({
             if (data.length > 0) {
                 // Avoid toJSON() for perf and avoid data() to prevent reparenting.
                 this.dataSource._data = data;
+
+                var transport = this.dataSource.transport;
+                if (dataSource._isServerGrouped() && transport.options.data) { // clear the transport data when using aspnet-mvc transport
+                    transport.options.data = null;
+                }
             }
 
         } else {
@@ -22806,6 +22819,22 @@ kendo.ExcelMixin = {
             var container = doc.createElement("KENDO-PDF-DOCUMENT");
             var adjust = 0;
 
+            // make sure <tfoot> elements are at the end (Grid widget
+            // places TFOOT before TBODY, tricking our algorithm to
+            // insert a page break right after the header).
+            // https://github.com/telerik/kendo/issues/4699
+            $(copy).find("tfoot").each(function(){
+                this.parentNode.appendChild(this);
+            });
+
+            // remember the index of each LI from an ordered list.
+            // we'll use it to reconstruct the proper numbering.
+            $(copy).find("ol").each(function(){
+                $(this).children().each(function(index){
+                    this.setAttribute("kendo-split-index", index);
+                });
+            });
+
             $(container).css({
                 display   : "block",
                 position  : "absolute",
@@ -24426,6 +24455,10 @@ kendo.ExcelMixin = {
 
             function elementIndex(f) {
                 var a = element.parentNode.children;
+                var k = element.getAttribute("kendo-split-index");
+                if (k != null) {
+                    return f(k|0, a.length);
+                }
                 for (var i = 0; i < a.length; ++i) {
                     if (a[i] === element) {
                         return f(i, a.length);
@@ -33615,6 +33648,7 @@ kendo.ExcelMixin = {
         removeAt: function(position) {
             this._selectedIndices.splice(position, 1);
             this._values.splice(position, 1);
+            this._valueComparer = null;
 
             return {
                 position: position,
@@ -37659,7 +37693,8 @@ kendo.ExcelMixin = {
 
         _get: function(candidate) {
             var data, found, idx;
-            var jQueryCandidate = $(candidate);
+            var isFunction = typeof candidate === "function";
+            var jQueryCandidate = !isFunction ? $(candidate) : $();
 
             if (this.optionLabel[0]) {
                 if (typeof candidate === "number") {
@@ -37671,7 +37706,7 @@ kendo.ExcelMixin = {
                 }
             }
 
-            if (typeof candidate === "function") {
+            if (isFunction) {
                 data = this.dataSource.flatView();
 
                 for (idx = 0; idx < data.length; idx++) {
@@ -38961,9 +38996,9 @@ kendo.ExcelMixin = {
             }
 
             if ($.isPlainObject(data[0]) || data[0] instanceof kendo.data.ObservableObject || !that.options.dataValueField) {
-                that._retrieveData = true;
                 that.dataSource.data(data);
                 that.value(value || that._initialValues);
+                that._retrieveData = true;
             }
         },
 
@@ -39433,9 +39468,10 @@ kendo.ExcelMixin = {
                 return;
             }
 
-            if (!that._fetch && !hasItems) {
+            if (that._retrieveData || (!that._fetch && !hasItems)) {
                 that._fetch = true;
-                that.dataSource.fetch().done(function() {
+                that._retrieveData = false;
+                that.dataSource.read().done(function() {
                     that._fetch = false;
                 });
             }
@@ -54704,10 +54740,11 @@ kendo.PDFMixin = {
                 return;
             }
 
-            var scrollTop = this.verticalScrollbar.scrollTop(),
+            var scrollbar = this.verticalScrollbar,
+                scrollTop = scrollbar.scrollTop(),
                 delta = kendo.wheelDeltaY(e);
 
-            if (delta) {
+            if (delta && !(delta > 0 && scrollTop === 0) && !(delta < 0 && scrollTop + scrollbar[0].clientHeight == scrollbar[0].scrollHeight)) {
                 e.preventDefault();
                 //In Firefox DOMMouseScroll event cannot be canceled
                 $(e.currentTarget).one("wheel" + NS, false);
@@ -55776,6 +55813,26 @@ kendo.PDFMixin = {
             if (item.hasSubgroups) {
                 result = result.concat(groupRows(item.items));
             }
+        }
+
+        return result;
+    }
+
+    function groupFooters(data) {
+        var result = [];
+        var item;
+
+        for (var idx = 0; idx < data.length; idx++) {
+            item = data[idx];
+            if (!("field" in item && "value" in item && "items" in item)) {
+                break;
+            }
+
+            if (item.hasSubgroups) {
+                result = result.concat(groupFooters(item.items));
+            }
+
+            result.push(item.aggregates);
         }
 
         return result;
@@ -61804,6 +61861,8 @@ kendo.PDFMixin = {
            }
 
            this._angularGroupItems(cmd);
+
+           this._angularGroupFooterItems(cmd);
        },
 
        _cleanupDetailItems: function() {
@@ -61826,6 +61885,22 @@ kendo.PDFMixin = {
                    return {
                        elements: that.tbody.children(".k-grouping-row"),
                        data: $.map(groupRows(that.dataSource.view()), function(dataItem){
+                           return { dataItem: dataItem };
+                       })
+                   };
+               });
+           }
+       },
+
+       _angularGroupFooterItems: function(cmd) {
+           var that = this;
+
+           if (that._group && that.groupFooterTemplate) {
+
+               that.angular(cmd, function() {
+                   return {
+                       elements: that.tbody.children(".k-group-footer"),
+                       data: $.map(groupFooters(that.dataSource.view()), function(dataItem){
                            return { dataItem: dataItem };
                        })
                    };
@@ -73707,6 +73782,7 @@ registerTool("cleanFormatting", new Tool({ command: CleanFormatCommand, template
     var EditorUtils = kendo.ui.editor.EditorUtils;
     var ToolTemplate = kendo.ui.editor.ToolTemplate;
     var Tool = kendo.ui.editor.Tool;
+    var OVERFLOWANCHOR = "overflowAnchor";
 
     var focusable = ".k-tool-group:visible a.k-tool:not(.k-state-disabled)," +
                     ".k-tool.k-overflow-anchor," +
@@ -73726,7 +73802,7 @@ registerTool("cleanFormatting", new Tool({ command: CleanFormatCommand, template
         },
 
         options: {
-            name: "overflowAnchor"
+            name: OVERFLOWANCHOR
         },
 
         command: $.noop,
@@ -73735,7 +73811,7 @@ registerTool("cleanFormatting", new Tool({ command: CleanFormatCommand, template
 
     });
 
-    EditorUtils.registerTool("overflowAnchor", new OverflowAnchorTool({
+    EditorUtils.registerTool(OVERFLOWANCHOR, new OverflowAnchorTool({
         key: "",
         ctrl: true,
         template: new ToolTemplate({ template: EditorUtils.overflowAnchorTemplate })
@@ -73778,7 +73854,7 @@ registerTool("cleanFormatting", new Tool({ command: CleanFormatCommand, template
             colors: [ "foreColor", "backColor" ]
         },
 
-        overflowFlaseTools: [ "formatting", "fontName", "fontSize", "foreColor", "backColor" ],
+        overflowFlaseTools: [ "formatting", "fontName", "fontSize", "foreColor", "backColor", "insertHtml" ],
 
         _initPopup: function() {
             this.window = $(this.element)
@@ -73891,7 +73967,7 @@ registerTool("cleanFormatting", new Tool({ command: CleanFormatCommand, template
             that._editor = editor;
 
             if (that.options.resizable && that.options.resizable.toolbar) {
-                editor.options.tools.push("overflowAnchor");
+                editor.options.tools.push(OVERFLOWANCHOR);
             }
 
             // re-initialize the tools
@@ -74149,7 +74225,7 @@ registerTool("cleanFormatting", new Tool({ command: CleanFormatCommand, template
             }
 
             function startGroup(toolName) {
-                if (toolName !== "overflowAnchor") {
+                if (toolName !== OVERFLOWANCHOR) {
                     group = $("<li class='k-tool-group' role='presentation' />");
                     group.data("overflow", $.inArray(toolName, overflowFlaseTools) === -1 ? true : false);
                 } else {
@@ -74186,7 +74262,7 @@ registerTool("cleanFormatting", new Tool({ command: CleanFormatCommand, template
 
                 newGroupName = that.toolGroupFor(toolName);
 
-                if (groupName != newGroupName) {
+                if (groupName != newGroupName || toolName == OVERFLOWANCHOR) {
                     endGroup();
                     startGroup(toolName, overflowFlaseTools);
                     groupName = newGroupName;
@@ -88667,7 +88743,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                     item = target.parent("li").data("button");
                 }
 
-                if (!item.options.enable) {
+                if (!item || !item.options.enable) {
                     return;
                 }
 
@@ -91634,7 +91710,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                         item.removeClass(SELECTED);
                         this._values.splice(position, 1);
                         this._selectedIndexes.splice(position, 1);
-                        dataItem = this._selectedDataItems.splice(position, 1);
+                        dataItem = this._selectedDataItems.splice(position, 1)[0];
 
                         indexes.splice(i, 1);
 
@@ -94634,9 +94710,15 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
         _touchEditable: function() {
             var that = this;
+            var threshold = 0;
+
+            if (kendo.support.mobileOS.android) {
+                threshold = 5;
+            }
 
             if (that.options.editable.create !== false) {
                 that._addUserEvents = new kendo.UserEvents(that.element, {
+                    threshold: threshold,
                     filter:  ".k-scheduler-content td",
                     tap: function(e) {
                         if (!$(e.target).parent().hasClass("k-scheduler-header-all-day")) {
@@ -94653,6 +94735,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 });
 
                 that._allDayUserEvents = new kendo.UserEvents(that.element, {
+                    threshold: threshold,
                     filter: ".k-scheduler-header-all-day td",
                     tap: function(e) {
                         var slot = that._slotByPosition(e.x.location, e.y.location);
@@ -94669,6 +94752,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             if (that.options.editable.update !== false) {
                 that._editUserEvents = new kendo.UserEvents(that.element, {
+                    threshold: threshold,
                     filter: ".k-event",
                     tap: function(e) {
                         var eventElement = $(e.target).closest(".k-event");
@@ -96430,9 +96514,15 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
         _touchEditable: function() {
             var that = this;
+            var threshold = 0;
+
+            if (kendo.support.mobileOS.android) {
+                threshold = 5;
+            }
 
             if (that.options.editable.create !== false) {
                 that._addUserEvents = new kendo.UserEvents(that.element, {
+                    threshold: threshold,
                     filter: ".k-scheduler-monthview .k-scheduler-content td",
                     tap: function(e) {
                         var offset = $(e.target).offset();
@@ -96450,6 +96540,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             if (that.options.editable.update !== false) {
                 that._editUserEvents = new kendo.UserEvents(that.element, {
+                    threshold: threshold,
                     filter:  ".k-scheduler-monthview .k-event",
                     tap: function(e) {
                         if ($(e.event.target).closest("a:has(.k-si-close)").length === 0) {
@@ -100183,9 +100274,15 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
         _touchEditable: function() {
             var that = this;
+            var threshold = 0;
+
+            if (kendo.support.mobileOS.android) {
+                threshold = 5;
+            }
 
             if (that.options.editable.create !== false) {
                 that._addUserEvents = new kendo.UserEvents(that.element, {
+                    threshold: threshold,
                     filter:  ".k-scheduler-content td",
                     tap: function(e) {
                         var slot = that._slotByPosition(e.x.location, e.y.location);
@@ -100202,6 +100299,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             if (that.options.editable.update !== false) {
                 that._editUserEvents = new kendo.UserEvents(that.element, {
+                    threshold: threshold,
                     filter: ".k-event",
                     tap: function(e) {
                         var eventElement = $(e.target).closest(".k-event");
@@ -103901,15 +103999,19 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             var clonedEvent;
             var that = this;
             var originSlot;
+            var distance = 0;
 
             var isMobile = that._isMobile();
             var movable = that.options.editable && that.options.editable.move !== false;
             var resizable = that.options.editable && that.options.editable.resize !== false;
 
             if (movable || (resizable && isMobile)) {
+                if (isMobile && kendo.support.mobileOS.android) {
+                    distance = 5;
+                }
 
                 that._moveDraggable = new kendo.ui.Draggable(that.element, {
-                    distance: 0,
+                    distance: distance,
                     filter: ".k-event",
                     ignore: ".k-resize-handle",
                     holdToDrag: isMobile
@@ -104066,6 +104168,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             var clonedEvent;
             var slot;
             var that = this;
+            var distance = 0;
 
             function direction(handle) {
                 var directions = {
@@ -104082,8 +104185,12 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 }
             }
 
+            if (that._isMobile() && kendo.support.mobileOS.android) {
+                distance = 5;
+            }
+
             that._resizeDraggable = new kendo.ui.Draggable(that.element, {
-                distance: 0,
+                distance: distance,
                 filter: ".k-resize-handle",
                 dragstart: function(e) {
                     var dragHandle = $(e.currentTarget);
@@ -114060,6 +114167,15 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             return grep(this.columns, not(is("locked")));
         },
 
+        _flushCache: function() {
+            if (this.options.$angular) {
+                this._contentTree.render([]);
+                if (this._hasLockedColumns) {
+                    this._lockedContentTree.render([]);
+                }
+            }
+        },
+
         _render: function(options) {
             options = options || {};
 
@@ -114074,6 +114190,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             this._angularItems("cleanup");
             this._angularFooters("cleanup");
+            this._flushCache();
 
             if (options.error) {
                 // root-level error message
@@ -114088,6 +114205,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 // no rows message
                 this._showStatus(kendo.htmlEncode(messages.noRows));
             } else {
+
                 // render rows
                 this._hideStatus();
                 this._contentTree.render(this._trs({

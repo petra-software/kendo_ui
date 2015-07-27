@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.727 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -38,7 +38,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.2.720";
+    kendo.version = "2015.2.727";
 
     function Class() {}
 
@@ -1186,6 +1186,8 @@ function pad(number, digits, end) {
                 var i = 0,
                     length = names.length,
                     name, nameLength,
+                    matchLength = 0,
+                    matchIdx = 0,
                     subValue;
 
                 for (; i < length; i++) {
@@ -1197,11 +1199,17 @@ function pad(number, digits, end) {
                         subValue = subValue.toLowerCase();
                     }
 
-                    if (subValue == name) {
-                        valueIdx += nameLength;
-                        return i + 1;
+                    if (subValue == name && nameLength > matchLength) {
+                        matchLength = nameLength;
+                        matchIdx = i;
                     }
                 }
+
+                if (matchLength) {
+                    valueIdx += matchLength;
+                    return matchIdx + 1;
+                }
+
                 return null;
             },
             checkLiteral = function() {

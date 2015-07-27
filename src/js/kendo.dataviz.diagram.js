@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.727 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -15131,7 +15131,7 @@
                     transform: scale
                 });
 
-                var root = this.canvas.drawingElement.children[0];
+                var root = this.mainLayer.drawingElement;
                 wrap.children.push(root);
 
                 return wrap;

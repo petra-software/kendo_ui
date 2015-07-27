@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.727 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -938,7 +938,6 @@
 .k-rtl .k-treeview .k-plus-disabled,
 .k-rtl .k-treeview .k-minus-disabled
 {
-    float: right;
     margin-left: 0;
     margin-right: -16px;
 }

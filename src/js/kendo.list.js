@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.720 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.727 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1474,6 +1474,7 @@
         removeAt: function(position) {
             this._selectedIndices.splice(position, 1);
             this._values.splice(position, 1);
+            this._valueComparer = null;
 
             return {
                 position: position,
