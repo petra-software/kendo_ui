@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.727 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.803 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -3980,7 +3980,7 @@
 
     Transport.create = function(options, data, dataSource) {
         var transport,
-            transportOptions = options.transport;
+            transportOptions = options.transport ? $.extend({}, options.transport) : null;
 
         if (transportOptions) {
             transportOptions.read = typeof transportOptions.read === STRING ? { url: transportOptions.read } : transportOptions.read;

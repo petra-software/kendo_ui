@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.727 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.803 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -557,7 +557,7 @@
                 var _wrapper = $(widget.wrapper)[0];
                 var _element = $(widget.element)[0];
                 var compile = element.injector().get("$compile");
-                widget.destroy();
+                widget._destroy();
 
                 if (destroyRegister) {
                     destroyRegister();

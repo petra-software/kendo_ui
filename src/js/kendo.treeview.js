@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.727 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.803 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -386,7 +386,10 @@
                             sourceNode: options.source,
                             destinationNode: options.destination,
                             valid: options.valid,
-                            setValid: options.setValid,
+                            setValid: function(state) {
+                                this.valid = state;
+                                options.setValid(state);
+                            },
                             dropTarget: options.dropTarget,
                             dropPosition: options.position
                         });

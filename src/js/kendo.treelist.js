@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.727 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.803 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -905,7 +905,7 @@
                 autoScroll: true,
                 filter: "tbody>tr",
                 itemSelector: "tr",
-                allowedContainers: "#" + this.wrapper.attr("id"),
+                allowedContainers: this.wrapper,
                 hintText: function(row) {
                     var text = function() { return $(this).text(); };
                     var separator = "<span class='k-header k-drag-separator' />";

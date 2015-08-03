@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.727 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.803 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -38,7 +38,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.2.727";
+    kendo.version = "2015.2.803";
 
     function Class() {}
 
@@ -2712,7 +2712,9 @@ function pad(number, digits, end) {
             that.element.removeData("handler");
             that.unbind();
         },
-
+        _destroy: function() {
+            this.destroy();
+        },
         angular: function(){}
     });
 

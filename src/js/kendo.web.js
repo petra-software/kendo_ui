@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.727 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.803 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.2.727";
+    kendo.version = "2015.2.803";
 
     function Class() {}
 
@@ -2714,7 +2714,9 @@ function pad(number, digits, end) {
             that.element.removeData("handler");
             that.unbind();
         },
-
+        _destroy: function() {
+            this.destroy();
+        },
         angular: function(){}
     });
 
@@ -9217,7 +9219,7 @@ function pad(number, digits, end) {
 
     Transport.create = function(options, data, dataSource) {
         var transport,
-            transportOptions = options.transport;
+            transportOptions = options.transport ? $.extend({}, options.transport) : null;
 
         if (transportOptions) {
             transportOptions.read = typeof transportOptions.read === STRING ? { url: transportOptions.read } : transportOptions.read;
@@ -20658,8 +20660,7 @@ kendo.ExcelMixin = {
         root.load([group]);
 
         var svg = "<?xml version='1.0' ?>" +
-                  "<svg style='width: 100%; height: 100%; overflow: hidden;' " +
-                  "xmlns='" + SVG_NS + "' " + "xmlns:xlink='http://www.w3.org/1999/xlink' " +
+                  "<svg xmlns='" + SVG_NS + "' " + "xmlns:xlink='http://www.w3.org/1999/xlink' " +
                   "version='1.1'>" + root.render() + "</svg>";
 
         root.destroy();
@@ -32357,6 +32358,7 @@ kendo.ExcelMixin = {
 
                             that._accessor(value);
                             that.input.val(text);
+                            that._placeholder();
                         } else if (that._oldIndex === -1) {
                             that._oldIndex = that.selectedIndex;
                         }
@@ -33276,6 +33278,11 @@ kendo.ExcelMixin = {
 
                 parent.first("cascade", function(e) {
                     that._userTriggered = e.userTriggered;
+
+                    if (that.listView.isBound()) {
+                        that._clearSelection(parent, true);
+                    }
+
                     that._cascadeSelect(parent);
                 });
 
@@ -39918,6 +39925,14 @@ kendo.ExcelMixin = {
                         maxTotal: that._maxTotal,
                         currentTotal: total
                     }));
+                }
+
+                for (idx = removed.length - 1; idx > -1; idx--) {
+                    that._setOption(getter(removed[idx].dataItem), false);
+                }
+
+                for (idx = 0; idx < added.length; idx++) {
+                    that._setOption(getter(added[idx].dataItem), true);
                 }
             }
 
@@ -48215,36 +48230,38 @@ kendo.ExcelMixin = {
             }, options));
         },
 
-        destroy: function () {
-            var that = this;
-
-            if (that.resizing) {
-                that.resizing.destroy();
+        _destroy: function() {
+            if (this.resizing) {
+                this.resizing.destroy();
             }
 
-            if (that.dragging) {
-                that.dragging.destroy();
+            if (this.dragging) {
+                this.dragging.destroy();
             }
 
-            that.wrapper.off(NS)
+            this.wrapper.off(NS)
                 .children(KWINDOWCONTENT).off(NS).end()
                 .find(".k-resize-handle,.k-window-titlebar").off(NS);
 
-            $(window).off("resize" + NS + that._marker);
+            $(window).off("resize" + NS + this._marker);
 
-            clearTimeout(that._loadingIconTimeout);
+            clearTimeout(this._loadingIconTimeout);
 
-            Widget.fn.destroy.call(that);
+            Widget.fn.destroy.call(this);
 
-            that.unbind(undefined);
+            this.unbind(undefined);
 
-            kendo.destroy(that.wrapper);
+            kendo.destroy(this.wrapper);
 
-            that._removeOverlay(true);
+            this._removeOverlay(true);
+        },
 
-            that.wrapper.empty().remove();
+        destroy: function() {
+            this._destroy();
 
-            that.wrapper = that.appendTo = that.element = $();
+            this.wrapper.empty().remove();
+
+            this.wrapper = this.appendTo = this.element = $();
         },
 
         _createWindow: function() {
@@ -54592,7 +54609,6 @@ kendo.PDFMixin = {
     var kendo = window.kendo,
         ui = kendo.ui,
         DataSource = kendo.data.DataSource,
-        Groupable = ui.Groupable,
         tbodySupportsInnerHtml = kendo.support.tbodyInnerHtml,
         activeElement = kendo._activeElement,
         Widget = ui.Widget,
@@ -57433,7 +57449,13 @@ kendo.PDFMixin = {
                 that.cancelRow();
             }
 
-            row = $(row).hide();
+            row = $(row);
+
+            if (that.lockedContent) {
+                row = row.add(that._relatedRow(row));
+            }
+
+            row = row.hide();
             model = that._modelForContainer(row);
 
             if (model && !that.trigger(REMOVE, { row: row, model: model })) {
@@ -58150,7 +58172,7 @@ kendo.PDFMixin = {
                     that.groupable.destroy();
                 }
 
-                that.groupable = new Groupable(wrapper, extend({}, groupable, {
+                that.groupable = new ui.Groupable(wrapper, extend({}, groupable, {
                     draggable: that._draggableInstance,
                     groupContainer: ">div.k-grouping-header",
                     dataSource: that.dataSource,
@@ -62228,7 +62250,7 @@ kendo.PDFMixin = {
            isHeader = currentTarget.is("th"),
            table = this.table.add(this.lockedTable),
            headerTable = this.thead.parent().add($(">table", this.lockedHeader)),
-           isInput = $(e.target).is(":button,a,:input,a>.k-icon,textarea,span.k-icon,span.k-link,.k-input,.k-multiselect-wrap,.k-tool-icon"),
+           isInput = $(e.target).is(":button,a,:input,a>.k-icon,textarea,span.k-select,span.k-icon,span.k-link,.k-input,.k-multiselect-wrap,.k-tool-icon"),
            currentTable = currentTarget.closest("table")[0];
 
        if (kendo.support.touch) {
@@ -80712,6 +80734,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
     var DROP = "drop";
     var VISIBILITY = "visibility";
     var KSTATEHOVER = "k-state-hover";
+    var INPUTSELECTOR = "input,a,textarea,.k-multiselect-wrap,select,button,a.k-button>.k-icon,button.k-button>.k-icon,span.k-icon.k-i-expand,span.k-icon.k-i-collapse";
 
     var HierarchicalDragAndDrop = ui.HierarchicalDragAndDrop = kendo.Class.extend({
         init: function (element, options) {
@@ -80722,6 +80745,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
             }, options);
 
             this._draggable = new ui.Draggable(element, {
+                ignore: INPUTSELECTOR,
                 filter: options.filter,
                 autoScrolL: options.autoScroll,
                 cursorOffset: {
@@ -81330,7 +81354,10 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                             sourceNode: options.source,
                             destinationNode: options.destination,
                             valid: options.valid,
-                            setValid: options.setValid,
+                            setValid: function(state) {
+                                this.valid = state;
+                                options.setValid(state);
+                            },
                             dropTarget: options.dropTarget,
                             dropPosition: options.position
                         });
@@ -85174,6 +85201,9 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 ".#= guid #.k-rpanel-right { float: right; } " +
                 ".#= guid #.k-rpanel-left, .#= guid #.k-rpanel-right {" +
                     "position: relative;" +
+                    "-webkit-transform: translateX(0);" +
+                    "-ms-transform: translateX(0);" +
+                    "transform: translateX(0);" +
                     "-webkit-transform: translateX(0) translateZ(0);" +
                     "-ms-transform: translateX(0) translateZ(0);" +
                     "transform: translateX(0) translateZ(0);" +
@@ -113414,7 +113444,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 autoScroll: true,
                 filter: "tbody>tr",
                 itemSelector: "tr",
-                allowedContainers: "#" + this.wrapper.attr("id"),
+                allowedContainers: this.wrapper,
                 hintText: function(row) {
                     var text = function() { return $(this).text(); };
                     var separator = "<span class='k-header k-drag-separator' />";
@@ -116675,7 +116705,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 var _wrapper = $(widget.wrapper)[0];
                 var _element = $(widget.element)[0];
                 var compile = element.injector().get("$compile");
-                widget.destroy();
+                widget._destroy();
 
                 if (destroyRegister) {
                     destroyRegister();

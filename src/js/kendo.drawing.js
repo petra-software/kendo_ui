@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.727 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.803 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -4914,8 +4914,7 @@
         root.load([group]);
 
         var svg = "<?xml version='1.0' ?>" +
-                  "<svg style='width: 100%; height: 100%; overflow: hidden;' " +
-                  "xmlns='" + SVG_NS + "' " + "xmlns:xlink='http://www.w3.org/1999/xlink' " +
+                  "<svg xmlns='" + SVG_NS + "' " + "xmlns:xlink='http://www.w3.org/1999/xlink' " +
                   "version='1.1'>" + root.render() + "</svg>";
 
         root.destroy();

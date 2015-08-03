@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.727 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.803 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -20,6 +20,7 @@
     var DROP = "drop";
     var VISIBILITY = "visibility";
     var KSTATEHOVER = "k-state-hover";
+    var INPUTSELECTOR = "input,a,textarea,.k-multiselect-wrap,select,button,a.k-button>.k-icon,button.k-button>.k-icon,span.k-icon.k-i-expand,span.k-icon.k-i-collapse";
 
     var HierarchicalDragAndDrop = ui.HierarchicalDragAndDrop = kendo.Class.extend({
         init: function (element, options) {
@@ -30,6 +31,7 @@
             }, options);
 
             this._draggable = new ui.Draggable(element, {
+                ignore: INPUTSELECTOR,
                 filter: options.filter,
                 autoScrolL: options.autoScroll,
                 cursorOffset: {

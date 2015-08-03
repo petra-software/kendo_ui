@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.727 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.803 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -15,7 +15,6 @@
     var kendo = window.kendo,
         ui = kendo.ui,
         DataSource = kendo.data.DataSource,
-        Groupable = ui.Groupable,
         tbodySupportsInnerHtml = kendo.support.tbodyInnerHtml,
         activeElement = kendo._activeElement,
         Widget = ui.Widget,
@@ -2856,7 +2855,13 @@
                 that.cancelRow();
             }
 
-            row = $(row).hide();
+            row = $(row);
+
+            if (that.lockedContent) {
+                row = row.add(that._relatedRow(row));
+            }
+
+            row = row.hide();
             model = that._modelForContainer(row);
 
             if (model && !that.trigger(REMOVE, { row: row, model: model })) {
@@ -3573,7 +3578,7 @@
                     that.groupable.destroy();
                 }
 
-                that.groupable = new Groupable(wrapper, extend({}, groupable, {
+                that.groupable = new ui.Groupable(wrapper, extend({}, groupable, {
                     draggable: that._draggableInstance,
                     groupContainer: ">div.k-grouping-header",
                     dataSource: that.dataSource,
@@ -7651,7 +7656,7 @@
            isHeader = currentTarget.is("th"),
            table = this.table.add(this.lockedTable),
            headerTable = this.thead.parent().add($(">table", this.lockedHeader)),
-           isInput = $(e.target).is(":button,a,:input,a>.k-icon,textarea,span.k-icon,span.k-link,.k-input,.k-multiselect-wrap,.k-tool-icon"),
+           isInput = $(e.target).is(":button,a,:input,a>.k-icon,textarea,span.k-select,span.k-icon,span.k-link,.k-input,.k-multiselect-wrap,.k-tool-icon"),
            currentTable = currentTarget.closest("table")[0];
 
        if (kendo.support.touch) {
