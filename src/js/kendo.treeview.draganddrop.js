@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.803 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.805 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -100,7 +100,7 @@
                 // dragging outside of allowed elements
                 status = "k-denied";
                 this._removeTouchHover();
-            } else if (options.contains(source[0], target[0])) {
+            } else if (source[0] == target[0] || options.contains(source[0], target[0])) {
                 // dragging item within itself
                 status = "k-denied";
             } else {

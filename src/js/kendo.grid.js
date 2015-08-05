@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.803 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.805 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1145,13 +1145,15 @@
         }
     }
 
-    function normalizeHeaderCells(th, columns) {
+    function normalizeHeaderCells(container, columns) {
         var lastIndex = 0;
         var idx , len;
+        var th = container.find("th:not(.k-group-cell)");
 
         for (idx = 0, len = columns.length; idx < len; idx ++) {
             if (columns[idx].locked) {
                 th.eq(idx).insertBefore(th.eq(lastIndex));
+                th = container.find("th:not(.k-group-cell)");
                 lastIndex ++;
             }
         }
@@ -5650,7 +5652,7 @@
                     throw new Error("There should be at least one non locked column");
                 }
 
-                normalizeHeaderCells(that.element.find("tr:has(th):first").find("th:not(.k-group-cell)"), initialColumns);
+                normalizeHeaderCells(that.element.find("tr:has(th):first"), initialColumns);
                 columns = lockedCols.concat(columns);
             }
 

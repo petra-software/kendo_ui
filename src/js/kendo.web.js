@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.803 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.805 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.2.803";
+    kendo.version = "2015.2.805";
 
     function Class() {}
 
@@ -2026,6 +2026,7 @@ function pad(number, digits, end) {
                     webkit: /(chrome)[ \/]([\w.]+)/i,
                     safari: /(webkit)[ \/]([\w.]+)/i,
                     opera: /(opera)(?:.*version|)[ \/]([\w.]+)/i,
+                    edge: /(edge)[ \/]([\w.]+)/i,
                     msie: /(msie\s|trident.*? rv:)([\w.]+)/i,
                     mozilla: /(mozilla)(?:.*? rv:([\w.]+)|)/i
                 };
@@ -42479,7 +42480,7 @@ kendo.ExcelMixin = {
                     .on("focus" + NS, function () { innerWrapper.addClass("k-state-focused"); })
                     .on("blur" + NS, function () { innerWrapper.removeClass("k-state-focused"); })
                     .on(KEYDOWN_NS, bind(that._keydown, that))
-                    .on(CLICK_NS, ".k-icon", bind(that.toggle, that))
+                    .on(CLICK_NS, ".k-select", bind(that.toggle, that))
                     .on(CLICK_NS, that.options.toolIcon ? ".k-tool-icon" : ".k-selected-color", function(){
                         that.trigger("activate");
                     });
@@ -55739,13 +55740,15 @@ kendo.PDFMixin = {
         }
     }
 
-    function normalizeHeaderCells(th, columns) {
+    function normalizeHeaderCells(container, columns) {
         var lastIndex = 0;
         var idx , len;
+        var th = container.find("th:not(.k-group-cell)");
 
         for (idx = 0, len = columns.length; idx < len; idx ++) {
             if (columns[idx].locked) {
                 th.eq(idx).insertBefore(th.eq(lastIndex));
+                th = container.find("th:not(.k-group-cell)");
                 lastIndex ++;
             }
         }
@@ -60244,7 +60247,7 @@ kendo.PDFMixin = {
                     throw new Error("There should be at least one non locked column");
                 }
 
-                normalizeHeaderCells(that.element.find("tr:has(th):first").find("th:not(.k-group-cell)"), initialColumns);
+                normalizeHeaderCells(that.element.find("tr:has(th):first"), initialColumns);
                 columns = lockedCols.concat(columns);
             }
 
@@ -80814,7 +80817,7 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
                 // dragging outside of allowed elements
                 status = "k-denied";
                 this._removeTouchHover();
-            } else if (options.contains(source[0], target[0])) {
+            } else if (source[0] == target[0] || options.contains(source[0], target[0])) {
                 // dragging item within itself
                 status = "k-denied";
             } else {
