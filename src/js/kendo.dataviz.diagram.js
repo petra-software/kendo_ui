@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.805 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.813 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -12735,17 +12735,26 @@
                 if (router instanceof CascadingRouter) {
                     var points = router.routePoints(sourcePoint, targetPoint, sourceConnector, targetConnector),
                         start, end,
-                        exclude, rect;
+                         rect;
                     points.unshift(sourcePoint);
                     points.push(targetPoint);
-                    exclude = [sourceConnector.shape, targetConnector.shape];
+
+
                     for (var idx = 1; idx < points.length; idx++) {
                         start = points[idx - 1];
                         end = points[idx];
                         rect = new Rect(math.min(start.x, end.x), math.min(start.y, end.y),
                                         math.abs(start.x - end.x), math.abs(start.y - end.y));
+                        if (rect.width > 0) {
+                            rect.x++;
+                            rect.width-=2;
+                        }
+                        if (rect.height > 0) {
+                            rect.y++;
+                            rect.height-=2;
+                        }
 
-                        if (this.diagram._shapesQuadTree.hitTestRect(rect, exclude)) {
+                        if (!rect.isEmpty() && this.diagram._shapesQuadTree.hitTestRect(rect)) {
                             passRoute = false;
                             break;
                         }
@@ -14872,6 +14881,7 @@
                 if (this.options.layout) {
                     this.layout(this.options.layout);
                 }
+                this._redrawConnections();
             },
 
             refreshConnections: function() {
@@ -14879,6 +14889,13 @@
                 if (!this._loadingShapes) {
                     this.trigger("dataBound");
                     this._rebindShapesAndConnections();
+                }
+            },
+
+            _redrawConnections: function() {
+                var connections = this.connections;
+                for (var idx = 0; idx < connections.length; idx++) {
+                    connections[idx].refresh();
                 }
             },
 
@@ -15828,18 +15845,20 @@
                 }
             },
 
-            hitTestRect: function(rect, exclude) {
+            hitTestRect: function(rect) {
                 var shapes = this.shapes;
                 var length = shapes.length;
-                var hit = false;
 
                 for (var i = 0; i < length; i++) {
-                    if (this._overlaps(shapes[i].bounds, rect) && !dataviz.inArray(shapes[i].shape, exclude)) {
-                        hit = true;
-                        break;
+                    if (this._testRect(shapes[i].shape, rect)) {
+                        return true;
                     }
                 }
-                return hit;
+            },
+
+            _testRect: function(shape, rect) {
+                var angle = shape.rotate().angle;
+                return Intersect.rects(rect, shape.bounds(), -angle);
             },
 
             _overlaps: function(rect1, rect2) {
@@ -15925,18 +15944,18 @@
                 }
             },
 
-            hitTestRect: function(rect, exclude) {
-                var idx, result = [];
+            hitTestRect: function(rect) {
+                var idx;
                 var children = this.children;
                 var length = children.length;
                 var hit = false;
 
                 if (this.overlapsBounds(rect)) {
-                    if (QuadRoot.fn.hitTestRect.call(this, rect, exclude)) {
+                    if (QuadRoot.fn.hitTestRect.call(this, rect)) {
                         hit = true;
                     } else {
                          for (idx = 0; idx < length; idx++) {
-                            if (children[idx].hitTestRect(rect, exclude)) {
+                            if (children[idx].hitTestRect(rect)) {
                                hit = true;
                                break;
                             }
@@ -16010,30 +16029,24 @@
             getSectors: function(rect) {
                 var rootSize = this.ROOT_SIZE;
                 var bottomRight = rect.bottomRight();
-                var x = Math.floor(rect.x / rootSize);
-                var y = Math.floor(rect.y / rootSize);
-                var bottomX = Math.floor(bottomRight.x / rootSize);
-                var bottomY = Math.floor(bottomRight.y / rootSize);
-                var sectors = [
-                    [x],
-                    [y]
-                ];
-
-                if (x !== bottomX) {
-                    sectors[0].push(bottomX);
+                var bottomX = math.floor(bottomRight.x / rootSize);
+                var bottomY = math.floor(bottomRight.y / rootSize);
+                var sectors = [[],[]];
+                for (var x = math.floor(rect.x / rootSize); x <= bottomX; x++) {
+                    sectors[0].push(x);
                 }
-                if (y !== bottomY) {
-                    sectors[1].push(bottomY);
+                for (var y = math.floor(rect.y / rootSize); y <= bottomY; y++) {
+                    sectors[1].push(y);
                 }
                 return sectors;
             },
 
-            hitTestRect: function(rect, exclude) {
+            hitTestRect: function(rect) {
                 var sectors = this.getSectors(rect);
                 var xIdx, yIdx, x, y;
                 var root;
 
-                if (this.root.hitTestRect(rect, exclude)) {
+                if (this.root.hitTestRect(rect)) {
                     return true;
                 }
 
@@ -16042,7 +16055,7 @@
                     for (yIdx = 0; yIdx < sectors[1].length; yIdx++) {
                         y = sectors[1][yIdx];
                         root = (this.rootMap[x] || {})[y];
-                        if (root && root.hitTestRect(rect, exclude)) {
+                        if (root && root.hitTestRect(rect)) {
                             return true;
                         }
                     }

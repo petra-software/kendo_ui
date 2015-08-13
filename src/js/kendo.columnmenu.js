@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.805 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.813 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -84,6 +84,10 @@
                 .on("click" + NS, proxy(that._click, that));
 
             that.wrapper = $('<div class="k-column-menu"/>');
+
+            that._refreshHandler = proxy(that.refresh, that);
+
+            that.dataSource.bind(CHANGE, that._refreshHandler);
         },
 
         _init: function() {
@@ -101,10 +105,6 @@
             }
 
             that._angularItems("compile");
-
-            that._refreshHandler = proxy(that.refresh, that);
-
-            that.dataSource.bind(CHANGE, that._refreshHandler);
 
             that._sort();
 

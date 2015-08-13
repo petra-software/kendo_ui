@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.805 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.813 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.2.805";
+    kendo.version = "2015.2.813";
 
     function Class() {}
 
@@ -2023,10 +2023,10 @@ function pad(number, digits, end) {
         support.detectBrowser = function(ua) {
             var browser = false, match = [],
                 browserRxs = {
+                    edge: /(edge)[ \/]([\w.]+)/i,
                     webkit: /(chrome)[ \/]([\w.]+)/i,
                     safari: /(webkit)[ \/]([\w.]+)/i,
                     opera: /(opera)(?:.*version|)[ \/]([\w.]+)/i,
-                    edge: /(edge)[ \/]([\w.]+)/i,
                     msie: /(msie\s|trident.*? rv:)([\w.]+)/i,
                     mozilla: /(mozilla)(?:.*? rv:([\w.]+)|)/i
                 };
@@ -16226,8 +16226,7 @@ function pad(number, digits, end) {
 
             if (!options.modal) {
                 DOCUMENT_ELEMENT.unbind(that.downEvent, that._mousedownProxy);
-                that._scrollableParents().unbind(SCROLL, that._resizeProxy);
-                WINDOW.unbind(RESIZE_SCROLL, that._resizeProxy);
+                that._toggleResize(false);
             }
 
             kendo.destroy(that.element.children());
@@ -16275,11 +16274,8 @@ function pad(number, digits, end) {
                     // this binding hangs iOS in editor
                     if (!(support.mobileOS.ios || support.mobileOS.android)) {
                         // all elements in IE7/8 fire resize event, causing mayhem
-                        that._scrollableParents()
-                            .unbind(SCROLL, that._resizeProxy)
-                            .bind(SCROLL, that._resizeProxy);
-                        WINDOW.unbind(RESIZE_SCROLL, that._resizeProxy)
-                              .bind(RESIZE_SCROLL, that._resizeProxy);
+                        that._toggleResize(false);
+                        that._toggleResize(true);
                     }
                 }
 
@@ -16348,7 +16344,10 @@ function pad(number, digits, end) {
             if (that.visible()) {
                 wrap = (that.wrapper[0] ? that.wrapper : kendo.wrap(that.element).hide());
 
+                that._toggleResize(false);
+
                 if (that._closing || that._trigger(CLOSE)) {
+                    that._toggleResize(true);
                     return;
                 }
 
@@ -16363,8 +16362,6 @@ function pad(number, digits, end) {
                 });
 
                 DOCUMENT_ELEMENT.unbind(that.downEvent, that._mousedownProxy);
-                that._scrollableParents().unbind(SCROLL, that._resizeProxy);
-                WINDOW.unbind(RESIZE_SCROLL, that._resizeProxy);
 
                 if (skipEffects) {
                     animation = { hide: true, effects: {} };
@@ -16405,6 +16402,13 @@ function pad(number, digits, end) {
                     that.close();
                 }
             }
+        },
+
+        _toggleResize: function(toggle) {
+            var method = toggle ? "on" : "off";
+
+            this._scrollableParents()[method](SCROLL, this._resizeProxy);
+            WINDOW[method](RESIZE_SCROLL, this._resizeProxy);
         },
 
         _mousedown: function(e) {
@@ -16493,7 +16497,7 @@ function pad(number, digits, end) {
             // $(window).height() uses documentElement to get the height
             viewportWidth = isWindow ? window.innerWidth : viewport.width();
             viewportHeight = isWindow ? window.innerHeight : viewport.height();
-            
+
             if (isWindow && docEl.scrollHeight - docEl.clientHeight > 0) {
                 viewportWidth -= kendo.support.scrollbar();
             }

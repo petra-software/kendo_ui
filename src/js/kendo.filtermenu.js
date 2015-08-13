@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.805 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.813 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -779,7 +779,10 @@
             this.element = $(element);
             var field = this.field = this.options.field || this.element.attr(kendo.attr("field"));
             var checkSource = options.checkSource;
-            if (options.forceUnique) {
+            if (this._foreignKeyValues()) {
+                this.checkSource = DataSource.create(options.values);
+                this.checkSource.fetch();
+            } else if (options.forceUnique) {
                 checkSource = options.dataSource.options;
                 delete checkSource.pageSize;
 
@@ -839,7 +842,9 @@
 
             this._createForm();
 
-            if (forceUnique && !this.checkSource.options.serverPaging && this.dataSource.data().length) {
+            if (this._foreignKeyValues()) {
+                this.refresh();
+            } else if (forceUnique && !this.checkSource.options.serverPaging && this.dataSource.data().length) {
                 this.checkSource.data(distinct(this.dataSource.data(),this.field));
                 this.refresh();
             } else {
@@ -943,7 +948,7 @@
 
             if (this.form) {
                 if (e && forceUnique && e.sender === dataSource && !dataSource.options.serverPaging &&
-                     (e.action == "itemchange" || e.action == "add" || e.action == "remove")) {
+                     (e.action == "itemchange" || e.action == "add" || e.action == "remove") && !this._foreignKeyValues()) {
                     this.checkSource.data(distinct(this.dataSource.data(),this.field));
                     this.container.empty();
                 }
@@ -973,8 +978,8 @@
 
             if (!this.options.forceUnique) {
                 data = this.checkSource.view();
-            } else if (options.values) {
-                data = options.values;
+            } else if (this._foreignKeyValues()) {
+                data = this.checkSource.data();
                 templateOptions.valueField = "value";
                 templateOptions.field = "text";
             } else {
@@ -1040,6 +1045,11 @@
            return $.grep(filters, function(filter) {
                 return filter.value != null;
             });
+        },
+
+        _foreignKeyValues: function() {
+            var options = this.options;
+            return options.values && !options.checkSource;
         },
 
         destroy: function() {

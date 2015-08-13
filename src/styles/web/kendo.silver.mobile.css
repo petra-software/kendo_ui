@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.805 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.813 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -3774,7 +3774,7 @@ body:before {
 }
 .km-switch-container,
 .km-switch-wrapper {
-  border-color: #ceced2;
+  border-color: #dedee0;
 }
 /* ListView */
 .km-list > li {

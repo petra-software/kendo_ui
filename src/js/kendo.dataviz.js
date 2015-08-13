@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.805 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.813 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.2.805";
+    kendo.version = "2015.2.813";
 
     function Class() {}
 
@@ -2023,10 +2023,10 @@ function pad(number, digits, end) {
         support.detectBrowser = function(ua) {
             var browser = false, match = [],
                 browserRxs = {
+                    edge: /(edge)[ \/]([\w.]+)/i,
                     webkit: /(chrome)[ \/]([\w.]+)/i,
                     safari: /(webkit)[ \/]([\w.]+)/i,
                     opera: /(opera)(?:.*version|)[ \/]([\w.]+)/i,
-                    edge: /(edge)[ \/]([\w.]+)/i,
                     msie: /(msie\s|trident.*? rv:)([\w.]+)/i,
                     mozilla: /(mozilla)(?:.*? rv:([\w.]+)|)/i
                 };
@@ -16448,8 +16448,7 @@ function pad(number, digits, end) {
 
             if (!options.modal) {
                 DOCUMENT_ELEMENT.unbind(that.downEvent, that._mousedownProxy);
-                that._scrollableParents().unbind(SCROLL, that._resizeProxy);
-                WINDOW.unbind(RESIZE_SCROLL, that._resizeProxy);
+                that._toggleResize(false);
             }
 
             kendo.destroy(that.element.children());
@@ -16497,11 +16496,8 @@ function pad(number, digits, end) {
                     // this binding hangs iOS in editor
                     if (!(support.mobileOS.ios || support.mobileOS.android)) {
                         // all elements in IE7/8 fire resize event, causing mayhem
-                        that._scrollableParents()
-                            .unbind(SCROLL, that._resizeProxy)
-                            .bind(SCROLL, that._resizeProxy);
-                        WINDOW.unbind(RESIZE_SCROLL, that._resizeProxy)
-                              .bind(RESIZE_SCROLL, that._resizeProxy);
+                        that._toggleResize(false);
+                        that._toggleResize(true);
                     }
                 }
 
@@ -16570,7 +16566,10 @@ function pad(number, digits, end) {
             if (that.visible()) {
                 wrap = (that.wrapper[0] ? that.wrapper : kendo.wrap(that.element).hide());
 
+                that._toggleResize(false);
+
                 if (that._closing || that._trigger(CLOSE)) {
+                    that._toggleResize(true);
                     return;
                 }
 
@@ -16585,8 +16584,6 @@ function pad(number, digits, end) {
                 });
 
                 DOCUMENT_ELEMENT.unbind(that.downEvent, that._mousedownProxy);
-                that._scrollableParents().unbind(SCROLL, that._resizeProxy);
-                WINDOW.unbind(RESIZE_SCROLL, that._resizeProxy);
 
                 if (skipEffects) {
                     animation = { hide: true, effects: {} };
@@ -16627,6 +16624,13 @@ function pad(number, digits, end) {
                     that.close();
                 }
             }
+        },
+
+        _toggleResize: function(toggle) {
+            var method = toggle ? "on" : "off";
+
+            this._scrollableParents()[method](SCROLL, this._resizeProxy);
+            WINDOW[method](RESIZE_SCROLL, this._resizeProxy);
         },
 
         _mousedown: function(e) {
@@ -16715,7 +16719,7 @@ function pad(number, digits, end) {
             // $(window).height() uses documentElement to get the height
             viewportWidth = isWindow ? window.innerWidth : viewport.width();
             viewportHeight = isWindow ? window.innerHeight : viewport.height();
-            
+
             if (isWindow && docEl.scrollHeight - docEl.clientHeight > 0) {
                 viewportWidth -= kendo.support.scrollbar();
             }
@@ -81491,17 +81495,26 @@ function pad(number, digits, end) {
                 if (router instanceof CascadingRouter) {
                     var points = router.routePoints(sourcePoint, targetPoint, sourceConnector, targetConnector),
                         start, end,
-                        exclude, rect;
+                         rect;
                     points.unshift(sourcePoint);
                     points.push(targetPoint);
-                    exclude = [sourceConnector.shape, targetConnector.shape];
+
+
                     for (var idx = 1; idx < points.length; idx++) {
                         start = points[idx - 1];
                         end = points[idx];
                         rect = new Rect(math.min(start.x, end.x), math.min(start.y, end.y),
                                         math.abs(start.x - end.x), math.abs(start.y - end.y));
+                        if (rect.width > 0) {
+                            rect.x++;
+                            rect.width-=2;
+                        }
+                        if (rect.height > 0) {
+                            rect.y++;
+                            rect.height-=2;
+                        }
 
-                        if (this.diagram._shapesQuadTree.hitTestRect(rect, exclude)) {
+                        if (!rect.isEmpty() && this.diagram._shapesQuadTree.hitTestRect(rect)) {
                             passRoute = false;
                             break;
                         }
@@ -83628,6 +83641,7 @@ function pad(number, digits, end) {
                 if (this.options.layout) {
                     this.layout(this.options.layout);
                 }
+                this._redrawConnections();
             },
 
             refreshConnections: function() {
@@ -83635,6 +83649,13 @@ function pad(number, digits, end) {
                 if (!this._loadingShapes) {
                     this.trigger("dataBound");
                     this._rebindShapesAndConnections();
+                }
+            },
+
+            _redrawConnections: function() {
+                var connections = this.connections;
+                for (var idx = 0; idx < connections.length; idx++) {
+                    connections[idx].refresh();
                 }
             },
 
@@ -84584,18 +84605,20 @@ function pad(number, digits, end) {
                 }
             },
 
-            hitTestRect: function(rect, exclude) {
+            hitTestRect: function(rect) {
                 var shapes = this.shapes;
                 var length = shapes.length;
-                var hit = false;
 
                 for (var i = 0; i < length; i++) {
-                    if (this._overlaps(shapes[i].bounds, rect) && !dataviz.inArray(shapes[i].shape, exclude)) {
-                        hit = true;
-                        break;
+                    if (this._testRect(shapes[i].shape, rect)) {
+                        return true;
                     }
                 }
-                return hit;
+            },
+
+            _testRect: function(shape, rect) {
+                var angle = shape.rotate().angle;
+                return Intersect.rects(rect, shape.bounds(), -angle);
             },
 
             _overlaps: function(rect1, rect2) {
@@ -84681,18 +84704,18 @@ function pad(number, digits, end) {
                 }
             },
 
-            hitTestRect: function(rect, exclude) {
-                var idx, result = [];
+            hitTestRect: function(rect) {
+                var idx;
                 var children = this.children;
                 var length = children.length;
                 var hit = false;
 
                 if (this.overlapsBounds(rect)) {
-                    if (QuadRoot.fn.hitTestRect.call(this, rect, exclude)) {
+                    if (QuadRoot.fn.hitTestRect.call(this, rect)) {
                         hit = true;
                     } else {
                          for (idx = 0; idx < length; idx++) {
-                            if (children[idx].hitTestRect(rect, exclude)) {
+                            if (children[idx].hitTestRect(rect)) {
                                hit = true;
                                break;
                             }
@@ -84766,30 +84789,24 @@ function pad(number, digits, end) {
             getSectors: function(rect) {
                 var rootSize = this.ROOT_SIZE;
                 var bottomRight = rect.bottomRight();
-                var x = Math.floor(rect.x / rootSize);
-                var y = Math.floor(rect.y / rootSize);
-                var bottomX = Math.floor(bottomRight.x / rootSize);
-                var bottomY = Math.floor(bottomRight.y / rootSize);
-                var sectors = [
-                    [x],
-                    [y]
-                ];
-
-                if (x !== bottomX) {
-                    sectors[0].push(bottomX);
+                var bottomX = math.floor(bottomRight.x / rootSize);
+                var bottomY = math.floor(bottomRight.y / rootSize);
+                var sectors = [[],[]];
+                for (var x = math.floor(rect.x / rootSize); x <= bottomX; x++) {
+                    sectors[0].push(x);
                 }
-                if (y !== bottomY) {
-                    sectors[1].push(bottomY);
+                for (var y = math.floor(rect.y / rootSize); y <= bottomY; y++) {
+                    sectors[1].push(y);
                 }
                 return sectors;
             },
 
-            hitTestRect: function(rect, exclude) {
+            hitTestRect: function(rect) {
                 var sectors = this.getSectors(rect);
                 var xIdx, yIdx, x, y;
                 var root;
 
-                if (this.root.hitTestRect(rect, exclude)) {
+                if (this.root.hitTestRect(rect)) {
                     return true;
                 }
 
@@ -84798,7 +84815,7 @@ function pad(number, digits, end) {
                     for (yIdx = 0; yIdx < sectors[1].length; yIdx++) {
                         y = sectors[1][yIdx];
                         root = (this.rootMap[x] || {})[y];
-                        if (root && root.hitTestRect(rect, exclude)) {
+                        if (root && root.hitTestRect(rect)) {
                             return true;
                         }
                     }

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.805 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.813 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.2.805";
+    kendo.version = "2015.2.813";
 
     function Class() {}
 
@@ -2023,10 +2023,10 @@ function pad(number, digits, end) {
         support.detectBrowser = function(ua) {
             var browser = false, match = [],
                 browserRxs = {
+                    edge: /(edge)[ \/]([\w.]+)/i,
                     webkit: /(chrome)[ \/]([\w.]+)/i,
                     safari: /(webkit)[ \/]([\w.]+)/i,
                     opera: /(opera)(?:.*version|)[ \/]([\w.]+)/i,
-                    edge: /(edge)[ \/]([\w.]+)/i,
                     msie: /(msie\s|trident.*? rv:)([\w.]+)/i,
                     mozilla: /(mozilla)(?:.*? rv:([\w.]+)|)/i
                 };
@@ -30872,8 +30872,7 @@ kendo.ExcelMixin = {
 
             if (!options.modal) {
                 DOCUMENT_ELEMENT.unbind(that.downEvent, that._mousedownProxy);
-                that._scrollableParents().unbind(SCROLL, that._resizeProxy);
-                WINDOW.unbind(RESIZE_SCROLL, that._resizeProxy);
+                that._toggleResize(false);
             }
 
             kendo.destroy(that.element.children());
@@ -30921,11 +30920,8 @@ kendo.ExcelMixin = {
                     // this binding hangs iOS in editor
                     if (!(support.mobileOS.ios || support.mobileOS.android)) {
                         // all elements in IE7/8 fire resize event, causing mayhem
-                        that._scrollableParents()
-                            .unbind(SCROLL, that._resizeProxy)
-                            .bind(SCROLL, that._resizeProxy);
-                        WINDOW.unbind(RESIZE_SCROLL, that._resizeProxy)
-                              .bind(RESIZE_SCROLL, that._resizeProxy);
+                        that._toggleResize(false);
+                        that._toggleResize(true);
                     }
                 }
 
@@ -30994,7 +30990,10 @@ kendo.ExcelMixin = {
             if (that.visible()) {
                 wrap = (that.wrapper[0] ? that.wrapper : kendo.wrap(that.element).hide());
 
+                that._toggleResize(false);
+
                 if (that._closing || that._trigger(CLOSE)) {
+                    that._toggleResize(true);
                     return;
                 }
 
@@ -31009,8 +31008,6 @@ kendo.ExcelMixin = {
                 });
 
                 DOCUMENT_ELEMENT.unbind(that.downEvent, that._mousedownProxy);
-                that._scrollableParents().unbind(SCROLL, that._resizeProxy);
-                WINDOW.unbind(RESIZE_SCROLL, that._resizeProxy);
 
                 if (skipEffects) {
                     animation = { hide: true, effects: {} };
@@ -31051,6 +31048,13 @@ kendo.ExcelMixin = {
                     that.close();
                 }
             }
+        },
+
+        _toggleResize: function(toggle) {
+            var method = toggle ? "on" : "off";
+
+            this._scrollableParents()[method](SCROLL, this._resizeProxy);
+            WINDOW[method](RESIZE_SCROLL, this._resizeProxy);
         },
 
         _mousedown: function(e) {
@@ -31139,7 +31143,7 @@ kendo.ExcelMixin = {
             // $(window).height() uses documentElement to get the height
             viewportWidth = isWindow ? window.innerWidth : viewport.width();
             viewportHeight = isWindow ? window.innerHeight : viewport.height();
-            
+
             if (isWindow && docEl.scrollHeight - docEl.clientHeight > 0) {
                 viewportWidth -= kendo.support.scrollbar();
             }
@@ -44113,7 +44117,10 @@ kendo.ExcelMixin = {
             this.element = $(element);
             var field = this.field = this.options.field || this.element.attr(kendo.attr("field"));
             var checkSource = options.checkSource;
-            if (options.forceUnique) {
+            if (this._foreignKeyValues()) {
+                this.checkSource = DataSource.create(options.values);
+                this.checkSource.fetch();
+            } else if (options.forceUnique) {
                 checkSource = options.dataSource.options;
                 delete checkSource.pageSize;
 
@@ -44173,7 +44180,9 @@ kendo.ExcelMixin = {
 
             this._createForm();
 
-            if (forceUnique && !this.checkSource.options.serverPaging && this.dataSource.data().length) {
+            if (this._foreignKeyValues()) {
+                this.refresh();
+            } else if (forceUnique && !this.checkSource.options.serverPaging && this.dataSource.data().length) {
                 this.checkSource.data(distinct(this.dataSource.data(),this.field));
                 this.refresh();
             } else {
@@ -44277,7 +44286,7 @@ kendo.ExcelMixin = {
 
             if (this.form) {
                 if (e && forceUnique && e.sender === dataSource && !dataSource.options.serverPaging &&
-                     (e.action == "itemchange" || e.action == "add" || e.action == "remove")) {
+                     (e.action == "itemchange" || e.action == "add" || e.action == "remove") && !this._foreignKeyValues()) {
                     this.checkSource.data(distinct(this.dataSource.data(),this.field));
                     this.container.empty();
                 }
@@ -44307,8 +44316,8 @@ kendo.ExcelMixin = {
 
             if (!this.options.forceUnique) {
                 data = this.checkSource.view();
-            } else if (options.values) {
-                data = options.values;
+            } else if (this._foreignKeyValues()) {
+                data = this.checkSource.data();
                 templateOptions.valueField = "value";
                 templateOptions.field = "text";
             } else {
@@ -44374,6 +44383,11 @@ kendo.ExcelMixin = {
            return $.grep(filters, function(filter) {
                 return filter.value != null;
             });
+        },
+
+        _foreignKeyValues: function() {
+            var options = this.options;
+            return options.values && !options.checkSource;
         },
 
         destroy: function() {
@@ -45961,6 +45975,10 @@ kendo.ExcelMixin = {
                 .on("click" + NS, proxy(that._click, that));
 
             that.wrapper = $('<div class="k-column-menu"/>');
+
+            that._refreshHandler = proxy(that.refresh, that);
+
+            that.dataSource.bind(CHANGE, that._refreshHandler);
         },
 
         _init: function() {
@@ -45978,10 +45996,6 @@ kendo.ExcelMixin = {
             }
 
             that._angularItems("compile");
-
-            that._refreshHandler = proxy(that.refresh, that);
-
-            that.dataSource.bind(CHANGE, that._refreshHandler);
 
             that._sort();
 
@@ -81586,11 +81600,11 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 
             this._dataSource();
 
-            this.dataSource.fetch();
-
             if (options.checkboxes && options.checkboxes.checkChildren) {
-                this.updateIndeterminate();
+                this.dataSource.one("change", $.proxy(this.updateIndeterminate, this, null));
             }
+
+            this.dataSource.fetch();
         },
 
         _bindDataSource: function() {
