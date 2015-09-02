@@ -269,6 +269,11 @@ div.k-grid-footer
     }
 }
 
+.k-grid .k-scrollbar
+{
+    -ms-overflow-style: scrollbar;
+}
+
 .k-virtual-scrollable-wrap
 {
     height: 100%;
@@ -926,8 +931,9 @@ html .k-grid-edit-row .k-tooltip
 }
 
 /* Remove empty space reserved above the scrollbar */
-.k-pdf-export-shadow .k-grid-header {
-    padding-right: 0 !important;
+.k-pdf-export-shadow .k-grid-header,
+.k-pdf-export-shadow .k-grid-footer {
+    padding: 0 !important;
 }
 
 .k-loading-pdf-mask {
@@ -996,10 +1002,7 @@ html .k-grid-edit-row .k-tooltip
         .k-grid .k-pager-numbers {
             position: absolute;
             left: 4.8em;             
-            display: -moz-inline-flex;
-            display: -webkit-inline-flex;
             display: inline-flex;
-            -webkit-flex-direction: column-reverse;
             flex-direction: column-reverse;
             overflow: visible;
             height: auto;
@@ -1007,8 +1010,6 @@ html .k-grid-edit-row .k-tooltip
 
         .k-pager-numbers.k-state-expanded,
         .k-grid .k-pager-numbers.k-state-expanded {
-            -webkit-transform: translatey(-100%);
-            -moz-transform: translatey(-100%);
             transform: translatey(-100%);
         }
 
@@ -1049,8 +1050,6 @@ html .k-grid-edit-row .k-tooltip
 
         .k-pager-numbers.k-state-expanded .k-current-page,
         .k-grid .k-pager-number.k-state-expandeds .k-current-page {
-            -webkit-transform: translatey(100%);
-            -moz-transform: translatey(100%);
             transform: translatey(100%);
         }
         

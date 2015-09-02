@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.813 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -2390,7 +2390,7 @@
                 handle: ".k-resize-handle",
                 start: function(e) {
                     var th = $(e.currentTarget).data("th");
-                    var colSelector = "col:eq(" + th.index() + ")";
+                    var colSelector = "col:eq(" + $.inArray(th[0], th.parent().children().filter(":visible")) + ")";
                     var header, contentTable;
 
                     treelist.wrapper.addClass("k-grid-column-resizing");

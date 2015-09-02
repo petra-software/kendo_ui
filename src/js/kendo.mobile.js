@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.813 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.2.813";
+    kendo.version = "2015.2.902";
 
     function Class() {}
 
@@ -2085,6 +2085,8 @@ function pad(number, digits, end) {
                 cssClass = "webkit";
             } else if (browser.opera) {
                 cssClass = "opera";
+            } else if (browser.edge) {
+                cssClass = "edge";
             }
 
             if (cssClass) {
@@ -10274,7 +10276,7 @@ function pad(number, digits, end) {
         if (transportOptions) {
             transportOptions.read = typeof transportOptions.read === STRING ? { url: transportOptions.read } : transportOptions.read;
 
-            if (dataSource) {
+            if (options.type === "jsdo") {
                 transportOptions.dataSource = dataSource;
             }
 
@@ -10674,7 +10676,12 @@ function pad(number, digits, end) {
         },
 
         _find: function(method, value) {
-            var idx, length, node, data, children;
+            var idx, length, node, children;
+            var data = this._data;
+
+            if (!data) {
+                return;
+            }
 
             node = DataSource.fn[method].call(this, value);
 
@@ -10683,10 +10690,6 @@ function pad(number, digits, end) {
             }
 
             data = this._flatData(this._data);
-
-            if (!data) {
-                return;
-            }
 
             for (idx = 0, length = data.length; idx < length; idx++) {
                 children = data[idx].children;
@@ -11499,7 +11502,7 @@ function pad(number, digits, end) {
             return this._parseValue(this.element.value, this.dataType());
         },
 
-        _parseValue : function (value, dataType){
+        _parseValue: function (value, dataType){
             if (dataType == "date") {
                 value = kendo.parseDate(value, "yyyy-MM-dd");
             } else if (dataType == "datetime-local") {
@@ -11931,7 +11934,6 @@ function pad(number, digits, end) {
 
                 if (source instanceof ObservableArray || source instanceof kendo.data.DataSource) {
                     e = e || {};
-
                     if (e.action == "add") {
                         that.add(e.index, e.items);
                     } else if (e.action == "remove") {
@@ -11991,7 +11993,21 @@ function pad(number, digits, end) {
                     idx,
                     length;
 
-                values = this.parsedValue();
+                for (idx = 0, length = element.options.length; idx < length; idx++) {
+                    option = element.options[idx];
+
+                    if (option.selected) {
+                        value = option.attributes.value;
+
+                        if (value && value.specified) {
+                            value = option.value;
+                        } else {
+                            value = option.text;
+                        }
+
+                        values.push(this._parseValue(value, this.dataType()));
+                    }
+                }
 
                 if (field) {
                     source = this.bindings.source.get();
@@ -12001,7 +12017,8 @@ function pad(number, digits, end) {
 
                     for (valueIndex = 0; valueIndex < values.length; valueIndex++) {
                         for (idx = 0, length = source.length; idx < length; idx++) {
-                            var match = valuePrimitive ? (this._parseValue(values[valueIndex], this.dataType()) === source[idx].get(field)) : (this._parseValue(source[idx].get(field), this.dataType()).toString() === values[valueIndex]);
+                            var sourceValue = this._parseValue(source[idx].get(field), this.dataType());
+                            var match = (String(sourceValue) === values[valueIndex]);
                             if (match) {
                                 values[valueIndex] = source[idx];
                                 break;
@@ -18399,6 +18416,8 @@ function pad(number, digits, end) {
             if (initial) {
                 this.navigate(initial);
             }
+
+            return initial;
         },
 
         options: {
@@ -18821,7 +18840,6 @@ function pad(number, digits, end) {
             });
 
             that.pane = new ui.Pane(that.element, $.extend(this.options.pane, { $angular: this.options.$angular }));
-            that.pane.navigateToInitial();
 
             kendo.notify(that, ui);
         },
@@ -18841,7 +18859,10 @@ function pad(number, digits, end) {
             this.popup.show(target);
 
             if (!this.initialOpen) {
-                this.pane.navigate("");
+                if (!this.pane.navigateToInitial()) {
+                    this.pane.navigate("");
+                }
+
                 this.popup.popup._position();
                 this.initialOpen = true;
             } else {
@@ -21493,6 +21514,7 @@ function pad(number, digits, end) {
                 groupedMode = groups && groups[0],
                 item;
 
+
             if (action === "itemchange" && !listView._hasBindingTarget()) {
                 item = listView.findByDataItem(dataItems)[0];
                 if (item) {
@@ -21865,6 +21887,7 @@ function pad(number, digits, end) {
             this.options.type = "flat";
             this._angularItems("cleanup");
             this.element.empty();
+            this._userEvents.cancel();
             this._style();
             return this.insertAt(dataItems, 0);
         },
@@ -22133,11 +22156,7 @@ function pad(number, digits, end) {
 
         refresh: function(e) {
             var view = e.view;
-            if (view.options.title) {
-                this.title(view.options.title);
-            } else {
-                toggleTitle(this.centerElement);
-            }
+            this.title(view.options.title);
         },
 
         destroy: function() {
@@ -23432,7 +23451,8 @@ function pad(number, digits, end) {
         },
 
         refresh: function(e) {
-            var url = e.view.element.attr(kendo.attr("url"));
+            var url = e.view.id;
+
             if (url && !this.switchTo(e.view.id)) {
                 this.switchTo(url);
             }
@@ -23830,7 +23850,9 @@ function pad(number, digits, end) {
         var currentVal = value();
 
         // if the model value is undefined, then we set the widget value to match ( == null/undefined )
-        if (currentVal != ngModel.$viewValue) {
+        // In telerik/kendo-ui-core#1027 we discovered that after the timeout the $viewValue arives as NaN in some weird, default form.
+        // Hence the check below.
+        if (!isNaN(ngModel.$viewValue) && currentVal != ngModel.$viewValue) {
             if (!ngModel.$isEmpty(ngModel.$viewValue)) {
                 widget.value(ngModel.$viewValue);
             } else if (currentVal != null && currentVal !== "" && currentVal != ngModel.$viewValue) {

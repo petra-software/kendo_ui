@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.813 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -388,7 +388,9 @@
         var currentVal = value();
 
         // if the model value is undefined, then we set the widget value to match ( == null/undefined )
-        if (currentVal != ngModel.$viewValue) {
+        // In telerik/kendo-ui-core#1027 we discovered that after the timeout the $viewValue arives as NaN in some weird, default form.
+        // Hence the check below.
+        if (!isNaN(ngModel.$viewValue) && currentVal != ngModel.$viewValue) {
             if (!ngModel.$isEmpty(ngModel.$viewValue)) {
                 widget.value(ngModel.$viewValue);
             } else if (currentVal != null && currentVal !== "" && currentVal != ngModel.$viewValue) {

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.813 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -36,9 +36,8 @@
 }
 .ktb-var-hover-gradient {
   background-image: url(textures/glass-lighter.png);
+  background-image: url(textures/glass-lighter.png), -webkit-gradient(linear, left top, left bottom, from(rgba(255,255,255,.2)), to(rgba(255,255,255,.0)));
   background-image: url(textures/glass-lighter.png), -webkit-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
-  background-image: url(textures/glass-lighter.png), -moz-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
-  background-image: url(textures/glass-lighter.png), -o-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
   background-image: url(textures/glass-lighter.png), linear-gradient(to bottom, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
 }
 .ktb-var-hover-text-color {
@@ -49,9 +48,8 @@
 }
 .ktb-var-selected-gradient {
   background-image: url(textures/glass-lighter.png);
+  background-image: url(textures/glass-lighter.png), -webkit-gradient(linear, left top, left bottom, from(rgba(255,255,255,.3)), to(rgba(255,255,255,.1)));
   background-image: url(textures/glass-lighter.png), -webkit-linear-gradient(top, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
-  background-image: url(textures/glass-lighter.png), -moz-linear-gradient(top, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
-  background-image: url(textures/glass-lighter.png), -o-linear-gradient(top, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
   background-image: url(textures/glass-lighter.png), linear-gradient(to bottom, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
 }
 .ktb-var-selected-text-color {
@@ -61,7 +59,7 @@
   color: #be5138;
 }
 .ktb-var-warning {
-  color: #be9938;
+  color: #e9a71d;
 }
 .ktb-var-success {
   color: #2b893c;
@@ -339,13 +337,13 @@ html .km-pane-wrapper .k-header {
   border-color: none;
   background-color: none;
   -webkit-box-shadow: none;
-  box-shadow: none;
+          box-shadow: none;
 }
 .k-draghandle:hover {
   border-color: none;
   background-color: none;
   -webkit-box-shadow: none;
-  box-shadow: none;
+          box-shadow: none;
 }
 /* Scheduler */
 .k-scheduler {
@@ -474,11 +472,11 @@ html .km-pane-wrapper .k-header {
 }
 .k-button:focus:not(.k-state-disabled):not([disabled]) {
   -webkit-box-shadow: inset 0 0 3px 1px #ffffff;
-  box-shadow: inset 0 0 3px 1px #ffffff;
+          box-shadow: inset 0 0 3px 1px #ffffff;
 }
 .k-button:focus:active:not(.k-state-disabled):not([disabled]) {
   -webkit-box-shadow: inset 0 0 3px 1px #ffffff;
-  box-shadow: inset 0 0 3px 1px #ffffff;
+          box-shadow: inset 0 0 3px 1px #ffffff;
 }
 .k-menu .k-state-hover > .k-state-active {
   background-color: transparent;
@@ -572,14 +570,14 @@ html .km-pane-wrapper .k-header {
 td.k-state-focused,
 .k-button.k-state-focused {
   -webkit-box-shadow: inset 0 0 3px 1px #ffffff;
-  box-shadow: inset 0 0 3px 1px #ffffff;
+          box-shadow: inset 0 0 3px 1px #ffffff;
 }
 .k-state-focused.k-state-selected,
 .k-list > .k-state-focused.k-state-selected,
 .k-listview > .k-state-focused.k-state-selected,
 td.k-state-focused.k-state-selected {
   -webkit-box-shadow: inset 0 0 3px 1px #ffffff;
-  box-shadow: inset 0 0 3px 1px #ffffff;
+          box-shadow: inset 0 0 3px 1px #ffffff;
 }
 .k-ie8 .k-panelbar span.k-state-focused,
 .k-ie8 .k-menu li.k-state-focused,
@@ -602,7 +600,7 @@ td.k-state-focused.k-state-selected {
 .k-list > .k-state-selected.k-state-focused,
 .k-list-optionlabel.k-state-selected.k-state-focused {
   -webkit-box-shadow: none;
-  box-shadow: none;
+          box-shadow: none;
 }
 .k-state-selected > .k-link,
 .k-panelbar > li > .k-state-selected,
@@ -652,9 +650,8 @@ td.k-state-focused.k-state-selected {
 div.k-filebrowser-dropzone em,
 .k-draghandle:hover {
   background-image: url(textures/glass-lighter.png);
+  background-image: url(textures/glass-lighter.png), -webkit-gradient(linear, left top, left bottom, from(rgba(255,255,255,.2)), to(rgba(255,255,255,.0)));
   background-image: url(textures/glass-lighter.png), -webkit-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
-  background-image: url(textures/glass-lighter.png), -moz-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
-  background-image: url(textures/glass-lighter.png), -o-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
   background-image: url(textures/glass-lighter.png), linear-gradient(to bottom, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
 }
 .k-pager-wrap {
@@ -677,9 +674,8 @@ div.k-filebrowser-dropzone em,
 .k-button.k-state-active,
 .k-draghandle.k-state-selected:hover {
   background-image: url(textures/glass-lighter.png);
+  background-image: url(textures/glass-lighter.png), -webkit-gradient(linear, left top, left bottom, from(rgba(255,255,255,.3)), to(rgba(255,255,255,.1)));
   background-image: url(textures/glass-lighter.png), -webkit-linear-gradient(top, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
-  background-image: url(textures/glass-lighter.png), -moz-linear-gradient(top, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
-  background-image: url(textures/glass-lighter.png), -o-linear-gradient(top, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
   background-image: url(textures/glass-lighter.png), linear-gradient(to bottom, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
 }
 .k-button:active,
@@ -705,9 +701,8 @@ div.k-filebrowser-dropzone em {
 .k-dropdown-wrap.k-state-focused {
   background-color: #a7008f;
   background-image: url(textures/glass-lighter.png);
+  background-image: url(textures/glass-lighter.png), -webkit-gradient(linear, left top, left bottom, from(rgba(255,255,255,.2)), to(rgba(255,255,255,.0)));
   background-image: url(textures/glass-lighter.png), -webkit-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
-  background-image: url(textures/glass-lighter.png), -moz-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
-  background-image: url(textures/glass-lighter.png), -o-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
   background-image: url(textures/glass-lighter.png), linear-gradient(to bottom, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
   background-position: 50% 50%;
   border-color: #674c63;
@@ -744,10 +739,12 @@ div.k-filebrowser-dropzone em {
 .k-other-month,
 .k-other-month .k-link,
 .k-dropzone em,
-.k-dropzone .k-upload-status,
 .k-tile-empty strong,
 .k-slider .k-draghandle {
   color: #808080;
+}
+.k-dropzone .k-upload-status {
+  color: #ffffff;
 }
 /* Progressbar */
 .k-progressbar-indeterminate {
@@ -777,9 +774,9 @@ div.k-filebrowser-dropzone em {
   color: #ffffff;
 }
 .k-widget.k-tooltip-validation {
-  border-color: #e2a914;
-  background-color: #e2a914;
-  color: #000000;
+  border-color: #e9a71d;
+  background-color: #e9a71d;
+  color: #ffffff;
 }
 /* Bootstrap theme fix */
 .input-prepend .k-tooltip-validation,
@@ -801,16 +798,16 @@ div.k-filebrowser-dropzone em {
   border-left-color: #c9c9c9;
 }
 .k-tooltip-validation .k-callout-n {
-  border-bottom-color: #e2a914;
+  border-bottom-color: #e9a71d;
 }
 .k-tooltip-validation .k-callout-w {
-  border-right-color: #e2a914;
+  border-right-color: #e9a71d;
 }
 .k-tooltip-validation .k-callout-s {
-  border-top-color: #e2a914;
+  border-top-color: #e9a71d;
 }
 .k-tooltip-validation .k-callout-e {
-  border-left-color: #e2a914;
+  border-left-color: #e9a71d;
 }
 /* Splitter */
 .k-splitbar {
@@ -829,19 +826,19 @@ div.k-filebrowser-dropzone em {
   color: #ffffff;
 }
 .k-file-progress .k-progress {
-  background-color: #0d7ea4;
+  background-color: #0c779b;
 }
 .k-file-success {
   color: #ffffff;
 }
 .k-file-success .k-progress {
-  background-color: #309943;
+  background-color: #2b893c;
 }
 .k-file-error {
   color: #ffffff;
 }
 .k-file-error .k-progress {
-  background-color: #8b3b29;
+  background-color: #be5138;
 }
 /* ImageBrowser */
 .k-tile {
@@ -857,7 +854,8 @@ div.k-filebrowser-dropzone em {
 .k-filebrowser .k-tile .k-folder,
 .k-filebrowser .k-tile .k-file {
   background-image: url('HighContrast/imagebrowser.png');
-  background-size: auto auto;
+  -webkit-background-size: auto auto;
+          background-size: auto auto;
 }
 /* TreeMap */
 .k-leaf,
@@ -872,32 +870,33 @@ div.k-filebrowser-dropzone em {
 .k-widget,
 .k-button {
   -webkit-box-shadow: none;
-  box-shadow: none;
+          box-shadow: none;
 }
 .k-slider,
 .k-treeview,
 .k-upload {
   -webkit-box-shadow: none;
-  box-shadow: none;
+          box-shadow: none;
 }
 .k-state-hover {
   -webkit-box-shadow: none;
-  box-shadow: none;
+          box-shadow: none;
 }
+.k-textbox:focus,
 .k-autocomplete.k-state-focused,
 .k-dropdown-wrap.k-state-focused,
 .k-picker-wrap.k-state-focused,
 .k-numeric-wrap.k-state-focused {
   -webkit-box-shadow: 0 0 3px 0 rgba(0, 0, 0, 0.7);
-  box-shadow: 0 0 3px 0 rgba(0, 0, 0, 0.7);
+          box-shadow: 0 0 3px 0 rgba(0, 0, 0, 0.7);
 }
 .k-state-selected {
   -webkit-box-shadow: none;
-  box-shadow: none;
+          box-shadow: none;
 }
 .k-state-active {
   -webkit-box-shadow: none;
-  box-shadow: none;
+          box-shadow: none;
 }
 .k-grid td.k-state-selected.k-state-focused {
   background-color: #960081;
@@ -915,23 +914,23 @@ div.k-filebrowser-dropzone em {
 .k-filebrowser .k-image,
 .k-tooltip {
   -webkit-box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.7);
-  box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.7);
+          box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.7);
 }
 .k-treemap-tile.k-state-hover {
   -webkit-box-shadow: inset 0 0 0 3px #674c63;
-  box-shadow: inset 0 0 0 3px #674c63;
+          box-shadow: inset 0 0 0 3px #674c63;
 }
 /* Window */
 .k-window {
   border-color: rgba(0, 0, 0, 0.7);
   -webkit-box-shadow: 1px 1px 7px 1px rgba(128, 128, 128, 0.7);
-  box-shadow: 1px 1px 7px 1px rgba(128, 128, 128, 0.7);
+          box-shadow: 1px 1px 7px 1px rgba(128, 128, 128, 0.7);
   background-color: #1b141a;
 }
 .k-window.k-state-focused {
   border-color: rgba(0, 0, 0, 0.7);
   -webkit-box-shadow: 1px 1px 7px 1px rgba(0, 0, 0, 0.7);
-  box-shadow: 1px 1px 7px 1px rgba(0, 0, 0, 0.7);
+          box-shadow: 1px 1px 7px 1px rgba(0, 0, 0, 0.7);
 }
 .k-window.k-window-maximized,
 .k-window-maximized .k-window-titlebar,
@@ -940,13 +939,18 @@ div.k-filebrowser-dropzone em {
 }
 .k-shadow {
   -webkit-box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.7);
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.7);
+          box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.7);
 }
 .k-inset {
   -webkit-box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.7);
-  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.7);
+          box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.7);
 }
 /* Selection */
+.k-editor-inline ::-moz-selection {
+  background-color: #870074;
+  text-shadow: none;
+  color: #fff;
+}
 .k-editor-inline ::selection {
   background-color: #870074;
   text-shadow: none;
@@ -969,9 +973,9 @@ div.k-filebrowser-dropzone em {
   border-color: #2b893c;
 }
 .k-widget.k-notification.k-notification-warning {
-  background-color: #be9938;
+  background-color: #e9a71d;
   color: #ffffff;
-  border-color: #be9938;
+  border-color: #e9a71d;
 }
 .k-widget.k-notification.k-notification-error {
   background-color: #be5138;
@@ -1300,7 +1304,8 @@ html .km-pane-wrapper .km-widget,
   }
   .km-pane-wrapper .k-icon {
     background-image: url('HighContrast/sprite_2x.png');
-    background-size: 21.2em 21em;
+    -webkit-background-size: 21.2em 21em;
+            background-size: 21.2em 21em;
   }
 }
 .km-pane-wrapper .k-mobile-list .k-item,
@@ -1321,7 +1326,7 @@ html .km-pane-wrapper .km-widget,
 }
 .km-pane-wrapper .k-mobile-list .k-item:last-child {
   -webkit-box-shadow: inset 0 -1px 0 #674c63;
-  box-shadow: inset 0 -1px 0 #674c63;
+          box-shadow: inset 0 -1px 0 #674c63;
 }
 .km-pane-wrapper .k-mobile-list > ul > li > .k-link,
 .km-pane-wrapper .k-mobile-list .k-recur-view > .k-edit-label:nth-child(3),
@@ -1333,7 +1338,7 @@ html .km-pane-wrapper .km-widget,
 }
 .km-pane-wrapper .k-mobile-list .k-edit-field {
   -webkit-box-shadow: 0 1px 1px #674c63;
-  box-shadow: 0 1px 1px #674c63;
+          box-shadow: 0 1px 1px #674c63;
 }
 .km-actionsheet .k-grid-delete,
 .km-actionsheet .k-scheduler-delete,
@@ -1342,11 +1347,9 @@ html .km-pane-wrapper .km-widget,
   color: #fff;
   border-color: #ab0093;
   background-color: red;
-  background-image: -webkit-gradient(linear, 50% 0, 50% 100%, from(rgba(255,255,255,.3)), to(rgba(255,255,255,.15)));
-  background-image: -webkit-linear-gradient(top, rgba(255,255,255,.3), rgba(255,255,255,.15));
-  background-image: -moz-linear-gradient(top, rgba(255,255,255,.3), rgba(255,255,255,.15));
-  background-image: -ms-linear-gradient(top, rgba(255,255,255,.3), rgba(255,255,255,.15));
-  background-image: linear-gradient(to bottom, rgba(255,255,255,.3), rgba(255,255,255,.15));
+  background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0.3)), to(rgba(255, 255, 255, 0.15)));
+  background-image: -webkit-linear-gradient(top, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.15));
+  background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.15));
 }
 .km-actionsheet .k-grid-delete:active,
 .km-actionsheet .k-scheduler-delete:active,
@@ -1370,9 +1373,8 @@ html .km-pane-wrapper .km-widget,
 .k-dropdown-wrap.k-state-hover {
   background-color: #a7008f;
   background-image: url(textures/glass-lighter.png);
+  background-image: url(textures/glass-lighter.png), -webkit-gradient(linear, left top, left bottom, from(rgba(255,255,255,.2)), to(rgba(255,255,255,.0)));
   background-image: url(textures/glass-lighter.png), -webkit-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
-  background-image: url(textures/glass-lighter.png), -moz-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
-  background-image: url(textures/glass-lighter.png), -o-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
   background-image: url(textures/glass-lighter.png), linear-gradient(to bottom, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
   background-position: 50% 50%;
   border-color: #674c63;
@@ -1390,14 +1392,13 @@ html .km-pane-wrapper .km-widget,
 .k-multiselect.k-header.k-state-focused {
   background-color: #a7008f;
   background-image: url(textures/glass-lighter.png);
+  background-image: url(textures/glass-lighter.png), -webkit-gradient(linear, left top, left bottom, from(rgba(255,255,255,.2)), to(rgba(255,255,255,.0)));
   background-image: url(textures/glass-lighter.png), -webkit-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
-  background-image: url(textures/glass-lighter.png), -moz-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
-  background-image: url(textures/glass-lighter.png), -o-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
   background-image: url(textures/glass-lighter.png), linear-gradient(to bottom, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
   background-position: 50% 50%;
   border-color: #674c63;
   -webkit-box-shadow: 0 0 3px 0 rgba(0, 0, 0, 0.7);
-  box-shadow: 0 0 3px 0 rgba(0, 0, 0, 0.7);
+          box-shadow: 0 0 3px 0 rgba(0, 0, 0, 0.7);
 }
 .k-list-container {
   color: #ffffff;
@@ -1418,7 +1419,7 @@ html .km-pane-wrapper .km-widget,
 }
 .k-tabstrip:focus {
   -webkit-box-shadow: 0 0 3px 0 rgba(0, 0, 0, 0.7);
-  box-shadow: 0 0 3px 0 rgba(0, 0, 0, 0.7);
+          box-shadow: 0 0 3px 0 rgba(0, 0, 0, 0.7);
 }
 .k-tabstrip-items .k-state-default .k-link,
 .k-panelbar > li.k-state-default > .k-link {
@@ -1432,7 +1433,7 @@ html .km-pane-wrapper .km-widget,
 .k-panelbar .k-state-focused.k-state-hover {
   background: #a7008f;
   -webkit-box-shadow: none;
-  box-shadow: none;
+          box-shadow: none;
 }
 .k-tabstrip-items .k-state-default,
 .k-ie7 .k-tabstrip-items .k-state-default .k-loading {
@@ -1463,14 +1464,17 @@ html .km-pane-wrapper .km-widget,
   border-color: #674c63;
 }
 .k-overflow-container .k-overflow-group {
-  box-shadow: inset 0 1px 0 #b499b0, 0 1px 0 #b499b0;
+  -webkit-box-shadow: inset 0 1px 0 #b499b0, 0 1px 0 #b499b0;
+          box-shadow: inset 0 1px 0 #b499b0, 0 1px 0 #b499b0;
 }
 .k-toolbar-first-visible.k-overflow-group,
 .k-overflow-container .k-overflow-group + .k-overflow-group {
-  box-shadow: 0 1px 0 #b499b0;
+  -webkit-box-shadow: 0 1px 0 #b499b0;
+          box-shadow: 0 1px 0 #b499b0;
 }
 .k-toolbar-last-visible.k-overflow-group {
-  box-shadow: inset 0 1px 0 #b499b0;
+  -webkit-box-shadow: inset 0 1px 0 #b499b0;
+          box-shadow: inset 0 1px 0 #b499b0;
 }
 .k-column-menu .k-separator {
   border-color: #674c63;
@@ -1494,7 +1498,7 @@ html .km-pane-wrapper .km-widget,
 }
 .k-grid td.k-state-focused {
   -webkit-box-shadow: inset 0 0 0 1px inset 0 0 3px 1px #ffffff;
-  box-shadow: inset 0 0 0 1px inset 0 0 3px 1px #ffffff;
+          box-shadow: inset 0 0 0 1px inset 0 0 3px 1px #ffffff;
 }
 .k-header,
 .k-grid-header-wrap,
@@ -1512,55 +1516,51 @@ html .km-pane-wrapper .km-widget,
   color: #ffffff;
   border-color: #a5028e;
   background-image: url(textures/glass-lighter.png);
+  background-image: url(textures/glass-lighter.png), -webkit-gradient(linear, left top, left bottom, from(rgba(255,255,255,.3)), to(rgba(255,255,255,.1)));
   background-image: url(textures/glass-lighter.png), -webkit-linear-gradient(top, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
-  background-image: url(textures/glass-lighter.png), -moz-linear-gradient(top, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
-  background-image: url(textures/glass-lighter.png), -o-linear-gradient(top, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
   background-image: url(textures/glass-lighter.png), linear-gradient(to bottom, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
   background-position: 50% 50%;
   background-color: #880075;
   -webkit-box-shadow: none;
-  box-shadow: none;
+          box-shadow: none;
 }
 .k-primary:focus,
 .k-primary.k-state-focused {
   color: #ffffff;
   border-color: #ffffff;
   background-image: url(textures/glass-lighter.png);
+  background-image: url(textures/glass-lighter.png), -webkit-gradient(linear, left top, left bottom, from(rgba(255,255,255,.3)), to(rgba(255,255,255,.1)));
   background-image: url(textures/glass-lighter.png), -webkit-linear-gradient(top, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
-  background-image: url(textures/glass-lighter.png), -moz-linear-gradient(top, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
-  background-image: url(textures/glass-lighter.png), -o-linear-gradient(top, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
   background-image: url(textures/glass-lighter.png), linear-gradient(to bottom, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
   -webkit-box-shadow: 0 0 3px 0 #ffffff;
-  box-shadow: 0 0 3px 0 #ffffff;
+          box-shadow: 0 0 3px 0 #ffffff;
 }
 .k-primary:hover {
   color: #ffffff;
   border-color: #a5028e;
   background-image: url(textures/glass-lighter.png);
+  background-image: url(textures/glass-lighter.png), -webkit-gradient(linear, left top, left bottom, from(rgba(255,255,255,.2)), to(rgba(255,255,255,.0)));
   background-image: url(textures/glass-lighter.png), -webkit-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
-  background-image: url(textures/glass-lighter.png), -moz-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
-  background-image: url(textures/glass-lighter.png), -o-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
   background-image: url(textures/glass-lighter.png), linear-gradient(to bottom, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
   background-color: #a5028e;
   -webkit-box-shadow: none;
-  box-shadow: none;
+          box-shadow: none;
 }
 .k-primary:focus:active:not(.k-state-disabled):not([disabled]),
 .k-primary:focus:not(.k-state-disabled):not([disabled]) {
   -webkit-box-shadow: 0 0 3px 0 #ffffff;
-  box-shadow: 0 0 3px 0 #ffffff;
+          box-shadow: 0 0 3px 0 #ffffff;
 }
 .k-primary:active {
   color: #ffffff;
   border-color: #a5028e;
   background-image: url(textures/glass-lighter.png);
+  background-image: url(textures/glass-lighter.png), -webkit-gradient(linear, left top, left bottom, from(rgba(255,255,255,.3)), to(rgba(255,255,255,.1)));
   background-image: url(textures/glass-lighter.png), -webkit-linear-gradient(top, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
-  background-image: url(textures/glass-lighter.png), -moz-linear-gradient(top, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
-  background-image: url(textures/glass-lighter.png), -o-linear-gradient(top, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
   background-image: url(textures/glass-lighter.png), linear-gradient(to bottom, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
   background-color: #880075;
   -webkit-box-shadow: none;
-  box-shadow: none;
+          box-shadow: none;
 }
 .k-primary.k-state-disabled,
 .k-state-disabled .k-primary,
@@ -1573,12 +1573,11 @@ html .km-pane-wrapper .km-widget,
   border-color: #a5028e;
   background-color: #880075;
   background-image: url(textures/glass-lighter.png);
+  background-image: url(textures/glass-lighter.png), -webkit-gradient(linear, left top, left bottom, from(rgba(255,255,255,.3)), to(rgba(255,255,255,.1)));
   background-image: url(textures/glass-lighter.png), -webkit-linear-gradient(top, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
-  background-image: url(textures/glass-lighter.png), -moz-linear-gradient(top, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
-  background-image: url(textures/glass-lighter.png), -o-linear-gradient(top, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
   background-image: url(textures/glass-lighter.png), linear-gradient(to bottom, rgba(255,255,255,.3) 0%, rgba(255,255,255,.1) 100%);
   -webkit-box-shadow: none;
-  box-shadow: none;
+          box-shadow: none;
 }
 .k-pager-numbers .k-link,
 .k-treeview .k-in {
@@ -1598,7 +1597,8 @@ html .km-pane-wrapper .km-widget,
   outline: none;
 }
 .k-split-button:focus {
-  box-shadow: inset 0 0 4px 2px #ffffff;
+  -webkit-box-shadow: inset 0 0 4px 2px #ffffff;
+          box-shadow: inset 0 0 4px 2px #ffffff;
 }
 .k-split-button:focus > .k-button {
   background: transparent;
@@ -1608,7 +1608,7 @@ html .km-pane-wrapper .km-widget,
   outline: 0;
   border-color: #674c63;
   -webkit-box-shadow: inset 0 0 3px 1px #ffffff;
-  box-shadow: inset 0 0 3px 1px #ffffff;
+          box-shadow: inset 0 0 3px 1px #ffffff;
 }
 .k-checkbox-label:before {
   border-color: transparent;
@@ -1622,7 +1622,8 @@ html .km-pane-wrapper .km-widget,
 .k-checkbox-label:hover:after,
 .k-checkbox:checked + .k-checkbox-label:hover:after {
   border-color: #ffffff;
-  box-shadow: 0 0 1px 0 #ffffff;
+  -webkit-box-shadow: 0 0 1px 0 #ffffff;
+          box-shadow: 0 0 1px 0 #ffffff;
 }
 .k-checkbox:checked + .k-checkbox-label:after {
   background-color: #1b141a;
@@ -1631,7 +1632,8 @@ html .km-pane-wrapper .km-widget,
   color: #ffffff;
 }
 .k-checkbox-label:active:before {
-  box-shadow: 0 0 3px 0 #ffffff;
+  -webkit-box-shadow: 0 0 3px 0 #ffffff;
+          box-shadow: 0 0 3px 0 #ffffff;
   border-color: transparent;
   border-radius: 3px;
 }
@@ -1643,7 +1645,8 @@ html .km-pane-wrapper .km-widget,
   border-color: #ffffff;
 }
 .k-checkbox:checked + .k-checkbox-label:active:before {
-  box-shadow: 0 0 3px 0 #ffffff;
+  -webkit-box-shadow: 0 0 3px 0 #ffffff;
+          box-shadow: 0 0 3px 0 #ffffff;
   border-radius: 3px;
 }
 .k-checkbox:disabled + .k-checkbox-label {
@@ -1651,7 +1654,8 @@ html .km-pane-wrapper .km-widget,
 }
 .k-checkbox:disabled + .k-checkbox-label:hover:after,
 .k-checkbox:disabled + .k-checkbox-label:active:before {
-  box-shadow: none;
+  -webkit-box-shadow: none;
+          box-shadow: none;
 }
 .k-checkbox:checked:disabled + .k-checkbox-label:after {
   background: #1b141a;
@@ -1674,7 +1678,8 @@ html .km-pane-wrapper .km-widget,
 .k-radio-label:hover:before,
 .k-radio:checked + .k-radio-label:hover:before {
   border-color: #ffffff;
-  box-shadow: 0 0 1px 0 #ffffff;
+  -webkit-box-shadow: 0 0 1px 0 #ffffff;
+          box-shadow: 0 0 1px 0 #ffffff;
 }
 .k-radio:checked + .k-radio-label:before {
   border-color: #ffffff;
@@ -1684,12 +1689,14 @@ html .km-pane-wrapper .km-widget,
   border-radius: 50%;
 }
 .k-radio-label:active:before {
-  box-shadow: 0 0 3px 0 #ffffff;
+  -webkit-box-shadow: 0 0 3px 0 #ffffff;
+          box-shadow: 0 0 3px 0 #ffffff;
   border-radius: 50%;
   border-color: #ffffff;
 }
 .k-radio:checked + .k-radio-label:active:before {
-  box-shadow: 0 0 3px 0 #ffffff;
+  -webkit-box-shadow: 0 0 3px 0 #ffffff;
+          box-shadow: 0 0 3px 0 #ffffff;
   border-radius: 50%;
   border-color: #ffffff;
 }
@@ -1700,7 +1707,8 @@ html .km-pane-wrapper .km-widget,
   border-color: #bfbfbf;
 }
 .k-radio:disabled + .k-radio-label:active:before {
-  box-shadow: none;
+  -webkit-box-shadow: none;
+          box-shadow: none;
   background: #1b141a;
 }
 .k-radio:disabled + .k-radio-label:before {
@@ -1708,12 +1716,14 @@ html .km-pane-wrapper .km-widget,
 }
 .k-radio:disabled + .k-radio-label:hover:after,
 .k-radio:disabled + .k-radio-label:hover:before {
-  box-shadow: none;
+  -webkit-box-shadow: none;
+          box-shadow: none;
 }
 .k-checkbox:focus + .k-checkbox-label:after,
 .k-radio:focus + .k-radio-label:before {
   border-color: #ffffff;
-  box-shadow: 0 0 3px 0 #ffffff;
+  -webkit-box-shadow: 0 0 3px 0 #ffffff;
+          box-shadow: 0 0 3px 0 #ffffff;
 }
 @media only screen and (-webkit-min-device-pixel-ratio: 2), only screen and (min-device-pixel-ratio: 2) {
   .k-icon:not(.k-loading),
@@ -1731,7 +1741,8 @@ html .km-pane-wrapper .km-widget,
   .k-mobile-list .k-edit-field [type=checkbox]:checked,
   .k-mobile-list .k-edit-field [type=radio]:checked {
     background-image: url('HighContrast/sprite_2x.png');
-    background-size: 340px 336px;
+    -webkit-background-size: 340px 336px;
+            background-size: 340px 336px;
   }
   .k-dropdown-wrap .k-input,
   .k-picker-wrap .k-input,
@@ -1745,7 +1756,8 @@ html .km-pane-wrapper .km-widget,
   .k-i-kpi-increase,
   .k-i-kpi-open {
     background-image: url('HighContrast/sprite_kpi_2x.png');
-    background-size: 96px 16px;
+    -webkit-background-size: 96px 16px;
+            background-size: 96px 16px;
   }
 }
 @media screen and (-ms-high-contrast: active) {
@@ -1871,9 +1883,8 @@ html .km-pane-wrapper .km-widget,
   .k-ie11 .k-scheduler-toolbar > ul.k-scheduler-views > li.k-current-view:hover {
     border-color: #a7008f;
     background-image: url(textures/glass-lighter.png);
+    background-image: url(textures/glass-lighter.png), -webkit-gradient(linear, left top, left bottom, from(rgba(255,255,255,.2)), to(rgba(255,255,255,.0)));
     background-image: url(textures/glass-lighter.png), -webkit-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
-    background-image: url(textures/glass-lighter.png), -moz-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
-    background-image: url(textures/glass-lighter.png), -o-linear-gradient(top, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
     background-image: url(textures/glass-lighter.png), linear-gradient(to bottom, rgba(255,255,255,.2) 0%, rgba(255,255,255,.0) 100%);
     background-color: #a7008f;
   }
@@ -1915,7 +1926,7 @@ html .km-pane-wrapper .km-widget,
     background-color: #2c232b;
     border-radius: 13px 13px 0 0;
     -webkit-box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.7);
-    box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.7);
+            box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.7);
   }
   .k-webkit .k-scheduler-toolbar > ul.k-scheduler-views.k-state-expanded,
   .k-ff .k-scheduler-toolbar > ul.k-scheduler-views.k-state-expanded,
@@ -1936,24 +1947,19 @@ html .km-pane-wrapper .km-widget,
 .k-chart .k-mask {
   background-color: #2c232b;
   filter: alpha(opacity=60);
-  -moz-opacity: 0.60;
   opacity: 0.60;
 }
 .k-chart .k-selection {
   border-color: #664e62;
-  -moz-box-shadow: inset 0 1px 12px rgba(0, 0, 0, 0.7);
   -webkit-box-shadow: inset 0 1px 12px rgba(0, 0, 0, 0.7);
-  box-shadow: inset 0 1px 12px rgba(0, 0, 0, 0.7);
-  transition: box-shadow 0.2s linear, border-color 0.2s linear;
-  -moz-transition: box-shadow 0.2s linear, border-color 0.2s linear;
-  -webkit-transition: box-shadow 0.2s linear, border-color 0.2s linear;
-  -o-transition: box-shadow 0.2s linear, border-color 0.2s linear;
+          box-shadow: inset 0 1px 12px rgba(0, 0, 0, 0.7);
+  -webkit-transition: -webkit-box-shadow 0.2s linear, border-color 0.2s linear;
+          transition: box-shadow 0.2s linear, border-color 0.2s linear;
 }
 .k-chart .k-selection:hover {
   border-color: #ffffff;
-  -moz-box-shadow: inset 0 0 20px rgba(250, 0, 214, 0.5);
   -webkit-box-shadow: inset 0 0 20px rgba(250, 0, 214, 0.5);
-  box-shadow: inset 0 0 20px rgba(250, 0, 214, 0.5);
+          box-shadow: inset 0 0 20px rgba(250, 0, 214, 0.5);
 }
 .k-chart .k-handle {
   background-color: #ffffff;
@@ -1968,9 +1974,8 @@ html .km-pane-wrapper .km-widget,
 }
 .k-chart .k-navigator-hint .k-tooltip {
   border: 0;
-  -moz-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
   -webkit-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
   background: #a7008f;
   color: #ffffff;
 }

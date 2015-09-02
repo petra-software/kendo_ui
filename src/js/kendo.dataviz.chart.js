@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.813 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1432,7 +1432,7 @@
             }
 
             if (chart._hasDataSource) {
-                chart.refresh();
+                chart._onDataChanged();
             }  else {
                 chart._bindCategories();
                 chart.redraw();
@@ -1915,7 +1915,9 @@
                         labels: options.labels
                     },
                     createVisual: function() {
-                        ChartElement.fn.renderVisual.call(that);
+                        that.createVisual();
+                        that.renderChildren();
+                        that.renderComplete();
                         var defaultVisual = that.visual;
                         delete that.visual;
                         return defaultVisual;
@@ -6403,9 +6405,12 @@
         },
 
         addValue: function(value, fields) {
-            if ((value.size !== null && value.size >= 0) || fields.series.negativeValues.visible) {
+            if (value.size !== null && (value.size > 0 || (value.size < 0 && fields.series.negativeValues.visible))) {
                 this._maxSize = math.max(this._maxSize, math.abs(value.size));
                 ScatterChart.fn.addValue.call(this, value, fields);
+            } else {
+                this.points.push(null);
+                this.seriesPoints[fields.seriesIx].push(null);
             }
         },
 
@@ -6492,22 +6497,24 @@
                     areaRatio = areaRange / chart._maxSize;
 
                 for (pointIx = 0; pointIx < seriesPoints.length; pointIx++) {
-                    var point = seriesPoints[pointIx],
-                        area = math.abs(point.value.size) * areaRatio,
-                        r = math.sqrt((minArea + area) / math.PI),
-                        baseZIndex = valueOrDefault(point.options.zIndex, 0),
-                        zIndex = baseZIndex + (1 - r / maxR);
+                    var point = seriesPoints[pointIx];
+                    if (point) {
+                        var area = math.abs(point.value.size) * areaRatio,
+                            r = math.sqrt((minArea + area) / math.PI),
+                            baseZIndex = valueOrDefault(point.options.zIndex, 0),
+                            zIndex = baseZIndex + (1 - r / maxR);
 
-                    deepExtend(point.options, {
-                        zIndex: zIndex,
-                        markers: {
-                            size: r * 2,
-                            zIndex: zIndex
-                        },
-                        labels: {
-                            zIndex: zIndex + 1
-                        }
-                    });
+                        deepExtend(point.options, {
+                            zIndex: zIndex,
+                            markers: {
+                                size: r * 2,
+                                zIndex: zIndex
+                            },
+                            labels: {
+                                zIndex: zIndex + 1
+                            }
+                        });
+                    }
                 }
             }
         },

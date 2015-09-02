@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.813 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -84,7 +84,8 @@
             axis: null,
             ignore: null,
             autoScroll: false,
-            cursor: "auto"
+            cursor: "auto",
+            moveOnDragEnter: false
         },
 
         destroy: function() {
@@ -157,6 +158,7 @@
                 sibling,
                 getSibling,
                 axis = this.options.axis,
+                moveOnDragEnter= this.options.moveOnDragEnter,
                 eventData = { item: draggedElement, list: this, draggableEvent: e };
 
             if(axis === "x" || axis === "y") {
@@ -184,15 +186,15 @@
                 }
 
                 if(this._isFloating(target.element)) { //horizontal
-                    if(axisDelta.x < 0 && offsetDelta.left < 0) {
+                    if(axisDelta.x < 0 && (moveOnDragEnter || offsetDelta.left < 0)) {
                         direction = "prev";
-                    } else if(axisDelta.x > 0 && offsetDelta.left > 0) {
+                    } else if(axisDelta.x > 0 && (moveOnDragEnter || offsetDelta.left > 0)) {
                         direction = "next";
                     }
                 } else { //vertical
-                    if(axisDelta.y < 0 && offsetDelta.top < 0) {
+                    if(axisDelta.y < 0 && (moveOnDragEnter || offsetDelta.top < 0)) {
                         direction = "prev";
-                    } else if(axisDelta.y > 0 && offsetDelta.top > 0) {
+                    } else if(axisDelta.y > 0 && (moveOnDragEnter || offsetDelta.top > 0)) {
                         direction = "next";
                     }
                 }

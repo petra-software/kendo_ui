@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.813 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -715,6 +715,7 @@
                 groupedMode = groups && groups[0],
                 item;
 
+
             if (action === "itemchange" && !listView._hasBindingTarget()) {
                 item = listView.findByDataItem(dataItems)[0];
                 if (item) {
@@ -1087,6 +1088,7 @@
             this.options.type = "flat";
             this._angularItems("cleanup");
             this.element.empty();
+            this._userEvents.cancel();
             this._style();
             return this.insertAt(dataItems, 0);
         },

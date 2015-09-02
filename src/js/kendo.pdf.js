@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.813 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -3881,8 +3881,26 @@ kendo.PDFMixin = {
         return promise;
     },
 
-    _drawPDF: function() {
-        return kendo.drawing.drawDOM(this.wrapper);
+    _drawPDF: function(progress) {
+        var promise = new $.Deferred();
+
+        kendo.drawing.drawDOM(this.wrapper)
+        .done(function(group) {
+            var args = {
+                page: group,
+                pageNumber: 1,
+                progress: 1,
+                totalPages: 1
+            };
+
+            progress.notify(args);
+            promise.resolve(args.page);
+        })
+        .fail(function(err) {
+            promise.reject(err);
+        });
+
+        return promise;
     },
 
     _drawPDFShadow: function(settings) {
@@ -3901,12 +3919,29 @@ kendo.PDFMixin = {
         wrapper.before(shadow);
         shadow.append(settings.content || wrapper.clone(true, true));
 
-        var promise = kendo.drawing.drawDOM(shadow);
-        promise.always(function() {
-            shadow.remove();
-        });
+        var defer = $.Deferred();
 
-        return promise;
+        /* https://github.com/telerik/kendo/issues/4790 -- We need to
+         * allow a small timeout so that the browser finalizes the
+         * layout of any images here.  Another option would be to pass
+         * forcePageBreak: "-" to drawDOM, but that would make it
+         * clone the content as well and look for page breaks;
+         * needless work, so better do it here.
+         */
+        setTimeout(function(){
+            var promise = kendo.drawing.drawDOM(shadow);
+            promise.always(function() {
+                shadow.remove();
+            }).then(function(){
+                defer.resolve.apply(defer, arguments);
+            }).fail(function(){
+                defer.reject.apply(defer, arguments);
+            }).progress(function(){
+                defer.progress.apply(defer, arguments);
+            });
+        }, 15);
+
+        return defer.promise();
     }
 };
 

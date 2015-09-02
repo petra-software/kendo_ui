@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.813 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -55,6 +55,7 @@
         DEFAULT_HEIGHT = 400,
         DEFAULT_ICON_SIZE = 7,
         DEFAULT_PRECISION = 6,
+        DEFAULT_AUTO_MAJOR_UNIT_PRECISION = 10,
         DEFAULT_WIDTH = 600,
         DEG_TO_RAD = math.PI / 180,
         FADEIN = "fadeIn",
@@ -2225,12 +2226,12 @@
                 for (idx = 0; idx < labels.length; idx++) {
                     width = tickPositions[idx + 1] - tickPositions[idx];
                     labelBox = labels[idx].box;
-                    if (labelBox.height() > width) {
-                        angle = -90;
-                        break;
-                    }
 
                     if (labelBox.width() > width) {
+                        if (labelBox.height() > width) {
+                            angle = -90;
+                            break;
+                        }
                         angle = -45;
                     }
                 }
@@ -2451,10 +2452,10 @@
                         contentBox = wrapperBox.alignTo(targetBox, position).translate(-length, targetBox.center().y - wrapperBox.center().y);
 
                         if (options.line.visible) {
-                            lineStart = [math.floor(targetBox.x1), center.y];
+                            lineStart = [targetBox.x1, center.y];
                             note.linePoints = [
                                 lineStart,
-                                [math.floor(contentBox.x2), center.y]
+                                [contentBox.x2, center.y]
                             ];
                             box = contentBox.clone().wrapPoint(lineStart);
                         }
@@ -2462,10 +2463,10 @@
                         contentBox = wrapperBox.alignTo(targetBox, position).translate(length, targetBox.center().y - wrapperBox.center().y);
 
                         if (options.line.visible) {
-                            lineStart = [math.floor(targetBox.x2), center.y];
+                            lineStart = [targetBox.x2, center.y];
                             note.linePoints = [
                                 lineStart,
-                                [math.floor(contentBox.x1), center.y]
+                                [contentBox.x1, center.y]
                             ];
                             box = contentBox.clone().wrapPoint(lineStart);
                         }
@@ -2475,10 +2476,10 @@
                         contentBox = wrapperBox.alignTo(targetBox, position).translate(targetBox.center().x - wrapperBox.center().x, length);
 
                         if (options.line.visible) {
-                            lineStart = [math.floor(center.x), math.floor(targetBox.y2)];
+                            lineStart = [center.x, targetBox.y2];
                             note.linePoints = [
                                 lineStart,
-                                [math.floor(center.x), math.floor(contentBox.y1)]
+                                [center.x, contentBox.y1]
                             ];
                             box = contentBox.clone().wrapPoint(lineStart);
                         }
@@ -2486,10 +2487,10 @@
                         contentBox = wrapperBox.alignTo(targetBox, position).translate(targetBox.center().x - wrapperBox.center().x, -length);
 
                         if (options.line.visible) {
-                            lineStart = [math.floor(center.x), math.floor(targetBox.y1)];
+                            lineStart = [center.x, targetBox.y1];
                             note.linePoints = [
                                 lineStart,
-                                [math.floor(center.x), math.floor(contentBox.y2)]
+                                [center.x, contentBox.y2]
                             ];
                             box = contentBox.clone().wrapPoint(lineStart);
                         }
@@ -3566,7 +3567,7 @@
     };
 
     function autoMajorUnit(min, max) {
-        var diff = round(max - min, DEFAULT_PRECISION - 1);
+        var diff = round(max - min, DEFAULT_AUTO_MAJOR_UNIT_PRECISION - 1);
 
         if (diff === 0) {
             if (max === 0) {
@@ -3577,7 +3578,7 @@
         }
 
         var scale = math.pow(10, math.floor(math.log(diff) / math.log(10))),
-            relativeValue = round((diff / scale), DEFAULT_PRECISION),
+            relativeValue = round((diff / scale), DEFAULT_AUTO_MAJOR_UNIT_PRECISION),
             scaleMultiplier = 1;
 
         if (relativeValue < 1.904762) {
@@ -3590,7 +3591,7 @@
             scaleMultiplier = 2;
         }
 
-        return round(scale * scaleMultiplier, DEFAULT_PRECISION);
+        return round(scale * scaleMultiplier, DEFAULT_AUTO_MAJOR_UNIT_PRECISION);
     }
 
     function getHash(object) {

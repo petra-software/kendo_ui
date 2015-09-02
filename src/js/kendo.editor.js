@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.813 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -943,6 +943,7 @@
 
         initialize: function(ui, options) {
             ui.attr({ unselectable: "on", title: options.title });
+            ui.children(".k-tool-text").html(options.title);
         },
 
         command: function (commandArguments) {

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.813 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -40,7 +40,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.2.813";
+    kendo.version = "2015.2.902";
 
     function Class() {}
 
@@ -2085,6 +2085,8 @@ function pad(number, digits, end) {
                 cssClass = "webkit";
             } else if (browser.opera) {
                 cssClass = "opera";
+            } else if (browser.edge) {
+                cssClass = "edge";
             }
 
             if (cssClass) {
@@ -10797,7 +10799,7 @@ function pad(number, digits, end) {
         if (transportOptions) {
             transportOptions.read = typeof transportOptions.read === STRING ? { url: transportOptions.read } : transportOptions.read;
 
-            if (dataSource) {
+            if (options.type === "jsdo") {
                 transportOptions.dataSource = dataSource;
             }
 
@@ -11197,7 +11199,12 @@ function pad(number, digits, end) {
         },
 
         _find: function(method, value) {
-            var idx, length, node, data, children;
+            var idx, length, node, children;
+            var data = this._data;
+
+            if (!data) {
+                return;
+            }
 
             node = DataSource.fn[method].call(this, value);
 
@@ -11206,10 +11213,6 @@ function pad(number, digits, end) {
             }
 
             data = this._flatData(this._data);
-
-            if (!data) {
-                return;
-            }
 
             for (idx = 0, length = data.length; idx < length; idx++) {
                 children = data[idx].children;
@@ -11921,7 +11924,7 @@ function pad(number, digits, end) {
             return this._parseValue(this.element.value, this.dataType());
         },
 
-        _parseValue : function (value, dataType){
+        _parseValue: function (value, dataType){
             if (dataType == "date") {
                 value = kendo.parseDate(value, "yyyy-MM-dd");
             } else if (dataType == "datetime-local") {
@@ -12353,7 +12356,6 @@ function pad(number, digits, end) {
 
                 if (source instanceof ObservableArray || source instanceof kendo.data.DataSource) {
                     e = e || {};
-
                     if (e.action == "add") {
                         that.add(e.index, e.items);
                     } else if (e.action == "remove") {
@@ -12413,7 +12415,21 @@ function pad(number, digits, end) {
                     idx,
                     length;
 
-                values = this.parsedValue();
+                for (idx = 0, length = element.options.length; idx < length; idx++) {
+                    option = element.options[idx];
+
+                    if (option.selected) {
+                        value = option.attributes.value;
+
+                        if (value && value.specified) {
+                            value = option.value;
+                        } else {
+                            value = option.text;
+                        }
+
+                        values.push(this._parseValue(value, this.dataType()));
+                    }
+                }
 
                 if (field) {
                     source = this.bindings.source.get();
@@ -12423,7 +12439,8 @@ function pad(number, digits, end) {
 
                     for (valueIndex = 0; valueIndex < values.length; valueIndex++) {
                         for (idx = 0, length = source.length; idx < length; idx++) {
-                            var match = valuePrimitive ? (this._parseValue(values[valueIndex], this.dataType()) === source[idx].get(field)) : (this._parseValue(source[idx].get(field), this.dataType()).toString() === values[valueIndex]);
+                            var sourceValue = this._parseValue(source[idx].get(field), this.dataType());
+                            var match = (String(sourceValue) === values[valueIndex]);
                             if (match) {
                                 values[valueIndex] = source[idx];
                                 break;
@@ -17418,27 +17435,55 @@ function pad(number, digits, end) {
     ];
 
     Color.namedColors = {
-        aqua: "00ffff", azure: "f0ffff", beige: "f5f5dc",
-        black: "000000", blue: "0000ff", brown: "a52a2a",
-        coral: "ff7f50", cyan: "00ffff", darkblue: "00008b",
-        darkcyan: "008b8b", darkgray: "a9a9a9", darkgreen: "006400",
-        darkorange: "ff8c00", darkred: "8b0000", dimgray: "696969",
-        fuchsia: "ff00ff", gold: "ffd700", goldenrod: "daa520",
-        gray: "808080", green: "008000", greenyellow: "adff2f",
+        aliceblue: "f0f8ff", antiquewhite: "faebd7", aqua: "00ffff",
+        aquamarine: "7fffd4", azure: "f0ffff", beige: "f5f5dc",
+        bisque: "ffe4c4", black: "000000", blanchedalmond: "ffebcd",
+        blue: "0000ff", blueviolet: "8a2be2", brown: "a52a2a",
+        burlywood: "deb887", cadetblue: "5f9ea0", chartreuse: "7fff00",
+        chocolate: "d2691e", coral: "ff7f50", cornflowerblue: "6495ed",
+        cornsilk: "fff8dc", crimson: "dc143c", cyan: "00ffff",
+        darkblue: "00008b", darkcyan: "008b8b", darkgoldenrod: "b8860b",
+        darkgray: "a9a9a9", darkgrey: "a9a9a9", darkgreen: "006400",
+        darkkhaki: "bdb76b", darkmagenta: "8b008b", darkolivegreen: "556b2f",
+        darkorange: "ff8c00", darkorchid: "9932cc", darkred: "8b0000",
+        darksalmon: "e9967a", darkseagreen: "8fbc8f", darkslateblue: "483d8b",
+        darkslategray: "2f4f4f", darkslategrey: "2f4f4f", darkturquoise: "00ced1",
+        darkviolet: "9400d3", deeppink: "ff1493", deepskyblue: "00bfff",
+        dimgray: "696969", dimgrey: "696969", dodgerblue: "1e90ff",
+        firebrick: "b22222", floralwhite: "fffaf0", forestgreen: "228b22",
+        fuchsia: "ff00ff", gainsboro: "dcdcdc", ghostwhite: "f8f8ff",
+        gold: "ffd700", goldenrod: "daa520", gray: "808080",
+        grey: "808080", green: "008000", greenyellow: "adff2f",
+        honeydew: "f0fff0", hotpink: "ff69b4", indianred: "cd5c5c",
         indigo: "4b0082", ivory: "fffff0", khaki: "f0e68c",
-        lightblue: "add8e6", lightgrey: "d3d3d3", lightgreen: "90ee90",
-        lightpink: "ffb6c1", lightyellow: "ffffe0", lime: "00ff00",
-        limegreen: "32cd32", linen: "faf0e6", magenta: "ff00ff",
-        maroon: "800000", mediumblue: "0000cd", navy: "000080",
-        olive: "808000", orange: "ffa500", orangered: "ff4500",
-        orchid: "da70d6", pink: "ffc0cb", plum: "dda0dd",
-        purple: "800080", red: "ff0000", royalblue: "4169e1",
-        salmon: "fa8072", silver: "c0c0c0", skyblue: "87ceeb",
-        slateblue: "6a5acd", slategray: "708090", snow: "fffafa",
+        lavender: "e6e6fa", lavenderblush: "fff0f5", lawngreen: "7cfc00",
+        lemonchiffon: "fffacd", lightblue: "add8e6", lightcoral: "f08080",
+        lightcyan: "e0ffff", lightgoldenrodyellow: "fafad2", lightgray: "d3d3d3",
+        lightgrey: "d3d3d3", lightgreen: "90ee90", lightpink: "ffb6c1",
+        lightsalmon: "ffa07a", lightseagreen: "20b2aa", lightskyblue: "87cefa",
+        lightslategray: "778899", lightslategrey: "778899", lightsteelblue: "b0c4de",
+        lightyellow: "ffffe0", lime: "00ff00", limegreen: "32cd32",
+        linen: "faf0e6", magenta: "ff00ff", maroon: "800000",
+        mediumaquamarine: "66cdaa", mediumblue: "0000cd", mediumorchid: "ba55d3",
+        mediumpurple: "9370d8", mediumseagreen: "3cb371", mediumslateblue: "7b68ee",
+        mediumspringgreen: "00fa9a", mediumturquoise: "48d1cc", mediumvioletred: "c71585",
+        midnightblue: "191970", mintcream: "f5fffa", mistyrose: "ffe4e1",
+        moccasin: "ffe4b5", navajowhite: "ffdead", navy: "000080",
+        oldlace: "fdf5e6", olive: "808000", olivedrab: "6b8e23",
+        orange: "ffa500", orangered: "ff4500", orchid: "da70d6",
+        palegoldenrod: "eee8aa", palegreen: "98fb98", paleturquoise: "afeeee",
+        palevioletred: "d87093", papayawhip: "ffefd5", peachpuff: "ffdab9",
+        peru: "cd853f", pink: "ffc0cb", plum: "dda0dd",
+        powderblue: "b0e0e6", purple: "800080", red: "ff0000",
+        rosybrown: "bc8f8f", royalblue: "4169e1", saddlebrown: "8b4513",
+        salmon: "fa8072", sandybrown: "f4a460", seagreen: "2e8b57",
+        seashell: "fff5ee", sienna: "a0522d", silver: "c0c0c0",
+        skyblue: "87ceeb", slateblue: "6a5acd", slategray: "708090",
+        slategrey: "708090", snow: "fffafa", springgreen: "00ff7f",
         steelblue: "4682b4", tan: "d2b48c", teal: "008080",
-        tomato: "ff6347", turquoise: "40e0d0", violet: "ee82ee",
-        wheat: "f5deb3", white: "ffffff", whitesmoke: "f5f5f5",
-        yellow: "ffff00", yellowgreen: "9acd32"
+        thistle: "d8bfd8", tomato: "ff6347", turquoise: "40e0d0",
+        violet: "ee82ee", wheat: "f5deb3", white: "ffffff",
+        whitesmoke: "f5f5f5", yellow: "ffff00", yellowgreen: "9acd32"
     };
 
     // Tools from ColorPicker =================================================
@@ -19605,7 +19650,9 @@ function pad(number, digits, end) {
                 size.baseline = baselineMarker.offsetTop + BASELINE_MARKER_SIZE;
             }
 
-            this._cache.put(cacheKey, size);
+            if (size.width > 0 && size.height > 0) {
+                this._cache.put(cacheKey, size);
+            }
 
             measureBox.parentNode.removeChild(measureBox);
 
@@ -24907,12 +24954,16 @@ function pad(number, digits, end) {
                 if (el.nodeType == 1 && el !== copy && firstInParent(el)) {
                     return breakAtElement(el.parentNode);
                 }
+                var colgroup = $(el).closest("table").find("colgroup");
                 var page = makePage();
                 var range = doc.createRange();
                 range.setStartBefore(copy);
                 range.setEndBefore(el);
                 page.appendChild(range.extractContents());
                 copy.parentNode.insertBefore(page, copy);
+                if (colgroup[0]) {
+                    colgroup.clone().prependTo($(el).closest("table"));
+                }
             }
 
             function makePage() {
@@ -27557,6 +27608,7 @@ function pad(number, digits, end) {
         DEFAULT_HEIGHT = 400,
         DEFAULT_ICON_SIZE = 7,
         DEFAULT_PRECISION = 6,
+        DEFAULT_AUTO_MAJOR_UNIT_PRECISION = 10,
         DEFAULT_WIDTH = 600,
         DEG_TO_RAD = math.PI / 180,
         FADEIN = "fadeIn",
@@ -29727,12 +29779,12 @@ function pad(number, digits, end) {
                 for (idx = 0; idx < labels.length; idx++) {
                     width = tickPositions[idx + 1] - tickPositions[idx];
                     labelBox = labels[idx].box;
-                    if (labelBox.height() > width) {
-                        angle = -90;
-                        break;
-                    }
 
                     if (labelBox.width() > width) {
+                        if (labelBox.height() > width) {
+                            angle = -90;
+                            break;
+                        }
                         angle = -45;
                     }
                 }
@@ -29953,10 +30005,10 @@ function pad(number, digits, end) {
                         contentBox = wrapperBox.alignTo(targetBox, position).translate(-length, targetBox.center().y - wrapperBox.center().y);
 
                         if (options.line.visible) {
-                            lineStart = [math.floor(targetBox.x1), center.y];
+                            lineStart = [targetBox.x1, center.y];
                             note.linePoints = [
                                 lineStart,
-                                [math.floor(contentBox.x2), center.y]
+                                [contentBox.x2, center.y]
                             ];
                             box = contentBox.clone().wrapPoint(lineStart);
                         }
@@ -29964,10 +30016,10 @@ function pad(number, digits, end) {
                         contentBox = wrapperBox.alignTo(targetBox, position).translate(length, targetBox.center().y - wrapperBox.center().y);
 
                         if (options.line.visible) {
-                            lineStart = [math.floor(targetBox.x2), center.y];
+                            lineStart = [targetBox.x2, center.y];
                             note.linePoints = [
                                 lineStart,
-                                [math.floor(contentBox.x1), center.y]
+                                [contentBox.x1, center.y]
                             ];
                             box = contentBox.clone().wrapPoint(lineStart);
                         }
@@ -29977,10 +30029,10 @@ function pad(number, digits, end) {
                         contentBox = wrapperBox.alignTo(targetBox, position).translate(targetBox.center().x - wrapperBox.center().x, length);
 
                         if (options.line.visible) {
-                            lineStart = [math.floor(center.x), math.floor(targetBox.y2)];
+                            lineStart = [center.x, targetBox.y2];
                             note.linePoints = [
                                 lineStart,
-                                [math.floor(center.x), math.floor(contentBox.y1)]
+                                [center.x, contentBox.y1]
                             ];
                             box = contentBox.clone().wrapPoint(lineStart);
                         }
@@ -29988,10 +30040,10 @@ function pad(number, digits, end) {
                         contentBox = wrapperBox.alignTo(targetBox, position).translate(targetBox.center().x - wrapperBox.center().x, -length);
 
                         if (options.line.visible) {
-                            lineStart = [math.floor(center.x), math.floor(targetBox.y1)];
+                            lineStart = [center.x, targetBox.y1];
                             note.linePoints = [
                                 lineStart,
-                                [math.floor(center.x), math.floor(contentBox.y2)]
+                                [center.x, contentBox.y2]
                             ];
                             box = contentBox.clone().wrapPoint(lineStart);
                         }
@@ -31068,7 +31120,7 @@ function pad(number, digits, end) {
     };
 
     function autoMajorUnit(min, max) {
-        var diff = round(max - min, DEFAULT_PRECISION - 1);
+        var diff = round(max - min, DEFAULT_AUTO_MAJOR_UNIT_PRECISION - 1);
 
         if (diff === 0) {
             if (max === 0) {
@@ -31079,7 +31131,7 @@ function pad(number, digits, end) {
         }
 
         var scale = math.pow(10, math.floor(math.log(diff) / math.log(10))),
-            relativeValue = round((diff / scale), DEFAULT_PRECISION),
+            relativeValue = round((diff / scale), DEFAULT_AUTO_MAJOR_UNIT_PRECISION),
             scaleMultiplier = 1;
 
         if (relativeValue < 1.904762) {
@@ -31092,7 +31144,7 @@ function pad(number, digits, end) {
             scaleMultiplier = 2;
         }
 
-        return round(scale * scaleMultiplier, DEFAULT_PRECISION);
+        return round(scale * scaleMultiplier, DEFAULT_AUTO_MAJOR_UNIT_PRECISION);
     }
 
     function getHash(object) {
@@ -35447,6 +35499,217 @@ function pad(number, digits, end) {
         });
     })();
 
+        (function () {
+        var TEXT = "#32364c";
+        var INACTIVE = "#7f7f7f";
+        var INACTIVE_SHAPE = "#bdbdbd";
+        var AXIS = "#dfe0e1";
+        var AXIS_MINOR = "#dfe0e1";
+        var SERIES = ["#ff4350", "#ff9ea5", "#00acc1", "#80deea", "#ffbf46", "#ffd78c"];
+        var SERIES_LIGHT = ["#ffd9dc", "#ffeced", "#cceef3", "#e6f8fb", "#fff2da", "#fff7e8"];
+        var PRIMARY = SERIES[0];
+        var DIAGRAM_HOVER = WHITE;
+
+        function noteStyle() {
+            return {
+                icon: {
+                    background: "#007cc0",
+                    border: {
+                        color: "#007cc0"
+                    }
+                },
+                label: {
+                    color: "#ffffff"
+                },
+                line: {
+                    color: AXIS
+                }
+            };
+        }
+
+        registerTheme("nova", {
+            chart: {
+                title: {
+                    color: TEXT
+                },
+                legend: {
+                    labels: {
+                        color: TEXT
+                    },
+                    inactiveItems: {
+                        labels: {
+                            color: INACTIVE
+                        },
+                        markers: {
+                            color: INACTIVE
+                        }
+                    }
+                },
+                seriesDefaults: {
+                    labels: {
+                        color: TEXT
+                    },
+                    errorBars: {
+                        color: TEXT
+                    },
+                    notes: noteStyle(),
+                    candlestick: {
+                        downColor: AXIS,
+                        line: {
+                            color: INACTIVE_SHAPE
+                        }
+                    },
+                    area: {
+                        opacity: 0.8
+                    },
+                    waterfall: {
+                        line: {
+                            color: AXIS
+                        }
+                    },
+                    horizontalWaterfall: {
+                        line: {
+                            color: AXIS
+                        }
+                    },
+                    overlay: {
+                        gradient: "none"
+                    },
+                    border: {
+                        _brightness: 1
+                    }
+                },
+                seriesColors: SERIES,
+                axisDefaults: {
+                    line: {
+                        color: AXIS
+                    },
+                    labels: {
+                        color: TEXT
+                    },
+                    minorGridLines: {
+                        color: AXIS_MINOR
+                    },
+                    majorGridLines: {
+                        color: AXIS
+                    },
+                    title: {
+                        color: TEXT
+                    },
+                    crosshair: {
+                        color: TEXT
+                    },
+                    notes: noteStyle()
+                }
+            },
+            gauge: {
+                pointer: {
+                    color: PRIMARY
+                },
+                scale: {
+                    rangePlaceholderColor: AXIS,
+                    labels: {
+                        color: TEXT
+                    },
+                    minorTicks: {
+                        color: TEXT
+                    },
+                    majorTicks: {
+                        color: TEXT
+                    },
+                    line: {
+                        color: TEXT
+                    }
+                }
+            },
+            diagram: {
+                shapeDefaults: {
+                    fill: {
+                        color: PRIMARY
+                    },
+                    connectorDefaults: {
+                        fill: {
+                            color: TEXT
+                        },
+                        stroke: {
+                            color: DIAGRAM_HOVER
+                        },
+                        hover: {
+                            fill: {
+                                color: DIAGRAM_HOVER
+                            },
+                            stroke: {
+                                color: TEXT
+                            }
+                        }
+                    },
+                    content: {
+                        color: TEXT
+                    }
+                },
+                editable: {
+                    resize: {
+                        handles: {
+                            fill: {
+                                color: DIAGRAM_HOVER
+                            },
+                            stroke: {
+                                color: INACTIVE_SHAPE
+                            },
+                            hover: {
+                                fill: {
+                                    color: INACTIVE_SHAPE
+                                },
+                                stroke: {
+                                    color: INACTIVE_SHAPE
+                                }
+                            }
+                        }
+                    },
+                    rotate: {
+                        thumb: {
+                            stroke: {
+                                color: INACTIVE_SHAPE
+                            },
+                            fill: {
+                                color: INACTIVE_SHAPE
+                            }
+                        }
+                    }
+                },
+                selectable: {
+                    stroke: {
+                        color: INACTIVE_SHAPE
+                    }
+                },
+                connectionDefaults: {
+                    stroke: {
+                        color: INACTIVE_SHAPE
+                    },
+                    content: {
+                        color: INACTIVE_SHAPE
+                    },
+                    selection: {
+                        handles: {
+                            fill: {
+                                color: DIAGRAM_HOVER
+                            },
+                            stroke: {
+                                color: INACTIVE_SHAPE
+                            }
+                        },
+                        stroke: {
+                            color: INACTIVE_SHAPE
+                        }
+                    }
+                }
+            },
+            treeMap: {
+                colors: fuse(SERIES, SERIES_LIGHT)
+            }
+        });
+    })();
+
     function fuse(arr1, arr2) {
         return $.map(arr1, function(item, index) {
             return [
@@ -36883,7 +37146,7 @@ function pad(number, digits, end) {
             }
 
             if (chart._hasDataSource) {
-                chart.refresh();
+                chart._onDataChanged();
             }  else {
                 chart._bindCategories();
                 chart.redraw();
@@ -37366,7 +37629,9 @@ function pad(number, digits, end) {
                         labels: options.labels
                     },
                     createVisual: function() {
-                        ChartElement.fn.renderVisual.call(that);
+                        that.createVisual();
+                        that.renderChildren();
+                        that.renderComplete();
                         var defaultVisual = that.visual;
                         delete that.visual;
                         return defaultVisual;
@@ -41854,9 +42119,12 @@ function pad(number, digits, end) {
         },
 
         addValue: function(value, fields) {
-            if ((value.size !== null && value.size >= 0) || fields.series.negativeValues.visible) {
+            if (value.size !== null && (value.size > 0 || (value.size < 0 && fields.series.negativeValues.visible))) {
                 this._maxSize = math.max(this._maxSize, math.abs(value.size));
                 ScatterChart.fn.addValue.call(this, value, fields);
+            } else {
+                this.points.push(null);
+                this.seriesPoints[fields.seriesIx].push(null);
             }
         },
 
@@ -41943,22 +42211,24 @@ function pad(number, digits, end) {
                     areaRatio = areaRange / chart._maxSize;
 
                 for (pointIx = 0; pointIx < seriesPoints.length; pointIx++) {
-                    var point = seriesPoints[pointIx],
-                        area = math.abs(point.value.size) * areaRatio,
-                        r = math.sqrt((minArea + area) / math.PI),
-                        baseZIndex = valueOrDefault(point.options.zIndex, 0),
-                        zIndex = baseZIndex + (1 - r / maxR);
+                    var point = seriesPoints[pointIx];
+                    if (point) {
+                        var area = math.abs(point.value.size) * areaRatio,
+                            r = math.sqrt((minArea + area) / math.PI),
+                            baseZIndex = valueOrDefault(point.options.zIndex, 0),
+                            zIndex = baseZIndex + (1 - r / maxR);
 
-                    deepExtend(point.options, {
-                        zIndex: zIndex,
-                        markers: {
-                            size: r * 2,
-                            zIndex: zIndex
-                        },
-                        labels: {
-                            zIndex: zIndex + 1
-                        }
-                    });
+                        deepExtend(point.options, {
+                            zIndex: zIndex,
+                            markers: {
+                                size: r * 2,
+                                zIndex: zIndex
+                            },
+                            labels: {
+                                zIndex: zIndex + 1
+                            }
+                        });
+                    }
                 }
             }
         },
@@ -71562,7 +71832,10 @@ function pad(number, digits, end) {
                     item = element.data("button");
 
                 if (item.options.togglable) {
-                    item.toggle(checked ? checked : !item.options.selected, true);
+                    if (checked === undefined) {
+                        checked = true;
+                    }
+                    item.toggle(checked, true);
                 }
             },
 
@@ -77768,6 +78041,9 @@ function pad(number, digits, end) {
 
             if (value !== undefined) {
                 element[0].value = value;
+                if (element[0].value && !value) {
+                    element[0].selectedIndex = -1;
+                }
             }
         },
 
@@ -84918,6 +85194,7 @@ function pad(number, digits, end) {
             $(element).empty();
 
             Widget.fn.init.call(this, element, options);
+            this.wrapper = this.element;
 
             this._initTheme(this.options);
 
@@ -86212,7 +86489,9 @@ function pad(number, digits, end) {
         var currentVal = value();
 
         // if the model value is undefined, then we set the widget value to match ( == null/undefined )
-        if (currentVal != ngModel.$viewValue) {
+        // In telerik/kendo-ui-core#1027 we discovered that after the timeout the $viewValue arives as NaN in some weird, default form.
+        // Hence the check below.
+        if (!isNaN(ngModel.$viewValue) && currentVal != ngModel.$viewValue) {
             if (!ngModel.$isEmpty(ngModel.$viewValue)) {
                 widget.value(ngModel.$viewValue);
             } else if (currentVal != null && currentVal !== "" && currentVal != ngModel.$viewValue) {
