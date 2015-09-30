@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -9,6 +9,10 @@
 (function(f, define){
     define([ "./kendo.dom", "./kendo.data" ], f);
 })(function(){
+
+(function(){
+
+
 
 /*jshint eqnull: true*/
 (function($, undefined) {
@@ -76,19 +80,12 @@
         });
     }
 
-    function parentName(tuple, level) {
-        var member = tuple.members[level];
-        var parentNameValue = buildPath(tuple, level - 1);
-
-        if (member.parentName) {
-            parentNameValue.push(member.parentName);
+    function normalizeName(name) {
+        if (name.indexOf(" ") !== -1) {
+            name = '["' + name + '"]';
         }
 
-        if (!parentNameValue.length) {
-            parentNameValue = "";
-        }
-
-        return kendo.stringify(parentNameValue);
+        return name;
     }
 
     function accumulateMembers(accumulator, rootTuple, tuple, level) {
@@ -211,90 +208,6 @@
         }
 
         return members;
-    }
-
-    function addDataCellVertical(result, rowIndex, map, key, resultFuncs, formats, offset) {
-        var value, aggregate, columnKey, resultFunc, format, measuresCount = 0;
-
-        var start = rowIndex;
-
-        for (aggregate in map[key].aggregates) {
-            value = map[key].aggregates[aggregate];
-            resultFunc = resultFuncs[aggregate];
-            format = formats[aggregate];
-
-            value = resultFunc ? resultFunc(value) : value.accumulator;
-
-            result[start] = {
-                ordinal: start,
-                value: value,
-                fmtValue: format ? kendo.format(format, value) : value
-            };
-            ++measuresCount;
-            start += offset;
-        }
-
-        var items = map[key].items;
-
-        for (columnKey in items) {
-            var index = items[columnKey].index * measuresCount;
-
-            index = start + index*offset;
-
-            for (aggregate in items[columnKey].aggregates) {
-                value = items[columnKey].aggregates[aggregate];
-                resultFunc = resultFuncs[aggregate];
-                format = formats[aggregate];
-
-                value = resultFunc ? resultFunc(value) : value.accumulator;
-
-                result[index] = {
-                    ordinal: index,
-                    value: value,
-                    fmtValue: format ? kendo.format(format, value) : value
-                };
-                index += offset;
-            }
-        }
-    }
-
-    function addDataCell(result, rowIndex, map, key, resultFuncs, formats) {
-        var value, aggregate, columnKey, resultFunc, format, measuresCount = 0;
-
-        for (aggregate in map[key].aggregates) {
-            value = map[key].aggregates[aggregate];
-            resultFunc = resultFuncs[aggregate];
-            format = formats[aggregate];
-
-            value = resultFunc ? resultFunc(value) : value.accumulator;
-
-            result[result.length] = {
-                ordinal: rowIndex++,
-                value: value,
-                fmtValue: format ? kendo.format(format, value) : value
-            };
-            ++measuresCount;
-        }
-
-        var items = map[key].items;
-
-        for (columnKey in items) {
-            var index = items[columnKey].index * measuresCount;
-
-            for (aggregate in items[columnKey].aggregates) {
-                value = items[columnKey].aggregates[aggregate];
-                resultFunc = resultFuncs[aggregate];
-                format = formats[aggregate];
-
-                value = resultFunc ? resultFunc(value) : value.accumulator;
-
-                result[result.length] = {
-                    ordinal: rowIndex + index++,
-                    value: value,
-                    fmtValue: format ? kendo.format(format, value) : value
-                };
-            }
-        }
     }
 
     function createAggregateGetter(m) {
@@ -822,14 +735,6 @@
             return aggregators;
         },
 
-        _normalizeName: function(name) {
-            if (name.indexOf(" ") !== -1) {
-                name = '["' + name + '"]';
-            }
-
-            return name;
-        },
-
         _buildGetters: function(names) {
             var result = {};
             var parts;
@@ -842,7 +747,7 @@
                 if (parts.length > 1) {
                     result[parts[0]] = kendo.getter(parts[0], true);
                 } else {
-                    result[name] = kendo.getter(this._normalizeName(name), true);
+                    result[name] = kendo.getter(normalizeName(name), true);
                 }
             }
 
@@ -865,9 +770,53 @@
             };
         },
 
+        _filter: function(data, filter) {
+            if (!filter) {
+                return data;
+            }
+
+            var expr;
+            var idx = 0;
+            var filters = filter.filters;
+
+            for (; idx < filters.length; idx++) {
+                expr = filters[idx];
+
+                if (expr.operator === "in") {
+                    filters[idx] = this._normalizeFilter(expr);
+                }
+            }
+
+            return new kendo.data.Query(data).filter(filter).data;
+        },
+
+        _normalizeFilter: function(filter) {
+            var value = filter.value.split(",");
+            var result = [];
+
+            if (!value.length) {
+                return value;
+            }
+
+            for (var idx = 0; idx < value.length; idx++) {
+                result.push({
+                    field: filter.field,
+                    operator: "eq",
+                    value: value[idx]
+                });
+            }
+
+            return {
+                logic: "or",
+                filters: result
+            };
+        },
+
         process: function(data, options) {
             data = data || [];
             options = options || {};
+
+            data = this._filter(data, options.filter);
 
             var measures = options.measures || [];
 
@@ -1156,7 +1105,55 @@
                     }
 
                     return result;
-                }
+                },
+                members: $.proxy(function(response, restrictions) {
+                    var name = restrictions.levelUniqueName || restrictions.memberUniqueName;
+                    var data = this.options.data || this._rawData || [];
+                    var result = [];
+                    var getter;
+                    var value;
+                    var idx = 0;
+                    var distinct = {};
+
+                    if (name) {
+                        name = name.split(".")[0];
+                    }
+
+                    if (!restrictions.treeOp) {
+                        result.push({
+                            caption: cube.dimensions[name].caption || name,
+                            childrenCardinality: "1",
+                            dimensionUniqueName: name,
+                            hierarchyUniqueName: name,
+                            levelUniqueName: name,
+                            name: name,
+                            uniqueName: name
+                        });
+
+                        return result;
+                    }
+
+                    getter = kendo.getter(normalizeName(name), true);
+
+                    for (; idx < data.length; idx++) {
+                        value = getter(data[idx]);
+                        if ((value || value === 0) && !distinct[value]) {
+                            distinct[value] = true;
+
+                            result.push({
+                                caption: value,
+                                childrenCardinality: "0",
+                                dimensionUniqueName: name,
+                                hierarchyUniqueName: name,
+                                levelUniqueName: name,
+                                name: value,
+                                uniqueName: value
+                            });
+                        }
+                    }
+
+                    return result;
+                }, this)
             };
         },
 
@@ -1489,6 +1486,10 @@
         _readData: function(data) {
             var axes = this.reader.axes(data);
             var newData = this.reader.data(data);
+
+            if (this.cubeBuilder) {
+                this._rawData = newData;
+            }
 
             return this._processResult(newData, axes);
         },
@@ -1991,6 +1992,11 @@
 
         schemaMembers: function(restrictions) {
             var that = this;
+            var success = (function(restrictions) {
+                return function(response) {
+                    return that.reader.members(response, restrictions);
+                };
+            }(restrictions));
 
             return that.discover({
                 data: {
@@ -2000,9 +2006,7 @@
                        cubeName: that.transport.cube()
                    }, restrictions)
                 }
-            }, function(response) {
-                return that.reader.members(response);
-            });
+            }, success);
         },
 
         _params: function(data) {
@@ -2058,7 +2062,6 @@
     function adjustDataByRow(sourceTuples, targetTuples, columnsLength, measures, data) {
         var columnIdx, rowIdx, dataIdx;
         var rowsLength = sourceTuples.length;
-        var targetRowsLength = membersCount(targetTuples, measures);
         var measuresLength = measures.length || 1;
 
         for (rowIdx = 0; rowIdx < rowsLength; rowIdx++) {
@@ -2083,7 +2086,7 @@
 
         var queue = tuples.slice();
         var current = queue.shift();
-        var idx, length, result = 1;
+        var result = 1;
 
         while (current) {
             if (current.members) {
@@ -2208,7 +2211,6 @@
     function equalTuples(first, second) {
         var equal = true;
         var idx, length;
-        var name;
 
         first = first.members;
         second = second.members;
@@ -2398,7 +2400,7 @@
         return result;
     }
 
-    function prepareDataOnColumns(tuples, data, rootAdded) {
+    function prepareDataOnColumns(tuples, data) {
         if (!tuples || !tuples.length) {
             return data;
         }
@@ -2520,24 +2522,12 @@
 
     function crossJoinCommand(members, measures) {
         var tmp = members.slice(0);
-        var names;
 
         if (measures.length > 1) {
             tmp.push("{" + measureNames(measures).join(",") + "}");
         }
+
         return crossJoin(tmp);
-    }
-
-    function expandedMembers(members) {
-        var result = [];
-
-        for (var idx = 0; idx < members.length; idx++) {
-            if (members[idx].expand) {
-                result.push(members[idx]);
-            }
-        }
-
-        return result;
     }
 
     function measureNames(measures) {
@@ -2787,7 +2777,7 @@
     };
 
     var convertersMap = {
-        read: function(options, type) {
+        read: function(options) {
             var command = '<Envelope xmlns="http://schemas.xmlsoap.org/soap/envelope/"><Header/><Body><Execute xmlns="urn:schemas-microsoft-com:xml-analysis"><Command><Statement>';
 
             command += "SELECT NON EMPTY {";
@@ -2845,7 +2835,7 @@
             command += '</Statement></Command><Properties><PropertyList><Catalog>' + options.connection.catalog + '</Catalog><Format>Multidimensional</Format></PropertyList></Properties></Execute></Body></Envelope>';
             return command.replace(/\&/g, "&amp;");
         },
-        discover: function(options, type) {
+        discover: function(options) {
             options = options || {};
 
             var command = '<Envelope xmlns="http://schemas.xmlsoap.org/soap/envelope/"><Header/><Body><Discover xmlns="urn:schemas-microsoft-com:xml-analysis">';
@@ -3345,7 +3335,6 @@
         add: function(name) {
             var items = this.dataSource[this.options.setting]();
             var i, l;
-            var idx;
 
             name = $.isArray(name) ? name.slice(0) : [name];
 
@@ -3790,9 +3779,6 @@
         },
 
         _resize: function() {
-            var columnTable = this.columnsHeader.children("table");
-            var contentTable = this.content.children("table");
-
             if (this.content[0].firstChild) {
                 this._setSectionsWidth();
                 this._setSectionsHeight();
@@ -4017,7 +4003,6 @@
 
     var element = kendo.dom.element;
     var htmlNode = kendo.dom.html;
-    var text = kendo.dom.text;
 
     var createMetadata = function(levelNum, memberIdx) {
        return {
@@ -4054,7 +4039,7 @@
     };
 
     var ColumnBuilder = Class.extend({
-        init: function(options) {
+        init: function() {
             this.measures = 1;
             this.metadata = {};
         },
@@ -4378,7 +4363,7 @@
     });
 
     var RowBuilder = Class.extend({
-        init: function(options) {
+        init: function() {
             this.metadata = {};
         },
 
@@ -5066,6 +5051,10 @@
     }
 
 })(window.kendo.jQuery);
+
+
+
+})();
 
 return window.kendo;
 

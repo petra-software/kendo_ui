@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -9,6 +9,10 @@
 (function(f, define){
     define([ "./kendo.datepicker", "./kendo.timepicker" ], f);
 })(function(){
+
+(function(){
+
+
 
 (function($, undefined) {
 
@@ -134,8 +138,6 @@
         setOptions: function(options) {
             var that = this,
                 value = that._value,
-                dateViewOptions = that.dateView.options,
-                timeViewOptions = that.timeView.options,
                 min, max, currentValue;
 
             Widget.fn.setOptions.call(that, options);
@@ -744,9 +746,9 @@
         options.format = extractFormat(options.format || patterns.g);
         options.timeFormat = timeFormat = extractFormat(options.timeFormat || patterns.t);
         kendo.DateView.normalize(options);
-
+        
         if (parseFormats) {
-            options.parseFormats.push("yyyy-MM-ddTHH:mm:ss");
+           options.parseFormats.unshift("yyyy-MM-ddTHH:mm:ss");
         }
 
         if ($.inArray(timeFormat, options.parseFormats) === -1) {
@@ -757,6 +759,10 @@
     ui.plugin(DateTimePicker);
 
 })(window.kendo.jQuery);
+
+
+
+})();
 
 return window.kendo;
 

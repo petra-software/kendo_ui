@@ -373,6 +373,16 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Messages.ru-RU.resx</DependentUpon>
     </Compile>
+    <Compile Include="Resources\Messages.sv-SE.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Messages.sv-SE.resx</DependentUpon>
+    </Compile>
+    <Compile Include="Resources\Messages.tr-TR.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Messages.tr-TR.resx</DependentUpon>
+    </Compile>
     <Compile Include="Resources\Messages.uk-UA.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
@@ -433,6 +443,7 @@
     <Compile Include="UI\Chart\Axes\IChartCategoryAxis.cs" />
     <Compile Include="UI\Chart\Chart.cs" />
     <Compile Include="UI\Chart\ChartLegendItem.cs" />
+    <Compile Include="UI\Chart\ChartMousewheelZoom.cs" />
     <Compile Include="UI\Chart\ChartNoteLine.cs" />
     <Compile Include="UI\Chart\ChartTitle.cs" />
     <Compile Include="UI\Chart\ChartLegend.cs" />
@@ -446,8 +457,12 @@
     <Compile Include="UI\Chart\ChartLineBase.cs" />
     <Compile Include="UI\Chart\ChartLegendLabels.cs" />
     <Compile Include="UI\Chart\Axes\ChartAxisNoteItem.cs" />
+    <Compile Include="UI\Chart\ChartZoomable.cs" />
+    <Compile Include="UI\Chart\ChartSelectionZoom.cs" />
+    <Compile Include="UI\Chart\Enums\ChartActivationKey.cs" />
     <Compile Include="UI\Chart\Enums\ChartAxisLabelRotationAlignment.cs" />
     <Compile Include="UI\Chart\Enums\ChartLegendAlign.cs" />
+    <Compile Include="UI\Chart\Enums\ChartAxisLock.cs" />
     <Compile Include="UI\Chart\Enums\ChartScatterLineStyle.cs" />
     <Compile Include="UI\Chart\Enums\ChartZoomDireciton.cs" />
     <Compile Include="UI\Chart\Enums\ChartNoteLabelPosition.cs" />
@@ -464,16 +479,24 @@
     <Compile Include="UI\Chart\Fluent\ChartAreaLineBuilder.cs" />
     <Compile Include="UI\Chart\Fluent\ChartAxisLabelsRotationBuilder.cs" />
     <Compile Include="UI\Chart\Fluent\ChartLegendItemBuilder.cs" />
+    <Compile Include="UI\Chart\Fluent\ChartMousewheelZoomBuilder.cs" />
+    <Compile Include="UI\Chart\Fluent\ChartPannableBuilder.cs" />
     <Compile Include="UI\Chart\Fluent\ChartRangeBarLabelsBuilder.cs" />
     <Compile Include="UI\Chart\Fluent\ChartRangeBarSeriesBuilder.cs" />
+    <Compile Include="UI\Chart\Fluent\ChartSelectionZoomBuilder.cs" />
     <Compile Include="UI\Chart\Fluent\ChartWaterfallSeriesBuilder.cs" />
     <Compile Include="UI\Chart\Fluent\ChartLineSeriesHighlightBuilder.cs" />
     <Compile Include="UI\Chart\Fluent\ChartPolarAxisBuilder.cs" />
+    <Compile Include="UI\Chart\ChartPannable.cs" />
+    <Compile Include="UI\Chart\Fluent\ChartZoomableBuilder.cs" />
     <Compile Include="UI\Chart\Serialization\ChartLabelRotationSerializer.cs" />
     <Compile Include="UI\Chart\Serialization\ChartLegendItemSerializer.cs" />
     <Compile Include="UI\Chart\Serialization\ChartLogarithmicAxisSerializer.cs" />
+    <Compile Include="UI\Chart\Serialization\ChartMousewheelZoomSerializer.cs" />
+    <Compile Include="UI\Chart\Serialization\ChartPannableSerializer.cs" />
     <Compile Include="UI\Chart\Serialization\ChartRangeBarLabelsSerializer.cs" />
     <Compile Include="UI\Chart\Serialization\ChartRangeBarSeriesSerializer.cs" />
+    <Compile Include="UI\Chart\Serialization\ChartSelectionZoomSerializer.cs" />
     <Compile Include="UI\Chart\Serialization\ChartWaterfallSeriesSerializer.cs" />
     <Compile Include="UI\Chart\Fluent\ChartAreaSeriesBuilder.cs" />
     <Compile Include="UI\Chart\Serialization\ChartAreaSeriesSerializer.cs" />
@@ -525,6 +548,7 @@
     <Compile Include="UI\Chart\Fluent\ErrorBarsBuilderBase.cs" />
     <Compile Include="UI\Chart\Serialization\ChartFunnelLabelsSerializer.cs" />
     <Compile Include="UI\Chart\Serialization\ChartFunnelSeriesSerializer.cs" />
+    <Compile Include="UI\Chart\Serialization\ChartZoomableSerializer.cs" />
     <Compile Include="UI\Chart\Serialization\ErrorBarsSerializerBase.cs" />
     <Compile Include="UI\Chart\ScatterErrorBars.cs" />
     <Compile Include="UI\Chart\Fluent\ScatterErrorBarsBuilder.cs" />
@@ -1637,6 +1661,16 @@
     <Compile Include="UI\Splitter\Splitter.cs" />
     <Compile Include="UI\Splitter\SplitterPane.cs" />
     <Compile Include="UI\NumericTextBox\Html\NumericTextBoxHtmlBuilder.cs" />
+    <Compile Include="UI\Spreadsheet\SpreadsheetFilterOperator.cs" />
+    <Compile Include="UI\Spreadsheet\SpreadsheetFilterLogic.cs" />
+    <Compile Include="UI\Spreadsheet\SpreadsheetDynamicFilterType.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetDynamicFilterBuilder.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetTopFilterBuilder.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetValueFilterBuilder.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetBorderStyleBuilder.cs" />
+    <Compile Include="UI\Spreadsheet\Html\SpreadsheetHtmlBuilder.cs" />
+    <Compile Include="UI\Spreadsheet\SpreadsheetBorderStyle.cs" />
+    <Compile Include="UI\Spreadsheet\SpreadsheetTopFilterType.cs" />
     <Compile Include="UI\StockChart\ChartNavigator.cs" />
     <Compile Include="UI\StockChart\ChartRange.cs" />
     <Compile Include="UI\StockChart\Fluent\ChartNavigatorHintBuilder.cs" />
@@ -1900,6 +1934,7 @@
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Messages.es-ES.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+    <EmbeddedResource Include="Resources\Messages.fr-CA.resx" />
     <EmbeddedResource Include="Resources\Messages.fr-FR.resx">
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Messages.fr-FR.Designer.cs</LastGenOutput>
@@ -1942,8 +1977,14 @@
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Messages.ru-RU.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-    <EmbeddedResource Include="Resources\Messages.sv-SE.resx" />
-    <EmbeddedResource Include="Resources\Messages.tr-TR.resx" />
+    <EmbeddedResource Include="Resources\Messages.sv-SE.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>Messages.sv-SE.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources\Messages.tr-TR.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>Messages.tr-TR.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
     <EmbeddedResource Include="Resources\Messages.uk-UA.resx">
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Messages.uk-UA.Designer.cs</LastGenOutput>
@@ -2564,5 +2605,43 @@
     <Compile Include="UI\Diagram\Fluent\DiagramEditableDragSettingsBuilder.cs" />
     <Compile Include="UI\Diagram\Settings\DiagramEditableDragSnapSettings.cs" />
     <Compile Include="UI\Diagram\Fluent\DiagramEditableDragSnapSettingsBuilder.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="UI\Spreadsheet\Spreadsheet.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetBuilder.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetSheetFactory.cs" />
+    <Compile Include="UI\Spreadsheet\SpreadsheetSheet.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetSheetBuilder.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetSheetColumnFactory.cs" />
+    <Compile Include="UI\Spreadsheet\SpreadsheetSheetColumn.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetSheetColumnBuilder.cs" />
+    <Compile Include="UI\Spreadsheet\Settings\SpreadsheetSheetFilterSettings.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetSheetFilterSettingsBuilder.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetSheetFilterSettingsColumnFactory.cs" />
+    <Compile Include="UI\Spreadsheet\SpreadsheetSheetFilterSettingsColumn.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetCustomFilterBuilder.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetSheetRowFactory.cs" />
+    <Compile Include="UI\Spreadsheet\SpreadsheetSheetRow.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetSheetRowBuilder.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetSheetRowCellFactory.cs" />
+    <Compile Include="UI\Spreadsheet\SpreadsheetSheetRowCell.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetSheetRowCellBuilder.cs" />
+    <Compile Include="UI\Spreadsheet\Settings\SpreadsheetSheetSortSettings.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetSheetSortSettingsBuilder.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetSheetSortSettingsColumnFactory.cs" />
+    <Compile Include="UI\Spreadsheet\SpreadsheetSheetSortSettingsColumn.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetSheetSortSettingsColumnBuilder.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetEventBuilder.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="UI\Spreadsheet\SpreadsheetTextAlign.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="UI\Spreadsheet\SpreadsheetVerticalAlign.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetSheetFilterSettingsColumnCriteriaFactory.cs" />
+    <Compile Include="UI\Spreadsheet\SpreadsheetSheetFilterSettingsColumnCriteria.cs" />
+    <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetSheetFilterSettingsColumnCriteriaBuilder.cs" />
   </ItemGroup>
 </Project>

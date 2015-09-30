@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -9,6 +9,10 @@
 (function(f, define){
     define([ "./kendo.core", "./kendo.data", "./kendo.ooxml" ], f);
 })(function(){
+
+(function(){
+
+
 
 (function($, kendo){
 
@@ -108,7 +112,7 @@ kendo.ExcelExporter = kendo.Class.extend({
         if (column.values) {
             values = {};
 
-            $.each(column.values, function(item) {
+            $.each(column.values, function() {
                values[this.value] = this.text;
             });
 
@@ -484,6 +488,10 @@ kendo.ExcelMixin = {
 };
 
 })(kendo.jQuery, kendo);
+
+
+
+})();
 
 return window.kendo;
 

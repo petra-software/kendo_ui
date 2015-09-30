@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -9,6 +9,10 @@
 (function(f, define){
     define([ "./kendo.data", "./kendo.userevents", "./kendo.dataviz.themes" ], f);
 })(function(){
+
+(function(){
+
+
 
 (function($, undefined) {
     var math = Math,
@@ -30,7 +34,6 @@
         DATA_BOUND = "dataBound",
         ITEM_CREATED = "itemCreated",
         MAX_VALUE = Number.MAX_VALUE,
-        MIN_VALUE = -Number.MAX_VALUE,
         MOUSEOVER_NS = "mouseover" + NS,
         MOUSELEAVE_NS = "mouseleave" + NS,
         UNDEFINED = "undefined";
@@ -835,10 +838,6 @@
         }
     });
 
-    function valueOrDefault(value, defaultValue) {
-        return defined(value) ? value : defaultValue;
-    }
-
     function getField(field, row) {
         if (row === null) {
             return row;
@@ -953,6 +952,10 @@
     dataviz.ui.plugin(TreeMap);
 
 })(window.kendo.jQuery);
+
+
+
+})();
 
 return window.kendo;
 

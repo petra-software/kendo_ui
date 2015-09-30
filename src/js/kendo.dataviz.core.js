@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -10,27 +10,27 @@
     define([ "./kendo.core", "./kendo.drawing" ], f);
 })(function(){
 
+(function(){
+
+
+
 (function ($, undefined) {
 
     // Imports ================================================================
-    var doc = document,
-        kendo = window.kendo,
+    var kendo = window.kendo,
 
         util = kendo.util,
         append = util.append,
         defined = util.defined,
         last = util.last,
-        limitValue = util.limitValue,
         valueOrDefault = util.valueOrDefault,
 
         dataviz = kendo.dataviz,
         geom = dataviz.geometry,
         draw = dataviz.drawing,
         measureText = draw.util.measureText,
-        Matrix = geom.Matrix,
         Class = kendo.Class,
         template = kendo.template,
-        map = $.map,
         noop = $.noop,
         indexOf = $.inArray,
         isPlainObject = $.isPlainObject,
@@ -38,12 +38,9 @@
         math = Math,
         deepExtend = kendo.deepExtend;
 
-    var CSS_PREFIX = "k-";
 
     // Constants ==============================================================
-    var ANIMATION_STEP = 10,
-        AXIS_LABEL_CLICK = "axisLabelClick",
-        BASELINE_MARKER_SIZE = 1,
+    var AXIS_LABEL_CLICK = "axisLabelClick",
         BLACK = "#000",
         BOTTOM = "bottom",
         CENTER = "center",
@@ -58,12 +55,8 @@
         DEFAULT_AUTO_MAJOR_UNIT_PRECISION = 10,
         DEFAULT_WIDTH = 600,
         DEG_TO_RAD = math.PI / 180,
-        FADEIN = "fadeIn",
         FORMAT_REGEX = /\{\d+:?/,
         HEIGHT = "height",
-        ID_PREFIX = "k",
-        ID_POOL_SIZE = 1000,
-        ID_START = 10000,
         COORDINATE_LIMIT = 100000,
         INITIAL_ANIMATION_DURATION = 600,
         INSIDE = "inside",
@@ -77,11 +70,8 @@
         OUTSIDE = "outside",
         RADIAL = "radial",
         RIGHT = "right",
-        SWING = "swing",
         TOP = "top",
         TRIANGLE = "triangle",
-        UNDEFINED = "undefined",
-        UPPERCASE_REGEX = /([A-Z])/g,
         WIDTH = "width",
         WHITE = "#fff",
         X = "x",
@@ -634,7 +624,6 @@
         destroy: function() {
             var element = this,
                 children = element.children,
-                root = element.getRoot(),
                 i;
 
             if (this.animation) {
@@ -1096,8 +1085,7 @@
         reflow: function(targetBox) {
             var text = this,
                 options = text.options,
-                size,
-                margin;
+                size;
 
             size = options.size =
                 measureText(text.content, { font: options.font });
@@ -1159,9 +1147,6 @@
         reflowChildren: function() {
             var floatElement = this;
             var box = floatElement.box;
-            var options = floatElement.options;
-            var elementSpacing = floatElement.elementSpacing;
-            var groupSpacing = floatElement.groupSpacing;
 
             var elementAxis = floatElement.elementAxis;
             var groupAxis = floatElement.groupAxis;
@@ -1323,7 +1308,6 @@
             var rows = (textbox.content + "").split(textbox.ROWS_SPLIT_REGEX);
             var floatElement = new FloatElement({vertical: true, align: options.align, wrap: false});
             var textOptions = deepExtend({ }, options, { opacity: 1, animation: null });
-            var hasBox = textbox.hasBox();
             var text;
             var rowIdx;
 
@@ -1639,8 +1623,7 @@
     function createAxisGridLine(options, gridLine) {
         var lineStart = options.lineStart,
             lineEnd = options.lineEnd,
-            position = options.position,
-            start, end;
+            position = options.position;
 
         var line = new draw.Path({
             stroke: {
@@ -1770,6 +1753,13 @@
         // abstract labelsCount(): Number
         // abstract createAxisLabel(index, options): AxisLabel
 
+        labelsRange: function() {
+            return {
+                min: this.options.labels.skip,
+                max: this.labelsCount()
+            };
+        },
+
         createLabels: function() {
             var axis = this,
                 options = axis.options,
@@ -1787,7 +1777,7 @@
             axis.labels = [];
 
             if (labelOptions.visible) {
-                var labelsCount = axis.labelsCount(),
+                var range = axis.labelsRange(),
                     rotation = labelOptions.rotation,
                     label,
                     i;
@@ -1802,7 +1792,7 @@
                     options.autoRotateLabels = true;
                 }
 
-                for (i = labelOptions.skip; i < labelsCount; i += step) {
+                for (i = range.min; i < range.max; i += step) {
                     label = axis.createAxisLabel(i, labelOptions);
                     if (label) {
                         axis.append(label);
@@ -1817,9 +1807,6 @@
                 options = axis.options,
                 box = axis.box,
                 vertical = options.vertical,
-                labels = axis.labels,
-                labelSize = vertical ? HEIGHT : WIDTH,
-                justified = options.justified,
                 mirror = options.labels.mirror,
                 axisX = mirror ? box.x1 : box.x2,
                 axisY = mirror ? box.y2 : box.y1,
@@ -1853,7 +1840,7 @@
                 options = axis.options,
                 notes = options.notes,
                 items = notes.data || [],
-                noteTemplate, i, text, item, note;
+                i, item, note;
 
             axis.notes = [];
 
@@ -1922,8 +1909,7 @@
                     // TODO
                     // _alignLines: options._alignLines,
                     vertical: options.vertical
-                },
-                start, end;
+                };
 
             function render(tickPositions, tickOptions, skipUnit) {
                 var i, count = tickPositions.length;
@@ -1951,8 +1937,7 @@
             var axis = this,
                 options = axis.options,
                 line = options.line,
-                lineBox = axis.lineBox(),
-                lineOptions;
+                lineBox = axis.lineBox();
 
             if (line.width > 0 && line.visible) {
                 var path = new draw.Path({
@@ -2036,11 +2021,9 @@
                 return a.options.vertical !== axis.options.vertical;
             })[0];
 
-            var range = this.range();
             $.each(plotBands, function(i, item) {
                 from = valueOrDefault(item.from, MIN_VALUE);
                 to = valueOrDefault(item.to, MAX_VALUE);
-                var element = [];
 
                 if (vertical) {
                     slotX = (altAxis || plotArea.axisX).lineBox();
@@ -2152,6 +2135,14 @@
             axis.arrangeNotes();
         },
 
+        getLabelsTickPositions: function() {
+            return this.getMajorTickPositions();
+        },
+
+        labelTickIndex: function(label) {
+            return label.index;
+        },
+
         arrangeLabels: function() {
             var axis = this,
                 options = axis.options,
@@ -2160,13 +2151,13 @@
                 vertical = options.vertical,
                 lineBox = axis.lineBox(),
                 mirror = options.labels.mirror,
-                tickPositions = axis.getMajorTickPositions(),
+                tickPositions = axis.getLabelsTickPositions(),
                 labelOffset = axis.getActualTickSize()  + options.margin,
                 labelBox, labelY, i;
 
             for (i = 0; i < labels.length; i++) {
                 var label = labels[i],
-                    tickIx = label.index,
+                    tickIx = axis.labelTickIndex(label),
                     labelSize = vertical ? label.box.height() : label.box.width(),
                     labelPos = tickPositions[tickIx] - (labelSize / 2),
                     firstTickPosition, nextTickPosition, middle, labelX;
@@ -2331,10 +2322,36 @@
 
         contentBox: function() {
             var box = this.box.clone();
-            if (this.labels.length) {
-                box.wrap(this.labels[0].box).wrap(last(this.labels).box);
+            var labels = this.labels;
+            if (labels.length) {
+                if (labels[0].options.visible) {
+                    box.wrap(labels[0].box);
+                }
+                if (last(labels).options.visible) {
+                    box.wrap(last(labels).box);
+                }
             }
             return box;
+        },
+
+        limitRange: function(from, to, min, max) {
+            var options = this.options;
+            var rangeSize = to - from;
+
+            if (from < min && (!defined(options.min) || min < options.min)) {
+                from = min;
+                to = from + rangeSize;
+            } else if (max < to && (!defined(options.max) || options.max < max)) {
+                to = max;
+                from = to - rangeSize;
+            }
+
+            if (from >= min && max >= to) {
+                return {
+                    min: from,
+                    max: to
+                };
+            }
         }
     });
 
@@ -2529,7 +2546,6 @@
             var options = that.options;
             var customVisual = options.visual;
             if (options.visible && customVisual) {
-                var targetPoint = that.targetPoint;
                 that.visual = customVisual({
                     dataItem: that.dataItem,
                     category: that.category,
@@ -2632,9 +2648,7 @@
                 box = marker.paddingBox,
                 element,
                 center = box.center(),
-                halfWidth = box.width() / 2,
-                points,
-                i;
+                halfWidth = box.width() / 2;
 
             if (!options.visible || !marker.hasBox())  {
                 return;
@@ -2768,6 +2782,10 @@
 
             autoOptions.min = floor(autoMin, majorUnit);
             autoOptions.max = ceil(autoMax, majorUnit);
+
+            this.totalMin = defined(options.min) ? math.min(autoOptions.min, options.min) : autoOptions.min;
+            this.totalMax = defined(options.max) ? math.max(autoOptions.max, options.max) : autoOptions.max;
+            this.totalMajorUnit = majorUnit;
 
             if (options) {
                 userSetLimits = defined(options.min) || defined(options.max);
@@ -3026,6 +3044,39 @@
         shouldRenderNote: function(value) {
             var range = this.range();
             return range.min <= value && value <= range.max;
+        },
+
+        pan: function(delta) {
+            var range = this.translateRange(delta);
+            return this.limitRange(range.min, range.max, this.totalMin, this.totalMax);
+        },
+
+        pointsRange: function(start, end) {
+            var startValue = this.getValue(start);
+            var endValue = this.getValue(end);
+            var min = math.min(startValue, endValue);
+            var max = math.max(startValue, endValue);
+
+            return {
+                min: min,
+                max: max
+            };
+        },
+
+        zoomRange: function(delta) {
+            var newRange = this.scaleRange(delta);
+            var totalMax = this.totalMax;
+            var totalMin = this.totalMin;
+            var min = util.limitValue(newRange.min, totalMin, totalMax);
+            var max = util.limitValue(newRange.max, totalMin, totalMax);
+            var optionsRange = this.options.max - this.options.min;
+
+            if (optionsRange < this.totalMajorUnit || max - min >= this.totalMajorUnit) {
+                return {
+                    min: min,
+                    max: max
+                };
+            }
         }
     });
 
@@ -3157,8 +3208,6 @@
                 vertical = options.vertical,
                 reverse = options.reverse,
                 size = vertical ? lineBox.height() : lineBox.width(),
-                logMin = axis.logMin,
-                logMax = axis.logMax,
                 scale = size / (axis.logMax - axis.logMin),
                 offset = round(delta / scale, DEFAULT_PRECISION);
 
@@ -3202,8 +3251,8 @@
                     // TODO
                     // _alignLines: options._alignLines,
                     vertical: options.vertical
-                },
-                start, end;
+                };
+
 
             function render(tickPosition, tickOptions) {
                 tickLineOptions.tickX = mirror ? lineBox.x2 : lineBox.x2 - tickOptions.size;
@@ -3227,7 +3276,6 @@
         createGridLines: function(altAxis) {
             var axis = this,
                 options = axis.options,
-                axisLineVisible = altAxis.options.line.visible,
                 majorGridLines = options.majorGridLines,
                 minorGridLines = options.minorGridLines,
                 vertical = options.vertical,
@@ -3237,7 +3285,7 @@
                     lineEnd: lineBox[vertical ? "x2" : "y2"],
                     vertical: vertical
                 },
-                pos, majorTicks = [];
+                majorTicks = [];
 
             var container = this.gridLinesVisual();
             function render(tickPosition, gridLine) {
@@ -3594,15 +3642,6 @@
         return round(scale * scaleMultiplier, DEFAULT_AUTO_MAJOR_UNIT_PRECISION);
     }
 
-    function getHash(object) {
-        var hash = [];
-        for (var key in object) {
-            hash.push(key + object[key]);
-        }
-
-        return hash.sort().join(" ");
-    }
-
     // TODO: Replace with Point2D.rotate
     function rotatePoint(x, y, cx, cy, angle) {
         var theta = angle * DEG_TO_RAD;
@@ -3697,15 +3736,6 @@
         return a - b;
     }
 
-    function updateArray(arr, prop, value) {
-        var i,
-            length = arr.length;
-
-        for(i = 0; i < length; i++) {
-            arr[i][prop] = value;
-        }
-    }
-
     function autoFormat(format, value) {
         if (format.match(FORMAT_REGEX)) {
             return kendo.format.apply(this, arguments);
@@ -3714,15 +3744,6 @@
         return kendo.toString(value, format);
     }
 
-    function detached(element) {
-        var parent = element.parentNode;
-
-        while(parent && parent.parentNode) {
-            parent = parent.parentNode;
-        }
-
-        return parent !== doc;
-    }
 
     function clockwise(v1, v2) {
         // True if v2 is clockwise of v1
@@ -4068,8 +4089,7 @@
     }
 
     function innerRadialStops(options) {
-        var gradient = this,
-            stops = options.stops,
+        var stops = options.stops,
             usedSpace = ((options.innerRadius / options.radius) * 100),
             i,
             length = stops.length,
@@ -4145,6 +4165,10 @@
     });
 
 })(window.kendo.jQuery);
+
+
+
+})();
 
 return window.kendo;
 

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -10,13 +10,16 @@
     define([ "./kendo.scheduler.view" ], f);
 })(function(){
 
+(function(){
+
+
+
 (function($){
     var kendo = window.kendo,
         ui = kendo.ui,
         SchedulerView = ui.SchedulerView,
         NS = ".kendoMonthView",
         extend = $.extend,
-        proxy = $.proxy,
         getDate = kendo.date.getDate,
         MS_PER_DAY = kendo.date.MS_PER_DAY,
         NUMBER_OF_ROWS = 6,
@@ -938,6 +941,10 @@
         return msValue >= msMin && msValue <= msMax;
     }
 })(window.kendo.jQuery);
+
+
+
+})();
 
 return window.kendo;
 

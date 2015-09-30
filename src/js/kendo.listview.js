@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -9,6 +9,10 @@
 (function(f, define){
     define([ "./kendo.data", "./kendo.editable", "./kendo.selectable" ], f);
 })(function(){
+
+(function(){
+
+
 
 (function($, undefined) {
     var kendo = window.kendo,
@@ -24,7 +28,6 @@
         FOCUSED = "k-state-focused",
         SELECTED = "k-state-selected",
         KEDITITEM = "k-edit-item",
-        STRING = "string",
         EDIT = "edit",
         REMOVE = "remove",
         SAVE = "save",
@@ -609,6 +612,7 @@
 
        add: function() {
            var that = this,
+               dataItem,
                dataSource = that.dataSource,
                index = dataSource.indexOf((dataSource.view() || [])[0]);
 
@@ -617,8 +621,8 @@
            }
 
            that.cancel();
-           dataSource.insert(index, {});
-           that.edit(that.element.children().first());
+           dataItem = dataSource.insert(index, {});
+           that.edit(that.element.find("[data-uid='" + dataItem.uid + "']"));
        },
 
        cancel: function() {
@@ -684,6 +688,10 @@
 
     kendo.ui.plugin(ListView);
 })(window.kendo.jQuery);
+
+
+
+})();
 
 return window.kendo;
 

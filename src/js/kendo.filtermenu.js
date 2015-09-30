@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -9,6 +9,10 @@
 (function(f, define){
     define([ "./kendo.datepicker", "./kendo.numerictextbox", "./kendo.dropdownlist", "./kendo.binder" ], f);
 })(function(){
+
+(function(){
+
+
 
 /* jshint eqnull: true */
 (function($, undefined) {
@@ -948,7 +952,8 @@
 
             if (this.form) {
                 if (e && forceUnique && e.sender === dataSource && !dataSource.options.serverPaging &&
-                     (e.action == "itemchange" || e.action == "add" || e.action == "remove") && !this._foreignKeyValues()) {
+                     (e.action == "itemchange" || e.action == "add" || e.action == "remove" || (dataSource.options.autoSync && e.action === "sync")) &&
+                         !this._foreignKeyValues()) {
                     this.checkSource.data(distinct(this.dataSource.data(),this.field));
                     this.container.empty();
                 }
@@ -1156,6 +1161,10 @@
     ui.plugin(FilterMenu);
     ui.plugin(FilterMultiCheck);
 })(window.kendo.jQuery);
+
+
+
+})();
 
 return window.kendo;
 

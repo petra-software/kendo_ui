@@ -87,6 +87,8 @@ namespace Kendo.Mvc.UI
         
         public bool? AutoBind { get; set; }
         
+        public double? ColumnResizeHandleWidth { get; set; }
+        
         public GanttCurrentTimeMarkerSettings CurrentTimeMarker
         {
             get;
@@ -129,11 +131,17 @@ namespace Kendo.Mvc.UI
             set;
         }
         
+        public bool? Resizable { get; set; }
+        
         public bool? Selectable { get; set; }
         
         public bool? ShowWorkDays { get; set; }
         
         public bool? ShowWorkHours { get; set; }
+        
+        public string TaskTemplate { get; set; }
+
+        public string TaskTemplateId { get; set; }
         
         public List<GanttToolbar> Toolbar
         {
@@ -159,6 +167,8 @@ namespace Kendo.Mvc.UI
             set;
         }
         
+        public double? RowHeight { get; set; }
+        
         //<< Fields
 
         public override void WriteInitializationScript(TextWriter writer)
@@ -181,6 +191,11 @@ namespace Kendo.Mvc.UI
             if (AutoBind.HasValue)
             {
                 json["autoBind"] = AutoBind;
+            }
+                
+            if (ColumnResizeHandleWidth.HasValue)
+            {
+                json["columnResizeHandleWidth"] = ColumnResizeHandleWidth;
             }
 
             if (CurrentTimeMarker.Enabled == false)
@@ -259,6 +274,11 @@ namespace Kendo.Mvc.UI
             {
                 json["pdf"] = pdf;
             }
+            if (Resizable.HasValue)
+            {
+                json["resizable"] = Resizable;
+            }
+                
             if (Selectable.HasValue)
             {
                 json["selectable"] = Selectable;
@@ -272,6 +292,20 @@ namespace Kendo.Mvc.UI
             if (ShowWorkHours.HasValue)
             {
                 json["showWorkHours"] = ShowWorkHours;
+            }
+                
+            if (!string.IsNullOrEmpty(TaskTemplateId))
+            {
+                json["taskTemplate"] = new ClientHandlerDescriptor {
+                    HandlerName = string.Format(
+                        "jQuery('#{0}').html()",
+                        TaskTemplateId
+                    )
+                };
+            }
+            else if (!string.IsNullOrEmpty(TaskTemplate))
+            {
+                json["taskTemplate"] = TaskTemplate;
             }
                 
             var toolbar = Toolbar.ToJson();
@@ -294,6 +328,11 @@ namespace Kendo.Mvc.UI
             {
                 json["resources"] = resources;
             }
+            if (RowHeight.HasValue)
+            {
+                json["rowHeight"] = RowHeight;
+            }
+                
         //<< Serialization
 
             ProcessDataSource(DataSource);

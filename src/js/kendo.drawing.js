@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -9,6 +9,8 @@
 (function(f, define){
     define([ "./kendo.color", "./kendo.core" ], f);
 })(function(){
+
+(function() {
 
 (function ($) {
     // Imports ================================================================
@@ -106,7 +108,7 @@
     if (!now) {
         now = function() {
             return new Date().getTime();
-        }
+        };
     }
 
     // Array helpers ==========================================================
@@ -230,6 +232,75 @@
         return color === "" || color === null || color === "none" || color === "transparent" || !defined(color);
     }
 
+    function arabicToRoman(n) {
+        var literals = {
+            1    : "i",       10   : "x",       100  : "c",
+            2    : "ii",      20   : "xx",      200  : "cc",
+            3    : "iii",     30   : "xxx",     300  : "ccc",
+            4    : "iv",      40   : "xl",      400  : "cd",
+            5    : "v",       50   : "l",       500  : "d",
+            6    : "vi",      60   : "lx",      600  : "dc",
+            7    : "vii",     70   : "lxx",     700  : "dcc",
+            8    : "viii",    80   : "lxxx",    800  : "dccc",
+            9    : "ix",      90   : "xc",      900  : "cm",
+            1000 : "m"
+        };
+        var values = [ 1000,
+                       900 , 800, 700, 600, 500, 400, 300, 200, 100,
+                       90  , 80 , 70 , 60 , 50 , 40 , 30 , 20 , 10 ,
+                       9   , 8  , 7  , 6  , 5  , 4  , 3  , 2  , 1 ];
+        var roman = "";
+        while (n > 0) {
+            if (n < values[0]) {
+                values.shift();
+            } else {
+                roman += literals[values[0]];
+                n -= values[0];
+            }
+        }
+        return roman;
+    }
+
+    function romanToArabic(r) {
+        r = r.toLowerCase();
+        var digits = {
+            i: 1,
+            v: 5,
+            x: 10,
+            l: 50,
+            c: 100,
+            d: 500,
+            m: 1000
+        };
+        var value = 0, prev = 0;
+        for (var i = 0; i < r.length; ++i) {
+            var v = digits[r.charAt(i)];
+            if (!v) {
+                return null;
+            }
+            value += v;
+            if (v > prev) {
+                value -= 2 * prev;
+            }
+            prev = v;
+        }
+        return value;
+    }
+
+    function memoize(f) {
+        var cache = Object.create(null);
+        return function() {
+            var id = "";
+            for (var i = arguments.length; --i >= 0;) {
+                id += ":" + arguments[i];
+            }
+            if (id in cache) {
+                return cache[id];
+            }
+            return f.apply(this, arguments);
+        };
+    }
+
     // Exports ================================================================
     deepExtend(kendo, {
         util: {
@@ -262,15 +333,175 @@
             sparseArrayMin: sparseArrayMin,
             sparseArrayMax: sparseArrayMax,
             sqr: sqr,
-            valueOrDefault: valueOrDefault
+            valueOrDefault: valueOrDefault,
+            romanToArabic: romanToArabic,
+            arabicToRoman: arabicToRoman,
+            memoize: memoize
         }
     });
 
+    kendo.drawing.util = kendo.util;
     kendo.dataviz.util = kendo.util;
 
 })(window.kendo.jQuery);
 
 
+
+})();
+
+(function(){
+
+(function ($) {
+
+    // Imports =================================================================
+    var doc = document,
+
+        kendo = window.kendo,
+        Class = kendo.Class,
+        deepExtend = kendo.deepExtend,
+
+        util = kendo.util,
+        defined = util.defined;
+
+    // Text metrics calculations ===============================================
+    var LRUCache = Class.extend({
+        init: function(size) {
+            this._size = size;
+            this._length = 0;
+            this._map = {};
+        },
+
+        put: function(key, value) {
+            var lru = this,
+                map = lru._map,
+                entry = { key: key, value: value };
+
+            map[key] = entry;
+
+            if (!lru._head) {
+                lru._head = lru._tail = entry;
+            } else {
+                lru._tail.newer = entry;
+                entry.older = lru._tail;
+                lru._tail = entry;
+            }
+
+            if (lru._length >= lru._size) {
+                map[lru._head.key] = null;
+                lru._head = lru._head.newer;
+                lru._head.older = null;
+            } else {
+                lru._length++;
+            }
+        },
+
+        get: function(key) {
+            var lru = this,
+                entry = lru._map[key];
+
+            if (entry) {
+                if (entry === lru._head && entry !== lru._tail) {
+                    lru._head = entry.newer;
+                    lru._head.older = null;
+                }
+
+                if (entry !== lru._tail) {
+                    if (entry.older) {
+                        entry.older.newer = entry.newer;
+                        entry.newer.older = entry.older;
+                    }
+
+                    entry.older = lru._tail;
+                    entry.newer = null;
+
+                    lru._tail.newer = entry;
+                    lru._tail = entry;
+                }
+
+                return entry.value;
+            }
+        }
+    });
+
+    var defaultMeasureBox = $("<div style='position: absolute !important; top: -4000px !important; width: auto !important; height: auto !important;" +
+                      "padding: 0 !important; margin: 0 !important; border: 0 !important;" +
+                      "line-height: normal !important; visibility: hidden !important; white-space: nowrap!important;' />")[0];
+
+    var TextMetrics = Class.extend({
+        init: function(options) {
+            this._cache = new LRUCache(1000);
+            this._initOptions(options);
+        },
+
+        options: {
+            baselineMarkerSize: 1
+        },
+
+        measure: function(text, style, box) {
+            var styleKey = util.objectKey(style),
+                cacheKey = util.hashKey(text + styleKey),
+                cachedResult = this._cache.get(cacheKey);
+
+            if (cachedResult) {
+                return cachedResult;
+            }
+
+            var size = { width: 0, height: 0, baseline: 0 };
+
+            var measureBox = box ? box : defaultMeasureBox;
+            var baselineMarker = this._baselineMarker().cloneNode(false);
+
+            for (var key in style) {
+                var value = style[key];
+                if (defined(value)) {
+                    measureBox.style[key] = value;
+                }
+            }
+
+            $(measureBox).text(text);
+            measureBox.appendChild(baselineMarker);
+            doc.body.appendChild(measureBox);
+
+            if ((text + "").length) {
+                size.width = measureBox.offsetWidth - this.options.baselineMarkerSize;
+                size.height = measureBox.offsetHeight;
+                size.baseline = baselineMarker.offsetTop + this.options.baselineMarkerSize;
+            }
+
+            if (size.width > 0 && size.height > 0) {
+                this._cache.put(cacheKey, size);
+            }
+
+            measureBox.parentNode.removeChild(measureBox);
+
+            return size;
+        },
+
+        _baselineMarker: function() {
+            return $("<div class='k-baseline-marker' " +
+              "style='display: inline-block; vertical-align: baseline;" +
+              "width: " + this.options.baselineMarkerSize + "px; height: " + this.options.baselineMarkerSize + "px;" +
+              "overflow: hidden;' />")[0];
+        }
+
+    });
+
+    TextMetrics.current = new TextMetrics();
+
+    function measureText(text, style, measureBox) {
+        return TextMetrics.current.measure(text, style, measureBox);
+    }
+
+    // Exports ================================================================
+    kendo.util.TextMetrics = TextMetrics;
+    kendo.util.LRUCache = LRUCache;
+    kendo.util.measureText = measureText;
+
+})(window.kendo.jQuery);
+
+})();
+
+(function() {
 
 (function ($) {
     // Imports ================================================================
@@ -350,6 +581,10 @@
 })(window.kendo.jQuery);
 
 
+
+})();
+
+(function() {
 
 (function ($) {
     // Imports ================================================================
@@ -436,6 +671,10 @@
 })(window.kendo.jQuery);
 
 
+
+})();
+
+(function() {
 
 (function ($) {
     // Imports ================================================================
@@ -1386,6 +1625,10 @@
 
 
 
+})();
+
+(function(){
+
 (function ($) {
 
     // Imports ================================================================
@@ -1755,6 +1998,10 @@
 
 })(window.kendo.jQuery);
 
+})();
+
+(function(){
+
 (function ($) {
 
     // Imports ================================================================
@@ -1843,155 +2090,9 @@
 
 })(window.kendo.jQuery);
 
-(function ($) {
+})();
 
-    // Imports =================================================================
-    var doc = document,
-
-        kendo = window.kendo,
-        Class = kendo.Class,
-        deepExtend = kendo.deepExtend,
-
-        util = kendo.util,
-        defined = util.defined;
-
-    // Constants ===============================================================
-    var BASELINE_MARKER_SIZE = 1;
-
-    // Text metrics calculations ===============================================
-    var LRUCache = Class.extend({
-        init: function(size) {
-            this._size = size;
-            this._length = 0;
-            this._map = {};
-        },
-
-        put: function(key, value) {
-            var lru = this,
-                map = lru._map,
-                entry = { key: key, value: value };
-
-            map[key] = entry;
-
-            if (!lru._head) {
-                lru._head = lru._tail = entry;
-            } else {
-                lru._tail.newer = entry;
-                entry.older = lru._tail;
-                lru._tail = entry;
-            }
-
-            if (lru._length >= lru._size) {
-                map[lru._head.key] = null;
-                lru._head = lru._head.newer;
-                lru._head.older = null;
-            } else {
-                lru._length++;
-            }
-        },
-
-        get: function(key) {
-            var lru = this,
-                entry = lru._map[key];
-
-            if (entry) {
-                if (entry === lru._head && entry !== lru._tail) {
-                    lru._head = entry.newer;
-                    lru._head.older = null;
-                }
-
-                if (entry !== lru._tail) {
-                    if (entry.older) {
-                        entry.older.newer = entry.newer;
-                        entry.newer.older = entry.older;
-                    }
-
-                    entry.older = lru._tail;
-                    entry.newer = null;
-
-                    lru._tail.newer = entry;
-                    lru._tail = entry;
-                }
-
-                return entry.value;
-            }
-        }
-    });
-
-    var TextMetrics = Class.extend({
-        init: function() {
-            this._cache = new LRUCache(1000);
-        },
-
-        measure: function(text, style) {
-            var styleKey = util.objectKey(style),
-                cacheKey = util.hashKey(text + styleKey),
-                cachedResult = this._cache.get(cacheKey);
-
-            if (cachedResult) {
-                return cachedResult;
-            }
-
-            var size = { width: 0, height: 0, baseline: 0 };
-
-            var measureBox = this._measureBox,
-                baselineMarker = this._baselineMarker.cloneNode(false);
-
-            for (var key in style) {
-                var value = style[key];
-                if (defined(value)) {
-                    measureBox.style[key] = value;
-                }
-            }
-
-            $(measureBox).text(text);
-            measureBox.appendChild(baselineMarker);
-            doc.body.appendChild(measureBox);
-
-            if ((text + "").length) {
-                size.width = measureBox.offsetWidth - BASELINE_MARKER_SIZE;
-                size.height = measureBox.offsetHeight;
-                size.baseline = baselineMarker.offsetTop + BASELINE_MARKER_SIZE;
-            }
-
-            if (size.width > 0 && size.height > 0) {
-                this._cache.put(cacheKey, size);
-            }
-
-            measureBox.parentNode.removeChild(measureBox);
-
-            return size;
-        }
-    });
-
-    TextMetrics.fn._baselineMarker =
-        $("<div class='k-baseline-marker' " +
-          "style='display: inline-block; vertical-align: baseline;" +
-          "width: " + BASELINE_MARKER_SIZE + "px; height: " + BASELINE_MARKER_SIZE + "px;" +
-          "overflow: hidden;' />")[0];
-
-    TextMetrics.fn._measureBox =
-        $("<div style='position: absolute !important; top: -4000px !important; width: auto !important; height: auto !important;" +
-                      "padding: 0 !important; margin: 0 !important; border: 0 !important;" +
-                      "line-height: normal !important; visibility: hidden !important; white-space:nowrap !important;' />")[0];
-
-    TextMetrics.current = new TextMetrics();
-
-    function measureText(text, style) {
-        return TextMetrics.current.measure(text, style);
-    }
-
-    // Exports ================================================================
-    deepExtend(kendo.drawing, {
-        util: {
-            TextMetrics: TextMetrics,
-            LRUCache: LRUCache,
-
-            measureText: measureText
-        }
-    });
-
-})(window.kendo.jQuery);
+(function(){
 
 (function ($) {
 
@@ -2002,7 +2103,6 @@
 
         g = kendo.geometry,
         Point = g.Point,
-        Rect = g.Rect,
         Size = g.Size,
         Matrix = g.Matrix,
         toMatrix = g.toMatrix,
@@ -2145,7 +2245,7 @@
             var box = this._clippedBBox(transformation);
             if (box) {
                 var clip = this.clip();
-                return clip ? Rect.intersect(box, clip.bbox(transformation)) : box;
+                return clip ? g.Rect.intersect(box, clip.bbox(transformation)) : box;
             }
         },
 
@@ -2300,13 +2400,18 @@
             return this;
         },
 
-        insertAt: function(element, index) {
+        insert: function(index, element) {
             this.children.splice(index, 0, element);
             element.parent = this;
 
             this.childrenChange("add", [element], index);
 
             return this;
+        },
+
+        // Deprecated for the unconventional parameter order
+        insertAt: function(element, index) {
+            return this.insert(index, element);
         },
 
         remove: function(element) {
@@ -2399,7 +2504,7 @@
         },
 
         measure: function() {
-            var metrics = drawing.util.measureText(this.content(), {
+            var metrics = util.measureText(this.content(), {
                 font: this.options.get("font")
             });
 
@@ -2531,7 +2636,7 @@
         },
 
         _lineBoundingBox: function(p1, p2) {
-            return Rect.fromPoints(p1, p2);
+            return g.Rect.fromPoints(p1, p2);
         },
 
         _curveBoundingBox: function(p1, cp1, cp2, p2) {
@@ -2541,7 +2646,7 @@
                 xLimits = arrayLimits([extremesX.min, extremesX.max, p1.x, p2.x]),
                 yLimits = arrayLimits([extremesY.min, extremesY.max, p1.y, p2.y]);
 
-            return Rect.fromPoints(new Point(xLimits.min, yLimits.min), new Point(xLimits.max, yLimits.max));
+            return g.Rect.fromPoints(new Point(xLimits.min, yLimits.min), new Point(xLimits.max, yLimits.max));
         },
 
         _curveExtremesFor: function(points, field) {
@@ -2721,12 +2826,12 @@
 
             if (length === 1) {
                 var anchor = segments[0].anchor().transformCopy(matrix);
-                boundingBox = new Rect(anchor, Size.ZERO);
+                boundingBox = new g.Rect(anchor, Size.ZERO);
             } else if (length > 0) {
                 for (var i = 1; i < length; i++) {
                     var segmentBox = segments[i - 1].bboxTo(segments[i], matrix);
                     if (boundingBox) {
-                        boundingBox = Rect.union(boundingBox, segmentBox);
+                        boundingBox = g.Rect.union(boundingBox, segmentBox);
                     } else {
                         boundingBox = segmentBox;
                     }
@@ -3020,6 +3125,37 @@
 
     definePointAccessors(RadialGradient.fn, ["center"]);
 
+    var Rect = Element.extend({
+        nodeType: "Rect",
+
+        init: function(geometry, options) {
+            Element.fn.init.call(this, options);
+            this.geometry(geometry || new g.Rect());
+
+            if (!defined(this.options.stroke)) {
+                this.stroke("#000");
+            }
+        },
+
+        bbox: function(transformation) {
+            var combinedMatrix = toMatrix(this.currentTransform(transformation));
+            var rect = this._geometry.bbox(combinedMatrix);
+            var strokeWidth = this.options.get("stroke.width");
+            if (strokeWidth) {
+                expandRect(rect, strokeWidth / 2);
+            }
+
+            return rect;
+        },
+
+        rawBBox: function() {
+            return this._geometry.bbox();
+        }
+    });
+
+    drawing.mixins.Paintable.extend(Rect.fn);
+    defineGeometryAccessors(Rect.fn, ["geometry"]);
+
     var Layout = Group.extend({
         init: function(rect, options) {
             Group.fn.init.call(this, kendo.deepExtend({}, this._defaults, options));
@@ -3094,7 +3230,7 @@
                 groupOrigin[groupsAxis] = groupStart;
                 size[sizeField] = group.size;
                 size[groupsSizeField] = group.lineSize;
-                groupBox = new Rect(groupOrigin, size);
+                groupBox = new g.Rect(groupOrigin, size);
                 for (var idx = 0; idx < group.bboxes.length; idx++) {
                     element = group.elements[idx];
                     bbox = group.bboxes[idx];
@@ -3194,7 +3330,7 @@
                 var elementBoundingBox = applyTransform ? element.bbox(transformation) : element.rawBBox();
                 if (elementBoundingBox) {
                     if (boundingBox) {
-                        boundingBox = Rect.union(boundingBox, elementBoundingBox);
+                        boundingBox = g.Rect.union(boundingBox, elementBoundingBox);
                     } else {
                         boundingBox = elementBoundingBox;
                     }
@@ -3214,7 +3350,7 @@
                 var elementBoundingBox = element.clippedBBox(transformation);
                 if (elementBoundingBox) {
                     if (boundingBox) {
-                        boundingBox = Rect.union(boundingBox, elementBoundingBox);
+                        boundingBox = g.Rect.union(boundingBox, elementBoundingBox);
                     } else {
                         boundingBox = elementBoundingBox;
                     }
@@ -3491,6 +3627,7 @@
         MultiPath: MultiPath,
         Path: Path,
         RadialGradient: RadialGradient,
+        Rect: Rect,
         Segment: Segment,
         stack: stack,
         Text: Text,
@@ -3501,6 +3638,10 @@
     });
 
 })(window.kendo.jQuery);
+
+})();
+
+(function(){
 
 (function ($) {
 
@@ -3782,6 +3923,10 @@
     });
 
 })(window.kendo.jQuery);
+
+})();
+
+(function(){
 
 (function ($) {
 
@@ -4701,7 +4846,8 @@
         },
 
         mapSource: function() {
-            return [["xlink:href", this.srcElement.src()]];
+            var src = kendo.htmlEncode(this.srcElement.src());
+            return [["xlink:href", src]];
         },
 
         renderSource: function() {
@@ -4827,6 +4973,35 @@
         }
     });
 
+    var RectNode = PathNode.extend({
+        geometryChange: function() {
+            var geometry = this.srcElement.geometry();
+            this.attr("x", geometry.origin.x);
+            this.attr("y", geometry.origin.y);
+            this.attr("width", geometry.size.width);
+            this.attr("height", geometry.size.height);
+            this.invalidate();
+        },
+
+        size: function() {
+            return this.srcElement.geometry().size;
+        },
+
+        origin: function() {
+            return this.srcElement.geometry().origin;
+        },
+
+        template: renderTemplate(
+            "<rect #= d.renderStyle() # #= d.renderOpacity() # " +
+            "x='#= d.origin().x #' y='#= d.origin().y #' " +
+            "width='#= d.size().width #' height='#= d.size().height #'" +
+            "#= d.renderStroke() # " +
+            "#= d.renderFill() # " +
+            "#= d.renderDefinitions() # " +
+            "#= d.renderTransform() # />"
+        )
+    });
+
     var nodeMap = {
         Group: GroupNode,
         Text: TextNode,
@@ -4834,7 +5009,8 @@
         MultiPath: MultiPathNode,
         Circle: CircleNode,
         Arc: ArcNode,
-        Image: ImageNode
+        Image: ImageNode,
+        Rect: RectNode
     };
 
     // Helpers ================================================================
@@ -4984,6 +5160,7 @@
             Node: Node,
             PathNode: PathNode,
             RadialGradientNode: RadialGradientNode,
+            RectNode: RectNode,
             RootNode: RootNode,
             Surface: Surface,
             TextNode: TextNode,
@@ -4992,6 +5169,10 @@
     });
 
 })(window.kendo.jQuery);
+
+})();
+
+(function(){
 
 (function ($) {
 
@@ -5235,8 +5416,10 @@
             this.canvas = canvas;
             this.ctx = canvas.getContext("2d");
 
-            this.invalidate = kendo.throttle(
-                $.proxy(this._invalidate, this),
+            var invalidateHandler = $.proxy(this._invalidate, this);
+            this.invalidate = kendo.throttle(function() {
+                    kendo.animationFrame(invalidateHandler);
+                },
                 FRAME_DELAY
             );
         },
@@ -5251,7 +5434,6 @@
             if (!this.ctx) {
                 return;
             }
-
             this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
             this.renderTo(this.ctx);
         }
@@ -5537,6 +5719,16 @@
         }
     });
 
+    var RectNode = PathNode.extend({
+        renderPoints: function(ctx) {
+            var geometry = this.srcElement.geometry();
+            var origin = geometry.origin;
+            var size = geometry.size;
+
+            ctx.rect(origin.x, origin.y, size.width, size.height);
+        }
+    });
+
     function exportImage(group, options) {
         var defaults = {
             width: "800px", height: "600px",
@@ -5583,7 +5775,8 @@
         MultiPath: MultiPathNode,
         Circle: CircleNode,
         Arc: ArcNode,
-        Image: ImageNode
+        Image: ImageNode,
+        Rect: RectNode
     };
 
     // Helpers ================================================================
@@ -5618,6 +5811,7 @@
             MultiPathNode: MultiPathNode,
             Node: Node,
             PathNode: PathNode,
+            RectNode: RectNode,
             RootNode: RootNode,
             Surface: Surface,
             TextNode: TextNode
@@ -5625,6 +5819,10 @@
     });
 
 })(window.kendo.jQuery);
+
+})();
+
+(function(){
 
 (function ($) {
 
@@ -6740,6 +6938,20 @@
         }
     });
 
+    var RectDataNode = PathDataNode.extend({
+        renderData: function() {
+            var rect = this.srcElement.geometry();
+            var parts = ["m", printPoints([rect.topLeft()]), "l", printPoints([rect.topRight(), rect.bottomRight(), rect.bottomLeft()]), "x e"];
+            return parts.join(" ");
+        }
+    });
+
+    var RectNode = PathNode.extend({
+        createDataNode: function(srcElement) {
+            return new RectDataNode(srcElement);
+        }
+    });
+
     var nodeMap = {
         Group: GroupNode,
         Text: TextNode,
@@ -6747,7 +6959,8 @@
         MultiPath: MultiPathNode,
         Circle: CircleNode,
         Arc: ArcNode,
-        Image: ImageNode
+        Image: ImageNode,
+        Rect: RectNode
     };
 
     // Helper functions =======================================================
@@ -6889,6 +7102,8 @@
             Node: Node,
             PathDataNode: PathDataNode,
             PathNode: PathNode,
+            RectDataNode: RectDataNode,
+            RectNode: RectNode,
             RootNode: RootNode,
             StrokeNode: StrokeNode,
             Surface: Surface,
@@ -6901,12 +7116,17 @@
 
 })(window.kendo.jQuery);
 
+})();
+
+(function(){
+
 (function($, parseFloat, Math){
 
     "use strict";
 
     /* jshint eqnull:true */
     /* jshint -W069 */
+    /* jshint latedef: nofunc */
 
     /* -----[ local vars ]----- */
 
@@ -6914,6 +7134,7 @@
     var geo = kendo.geometry;
     var slice = Array.prototype.slice;
     var browser = kendo.support.browser;
+    var romanNumeral = kendo.util.arabicToRoman;
 
     var KENDO_PSEUDO_ELEMENT = "KENDO-PSEUDO-ELEMENT";
 
@@ -6976,6 +7197,7 @@
                 element: element,
                 group: group
             };
+            nodeInfo._avoidLinks = options.avoidLinks;
 
             $(element).addClass("k-pdf-export");
             renderElement(element, group);
@@ -7068,11 +7290,32 @@
             }
         }
 
+        // clone nodes ourselves, so that we redraw <canvas> (DOM or
+        // jQuery clone will not).  https://github.com/telerik/kendo/issues/4872
+        function cloneNodes(el) {
+            var clone = el.cloneNode(false);
+            if (el.nodeType == 1 /* Element */) {
+                var $el = $(el), $clone = $(clone), i;
+                var data = $el.data();
+                for (i in data) {
+                    $clone.data(i, data[i]);
+                }
+                if (/^canvas$/i.test(el.tagName)) {
+                    clone.getContext("2d").drawImage(el, 0, 0);
+                } else {
+                    for (i = el.firstChild; i; i = i.nextSibling) {
+                        clone.appendChild(cloneNodes(i));
+                    }
+                }
+            }
+            return clone;
+        }
+
         function handlePageBreaks(callback, element, forceBreak, pageWidth, pageHeight, margin, options) {
             var template = makeTemplate(options.template);
             var doc = element.ownerDocument;
             var pages = [];
-            var copy = $(element).clone(true, true)[0];
+            var copy = cloneNodes(element);
             var container = doc.createElement("KENDO-PDF-DOCUMENT");
             var adjust = 0;
 
@@ -7387,7 +7630,7 @@
 
     var parseBackgroundImage = (function(){
         var tok_linear_gradient  = /^((-webkit-|-moz-|-o-|-ms-)?linear-gradient\s*)\(/;
-        var tok_radial_gradient  = /^((-webkit-|-moz-|-o-|-ms-)?radial-gradient\s*)\(/;
+        //var tok_radial_gradient  = /^((-webkit-|-moz-|-o-|-ms-)?radial-gradient\s*)\(/;
         var tok_percent          = /^([-0-9.]+%)/;
         var tok_length           = /^([-0-9.]+px)/;
         var tok_keyword          = /^(left|right|top|bottom|to|center)\W/;
@@ -7811,35 +8054,6 @@
         });
     }
 
-    function romanNumeral(n) {
-        var literals = {
-            1    : "i",       10   : "x",       100  : "c",
-            2    : "ii",      20   : "xx",      200  : "cc",
-            3    : "iii",     30   : "xxx",     300  : "ccc",
-            4    : "iv",      40   : "xl",      400  : "cd",
-            5    : "v",       50   : "l",       500  : "d",
-            6    : "vi",      60   : "lx",      600  : "dc",
-            7    : "vii",     70   : "lxx",     700  : "dcc",
-            8    : "viii",    80   : "lxxx",    800  : "dccc",
-            9    : "ix",      90   : "xc",      900  : "cm",
-            1000 : "m"
-        };
-        var values = [ 1000,
-                       900 , 800, 700, 600, 500, 400, 300, 200, 100,
-                       90  , 80 , 70 , 60 , 50 , 40 , 30 , 20 , 10 ,
-                       9   , 8  , 7  , 6  , 5  , 4  , 3  , 2  , 1 ];
-        var roman = "";
-        while (n > 0) {
-            if (n < values[0]) {
-                values.shift();
-            } else {
-                roman += literals[values[0]];
-                n -= values[0];
-            }
-        }
-        return roman;
-    }
-
     function alphaNumeral(n) {
         var result = "";
         do {
@@ -8199,7 +8413,7 @@
             }
             return str;
           case "lower-roman":
-            return romanNumeral(val);
+            return romanNumeral(val).toLowerCase();
           case "upper-roman":
             return romanNumeral(val).toUpperCase();
           case "lower-latin":
@@ -8351,13 +8565,26 @@
             }
         })();
 
-        var boxes = element.getClientRects();
-        if (boxes.length == 1) {
-            // Workaround the missing borders in Chrome!  getClientRects() boxes contains values
-            // rounded to integer.  getBoundingClientRect() appears to work fine.  We still need
-            // getClientRects() to support cases where there are more boxes (continued inline
-            // elements that might have border/background).
-            boxes = [ element.getBoundingClientRect() ];
+        var boxes, i, cells;
+        var display = getPropertyValue(style, "display");
+
+        if (display == "table-row") {
+            // because of rowspan/colspan, we shouldn't draw background of table row elements on the
+            // box given by its getBoundingClientRect, because if we do we risk overwritting a
+            // previously rendered cell.  https://github.com/telerik/kendo/issues/4881
+            boxes = [];
+            for (i = 0, cells = element.children; i < cells.length; ++i) {
+                boxes.push(cells[i].getBoundingClientRect());
+            }
+        } else {
+            boxes = element.getClientRects();
+            if (boxes.length == 1) {
+                // Workaround the missing borders in Chrome!  getClientRects() boxes contains values
+                // rounded to integer.  getBoundingClientRect() appears to work fine.  We still need
+                // getClientRects() to support cases where there are more boxes (continued inline
+                // elements that might have border/background).
+                boxes = [ element.getBoundingClientRect() ];
+            }
         }
 
         // This function workarounds another Chrome bug, where boxes returned for a table with
@@ -8365,11 +8592,11 @@
         // such case anyway, but with this is better than without it.
         boxes = adjustBoxes(boxes);
 
-        for (var i = 0; i < boxes.length; ++i) {
+        for (i = 0; i < boxes.length; ++i) {
             drawOneBox(boxes[i], i === 0, i == boxes.length - 1);
         }
 
-        if (boxes.length > 0 && getPropertyValue(style, "display") == "list-item") {
+        if (boxes.length > 0 && display == "list-item") {
             drawBullet(boxes[0]);
         }
 
@@ -8532,13 +8759,15 @@
             group.append(background);
 
             if (element.tagName == "A" && element.href && !/^#?$/.test($(element).attr("href"))) {
-                background._pdfLink = {
-                    url    : element.href,
-                    top    : box.top,
-                    right  : box.right,
-                    bottom : box.bottom,
-                    left   : box.left
-                };
+                if (!nodeInfo._avoidLinks || !$(element).is(nodeInfo._avoidLinks)) {
+                    background._pdfLink = {
+                        url    : element.href,
+                        top    : box.top,
+                        right  : box.right,
+                        bottom : box.bottom,
+                        left   : box.left
+                    };
+                }
             }
 
             if (backgroundColor) {
@@ -8686,12 +8915,11 @@
             }
         }
 
-        function drawBullet(box) {
+        function drawBullet() {
             var listStyleType = getPropertyValue(style, "list-style-type");
             if (listStyleType == "none") {
                 return;
             }
-            var listStyleImage = getPropertyValue(style, "list-style-image");
             var listStylePosition = getPropertyValue(style, "list-style-position");
 
             function _drawBullet(f) {
@@ -8748,7 +8976,7 @@
               case "decimal":
               case "decimal-leading-zero":
                 _drawBullet(function(bullet){
-                    elementIndex(function(idx, len){
+                    elementIndex(function(idx){
                         ++idx;
                         if (listStyleType == "decimal-leading-zero" && (idx+"").length < 2) {
                             idx = "0" + idx;
@@ -8761,7 +8989,7 @@
               case "lower-roman":
               case "upper-roman":
                 _drawBullet(function(bullet){
-                    elementIndex(function(idx, len){
+                    elementIndex(function(idx){
                         idx = romanNumeral(idx + 1);
                         if (listStyleType == "upper-roman") {
                             idx = idx.toUpperCase();
@@ -8776,7 +9004,7 @@
               case "upper-latin":
               case "upper-alpha":
                 _drawBullet(function(bullet){
-                    elementIndex(function(idx, len){
+                    elementIndex(function(idx){
                         idx = alphaNumeral(idx);
                         if (/^upper/i.test(listStyleType)) {
                             idx = idx.toUpperCase();
@@ -8935,7 +9163,7 @@
 
     function gradientRenderer(gradient) {
         return function(group, rect) {
-            var width = rect.width(), height = rect.height(), tl = rect.topLeft();
+            var width = rect.width(), height = rect.height();
 
             switch (gradient.type) {
               case "linear":
@@ -9521,7 +9749,7 @@
             // The only good solution I can think of is to measure the text
             // ourselves and center the bounding box.
             if (browser.msie && !isNaN(lineHeight)) {
-                var size = drawing.util.measureText(str, { font: font });
+                var size = kendo.util.measureText(str, { font: font });
                 var top = (box.top + box.bottom - size.height) / 2;
                 box = {
                     top    : top,
@@ -9739,6 +9967,10 @@
 
 })(window.kendo.jQuery, parseFloat, Math);
 
+})();
+
+(function(){
+
 (function ($, Math) {
     // Imports ================================================================
     var doc = document,
@@ -9862,6 +10094,14 @@
     });
 
 })(window.kendo.jQuery, Math);
+
+})();
+
+(function(){
+
+    
+
+})();
 
 return window.kendo;
 

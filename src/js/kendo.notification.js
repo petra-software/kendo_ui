@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -9,6 +9,10 @@
 (function(f, define){
     define([ "./kendo.core", "./kendo.popup" ], f);
 })(function(){
+
+(function(){
+
+
 
 (function($, undefined) {
     var kendo = window.kendo,
@@ -172,7 +176,7 @@
             }
 
             if (popup.options.anchor !== document.body && popup.options.origin.indexOf(RIGHT) > 0) {
-                popup.bind("open", function (e) {
+                popup.bind("open", function () {
                     var shadows = kendo.getShadows(popup.element);
                     setTimeout(function () {
                         popup.wrapper.css("left", parseFloat(popup.wrapper.css("left")) + shadows.left + shadows.right);
@@ -181,7 +185,7 @@
             }
 
             if (options.hideOnClick) {
-                popup.bind("activate", function(e) {
+                popup.bind("activate", function() {
                     if (attachDelay) {
                         setTimeout(function(){
                             attachClick(popup.element);
@@ -207,8 +211,7 @@
                 autoHideAfter = options.autoHideAfter,
                 x = options.position.left,
                 y = options.position.top,
-                allowHideAfter = options.allowHideAfter,
-                popup, openPopup, attachClick, closeIcon;
+                popup, openPopup;
 
             openPopup = $("." + that._guid + ":not(.k-hiding)").last();
 
@@ -220,7 +223,7 @@
                 modal: true,
                 collision: "",
                 isRtl: that._isRtl,
-                close: function(e) {
+                close: function() {
                     that._triggerHide(this.element);
                 },
                 deactivate: function(e) {
@@ -311,8 +314,7 @@
             var that = this,
                 autoHideAfter = options.autoHideAfter,
                 animation = options.animation,
-                insertionMethod = options.stacking == UP || options.stacking == LEFT ? "prependTo" : "appendTo",
-                attachClick;
+                insertionMethod = options.stacking == UP || options.stacking == LEFT ? "prependTo" : "appendTo";
 
             wrapper
                 .addClass(that._guid)
@@ -348,7 +350,7 @@
             var that = this,
                 options = that.options,
                 wrapper = $(WRAPPER),
-                args, defaultArgs, popup;
+                args, defaultArgs;
 
             if (!type) {
                 type = INFO;
@@ -467,6 +469,10 @@
     kendo.ui.plugin(Notification);
 
 })(window.kendo.jQuery);
+
+
+
+})();
 
 return window.kendo;
 

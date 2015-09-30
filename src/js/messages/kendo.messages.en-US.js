@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -329,7 +329,7 @@ if (kendo.ui.NumericTextBox) {
 kendo.ui.NumericTextBox.prototype.options =
 $.extend(true, kendo.ui.NumericTextBox.prototype.options,{
   "upArrowText": "Increase value",
-  "downArrowText": "Decreate value"
+  "downArrowText": "Decrease value"
 });
 }
 
@@ -338,6 +338,7 @@ $.extend(true, kendo.ui.NumericTextBox.prototype.options,{
 if (kendo.ui.Pager) {
 kendo.ui.Pager.prototype.options.messages =
 $.extend(true, kendo.ui.Pager.prototype.options.messages,{
+  "allPages": "All",
   "display": "{0} - {1} of {2} items",
   "empty": "No items to display",
   "page": "Page",

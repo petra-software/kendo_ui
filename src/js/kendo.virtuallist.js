@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -9,6 +9,10 @@
 (function(f, define){
     define([ "./kendo.data" ], f);
 })(function(){
+
+(function(){
+
+
 
 (function($, undefined) {
     var kendo = window.kendo,
@@ -403,7 +407,6 @@
 
         value: function(value, _forcePrefetch) {
             var that = this;
-            var dataSource = that.dataSource;
 
             if (value === undefined) {
                 return that._values.slice();
@@ -524,7 +527,6 @@
         prefetch: function(indexes) {
             var that = this,
                 take = this.itemCount,
-                dataSource = this.dataSource,
                 isEmptyList = !that._promisesList.length;
 
             if (!that._activeDeferred) {
@@ -584,7 +586,6 @@
             var element,
                 index,
                 data,
-                dataSource = this.dataSource,
                 current,
                 itemHeight = this.options.itemHeight,
                 id = this._optionID,
@@ -668,18 +669,18 @@
             return this._focusedIndex;
         },
 
-        first: function() {
+        focusFirst: function() {
             this.scrollTo(0);
             this.focus(0);
         },
 
-        last: function() {
+        focusLast: function() {
             var lastIndex = this.dataSource.total();
             this.scrollTo(this.heightContainer.offsetHeight);
             this.focus(lastIndex);
         },
 
-        prev: function() {
+        focusPrev: function() {
             var index = this._focusedIndex;
             var current;
 
@@ -697,7 +698,7 @@
             }
         },
 
-        next: function() {
+        focusNext: function() {
             var index = this._focusedIndex;
             var lastIndex = this.dataSource.total() - 1;
             var current;
@@ -722,7 +723,6 @@
                 singleSelection = that.options.selectable !== "multiple",
                 prefetchStarted = !!that._activeDeferred,
                 deferred,
-                added = [],
                 removed = [];
 
             if (candidate === undefined) {
@@ -830,7 +830,6 @@
 
         _screenHeight: function() {
             var height = this._height(),
-                element = this.element,
                 content = this.content;
 
             content.height(height);
@@ -911,8 +910,7 @@
             var that = this,
                 content = that.content.get(0),
                 options = that.options,
-                dataSource = that.dataSource,
-                total = dataSource.total();
+                dataSource = that.dataSource;
 
             if (that._listCreated) {
                 that._clean();
@@ -1077,7 +1075,6 @@
                 current = false,
                 newGroup = false,
                 group = null,
-                nullIndex = -1,
                 match = false,
                 valueGetter = this._valueGetter;
 
@@ -1145,9 +1142,8 @@
             };
         },
 
-        _listItems: function(getter) {
+        _listItems: function() {
             var screenHeight = this.screenHeight,
-                itemCount = this.itemCount,
                 options = this.options;
 
             var theValidator = listValidator(options, screenHeight);
@@ -1390,8 +1386,7 @@
             var that = this,
                 singleSelection = this.options.selectable !== "multiple",
                 dataSource = this.dataSource,
-                index, dataItem, selectedValue, element,
-                page, skip, oldSkip,
+                dataItem, oldSkip,
                 take = this.itemCount,
                 valueGetter = this._valueGetter,
                 added = [];
@@ -1464,6 +1459,10 @@
     kendo.ui.plugin(VirtualList);
 
 })(window.kendo.jQuery);
+
+
+
+})();
 
 return window.kendo;
 

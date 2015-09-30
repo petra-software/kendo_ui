@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -9,6 +9,10 @@
 (function(f, define){
     define([ "./kendo.dropdownlist", "./kendo.editable", "./kendo.multiselect", "./kendo.window", "./kendo.datetimepicker", "./kendo.scheduler.recurrence", "./kendo.scheduler.view", "./kendo.scheduler.dayview", "./kendo.scheduler.agendaview", "./kendo.scheduler.monthview", "./kendo.scheduler.timelineview", "./kendo.mobile.actionsheet", "./kendo.mobile.pane", "./kendo.pdf" ], f);
 })(function(){
+
+(function(){
+
+
 
 /*jshint eqnull: true */
 (function($, undefined) {
@@ -775,16 +779,18 @@
         return options;
     }
 
+    /*
     function fieldType(field) {
         field = field != null ? field : "";
         return field.type || $.type(field) || "string";
     }
+    */
 
     function createValidationAttributes(model, field) {
         var modelField = (model.fields || model)[field];
         var specialRules = ["url", "email", "number", "date", "boolean"];
         var validation = modelField ? modelField.validation : {};
-        var type = fieldType(modelField);
+        // var type = fieldType(modelField);
         var datatype = kendo.attr("type");
         var inArray = $.inArray;
         var ruleName;
@@ -3664,7 +3670,7 @@
                 }
             });
 
-            toolbar.on(CLICK + NS, ".k-scheduler-views li.k-current-view", function(e) {
+            toolbar.on(CLICK + NS, ".k-scheduler-views li.k-current-view", function() {
                 that.element.find(".k-scheduler-views").toggleClass("k-state-expanded");
             });
 
@@ -4086,6 +4092,10 @@
     ui.plugin(MobileTimezoneEditor);
 
 })(window.kendo.jQuery);
+
+
+
+})();
 
 return window.kendo;
 

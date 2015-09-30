@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -10,16 +10,18 @@
     define([ "./kendo.core", "./kendo.data" ], f);
 })(function(){
 
+(function(){
+
+
+
 /*jshint eqnull: true */
 (function ($, undefined) {
     var kendo = window.kendo,
-        browser = kendo.support.browser,
         Observable = kendo.Observable,
         ObservableObject = kendo.data.ObservableObject,
         ObservableArray = kendo.data.ObservableArray,
         toString = {}.toString,
         binders = {},
-        slice = Array.prototype.slice,
         Class = kendo.Class,
         proxy = $.proxy,
         VALUE = "value",
@@ -28,6 +30,7 @@
         CHECKED = "checked",
         CSS = "css",
         deleteExpando = true,
+        FUNCTION = "function",
         CHANGE = "change";
 
     (function() {
@@ -579,7 +582,7 @@
 
             for (idx = 0; idx < items.length; idx++) {
                 var child = element.children[index];
-                unbindElementTree(child);
+                unbindElementTree(child, true);
                 element.removeChild(child);
             }
         },
@@ -601,7 +604,7 @@
             }
 
             if (this.bindings.template) {
-                unbindElementChildren(element);
+                unbindElementChildren(element, true);
 
                 $(element).html(this.bindings.template.render(source));
 
@@ -694,6 +697,8 @@
                     }
                     if (element.value === value.toString()) {
                         element.checked = true;
+                    }else{
+                        element.checked = false;
                     }
                 }
             },
@@ -828,7 +833,6 @@
                 var optionIndex,
                     element = this.element,
                     options = element.options,
-                    valuePrimitive = this.options.valuePrimitive,
                     value = this.bindings[VALUE].get(),
                     values = value,
                     field = this.options.valueField || this.options.textField,
@@ -900,7 +904,7 @@
                     items = e.removedItems || widget.items();
 
                 for (idx = 0, length = items.length; idx < length; idx++) {
-                    unbindElementTree(items[idx]);
+                    unbindElementTree(items[idx], false);
                 }
             },
 
@@ -921,7 +925,6 @@
                     dataSource = widget[fieldName],
                     view,
                     parents,
-                    groups = dataSource.group() || [],
                     hds = kendo.data.HierarchicalDataSource;
 
                 if (hds && dataSource instanceof hds) {
@@ -943,7 +946,8 @@
             refresh: function(e) {
                 var that = this,
                     source,
-                    widget = that.widget;
+                    widget = that.widget,
+                    select, multiselect;
 
                 e = e || {};
 
@@ -964,7 +968,10 @@
                         } else {
                             widget[fieldName].data(source);
 
-                            if (that.bindings.value && (widget instanceof kendo.ui.Select || widget instanceof kendo.ui.MultiSelect)) {
+                            select = kendo.ui.Select && widget instanceof kendo.ui.Select;
+                            multiselect = kendo.ui.MultiSelect && widget instanceof kendo.ui.MultiSelect;
+
+                            if (that.bindings.value && (select || multiselect)) {
                                 widget.value(retrievePrimitiveValues(that.bindings.value.get(), widget.options.dataValueField));
                             }
                         }
@@ -1634,7 +1641,7 @@
         parents = parents || [source];
 
         if (role || bind) {
-            unbindElement(element);
+            unbindElement(element, false);
         }
 
         if (role) {
@@ -1721,7 +1728,7 @@
         }
     }
 
-    function unbindElement(element) {
+    function unbindElement(element, destroyWidget) {
         var bindingTarget = element.kendoBindingTarget;
 
         if (bindingTarget) {
@@ -1735,20 +1742,27 @@
                 element.kendoBindingTarget = null;
             }
         }
+        
+        if(destroyWidget) {
+            var widget = kendo.widgetInstance($(element));
+            if (widget && typeof widget.destroy === FUNCTION) {
+                widget.destroy();
+            }
+        }
     }
 
-    function unbindElementTree(element) {
-        unbindElement(element);
+    function unbindElementTree(element, destroyWidgets) {
+        unbindElement(element, destroyWidgets);
 
-        unbindElementChildren(element);
+        unbindElementChildren(element, destroyWidgets);
     }
 
-    function unbindElementChildren(element) {
+    function unbindElementChildren(element, destroyWidgets) {
         var children = element.children;
 
         if (children) {
             for (var idx = 0, length = children.length; idx < length; idx++) {
-                unbindElementTree(children[idx]);
+                unbindElementTree(children[idx], destroyWidgets);
             }
         }
     }
@@ -1759,7 +1773,7 @@
         dom = $(dom);
 
         for (idx = 0, length = dom.length; idx < length; idx++ ) {
-            unbindElementTree(dom[idx]);
+            unbindElementTree(dom[idx], false);
         }
     }
 
@@ -1838,6 +1852,11 @@
     };
 
 })(window.kendo.jQuery);
+
+
+
+
+})();
 
 return window.kendo;
 

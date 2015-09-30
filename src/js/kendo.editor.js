@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -7,8 +7,57 @@
 * If you do not own a commercial license, this file shall be governed by the trial license terms.
 */
 (function(f, define){
-    define([ "./kendo.combobox", "./kendo.dropdownlist", "./kendo.resizable", "./kendo.window", "./kendo.colorpicker", "./kendo.imagebrowser", "./kendo.filebrowser" ], f);
+    define([ "./kendo.combobox", "./kendo.dropdownlist", "./kendo.resizable", "./kendo.window", "./kendo.colorpicker", "./kendo.imagebrowser", "./kendo.core", "./kendo.filebrowser" ], f);
 })(function(){
+
+(function(){
+
+(function(kendo) {
+    var UndoRedoStack = kendo.Observable.extend({
+        init: function(options) {
+            kendo.Observable.fn.init.call(this, options);
+            this.clear();
+        },
+        events: [ "undo", "redo" ],
+        push: function (command) {
+            this.stack = this.stack.slice(0, this.currentCommandIndex + 1);
+            this.currentCommandIndex = this.stack.push(command) - 1;
+        },
+        undo: function () {
+            if (this.canUndo()) {
+                var command = this.stack[this.currentCommandIndex--];
+                command.undo();
+                this.trigger("undo", { command: command });
+            }
+        },
+        redo: function () {
+            if (this.canRedo()) {
+                var command = this.stack[++this.currentCommandIndex];
+                command.redo();
+                this.trigger("redo", { command: command });
+            }
+        },
+        clear: function() {
+            this.stack = [];
+            this.currentCommandIndex = -1;
+        },
+        canUndo: function () {
+            return this.currentCommandIndex >= 0;
+        },
+        canRedo: function () {
+            return this.currentCommandIndex != this.stack.length - 1;
+        }
+    });
+
+    kendo.deepExtend(kendo, {
+        util: {
+            UndoRedoStack: UndoRedoStack
+        }
+    });
+})(kendo);
+})();
+
+(function(){
 
 (function($,undefined) {
 
@@ -240,7 +289,7 @@
 
             that.clipboard = new editorNS.Clipboard(this);
 
-            that.undoRedoStack = new editorNS.UndoRedoStack();
+            that.undoRedoStack = new kendo.util.UndoRedoStack();
 
             if (options && options.value) {
                 value = options.value;
@@ -314,7 +363,7 @@
 
                         this.editor.height(newSize);
                     },
-                    resizeend: function(e) {
+                    resizeend: function() {
                         this.editor.find(".k-overlay").remove();
                         this.editor = null;
                     }
@@ -380,12 +429,12 @@
                 "<meta charset='utf-8' />" +
                 "<style>" +
                     "html,body{padding:0;margin:0;height:100%;min-height:100%;}" +
-                    "body{font-size:12px;font-family:Verdana,Geneva,sans-serif;padding-top:1px;margin-top:-1px;" +
+                    "body{font-size:12px;font-family:Verdana,Geneva,sans-serif;margin-top:-1px;padding:1px .2em 0;" +
                     "word-wrap: break-word;-webkit-nbsp-mode: space;-webkit-line-break: after-white-space;" +
                     (kendo.support.isRtl(textarea) ? "direction:rtl;" : "") +
                     "}" +
                     "h1{font-size:2em;margin:.67em 0}h2{font-size:1.5em}h3{font-size:1.16em}h4{font-size:1em}h5{font-size:.83em}h6{font-size:.7em}" +
-                    "p{margin:0 0 1em;padding:0 .2em}.k-marker{display:none;}.k-paste-container,.Apple-style-span{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}" +
+                    "p{margin:0 0 1em;}.k-marker{display:none;}.k-paste-container,.Apple-style-span{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}" +
                     "ul,ol{padding-left:2.5em}" +
                     "span{-ms-high-contrast-adjust:none;}" +
                     "a{color:#00a}" +
@@ -430,7 +479,7 @@
             var falseTrigger = false;
 
             $(editor.body)
-                .on("contextmenu" + NS, function(e) {
+                .on("contextmenu" + NS, function() {
                     editor.one("select", function() {
                         beforeCorrection = null;
                     });
@@ -440,7 +489,7 @@
                         falseTrigger = false;
                     }, 10);
                 })
-                .on("input" + NS, function(e) {
+                .on("input" + NS, function() {
                     if (!beforeCorrection) {
                         return;
                     }
@@ -747,7 +796,6 @@
         value: function (html) {
             var body = this.body,
                 editorNS = kendo.ui.editor,
-                dom = editorNS.Dom,
                 currentHtml = editorNS.Serializer.domToXhtml(body, this.options.serialization);
 
             if (html === undefined) {
@@ -1044,6 +1092,10 @@
     }
 
 })(window.jQuery);
+
+})();
+
+(function(){
 
 (function($) {
 
@@ -1837,6 +1889,10 @@ kendo.ui.editor.Dom = Dom;
 
 })(window.kendo.jQuery);
 
+})();
+
+(function(){
+
 (function($, undefined) {
 
 // Imports ================================================================
@@ -2169,7 +2225,7 @@ var Serializer = {
 
         function styleAttr(cssText) {
             var properties = cssProperties(cssText);
-            var i, length = properties.length;
+            var i;
 
             for (i = 0; i < properties.length; i++) {
                 result.push(properties[i].property);
@@ -2400,6 +2456,10 @@ extend(Editor, {
 });
 
 })(window.kendo.jQuery);
+
+})();
+
+(function(){
 
 (function($) {
 
@@ -3643,6 +3703,10 @@ extend(Editor, {
 
 })(window.kendo.jQuery);
 
+})();
+
+(function(){
+
 (function($) {
 
     // Imports ================================================================
@@ -3770,7 +3834,7 @@ var InsertHtmlTool = Tool.extend({
             options = this.options,
             dataSource = options.items ? options.items : editor.options.insertHtml;
 
-        new editorNS.SelectBox(ui, {
+        this._selectBox = new editorNS.SelectBox(ui, {
             dataSource: dataSource,
             dataTextField: "text",
             dataValueField: "value",
@@ -3790,42 +3854,6 @@ var InsertHtmlTool = Tool.extend({
         var selectbox = ui.data("kendoSelectBox") || ui.find("select").data("kendoSelectBox");
         selectbox.close();
         selectbox.value(selectbox.options.title);
-    }
-});
-
-var UndoRedoStack = Class.extend({
-    init: function() {
-        this.clear();
-    },
-
-    push: function (command) {
-        this.stack = this.stack.slice(0, this.currentCommandIndex + 1);
-        this.currentCommandIndex = this.stack.push(command) - 1;
-    },
-
-    undo: function () {
-        if (this.canUndo()) {
-            this.stack[this.currentCommandIndex--].undo();
-        }
-    },
-
-    redo: function () {
-        if (this.canRedo()) {
-            this.stack[++this.currentCommandIndex].redo();
-        }
-    },
-
-    clear: function() {
-        this.stack = [];
-        this.currentCommandIndex = -1;
-    },
-
-    canUndo: function () {
-        return this.currentCommandIndex >= 0;
-    },
-
-    canRedo: function () {
-        return this.currentCommandIndex != this.stack.length - 1;
     }
 });
 
@@ -3882,7 +3910,7 @@ var BackspaceHandler = Class.extend({
     },
     _addCaret: function(container) {
         var caret = dom.create(this.editor.document, "a");
-        container.appendChild(caret);
+        dom.insertAt(container, caret, 0);
         return caret;
     },
     _restoreCaret: function(caret) {
@@ -3898,13 +3926,12 @@ var BackspaceHandler = Class.extend({
 
         if (block && editorNS.RangeUtils.isEndOf(range, block)) {
             // join with next sibling
-            var caret = this._addCaret(block);
-
             var next = dom.next(block);
             if (!next || dom.name(next) != "p") {
-                dom.remove(caret);
                 return false;
             }
+
+            var caret = this._addCaret(next);
 
             this._merge(block, next);
 
@@ -3936,7 +3963,7 @@ var BackspaceHandler = Class.extend({
         // unwrap block
         if (block && block.previousSibling && editorNS.RangeUtils.isStartOf(range, block)) {
             var prev = block.previousSibling;
-            var caret = this._addCaret(prev);
+            var caret = this._addCaret(block);
             this._merge(prev, block);
 
             this._restoreCaret(caret);
@@ -4026,7 +4053,11 @@ var BackspaceHandler = Class.extend({
         dom.removeTrailingBreak(dest);
 
         while (src.firstChild) {
-            dest.appendChild(src.firstChild);
+            if (dest.nodeType == 1) {
+                dest.appendChild(src.firstChild);
+            } else {
+                dest.parentNode.appendChild(src.firstChild);
+            }
         }
 
         dom.remove(src);
@@ -4109,7 +4140,7 @@ var SystemHandler = Class.extend({
         return false;
     },
 
-    keyup: function (e) {
+    keyup: function () {
         var that = this;
 
         if (that.systemCommandIsInProgress && that.changed()) {
@@ -4395,8 +4426,7 @@ var Clipboard = Class.extend({
                 range.deleteContents();
             },
             function afterPaste(editor, range) {
-                var html = "", args = { html: "" }, containers;
-                var browser = kendo.support.browser;
+                var html = "", containers;
 
                 editor.selectRange(range);
 
@@ -4929,7 +4959,6 @@ extend(editorNS, {
     GenericCommand: GenericCommand,
     InsertHtmlCommand: InsertHtmlCommand,
     InsertHtmlTool: InsertHtmlTool,
-    UndoRedoStack: UndoRedoStack,
     TypingHandler: TypingHandler,
     SystemHandler: SystemHandler,
     BackspaceHandler: BackspaceHandler,
@@ -4949,6 +4978,9 @@ registerTool("pdf", new Tool({ command: ExportPdfCommand, template: new ToolTemp
 
 })(window.kendo.jQuery);
 
+})();
+
+(function(){
 (function($) {
 
 var kendo = window.kendo,
@@ -5434,6 +5466,10 @@ registerTool("fontSize", new FontTool({cssAttr:"font-size", domAttr:"fontSize", 
 
 })(window.kendo.jQuery);
 
+})();
+
+(function(){
+
 (function($) {
 
 var kendo = window.kendo,
@@ -5794,6 +5830,10 @@ registerTool("justifyFull", new BlockFormatTool({
 
 })(window.kendo.jQuery);
 
+})();
+
+(function(){
+
 (function($) {
 
 // Imports ================================================================
@@ -6034,6 +6074,10 @@ registerTool("insertLineBreak", new Tool({ key: 13, shift: true, command: NewLin
 registerTool("insertParagraph", new Tool({ key: 13, command: ParagraphCommand }));
 
 })(window.kendo.jQuery);
+
+})();
+
+(function(){
 
 (function($) {
 
@@ -6482,6 +6526,10 @@ registerTool("insertOrderedList", new ListTool({tag:'ol', template: new ToolTemp
 
 })(window.kendo.jQuery);
 
+})();
+
+(function(){
+
 (function($, undefined) {
 
 var kendo = window.kendo,
@@ -6622,7 +6670,6 @@ var LinkCommand = Command.extend({
     },
 
     exec: function () {
-        var collapsed = this.getRange().collapsed;
         var messages = this.editor.options.messages;
 
         this._initialText = "";
@@ -6780,6 +6827,10 @@ registerTool("createLink", new Tool({ key: "K", ctrl: true, command: LinkCommand
 registerTool("unlink", new UnlinkTool({ key: "K", ctrl: true, shift: true, template: new ToolTemplate({template: EditorUtils.buttonTemplate, title: "Remove Link"})}));
 
 })(window.kendo.jQuery);
+
+})();
+
+(function(){
 
 (function($, undefined) {
 
@@ -6946,7 +6997,7 @@ var FileCommand = Command.extend({
             .data("kendoWindow");
 
         if (showBrowser) {
-            new kendo.ui.FileBrowser(
+            that._fileBrowser = new kendo.ui.FileBrowser(
                 dialog.element.find(".k-filebrowser"),
                 extend({}, fileBrowser, {
                     change: function() {
@@ -6968,6 +7019,10 @@ kendo.ui.editor.FileCommand = FileCommand;
 registerTool("insertFile", new Editor.Tool({ command: FileCommand, template: new ToolTemplate({template: EditorUtils.buttonTemplate, title: "Insert File" }) }));
 
 })(window.kendo.jQuery);
+
+})();
+
+(function(){
 
 (function($, undefined) {
 
@@ -7177,7 +7232,7 @@ var ImageCommand = Command.extend({
             .data("kendoWindow");
 
         if (showBrowser) {
-            new kendo.ui.ImageBrowser(
+            this._imageBrowser = new kendo.ui.ImageBrowser(
                 dialog.element.find(".k-imagebrowser"),
                 extend({}, imageBrowser, {
                     change: function() {
@@ -7199,6 +7254,10 @@ kendo.ui.editor.ImageCommand = ImageCommand;
 registerTool("insertImage", new Editor.Tool({ command: ImageCommand, template: new ToolTemplate({template: EditorUtils.buttonTemplate, title: "Insert Image" }) }));
 
 })(window.kendo.jQuery);
+
+})();
+
+(function(){
 
 (function($, undefined) {
 
@@ -7325,6 +7384,10 @@ kendo.ui.plugin(SelectBox);
 kendo.ui.editor.SelectBox = SelectBox;
 
 })(window.kendo.jQuery);
+
+})();
+
+(function(){
 
 (function($, undefined) {
 
@@ -7555,6 +7618,10 @@ registerTool("outdent", new OutdentTool({ command: OutdentCommand, template: new
 
 })(window.kendo.jQuery);
 
+})();
+
+(function(){
+
 (function($, undefined) {
 
 var kendo = window.kendo,
@@ -7637,6 +7704,10 @@ kendo.ui.editor.ViewHtmlCommand = ViewHtmlCommand;
 Editor.EditorUtils.registerTool("viewHtml", new Tool({ command: ViewHtmlCommand, template: new ToolTemplate({template: EditorUtils.buttonTemplate, title: "View HTML"})}));
 
 })(window.kendo.jQuery);
+
+})();
+
+(function(){
 
 (function($) {
 
@@ -7895,6 +7966,10 @@ registerTool("cleanFormatting", new Tool({ command: CleanFormatCommand, template
 
 })(window.kendo.jQuery);
 
+})();
+
+(function(){
+
 (function($,undefined) {
     var kendo = window.kendo;
     var ui = kendo.ui;
@@ -8115,7 +8190,7 @@ registerTool("cleanFormatting", new Tool({ command: CleanFormatCommand, template
 
             that._attachEvents();
 
-            that.items().each(function initializeTool(x, y) {
+            that.items().each(function initializeTool() {
                 var toolName = that._toolName(this),
                     tool = toolName !== "more" ? that.tools[toolName] : that.tools.overflowAnchor,
                     options = tool && tool.options,
@@ -8319,8 +8394,7 @@ registerTool("cleanFormatting", new Tool({ command: CleanFormatCommand, template
                 browser = kendo.support.browser,
                 group, i, groupPosition = 0,
                 resizable = that.options.resizable && that.options.resizable.toolbar,
-                overflowFlaseTools = this.overflowFlaseTools,
-                overflow;
+                overflowFlaseTools = this.overflowFlaseTools;
 
             function stringify(template) {
                 var result;
@@ -8738,6 +8812,10 @@ $.extend(editorNS, {
 
 })(window.jQuery);
 
+})();
+
+(function(){
+
 (function($, undefined) {
 
 var kendo = window.kendo,
@@ -8929,7 +9007,6 @@ var InsertTableTool = PopupTool.extend({
         var element = this._popup.element;
         var status = element.find(".k-status");
         var cells = element.find(".k-ct-cell");
-        var rows = this.rows;
         var cols = this.cols;
         var messages = this._editor.options.messages;
 
@@ -9203,6 +9280,14 @@ registerTool("deleteColumn", new TableModificationTool({ type: "column", action:
 //registerTool("mergeCells", new Tool({ template: new ToolTemplate({template: EditorUtils.buttonTemplate, title: "Merge cells"})}));
 
 })(window.kendo.jQuery);
+
+})();
+
+(function(){
+
+    
+
+})();
 
 return window.kendo;
 

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -9,6 +9,10 @@
 (function(f, define){
     define([ "./kendo.data", "./kendo.columnsorter", "./kendo.editable", "./kendo.window", "./kendo.filtermenu", "./kendo.columnmenu", "./kendo.groupable", "./kendo.pager", "./kendo.selectable", "./kendo.sortable", "./kendo.reorderable", "./kendo.resizable", "./kendo.mobile.actionsheet", "./kendo.mobile.pane", "./kendo.ooxml", "./kendo.excel", "./kendo.progressbar", "./kendo.pdf" ], f);
 })(function(){
+
+(function(){
+
+
 
 /* jshint eqnull: true */
 (function($, undefined) {
@@ -440,14 +444,6 @@
             iconClass: "k-icon"
         }
     };
-
-    function heightAboveHeader(context) {
-        var top = 0;
-        $('> .k-grouping-header, > .k-grid-toolbar', context).each(function () {
-            top += this.offsetHeight;
-        });
-        return top;
-    }
 
     function cursor(context, value) {
         $('th, th .k-grid-filter, th .k-link', context)
@@ -995,14 +991,14 @@
                 return this.colSpan > 1;
             });
 
-            for (idx = 0; idx < prevCells.length; idx++) {
+            for (var idx = 0; idx < prevCells.length; idx++) {
                 offset += prevCells[idx].colSpan || 1;
             }
 
             index += Math.max(offset - 1, 0);
 
             offset = 0;
-            for (var idx = 0; idx < parentCellsWithChildren.length; idx++) {
+            for (idx = 0; idx < parentCellsWithChildren.length; idx++) {
                 var parentCell = parentCellsWithChildren.eq(idx);
                 if (parentCell.attr("colSpan")) {
                     offset += parentCell[0].colSpan;
@@ -1029,7 +1025,6 @@
 
         if (level <= headerRows.length - 1) {
             var child = row.next();
-            var index = row.find("th:not(.k-group-cell,.k-hierarchy-cell)").index(cell);
             var prevCells = cell.prevAll(":not(.k-group-cell,.k-hierarchy-cell)");
 
             var idx;
@@ -1853,7 +1848,7 @@
             });
         },
 
-        _positionColumnResizeHandle: function(container) {
+        _positionColumnResizeHandle: function() {
             var that = this,
                 indicatorWidth = that.options.columnResizeHandleWidth,
                 lockedHead = that.lockedHeader ? that.lockedHeader.find("thead:first") : $();
@@ -1903,7 +1898,7 @@
             }
         },
 
-        _positionColumnResizeHandleTouch: function(container) {
+        _positionColumnResizeHandleTouch: function() {
             var that = this,
                 lockedHead = that.lockedHeader ? that.lockedHeader.find("thead:first") : $();
 
@@ -2099,6 +2094,7 @@
 
                 that._draggableInstance = that.wrapper.kendoDraggable({
                     group: kendo.guid(),
+                    autoScroll: true,
                     filter: that.content ? ".k-grid-header:first " + HEADERCELLS : "table:first>.k-grid-header " + HEADERCELLS,
                     drag: function() {
                         that._hideResizeHandle();
@@ -2280,7 +2276,6 @@
                 columns = that.columns,
                 index,
                 th,
-                header,
                 headerTable,
                 isLocked,
                 visibleLocked = that.lockedHeader ? leafDataCells(that.lockedHeader.find(">table>thead")).filter(isCellVisible).length : 0,
@@ -3096,7 +3091,7 @@
             } else {
                 html += "</div></div>";
                 that.editView = that.pane.append(
-                    '<div data-' + kendo.ns + 'role="view" data-' + kendo.ns + 'init-widgets="false" class="k-grid-edit-form">'+
+                    '<div data-' + kendo.ns + 'role="view" data-' + kendo.ns + 'use-native-scrolling="true" data-' + kendo.ns + 'init-widgets="false" class="k-grid-edit-form">'+
                         '<div data-' + kendo.ns + 'role="header" class="k-header">'+
                             that._createButton({ name: "update", text: updateText, attr: attr }) +
                             (options.title || "Edit") +
@@ -3208,8 +3203,7 @@
         cancelRow: function() {
             var that = this,
                 container = that._editContainer,
-                model,
-                tr;
+                model;
 
             if (container) {
                 model = that._modelForContainer(container);
@@ -3223,6 +3217,7 @@
                 } else {
                     that._displayRow(that.tbody.find("[" + kendo.attr("uid") + "=" + model.uid + "]"));
                 }
+
             }
         },
 
@@ -3260,10 +3255,18 @@
                 newRow = $((isAlt ? that.altRowTemplate : that.rowTemplate)(model));
                 row.replaceWith(newRow);
 
+                var angularElements = newRow;
+                var angularData = [{ dataItem: model }];
+
+                if (related && related.length) {
+                    angularElements = newRow.add(related);
+                    angularData.push({ dataItem: model });
+                }
+
                 that.angular("compile", function(){
                     return {
-                        elements: newRow.get(),
-                        data: [ { dataItem: model } ]
+                        elements: angularElements.get(),
+                        data: angularData
                     };
                 });
 
@@ -3494,6 +3497,8 @@
             }
 
             if (isPlainObject(command)) {
+                command = extend(true, {}, command);
+
                 if (command.className && inArray(options.className, command.className.split(" ")) < 0) {
                     command.className += " " + options.className;
                 } else if (command.className === undefined) {
@@ -4149,7 +4154,7 @@
             this._setTabIndex(table);
         },
 
-        _tableBlur: function(e) {
+        _tableBlur: function() {
             var current = this.current();
 
             if (current) {
@@ -4764,7 +4769,7 @@
 
             if (this._isMobile) {
                 var html = this.wrapper.addClass("k-grid-mobile").wrap(
-                        '<div data-' + kendo.ns + 'role="view" ' +
+                        '<div data-' + kendo.ns + 'stretch="true" data-' + kendo.ns + 'role="view" ' +
                         'data-' + kendo.ns + 'init-widgets="false"></div>'
                     )
                     .parent();
@@ -4835,7 +4840,7 @@
                 table.width(that.table[0].style.width);
 
                 table.append(that.thead);
-                header.empty().append($('<div class="k-grid-header-wrap" />').append(table));
+                header.empty().append($('<div class="k-grid-header-wrap k-auto-scrollable" />').append(table));
 
 
                 that.content = that.table.parent();
@@ -4854,7 +4859,7 @@
                     });
                 }
 
-                that.scrollables = header.children(".k-grid-header-wrap");
+                that.scrollables = header.children(".k-grid-header-wrap").add(that.content);
 
                 // the footer may exists if rendered from the server
                 var footer = that.wrapper.find(".k-grid-footer");
@@ -4871,8 +4876,8 @@
                         }
                     });
                 } else {
-                    that.content.unbind("scroll" + NS).bind("scroll" + NS, function () {
-                        that.scrollables.scrollLeft(this.scrollLeft);
+                    that.scrollables.unbind("scroll" + NS).bind("scroll" + NS, function (e) {
+                        that.scrollables.not(e.currentTarget).scrollLeft(this.scrollLeft);
                         if (that.lockedContent) {
                             that.lockedContent[0].scrollTop = this.scrollTop;
                         }
@@ -5280,7 +5285,7 @@
                 that.angular("compile", function(){
                     return {
                         elements: footer.find("td:not(.k-group-cell, .k-hierarchy-cell)").get(),
-                        data: map(that.columns, function(col, i){
+                        data: map(that.columns, function(col){
                             return {
                                 column: col,
                                 aggregate: aggregates[col.field]
@@ -6000,7 +6005,7 @@
                     typeof filterable.mode == STRING &&
                     filterable.mode.indexOf("row") != -1;
             var columns = this.columns;
-            var columnsWithoutFiltering = $.grep(columns, function(col, idx) {
+            var columnsWithoutFiltering = $.grep(columns, function(col) {
                 return col.filterable === false;
             });
 
@@ -6342,13 +6347,10 @@
                 hasDetails = that._hasDetails() && columns.length,
                 hasFilterRow = that._hasFilterRow(),
                 idx,
-                length,
                 html = "",
                 thead = that.table.find(">thead"),
                 hasTHead = that.element.find("thead:first").length > 0,
-                tr,
-                text,
-                th;
+                tr;
 
             if (!thead.length) {
                 thead = $("<thead/>").insertBefore(that.tbody);
@@ -6639,8 +6641,6 @@
                 footerDefaults = that._groupAggregatesDefaultObject || {},
                 aggregates = extend({}, footerDefaults, group.aggregates),
                 data = extend({}, { field: group.field, value: group.value, aggregates: aggregates }, group.aggregates[group.field]),
-                rowTemplate = templates.rowTemplate,
-                altRowTemplate = templates.altRowTemplate,
                 groupFooterTemplate = templates.groupFooterTemplate,
                 groupItems = group.items;
 
@@ -6848,9 +6848,7 @@
                 cols,
                 colWidth,
                 position,
-                row,
                 width = 0,
-                parents = [],
                 headerCellIndex,
                 length,
                 footer = that.footer || that.wrapper.find(".k-grid-footer"),
@@ -7006,7 +7004,6 @@
                 cell,
                 tables,
                 width,
-                row,
                 headerCellIndex,
                 position,
                 colWidth,
@@ -7158,9 +7155,6 @@
 
         refresh: function(e) {
             var that = this,
-                length,
-                idx,
-                html = "",
                 data = that.dataSource.view(),
                 navigatable = that.options.navigatable,
                 currentIndex,
@@ -7229,6 +7223,7 @@
                 } else if (that.touchScroller) {
                     that.touchScroller.movable.trigger("change");
                 } else {
+                    that.wrapper.one("scroll", function(e) { e.stopPropagation(); });
                     that.content.trigger("scroll");
                 }
             }
@@ -7308,12 +7303,17 @@
        },
 
        _angularGroupItems: function(cmd) {
-           var that = this;
+           var that = this,
+               container = that.tbody;
+
+           if (that.lockedContent) {
+               container = that.lockedTable.find("tbody");
+           }
 
            if (that._group) {
               that.angular(cmd, function(){
                    return {
-                       elements: that.tbody.children(".k-grouping-row"),
+                       elements: container.children(".k-grouping-row"),
                        data: $.map(groupRows(that.dataSource.view()), function(dataItem){
                            return { dataItem: dataItem };
                        })
@@ -7323,13 +7323,18 @@
        },
 
        _angularGroupFooterItems: function(cmd) {
-           var that = this;
+           var that = this,
+               container = that.tbody;
+
+           if (that.lockedContent) {
+                container = that.element;
+           }
 
            if (that._group && that.groupFooterTemplate) {
 
                that.angular(cmd, function() {
                    return {
-                       elements: that.tbody.children(".k-group-footer"),
+                       elements: container.find(".k-group-footer"),
                        data: $.map(groupFooters(that.dataSource.view()), function(dataItem){
                            return { dataItem: dataItem };
                        })
@@ -7697,10 +7702,6 @@
        }
    }
 
-   function dataCellIndex(cell) {
-       return cell.parent().children(DATA_CELL).index(cell);
-   }
-
    function isInEdit(cell) {
        return cell &&
            (cell.hasClass("k-edit-cell") ||
@@ -7715,7 +7716,7 @@
        '</p></td></tr>';
    }
 
-   function groupRowLockedContentBuilder(colspan, level, text) {
+   function groupRowLockedContentBuilder(colspan) {
        return '<tr role="row" class="k-grouping-row">' +
            '<td colspan="' + colspan + '" aria-expanded="true">' +
            '<p class="k-reset">&nbsp;</p></td></tr>';
@@ -7725,6 +7726,10 @@
    ui.plugin(VirtualScrollable);
 
 })(window.kendo.jQuery);
+
+
+
+})();
 
 return window.kendo;
 

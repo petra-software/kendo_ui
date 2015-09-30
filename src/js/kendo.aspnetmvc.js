@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -9,6 +9,8 @@
 (function(f, define){
     define([ "./kendo.data", "./kendo.combobox", "./kendo.dropdownlist", "./kendo.multiselect", "./kendo.validator" ], f);
 })(function(){
+
+(function(){
 
 (function ($, undefined) {
     var kendo = window.kendo,
@@ -302,7 +304,7 @@
        schemas: {
            "webapi": kendo.data.schemas["aspnetmvc-ajax"]
        }
-    })
+    });
 
     extend(true, kendo.data, {
         transports: {
@@ -438,6 +440,10 @@
     });
 })(window.kendo.jQuery);
 
+})();
+
+(function(){
+
 (function ($, undefined) {
     var kendo = window.kendo,
         ui = kendo.ui;
@@ -457,6 +463,10 @@
     }
 
 })(window.kendo.jQuery);
+
+})();
+
+(function(){
 
 (function ($, undefined) {
     var kendo = window.kendo,
@@ -479,6 +489,10 @@
 
 })(window.kendo.jQuery);
 
+})();
+
+(function(){
+
 (function ($, undefined) {
     var kendo = window.kendo,
         ui = kendo.ui;
@@ -493,6 +507,10 @@
     }
 
 })(window.kendo.jQuery);
+
+})();
+
+(function(){
 
 (function ($, undefined) {
     var kendo = window.kendo,
@@ -582,6 +600,10 @@
     });
 
 })(window.kendo.jQuery);
+
+})();
+
+(function(){
 
 (function ($, undefined) {
     var nameSpecialCharRegExp = /("|\%|'|\[|\]|\$|\.|\,|\:|\;|\+|\*|\&|\!|\#|\(|\)|<|>|\=|\?|\@|\^|\{|\}|\~|\/|\||`)/g;
@@ -800,6 +822,14 @@
         }
     });
 })(window.kendo.jQuery);
+
+})();
+
+(function(){
+
+
+
+})();
 
 return window.kendo;
 

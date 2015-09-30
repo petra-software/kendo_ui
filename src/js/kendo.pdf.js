@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -9,6 +9,8 @@
 (function(f, define){
     define([ "./kendo.core", "./kendo.color", "./kendo.drawing" ], f);
 })(function(){
+
+(function(){
 
 (function(window, parseFloat, undefined){
 
@@ -21,6 +23,7 @@
     /* jshint loopfunc:true */
     /* jshint newcap:false */
     /* global VBArray */
+    /* jshint latedef: nofunc */
 
     var kendo = window.kendo;
 
@@ -1026,7 +1029,6 @@
         },
         beforeRender: function() {
             var self = this;
-            var font = self._font;
             var sub = self._sub;
 
             // write the TTF data
@@ -2037,6 +2039,10 @@
 
 })(window, parseFloat);
 
+})();
+
+(function(){
+
 (function(window){
 
 /*****************************************************************************\
@@ -2397,7 +2403,7 @@ var GlyfTable = (function(){
     var MORE_COMPONENTS           = 0x0020;
     var WE_HAVE_AN_X_AND_Y_SCALE  = 0x0040;
     var WE_HAVE_A_TWO_BY_TWO      = 0x0080;
-    var WE_HAVE_INSTRUCTIONS      = 0x0100;
+    //var WE_HAVE_INSTRUCTIONS      = 0x0100;
 
     function CompoundGlyph(data) {
         this.raw = data;
@@ -2438,7 +2444,7 @@ var GlyfTable = (function(){
     };
 
     return deftable({
-        parse: function(data) {
+        parse: function() {
             this.cache = {};
         },
         glyphFor: function(id) {
@@ -2508,7 +2514,7 @@ var NameTable = (function(){
     return deftable({
         parse: function(data) {
             data.offset(this.offset);
-            var format = data.readShort();
+            data.readShort();   // format
             var count = data.readShort();
             var stringOffset = this.offset + data.readShort();
             var nameRecords = data.times(count, function(){
@@ -3077,7 +3083,7 @@ function TTFFont(rawData, name) {
         if (!name) {
             throw new Error("Must specify a name for TTC files");
         }
-        var version = data.readLong();
+        data.readLong();        // version
         var numFonts = data.readLong();
         for (var i = 0; i < numFonts; ++i) {
             var offset = data.readLong();
@@ -3129,17 +3135,21 @@ PDF.TTFFont = TTFFont;
 
 })(window);
 
+})();
+
+(function(){
+
 (function(kendo, $){
 
     "use strict";
 
     // WARNING: removing the following jshint declaration and turning
     // == into === to make JSHint happy will break functionality.
-    /*jshint eqnull:true  */
+    /* jshint eqnull: true  */
+    /* jshint latedef: nofunc */
 
     var drawing     = kendo.drawing;
     var geo         = kendo.geometry;
-    var Color       = drawing.Color;
 
     var TEXT_RENDERING_MODE = kendo.pdf.TEXT_RENDERING_MODE;
 
@@ -3341,7 +3351,7 @@ PDF.TTFFont = TTFFont;
         }
     }
 
-    function setStrokeOptions(element, page, pdf) {
+    function setStrokeOptions(element, page) {
         var stroke = element.stroke && element.stroke();
         if (!stroke) {
             return;
@@ -3388,7 +3398,7 @@ PDF.TTFFont = TTFFont;
         }
     }
 
-    function setFillOptions(element, page, pdf) {
+    function setFillOptions(element, page) {
         var fill = element.fill && element.fill();
         if (!fill) {
             return;
@@ -3504,7 +3514,7 @@ PDF.TTFFont = TTFFont;
         }
     }
 
-    function maybeDrawRect(path, page, pdf) {
+    function maybeDrawRect(path, page) {
         var segments = path.segments;
         if (segments.length == 4 && path.options.closed) {
             // detect if this path looks like a rectangle parallel to the axis
@@ -3597,7 +3607,7 @@ PDF.TTFFont = TTFFont;
         maybeFillStroke(element, page, pdf);
     }
 
-    function drawText(element, page, pdf) {
+    function drawText(element, page) {
         var style = kendo.pdf.parseFontDef(element.options.font);
         var pos = element._position;
         var mode;
@@ -3627,7 +3637,7 @@ PDF.TTFFont = TTFFont;
         }
     }
 
-    function drawImage(element, page, pdf) {
+    function drawImage(element, page) {
         var url = element.src();
         if (!url) {
             return;
@@ -3805,6 +3815,10 @@ PDF.TTFFont = TTFFont;
 
 })(window.kendo, window.kendo.jQuery);
 
+})();
+
+(function(){
+
 
 
 (function(kendo, $){
@@ -3946,6 +3960,10 @@ kendo.PDFMixin = {
 };
 
 })(kendo, window.kendo.jQuery);
+
+
+
+})();
 
 return window.kendo;
 

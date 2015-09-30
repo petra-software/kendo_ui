@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -9,6 +9,10 @@
 (function(f, define){
     define([ "./kendo.core" ], f);
 })(function(){
+
+(function(){
+
+
 
 (function ($, undefined) {
     var kendo = window.kendo,
@@ -74,7 +78,7 @@
 
         setOptions: function(options) {
             var that = this;
-            
+
             Widget.fn.setOptions.call(that, options);
 
             if (options.hasOwnProperty("reverse")) {
@@ -379,7 +383,7 @@
             var html = "";
 
             if (options.chunkCount <= 1) {
-                options.chunkCount = DEFAULTCHUNKCOUNT;
+                options.chunkCount = 1;
             }
 
             html += "<ul class='k-reset'>";
@@ -456,6 +460,10 @@
 
     kendo.ui.plugin(ProgressBar);
 })(window.kendo.jQuery);
+
+
+
+})();
 
 return window.kendo;
 

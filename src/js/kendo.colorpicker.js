@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -9,6 +9,10 @@
 (function(f, define){
     define([ "./kendo.core", "./kendo.color", "./kendo.popup", "./kendo.slider", "./kendo.userevents" ], f);
 })(function(){
+
+(function(){
+
+
 
 (function($, parseInt, undefined){
     // WARNING: removing the following jshint declaration and turning
@@ -893,6 +897,10 @@
     ui.plugin(ColorPicker);
 
 })(jQuery, parseInt);
+
+
+
+})();
 
 return window.kendo;
 

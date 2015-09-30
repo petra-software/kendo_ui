@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.2.902 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -89,8 +89,8 @@ if (kendo.ui.ColumnMenu) {
 kendo.ui.ColumnMenu.prototype.options.messages =
 $.extend(true, kendo.ui.ColumnMenu.prototype.options.messages,{
   "columns": "Kolumner",
-  "sortAscending": "Sortera fallande",
-  "sortDescending": "Sortera stigande",
+  "sortAscending": "Sortera stigande",
+  "sortDescending": "Sortera fallande",
   "settings": "Kolumninställningar",
   "done": "Klar",
   "lock": "Закључати",
@@ -225,6 +225,7 @@ $.extend(true, kendo.ui.Groupable.prototype.options.messages,{
 if (kendo.ui.Pager) {
 kendo.ui.Pager.prototype.options.messages =
 $.extend(true, kendo.ui.Pager.prototype.options.messages,{
+  "allPages": "All",
   "display": "{0} - {1} av {2} poster",
   "empty": "Det finns inga poster",
   "first": "Gå till första sidan",
