@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1005 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -234,6 +234,7 @@
             Widget.fn.init.call(that, element, options);
 
             that.options = deepExtend({}, that.options, options);
+            that.options.tools = that.options.tools.slice();
 
             element = that.element;
             domElement = element[0];
@@ -4365,7 +4366,7 @@ var Clipboard = Class.extend({
             return (/^image\//i).test(item.type);
         });
 
-        if (!images.length) {
+        if (!images || !images.length) {
             return;
         }
 
@@ -8285,7 +8286,7 @@ registerTool("cleanFormatting", new Tool({ command: CleanFormatCommand, template
 
             element.closest(".k-animation-container").addClass("k-overflow-wrapper");
 
-            element.attr(TABINDEX, tabIndex || 0).focus()
+            element.attr(TABINDEX, tabIndex || 0)
                 .find(focusable).first().focus();
 
             if (!tabIndex && tabIndex !== 0) {

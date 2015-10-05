@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1005 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -59,6 +59,10 @@
     var COLUMNLOCK = "columnLock";
     var COLUMNUNLOCK = "columnUnlock";
     var PARENTIDFIELD = "parentId";
+    var DRAGSTART = "dragstart";
+    var DRAG = "drag";
+    var DROP = "drop";
+    var DRAGEND = "dragend";
 
     var classNames = {
         wrapper: "k-treelist k-grid k-widget",
@@ -206,7 +210,6 @@
 
         var parentId = options.parentId || PARENTIDFIELD;
 
-        delete options.parentId;
         options.parentIdField = parentId;
 
         var model = Model.define(base, options);
@@ -936,17 +939,36 @@
                     var tr = target.closest("tr");
                     return { item: tr, content: tr };
                 },
-                dragstart: proxy(function() {
+                dragstart: proxy(function(source) {
                     this.wrapper.addClass("k-treelist-dragging");
+
+                    var model = this.dataItem(source);
+
+                    return this.trigger(DRAGSTART, { source: model });
                 }, this),
-                drop: proxy(function() {
+                drag: proxy(function(e) {
+                    e.source = this.dataItem(e.source);
+
+                    this.trigger(DRAG, e);
+                }, this),
+                drop: proxy(function(e) {
+                    e.source = this.dataItem(e.source);
+                    e.destination = this.dataItem(e.destination);
+
                     this.wrapper.removeClass("k-treelist-dragging");
+
+                    return this.trigger(DROP, e);
                 }, this),
                 dragend: proxy(function(e) {
                     var dest = this.dataItem(e.destination);
                     var src = this.dataItem(e.source);
 
                     src.set("parentId", dest ? dest.id : null);
+
+                    e.source = src;
+                    e.destination = dest;
+
+                    this.trigger(DRAGEND, e);
                 }, this),
                 reorderable: false,
                 dropHintContainer: function(item) {
@@ -956,6 +978,14 @@
                     return dropHint.prevAll(".k-i-none").length > 0 ? "after" : "before";
                 }
             });
+        },
+
+        itemFor: function(model) {
+            if (typeof model == "number") {
+                model = this.dataSource.get(model);
+            }
+
+            return this.tbody.find("[" + kendo.attr("uid") + "=" + model.uid + "]");
         },
 
         _scrollable: function() {
@@ -1313,6 +1343,10 @@
             DATABINDING,
             DATABOUND,
             CANCEL,
+            DRAGSTART,
+            DRAG,
+            DROP,
+            DRAGEND,
             FILTERMENUINIT,
             COLUMNHIDE,
             COLUMNSHOW,
@@ -2776,7 +2810,7 @@
         _insertAt: function(model, index) {
             model = this.dataSource.insert(index, model);
 
-            var row = this.tbody.find("[" + kendo.attr("uid") + "=" + model.uid + "]");
+            var row = this.itemFor(model);
 
             this.editRow(row);
         },
@@ -2820,7 +2854,7 @@
         },
 
         _createEditor: function(model) {
-            var row = this.tbody.find("[" + kendo.attr("uid") + "=" + model.uid + "]");
+            var row = this.itemFor(model);
 
             row = row.add(this._relatedRow(row));
 

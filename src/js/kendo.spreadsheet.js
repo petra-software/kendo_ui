@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1005 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -551,6 +551,10 @@
 (function(){
 
 (function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
     var $ = kendo.jQuery;
 
     var Command = kendo.spreadsheet.Command = kendo.Class.extend({
@@ -1202,6 +1206,10 @@
 (function(){
 
 (function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
     var $ = kendo.jQuery;
 
     var classNames = {
@@ -1233,6 +1241,9 @@
 (function(){
 
 (function(kendo, window) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
 
     /* jshint eqnull:true */
     /* jshint latedef: nofunc */
@@ -1962,6 +1973,10 @@
 (function(){
 
 (function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
     var $ = kendo.jQuery;
 
     var KEY_NAMES = {
@@ -2123,6 +2138,10 @@
 (function(){
 
 (function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
     var RangeTreeNode = kendo.Class.extend({
         init: function Node(level, value, left, right) {
             this.level = level;
@@ -2627,6 +2646,10 @@
 (function(){
 
 (function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
     var $ = kendo.jQuery;
 
     var Property = kendo.Class.extend({
@@ -2839,12 +2862,15 @@
 })();
 
 (function(){
-
     // WARNING: removing the following jshint declaration and turning
     // == into === to make JSHint happy will break functionality.
     /* jshint eqnull:true, laxbreak:true */
 
     "use strict";
+
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
 
     var spreadsheet = kendo.spreadsheet;
     var Class = kendo.Class;
@@ -3684,6 +3710,10 @@
 (function(){
 
 (function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
     var RangeRef = kendo.spreadsheet.RangeRef;
     var CellRef = kendo.spreadsheet.CellRef;
 
@@ -4164,6 +4194,10 @@
 (function(){
 
 (function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
     var AxisManager = kendo.Class.extend({
         init: function(sheet) {
             this._sheet = sheet;
@@ -4280,6 +4314,10 @@
 (function(){
 
 (function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
     var $ = kendo.jQuery;
     var RangeRef = kendo.spreadsheet.RangeRef;
     var CellRef = kendo.spreadsheet.CellRef;
@@ -4593,6 +4631,10 @@
 (function(){
 
 (function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
     var $ = kendo.jQuery;
 
     var UnionRef = kendo.spreadsheet.UnionRef;
@@ -5209,8 +5251,11 @@
 })();
 
 (function(){
-
     "use strict";
+
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
 
     // WARNING: removing the following jshint declaration and turning
     // == into === to make JSHint happy will break functionality.
@@ -5270,6 +5315,9 @@
         },
 
         _resolve: function(val) {
+            if (val === undefined) {
+                val = null;
+            }
             var f = this.formula;
             f.value = val;
             if (this.ss.onFormula(f) && this.callback) {
@@ -6662,8 +6710,11 @@
 })();
 
 (function(){
-
     "use strict";
+
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
 
     var spreadsheet = kendo.spreadsheet;
 
@@ -6933,6 +6984,10 @@
 (function(){
 
 (function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
     var RangeRef = kendo.spreadsheet.RangeRef;
     var CellRef = kendo.spreadsheet.CellRef;
     var Range = kendo.spreadsheet.Range;
@@ -8159,6 +8214,10 @@
 (function(){
 
     (function(kendo) {
+        if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+            return;
+        }
+
         var $ = kendo.jQuery;
         var DOT = ".";
         var EMPTYCHAR = " ";
@@ -8569,6 +8628,10 @@
 (function(){
 
 (function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
     var $ = kendo.jQuery;
 
     var Workbook = kendo.Observable.extend({
@@ -8898,6 +8961,9 @@
 })();
 
 (function() {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
 
     /* jshint eqnull:true */
 
@@ -9064,6 +9130,10 @@
 (function(kendo) {
     'use strict';
 
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
     var $ = kendo.jQuery;
 
     var ACTIONS = {
@@ -9203,8 +9273,6 @@
                 this.tabstrip.bind("action", this.onCommandRequest.bind(this));
                 this.tabstrip.bind("dialog", this.onDialogRequest.bind(this));
             }
-
-            $(this.view.container).on("click", ".k-spreadsheet-filter", this.onFilterHeaderClick.bind(this));
         },
 
         _execute: function(command) {
@@ -9449,6 +9517,12 @@
             var sheet = this._workbook.activeSheet();
             if (object.type === "columnresizehandle" || object.type === "rowresizehandle") {
                 sheet.startResizing({ x: object.x, y: object.y });
+                event.preventDefault();
+                return;
+            }
+
+            if (object.type === "filtericon") {
+                this.openFilterMenu(event.target);
                 event.preventDefault();
                 return;
             }
@@ -9776,6 +9850,16 @@
             this._scrollInterval = null;
         },
 
+        openFilterMenu: function(target) {
+            var button = $(target).closest(".k-spreadsheet-filter");
+            var filterMenu = this.view.createFilterMenu(button.data("column"));
+
+            filterMenu.bind("action", this.onCommandRequest.bind(this));
+            filterMenu.bind("action", filterMenu.close.bind(filterMenu));
+
+            filterMenu.openFor(target);
+        },
+
 ////////////////////////////////////////////////////////////////////
 
         onEditorChange: function(e) {
@@ -9869,16 +9953,6 @@
 
 ////////////////////////////////////////////////////////////////////
 
-        onFilterHeaderClick: function(e) {
-            var target = $(e.currentTarget);
-            var filterMenu = this.view.createFilterMenu(target.data("column"));
-
-            filterMenu.bind("action", this.onCommandRequest.bind(this));
-            filterMenu.bind("action", filterMenu.close.bind(filterMenu));
-
-            filterMenu.openFor(target);
-        },
-
         onCommandRequest: function(e) {
             if (e.command) {
                 this._execute(e);
@@ -9900,6 +9974,10 @@
 (function(){
 
 (function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
     var $ = kendo.jQuery;
     var CellRef = kendo.spreadsheet.CellRef;
     var DOT = ".";
@@ -10338,6 +10416,20 @@
             return bottom - handleWidth <= y && y <= bottom + handleWidth;
         },
 
+        isFilterIcon: function(x, y, pane, ref) {
+            var result = false;
+
+            x -= this._sheet._grid._headerWidth;
+            y -= this._sheet._grid._headerHeight;
+
+            this._sheet.forEachFilterHeader(ref, function(ref) {
+                var rect = this._rectangle(pane, ref);
+                result = result || pane.filterIconRect(rect).intersects(x, y);
+            }.bind(this));
+
+            return result;
+        },
+
         objectAt: function(x, y) {
             var grid = this._sheet._grid;
 
@@ -10356,7 +10448,9 @@
                 var type = "cell";
                 var ref = new CellRef(row, column);
 
-                if (x < grid._headerWidth) {
+                if (this.isFilterIcon(x, y, pane, ref)) {
+                    type = "filtericon";
+                } else if (x < grid._headerWidth) {
                     ref = new CellRef(row, -Infinity);
                     type = this.isRowResizer(y, pane, ref) ? "rowresizehandle" : "rowheader";
                 } else if (y < grid._headerHeight) {
@@ -10909,6 +11003,17 @@
             });
         },
 
+        filterIconRect: function(rect) {
+            var BUTTON_SIZE = 16;
+            var BUTTON_OFFSET = 3;
+
+            return new kendo.spreadsheet.Rectangle(
+                rect.right - BUTTON_SIZE - BUTTON_OFFSET,
+                rect.top + BUTTON_OFFSET,
+                BUTTON_SIZE, BUTTON_SIZE
+            );
+        },
+
         renderFilterHeaders: function() {
             var sheet = this._sheet;
             var filterIcons = [];
@@ -10922,11 +11027,10 @@
                 });
             }
 
-            function filterButton(classNames, rect, index) {
-                var BUTTON_SIZE = 16;
+            function filterButton(classNames, position, index) {
                 var style = {
-                    left: rect.left + rect.width - BUTTON_SIZE - 3 + "px",
-                    top: rect.top + (rect.height - BUTTON_SIZE) / 2 + "px"
+                    left: position.left + "px",
+                    top: position.top + "px"
                 };
                 var filtered = filter && filter.columns.some(function(c) {
                     return c.index === index;
@@ -10948,7 +11052,8 @@
 
             sheet.forEachFilterHeader(this._currentView.ref, function(ref) {
                 var rect = this._rectangle(ref);
-                var button = filterButton(classNames, rect, index);
+                var position = this.filterIconRect(rect);
+                var button = filterButton(classNames, position, index);
                 index++;
 
                 filterIcons.push(button);
@@ -11070,6 +11175,10 @@
 (function(){
 
 (function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
     var CellRef = kendo.spreadsheet.CellRef;
     var RangeRef = kendo.spreadsheet.RangeRef;
     var UnionRef = kendo.spreadsheet.UnionRef;
@@ -11091,6 +11200,11 @@
 
         resize: function(width, height) {
             return new Rectangle(this.left, this.top, this.width + width, this.height + height);
+        },
+
+        intersects: function(x, y) {
+            return this.left < x && x < this.left + this.width &&
+                   this.top < y && y < this.top + this.height;
         },
 
         toDiv: function(className) {
@@ -11338,6 +11452,10 @@
 (function(){
 
 (function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
     var Axis = kendo.Class.extend({
         init: function(count, value) {
             this._value = value;
@@ -11689,6 +11807,10 @@
 
 (function(){
 (function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
     /*jshint evil: true */
     var Filter = kendo.spreadsheet.Filter = kendo.Class.extend({
         prepare: function() {
@@ -12132,6 +12254,10 @@
 (function(){
 
 (function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
     var Sorter = kendo.Class.extend({
         init: function(grid, lists) {
             this._grid = grid;
@@ -12247,8 +12373,11 @@
 })();
 
 (function(){
-
     "use strict";
+
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
 
     // WARNING: removing the following jshint declaration and turning
     // == into === to make JSHint happy will break functionality.
@@ -13354,8 +13483,11 @@
 })();
 
 (function(){
-
     "use strict";
+
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
 
     // WARNING: removing the following jshint declaration and turning
     // == into === to make JSHint happy will break functionality.
@@ -14076,8 +14208,11 @@
 })();
 
 (function(){
-
     "use strict";
+
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
 
     // WARNING: removing the following jshint declaration and turning
     // == into === to make JSHint happy will break functionality.
@@ -16376,8 +16511,11 @@
 })();
 
 (function(){
-
     "use strict";
+
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
 
     // WARNING: removing the following jshint declaration and turning
     // == into === to make JSHint happy will break functionality.
@@ -17395,6 +17533,10 @@
 (function(){
 
     (function(kendo) {
+        if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+            return;
+        }
+
         var $ = kendo.jQuery;
         var BORDER_TYPES = [ "allBorders", "insideBorders", "insideHorizontalBorders", "insideVerticalBorders", "outsideBorders", "leftBorder", "topBorder", "rightBorder", "bottomBorder", "noBorders" ];
 
@@ -17485,6 +17627,10 @@
 (function(){
 
 (function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
     var $ = kendo.jQuery;
 
     var ToolBar = kendo.ui.ToolBar;
@@ -18534,6 +18680,10 @@
 (function(){
 
 (function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
     var $ = kendo.jQuery;
     var ObservableObject = kendo.data.ObservableObject;
 
@@ -19685,6 +19835,9 @@
 (function(){
 
 (function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
 
     var SheetDataSourceBinder = kendo.Class.extend({
         init: function(options) {
@@ -19843,6 +19996,10 @@
 (function(){
 
     (function(kendo) {
+        if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+            return;
+        }
+
         var $ = kendo.jQuery;
         var Widget = kendo.ui.Widget;
         var classNames = {
@@ -20373,6 +20530,10 @@
 (function(){
 
 (function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
     var SheetEditor = kendo.Observable.extend({
         init: function(view) {
             kendo.Observable.fn.init.call(this);
@@ -20524,6 +20685,10 @@
     
 
     (function(kendo, undefined) {
+        if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+            return;
+        }
+
         var $ = kendo.jQuery;
 
         var Widget = kendo.ui.Widget;

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1005 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -128,6 +128,8 @@
             }
 
             that.listView.bind("click", function(e) { e.preventDefault(); });
+
+            that._resetFocusItemHandler = $.proxy(that._resetFocusItem, that);
 
             kendo.notify(that);
         },
@@ -272,6 +274,8 @@
                 that._open = true;
 
                 that.listView.filter(true);
+                that.listView.value([]);
+
                 that._filterSource({
                     value: ignoreCase ? word.toLowerCase() : word,
                     operator: options.filter,
@@ -390,7 +394,8 @@
                     that._angularItems("cleanup");
                 },
                 dataBound: listBoundHandler,
-                listBound: listBoundHandler
+                listBound: listBoundHandler,
+                skipUpdateOnBind: true
             };
 
             listOptions = $.extend(that._listOptions(), listOptions, typeof virtual === "object" ? virtual : {});
@@ -406,6 +411,16 @@
             that.listView.value(that.options.value);
         },
 
+        _resetFocusItem: function() {
+            var index = this.options.highlightFirst ? 0 : -1;
+
+            if (this.options.virtual) {
+                this.listView.scrollTo(0);
+            }
+
+            this.listView.focus(index);
+        },
+
         _listBound: function() {
             var that = this;
             var popup = that.popup;
@@ -417,24 +432,11 @@
 
             that._angularItems("compile");
 
-            if (that._open) {
-                that.listView.value([]);
-                that.listView.focus(-1);
-            }
-
-            that.listView.filter(false);
-
             that._calculateGroupPadding(that._height(length));
 
             popup.position();
 
             if (length) {
-                var current = this.listView.focus();
-
-                if (options.highlightFirst && !current) {
-                    that.listView.focusFirst();
-                }
-
                 if (options.suggest && isActive) {
                     that.suggest(data[0]);
                 }
@@ -448,9 +450,21 @@
                     action = "close";
                 }
 
+                if (length) {
+                    if (!options.virtual) {
+                        that._resetFocusItem();
+                    } else {
+                        that.popup
+                            .unbind("activate", that._resetFocusItemHandler)
+                            .one("activate", that._resetFocusItemHandler);
+                    }
+                }
+
                 popup[action]();
                 that._typingTimeout = undefined;
             }
+
+            that.listView.filter(false);
 
             if (that._touchScroller) {
                 that._touchScroller.reset();

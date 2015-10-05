@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.930 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1005 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -416,6 +416,7 @@
 
                 if (formattedValue !== value) {
                     that.element.val(date === null ? value : formattedValue);
+                    that.element.trigger(CHANGE);
                 }
 
                 return date;
@@ -746,7 +747,7 @@
         options.format = extractFormat(options.format || patterns.g);
         options.timeFormat = timeFormat = extractFormat(options.timeFormat || patterns.t);
         kendo.DateView.normalize(options);
-        
+
         if (parseFormats) {
            options.parseFormats.unshift("yyyy-MM-ddTHH:mm:ss");
         }
