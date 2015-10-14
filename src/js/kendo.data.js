@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1005 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1798,6 +1798,7 @@
             getter,
             originalName,
             idx,
+            setters = {},
             length;
 
         for (idx = 0, length = data.length; idx < length; idx++) {
@@ -1806,7 +1807,10 @@
                 originalName = fieldNames[getter];
 
                 if (originalName && originalName !== getter) {
-                    record[originalName] = getters[getter](record);
+                    if (!setters[originalName]) {
+                        setters[originalName] = kendo.setter(originalName);
+                    }
+                    setters[originalName](record, getters[getter](record));
                     delete record[getter];
                 }
             }

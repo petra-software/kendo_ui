@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kendo.Mvc", "Kendo.Mvc\Kendo.Mvc.csproj", "{A7F7C110-D7F0-49B7-8DDA-FD2D1CC6F3B1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Telerik.Web.Spreadsheet", "..\Telerik.Web.Spreadsheet\Telerik.Web.Spreadsheet.csproj", "{D697E6A6-319F-44FA-A757-443415FF43BB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Telerik.Web.Spreadsheet", "..\Telerik.Web.Spreadsheet\Telerik.Web.Spreadsheet\Telerik.Web.Spreadsheet.csproj", "{D697E6A6-319F-44FA-A757-443415FF43BB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

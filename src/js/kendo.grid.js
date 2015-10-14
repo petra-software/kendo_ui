@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1005 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1357,6 +1357,7 @@
             if (that.options.autoBind) {
                 that.dataSource.fetch();
             } else {
+                that._group = that._groups() > 0;
                 that._footer();
             }
 
@@ -4850,7 +4851,7 @@
                 }
 
                 if (!that.content.is(".k-grid-content, .k-virtual-scrollable-wrap")) {
-                    that.content = that.table.wrap('<div class="k-grid-content" />').parent();
+                    that.content = that.table.wrap('<div class="k-grid-content k-auto-scrollable" />').parent();
                 }
                 if (hasVirtualScroll) {
                     that.virtualScrollable = new VirtualScrollable(that.content, {
@@ -5506,6 +5507,8 @@
                return;
             }
 
+            var settings;
+            var $angular = that.options.$angular;
             var columns = leafColumns(that.columns),
                 filterable = that.options.filterable,
                 rowheader = that.thead.find(".k-filter-row");
@@ -5549,24 +5552,32 @@
                         operators =  col.filterable.operators;
                     }
 
+                    settings = {
+                        column: col,
+                        dataSource: that.dataSource,
+                        suggestDataSource: suggestDataSource,
+                        customDataSource: customDataSource,
+                        field: field,
+                        messages: messages,
+                        values: col.values,
+                        template: cellOptions.template,
+                        delay: cellOptions.delay,
+                        inputWidth: cellOptions.inputWidth,
+                        suggestionOperator: cellOptions.suggestionOperator,
+                        minLength: cellOptions.minLength,
+                        dataTextField: cellOptions.dataTextField,
+                        operator: cellOptions.operator,
+                        operators: operators,
+                        showOperators: cellOptions.showOperators
+                    };
+
+                    if ($angular) {
+                        settings.$angular = $angular;
+                    }
+
                     $("<span/>").attr(kendo.attr("field"), field)
-                        .kendoFilterCell({
-                            dataSource: that.dataSource,
-                            suggestDataSource: suggestDataSource,
-                            customDataSource: customDataSource,
-                            field: field,
-                            messages: messages,
-                            values: col.values,
-                            template: cellOptions.template,
-                            delay: cellOptions.delay,
-                            inputWidth: cellOptions.inputWidth,
-                            suggestionOperator: cellOptions.suggestionOperator,
-                            minLength: cellOptions.minLength,
-                            dataTextField: cellOptions.dataTextField,
-                            operator: cellOptions.operator,
-                            operators: operators,
-                            showOperators: cellOptions.showOperators
-                        }).appendTo(th);
+                        .appendTo(th)
+                        .kendoFilterCell(settings);
                 } else {
                     th.html("&nbsp;");
                 }
@@ -6476,6 +6487,8 @@
 
             that._reorderable();
 
+            that._updateHeader(that._groups());
+
             if (that.groupable) {
                 that._attachGroupable();
             }
@@ -6564,6 +6577,16 @@
 
         _isLocked: function() {
             return this.lockedHeader != null;
+        },
+
+        _updateHeaderCols: function() {
+            var table = this.thead.parent().add(this.table);
+
+            if (this._isLocked()) {
+                normalizeCols(table, visibleLeafColumns(visibleNonLockedColumns(this.columns)), this._hasDetails(), 0);
+            } else {
+                normalizeCols(table, visibleLeafColumns(visibleColumns(this.columns)), this._hasDetails(), 0);
+            }
         },
 
         _updateCols: function(table) {

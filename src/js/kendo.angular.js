@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1005 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -402,6 +402,10 @@
 
             setTimeout(function(){
                 if (widget) { // might have been destroyed in between. :-(
+                    var kNgModel = scope[widget.element.attr("k-ng-model")];
+                    if (kNgModel) {
+                        val = kNgModel;
+                    }
                     widget.value(val);
                 }
             }, 0);
@@ -423,7 +427,6 @@
                 if (haveChangeOnElement) {
                     return;
                 }
-                haveChangeOnElement = false;
                 if (pristine && ngForm) {
                     formPristine = ngForm.$pristine;
                 }
@@ -487,6 +490,7 @@
             if (newValue === oldValue) {
                 return;
             }
+
             widget.$angular_setLogicValue(newValue);
         };
         if (kendo.ui.MultiSelect && widget instanceof kendo.ui.MultiSelect) {
@@ -735,6 +739,7 @@
 
     var SKIP_SHORTCUTS = [
         'MobileView',
+        'MobileDrawer',
         'MobileLayout',
         'MobileSplitView',
         'MobilePane',

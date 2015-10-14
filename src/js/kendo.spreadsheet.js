@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1005 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1605,7 +1605,7 @@
         },
 
         isActive: function() {
-            return this.element.is(":focus");
+            return this.element[0] === kendo._activeElement();
         },
 
         filter: function(value) {
@@ -2029,7 +2029,8 @@
 
             this.keyDownProxy = this.keyDown.bind(this);
             this.mouseProxy = this.mouse.bind(this);
-            this._mousePressed = false;
+            this.threshold = 5;
+            this._pressLocation = null;
 
             target.on("keydown", this.keyDownProxy);
             target.on("contextmenu mousedown cut copy paste scroll wheel click dblclick focus", this.mouseProxy);
@@ -2063,18 +2064,24 @@
                 if (rightClick) {
                    type = "rightmousedown";
                 } else {
-                    this._mousePressed = true;
+                    this._pressLocation = { x: e.pageX, y: e.pageY };
                 }
             }
 
             if (type === "mouseup") {
                 if (!rightClick) {
-                    this._mousePressed = false;
+                    this._pressLocation = null;
                 }
             }
 
-            if (type === "mousemove" && this._mousePressed) {
-                type = "mousedrag";
+            if (type === "mousemove" && this._pressLocation) {
+                var dx = this._pressLocation.x - e.pageX;
+                var dy = this._pressLocation.y - e.pageY;
+                var distance = Math.sqrt(dx*dx + dy*dy);
+
+                if (distance > this.threshold) {
+                    type = "mousedrag";
+                }
             }
 
             this.handleEvent(e, type);
@@ -2947,6 +2954,9 @@
         isCell: function() {
             return false;
         },
+        toColumn: function() {
+            return this;
+        },
 
         // UnionRef overrides these, to access its subranges.
         first: function() {
@@ -3182,9 +3192,6 @@
             return this;
         },
         bottomRow: function() {
-            return this;
-        },
-        toColumn: function() {
             return this;
         },
         forEachRow: function(callback) {
@@ -3853,7 +3860,7 @@
             var columns = sheet._grid._columns;
 
             var originalSelection = sheet.currentOriginalSelectionRange();
-            var selection = sheet.currentSelectionRange();
+            var selection = sheet.select().toRangeRef();
             var activeCell = sheet.activeCell();
 
             var topLeft = originalSelection.topLeft.clone();
@@ -3930,7 +3937,7 @@
                     scrollInto = topLeft;
                     break;
                 case "last-row":
-                    bottomRight.col = rows.lastVisible();
+                    bottomRight.row = rows.lastVisible();
                     topLeft.row = activeCell.topLeft.row;
                     scrollInto = bottomRight;
                     break;
@@ -4033,7 +4040,7 @@
             var row = cell.row;
             var column = cell.col;
 
-            var selection = sheet.currentSelectionRange();
+            var selection = sheet.currentNavigationRange();
             var selTopLeft = selection.topLeft;
             var selBottomRight = selection.bottomRight;
 
@@ -4048,7 +4055,7 @@
                 switch (direction) {
                     case "next":
                         if (selBottomRight.eq(current)) {
-                            selection = sheet.nextSelectionRange();
+                            selection = sheet.nextNavigationRange();
                             row = selection.topLeft.row;
                             column = selection.topLeft.col;
                         } else {
@@ -4061,7 +4068,7 @@
                         break;
                     case "previous":
                         if (selTopLeft.eq(current)) {
-                            selection = sheet.previousSelectionRange();
+                            selection = sheet.previousNavigationRange();
                             row = selection.bottomRight.row;
                             column = selection.bottomRight.col;
                         } else {
@@ -4074,7 +4081,7 @@
                         break;
                     case "lower":
                         if (selBottomRight.eq(current)) {
-                            selection = sheet.nextSelectionRange();
+                            selection = sheet.nextNavigationRange();
                             row = selection.topLeft.row;
                             column = selection.topLeft.col;
                         } else {
@@ -4087,7 +4094,7 @@
                         break;
                     case "upper":
                         if (selTopLeft.eq(current)) {
-                            selection = sheet.previousSelectionRange();
+                            selection = sheet.previousNavigationRange();
                             row = selection.bottomRight.row;
                             column = selection.bottomRight.col;
                         } else {
@@ -4957,9 +4964,17 @@
             return this.clear({ formatOnly: true });
         },
 
+        isSortable: function() {
+            return !(this._ref instanceof UnionRef || this._ref === kendo.spreadsheet.NULLREF);
+        },
+
         sort: function(spec) {
             if (this._ref instanceof UnionRef) {
                 throw new Error("Unsupported for multiple ranges.");
+            }
+
+            if (this._ref === kendo.spreadsheet.NULLREF) {
+                throw new Error("Unsupported for NULLREF.");
             }
 
             if (spec === undefined) {
@@ -4980,6 +4995,10 @@
             }));
 
             return this;
+        },
+
+        isFilterable: function() {
+            return !(this._ref instanceof UnionRef);
         },
 
         filter: function(spec) {
@@ -7413,11 +7432,34 @@
             }
 
             if (this._filter) {
+                var refs = [];
+
+                // get refs of all columns
                 this._filter.ref.forEachColumn(function(columnRef) {
                     if (selectAll || columnRef.intersects(ref)) {
-                        callback(columnRef.topLeft);
+                        refs.push(columnRef.topLeft);
                     }
                 });
+
+                // filter out merged references
+                this._mergedCells.forEach(function(merged) {
+                    refs = refs.map(function(ref) {
+                        if (merged.intersects(ref)) {
+                            return merged;
+                        }
+
+                        return ref;
+                    });
+                });
+
+                // use only unique refs
+                refs.reduce(function unique(result, element) {
+                    if (result.indexOf(element) < 0) {
+                        result.push(element);
+                    }
+
+                    return result;
+                }, []).forEach(callback);
             }
         },
 
@@ -7542,6 +7584,16 @@
 
         currentSelectionRange: function() {
             var selectionState = this._selectionState();
+            return selectionState.selection.rangeAt(selectionState.selectionRangeIndex).toRangeRef();
+        },
+
+        currentOriginalSelectionRange: function() {
+            var selectionState = this._selectionState();
+            return selectionState.originalSelection.rangeAt(selectionState.selectionRangeIndex).toRangeRef();
+        },
+
+        currentNavigationRange: function() {
+            var selectionState = this._selectionState();
 
             if (this.singleCellSelection()) {
                 return this._sheetRef;
@@ -7550,34 +7602,30 @@
             }
         },
 
-        currentOriginalSelectionRange: function() {
-            var selectionState = this._selectionState();
-            return selectionState.originalSelection.rangeAt(selectionState.selectionRangeIndex).toRangeRef();
-        },
-
-        nextSelectionRange: function() {
+        nextNavigationRange: function() {
             var selectionState = this._selectionState();
 
             if (!this.singleCellSelection()) {
                 selectionState.selectionRangeIndex = selectionState.selection.nextRangeIndex(selectionState.selectionRangeIndex);
             }
 
-            return this.currentSelectionRange();
+            return this.currentNavigationRange();
         },
 
-        selectionRangeIndex: function() {
-            return this._selectionState().selectionRangeIndex;
-        },
-
-        previousSelectionRange: function() {
+        previousNavigationRange: function() {
             var selectionState = this._selectionState();
 
             if (!this.singleCellSelection()) {
                 selectionState.selectionRangeIndex = selectionState.selection.previousRangeIndex(selectionState.selectionRangeIndex);
             }
 
-            return this.currentSelectionRange();
+            return this.currentNavigationRange();
         },
+
+        selectionRangeIndex: function() {
+            return this._selectionState().selectionRangeIndex;
+        },
+
 
         unionWithMerged: function(ref) {
             var mergedCells = this._mergedCells;
@@ -8080,7 +8128,7 @@
 
                 columns.forEach(function(column) {
                     // do not filter header row
-                    var columnRef = ref.toColumn(column.index).resize({ top: 1 });
+                    var columnRef = ref.resize({ top: 1 }).toColumn(column.index);
 
                     var cells = [];
 
@@ -9991,7 +10039,8 @@
         cellEditor: "k-spreadsheet-cell-editor",
         barEditor: "k-spreadsheet-editor",
         topCorner: "k-spreadsheet-top-corner",
-        filterHeadersWrapper: "k-filter-headers",
+        filterHeadersWrapper: "k-filter-wrapper",
+        filterRange: "k-filter-range",
         filterButton: "k-spreadsheet-filter",
         filterButtonActive: "k-state-active",
         icon: "k-icon k-font-icon",
@@ -11010,13 +11059,14 @@
             return new kendo.spreadsheet.Rectangle(
                 rect.right - BUTTON_SIZE - BUTTON_OFFSET,
                 rect.top + BUTTON_OFFSET,
-                BUTTON_SIZE, BUTTON_SIZE
+                BUTTON_SIZE,
+                BUTTON_SIZE
             );
         },
 
         renderFilterHeaders: function() {
             var sheet = this._sheet;
-            var filterIcons = [];
+            var children = [];
             var classNames = View.classNames;
             var index = 0;
             var filter = sheet.filter();
@@ -11050,16 +11100,22 @@
                 return button;
             }
 
+            if (filter) {
+                this._addDiv(children, filter.ref, classNames.filterRange);
+            }
+
             sheet.forEachFilterHeader(this._currentView.ref, function(ref) {
                 var rect = this._rectangle(ref);
                 var position = this.filterIconRect(rect);
                 var button = filterButton(classNames, position, index);
                 index++;
 
-                filterIcons.push(button);
+                children.push(button);
             }.bind(this));
 
-            return kendo.dom.element("div", { className: classNames.filterHeadersWrapper }, filterIcons);
+            return kendo.dom.element("div", {
+                className: classNames.filterHeadersWrapper
+            }, children);
 
         },
 
@@ -20433,7 +20489,9 @@
             },
 
             _popup: function() {
-                this.popup = this.element.kendoPopup().data("kendoPopup");
+                this.popup = this.element.kendoPopup({
+                    copyAnchorStyles: false
+                }).data("kendoPopup");
             },
 
             _sort: function() {
@@ -20459,7 +20517,11 @@
                             operatingRange: range
                         };
 
-                        this.action({ command: "SortCommand", options: options });
+                        if (range.isSortable()) {
+                            this.action({ command: "SortCommand", options: options });
+                        } else {
+                            this.close();
+                        }
                     }.bind(this)
                 }).data("kendoMenu");
             },
@@ -20564,10 +20626,11 @@
 
         activeEditor: function() {
             var editor = null;
+            var activeElement = kendo._activeElement();
 
-            if (this.barElement().is(":focus")) {
+            if (this.barElement()[0] === activeElement) {
                 editor = this.barInput;
-            } else if (this.cellElement().is(":focus")) {
+            } else if (this.cellElement()[0] === activeElement) {
                 editor = this.cellInput;
             }
 

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1005 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -320,7 +320,7 @@
 
             if (this.options.$angular) {
                 controller = this.element.controller();
-                scope = this.element.scope();
+                scope = this.$angular[0];
 
                 if (controller) {
                     var callback = $.proxy(this, '_callController', controller, scope);

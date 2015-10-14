@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1005 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -724,6 +724,7 @@
             }
 
             var tableRows = this.content[0].getElementsByTagName("tr");
+            var startDate = this.startDate();
 
             for (var groupIndex = 0; groupIndex < groupCount; groupIndex++) {
                 var cellCount = 0;
@@ -735,7 +736,7 @@
 
                 for (var rowIndex = rowMultiplier*rowCount; rowIndex < (rowMultiplier+1) *rowCount; rowIndex++) {
                     var group = this.groups[groupIndex];
-                    var collection = group.addDaySlotCollection(kendo.date.addDays(this.startDate(), cellCount), kendo.date.addDays(this.startDate(), cellCount + columnCount));
+                    var collection = group.addDaySlotCollection(kendo.date.addDays(startDate, cellCount), kendo.date.addDays(this.startDate(), cellCount + columnCount));
 
                     var tableRow = tableRows[rowIndex];
                     var cells = tableRow.children;
@@ -754,7 +755,15 @@
 
                         var firstChildHeight = cell.children.length ? cell.children[0].offsetHeight + 3 : 0;
 
-                        var start = kendo.date.toUtcTime(kendo.date.addDays(this.startDate(), cellCount));
+                        var start = kendo.date.addDays(startDate, cellCount);
+                        var end = kendo.date.MS_PER_DAY;
+
+                        if (startDate.getHours() !== start.getHours()) {
+                            end += (startDate.getHours() - start.getHours()) * kendo.date.MS_PER_HOUR;
+                        }
+
+                        start = kendo.date.toUtcTime(start);
+                        end += start;
 
                         cellCount ++;
 
@@ -763,7 +772,7 @@
                         cell.setAttribute("role", "gridcell");
                         cell.setAttribute("aria-selected", false);
 
-                        collection.addDaySlot(cell, start, start + kendo.date.MS_PER_DAY, eventCount);
+                        collection.addDaySlot(cell, start, end, eventCount);
                     }
                 }
             }

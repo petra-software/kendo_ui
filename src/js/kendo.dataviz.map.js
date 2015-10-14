@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1005 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1088,7 +1088,7 @@
                 this.dataSource.unbind("change", this._dataChange);
             }
 
-            this.dataSource = dataSource;
+            this.dataSource = kendo.data.DataSource.create(dataSource);
             this.dataSource.bind("change", this._dataChange);
 
             if (this.options.autoBind) {
@@ -2275,7 +2275,7 @@
                 this.dataSource.unbind("change", this._dataChange);
             }
 
-            this.dataSource = dataSource;
+            this.dataSource = kendo.data.DataSource.create(dataSource);
             this.dataSource.bind("change", this._dataChange);
 
             if (this.options.autoBind) {

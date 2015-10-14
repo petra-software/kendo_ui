@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1005 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -132,8 +132,6 @@
             }
 
             that.appendTo = $(options.appendTo);
-
-            that._animations();
 
             if (content && !isPlainObject(content)) {
                 content = options.content = { url: content };
@@ -321,12 +319,14 @@
             });
         },
 
-        _animations: function() {
-            var options = this.options;
+        _animationOptions: function(id) {
+            var animation = this.options.animation;
+            var basicAnimation = {
+                open: { effects: {} },
+                close: { hide: true, effects: {} }
+            };
 
-            if (options.animation === false) {
-                options.animation = { open: { effects: {} }, close: { hide: true, effects: {} } };
-            }
+            return animation && animation[id] || basicAnimation[id];
         },
 
         _resize: function() {
@@ -392,14 +392,15 @@
             var scrollable = this.options.scrollable !== false;
 
             this.restore();
-            this._animations();
             this._dimensions();
             this._position();
             this._resizable();
             this._draggable();
             this._actions();
             if (typeof options.modal !== "undefined") {
-                this._overlay(options.modal);
+                var visible = this.options.visible !== false;
+
+                this._overlay(options.modal && visible);
             }
 
             this.element.css(OVERFLOW, scrollable ? "" : "hidden");
@@ -702,7 +703,7 @@
             var that = this,
                 wrapper = that.wrapper,
                 options = that.options,
-                showOptions = options.animation.open,
+                showOptions = this._animationOptions("open"),
                 contentElement = wrapper.children(KWINDOWCONTENT),
                 overlay,
                 doc = $(document);
@@ -774,7 +775,7 @@
             var options = this.options;
             var hideOverlay = options.modal && !modals.length;
             var overlay = options.modal ? this._overlay(true) : $(undefined);
-            var hideOptions = options.animation.close;
+            var hideOptions  = this._animationOptions("close");
 
             if (hideOverlay) {
                 if (!suppressAnimation && hideOptions.duration && kendo.effects.Fade) {
@@ -794,8 +795,8 @@
             var that = this,
                 wrapper = that.wrapper,
                 options = that.options,
-                showOptions = options.animation.open,
-                hideOptions = options.animation.close,
+                showOptions = this._animationOptions("open"),
+                hideOptions  = this._animationOptions("close"),
                 doc = $(document);
 
             if (wrapper.is(VISIBLE) && !that.trigger(CLOSE, { userTriggered: !systemTriggered })) {

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1005 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -42,7 +42,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.3.1005";
+    kendo.version = "2015.3.1014";
 
     function Class() {}
 
@@ -8164,6 +8164,7 @@ function pad(number, digits, end) {
             getter,
             originalName,
             idx,
+            setters = {},
             length;
 
         for (idx = 0, length = data.length; idx < length; idx++) {
@@ -8172,7 +8173,10 @@ function pad(number, digits, end) {
                 originalName = fieldNames[getter];
 
                 if (originalName && originalName !== getter) {
-                    record[originalName] = getters[getter](record);
+                    if (!setters[originalName]) {
+                        setters[originalName] = kendo.setter(originalName);
+                    }
+                    setters[originalName](record, getters[getter](record));
                     delete record[getter];
                 }
             }
@@ -15955,6 +15959,7 @@ function pad(number, digits, end) {
                 if (this._scrollableParent[0]) {
                     var velocity = autoScrollVelocity(e.x.location, e.y.location, scrollableViewPort(this._scrollableParent));
 
+
                     this._scrollCompenstation = $.extend({}, this.hintOffset);
                     this._scrollVelocity = velocity;
 
@@ -15982,11 +15987,12 @@ function pad(number, digits, end) {
             }
 
             var yIsScrollable, xIsScrollable;
-            var isBody = parent === document.body;
 
-            if (isBody) {
-                yIsScrollable = document.body.offsetHeight > $window.height();
-                xIsScrollable = document.body.offsetWidth > $window.width();
+            var isRootNode = parent === scrollableRoot()[0];
+
+            if (isRootNode) {
+                yIsScrollable = document.body.scrollHeight > $window.height();
+                xIsScrollable = document.body.scrollWidth > $window.width();
             } else {
                 yIsScrollable = parent.offsetHeight <= parent.scrollHeight;
                 xIsScrollable = parent.offsetWidth <= parent.scrollWidth;
@@ -16006,7 +16012,7 @@ function pad(number, digits, end) {
                 parent.scrollLeft += velocity.x;
             }
 
-            if (isBody && (xInBounds || yInBounds)) {
+            if (isRootNode && (xInBounds || yInBounds)) {
                 if (yInBounds) {
                     compensation.top += velocity.y;
                 }
@@ -16034,6 +16040,7 @@ function pad(number, digits, end) {
             var that = this;
 
             that._scrollableParent = null;
+            this._cursorElement = null;
             clearInterval(this._scrollInterval);
             that._activated = false;
 
@@ -16149,14 +16156,14 @@ function pad(number, digits, end) {
     });
 
     function scrollableViewPort(element) {
-        var body = document.body,
+        var root = scrollableRoot()[0],
             offset,
             top,
             left;
 
-        if (element[0] === body) {
-            top = body.scrollTop;
-            left = body.scrollLeft;
+        if (element[0] === root) {
+            top = root.scrollTop;
+            left = root.scrollLeft;
 
             return {
                 top: top,
@@ -16172,19 +16179,25 @@ function pad(number, digits, end) {
         }
     }
 
-    function isRootNode(element) {
-        return element === document.body || element === document.documentElement || element === document;
+    function scrollableRoot() {
+        return $(kendo.support.browser.chrome ? document.body : document.documentElement);
     }
 
     function findScrollableParent(element) {
-        if (!element || isRootNode(element)) {
-            return $(document.body);
+        var root = scrollableRoot();
+
+        if (!element || element === document.body || element === document.documentElement) {
+            return root;
         }
 
         var parent = $(element)[0];
 
-        while (!kendo.isScrollable(parent) && !isRootNode(parent)) {
+        while (!kendo.isScrollable(parent) && parent !== document.body) {
             parent = parent.parentNode;
+        }
+
+        if (parent === document.body) {
+            return root;
         }
 
         return $(parent);
@@ -17978,7 +17991,7 @@ function pad(number, digits, end) {
 
             if (this.options.$angular) {
                 controller = this.element.controller();
-                scope = this.element.scope();
+                scope = this.$angular[0];
 
                 if (controller) {
                     var callback = $.proxy(this, '_callController', controller, scope);
@@ -24123,6 +24136,10 @@ function pad(number, digits, end) {
 
             setTimeout(function(){
                 if (widget) { // might have been destroyed in between. :-(
+                    var kNgModel = scope[widget.element.attr("k-ng-model")];
+                    if (kNgModel) {
+                        val = kNgModel;
+                    }
                     widget.value(val);
                 }
             }, 0);
@@ -24144,7 +24161,6 @@ function pad(number, digits, end) {
                 if (haveChangeOnElement) {
                     return;
                 }
-                haveChangeOnElement = false;
                 if (pristine && ngForm) {
                     formPristine = ngForm.$pristine;
                 }
@@ -24208,6 +24224,7 @@ function pad(number, digits, end) {
             if (newValue === oldValue) {
                 return;
             }
+
             widget.$angular_setLogicValue(newValue);
         };
         if (kendo.ui.MultiSelect && widget instanceof kendo.ui.MultiSelect) {
@@ -24456,6 +24473,7 @@ function pad(number, digits, end) {
 
     var SKIP_SHORTCUTS = [
         'MobileView',
+        'MobileDrawer',
         'MobileLayout',
         'MobileSplitView',
         'MobilePane',
@@ -25153,7 +25171,7 @@ function pad(number, digits, end) {
 
 
 (function ($, angular, undefined) {
-    if (!kendo.support.customElements) {
+    if (!kendo.support.customElements || kendo.webComponents.length) {
         return;
     }
     if (angular && (angular.version.major == 1 || angular.injector)) {

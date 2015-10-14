@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1005 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -2493,10 +2493,6 @@ ul.k-menu-vertical .k-separator,
 }
 .k-grid .k-state-hover {
   cursor: pointer;
-}
-.k-grid-column-resizing th,
-.k-grid-column-resizing td {
-  -webkit-transform: translateZ(0);
 }
 .k-grid-column-resizing,
 .k-grid-column-resizing .k-grid-filter,
@@ -10954,6 +10950,7 @@ div.k-navigator .k-navigator-w {
 .k-spreadsheet .k-spreadsheet-pane table.k-spreadsheet-column-header td {
   border-top-width: 0;
 }
+.k-spreadsheet .k-filter-range,
 .k-spreadsheet .k-spreadsheet-selection,
 .k-spreadsheet .k-spreadsheet-active-cell {
   border-width: 1px;
@@ -11055,7 +11052,7 @@ div.k-navigator .k-navigator-w {
 }
 .k-spreadsheet .k-merged-cells-wrapper,
 .k-spreadsheet .k-selection-wrapper,
-.k-spreadsheet .k-filter-headers,
+.k-spreadsheet .k-filter-wrapper,
 .k-spreadsheet .k-spreadsheet-column-header {
   position: relative;
 }
