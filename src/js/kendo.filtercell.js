@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1020 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -415,6 +415,7 @@
             var that = this;
 
             that.filterModel = null;
+            that.operatorDropDown = null;
 
             that._angularItems("cleanup");
 
@@ -422,6 +423,8 @@
                 that.dataSource.bind(CHANGE, that._refreshHandler);
                 that._refreshHandler = null;
             }
+
+            kendo.unbind(that.element);
 
             Widget.fn.destroy.call(that);
 

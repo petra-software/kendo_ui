@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1020 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -124,7 +124,7 @@ kendo.ExcelExporter = kendo.Class.extend({
         return $.extend({}, column, {
             value: value,
             values: values,
-            groupHeaderTemplate: kendo.template(column.groupHeaderTemplate || "${title}: ${value}"),
+            groupHeaderTemplate: kendo.template(column.groupHeaderTemplate || "#= title #: #= value #"),
             groupFooterTemplate: column.groupFooterTemplate ? kendo.template(column.groupFooterTemplate) : null,
             footerTemplate: column.footerTemplate ? kendo.template(column.footerTemplate) : null
         });

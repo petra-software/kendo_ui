@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1020 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -12,25 +12,17 @@
 
 (function() {
 
-(function ($) {
+(function () {
     // Imports ================================================================
     var math = Math,
         kendo = window.kendo,
-        deepExtend = kendo.deepExtend,
-        dataviz = kendo.dataviz;
+        deepExtend = kendo.deepExtend;
 
     // Constants
     var DEG_TO_RAD = math.PI / 180,
         MAX_NUM = Number.MAX_VALUE,
         MIN_NUM = -Number.MAX_VALUE,
-        UNDEFINED = "undefined",
-        inArray = $.inArray,
-        push = [].push,
-        pop = [].pop,
-        splice = [].splice,
-        shift = [].shift,
-        slice = [].slice,
-        unshift = [].unshift;
+        UNDEFINED = "undefined";
 
     // Generic utility functions ==============================================
     function defined(value) {
@@ -343,7 +335,7 @@
     kendo.drawing.util = kendo.util;
     kendo.dataviz.util = kendo.util;
 
-})(window.kendo.jQuery);
+})();
 
 
 
@@ -358,7 +350,6 @@
 
         kendo = window.kendo,
         Class = kendo.Class,
-        deepExtend = kendo.deepExtend,
 
         util = kendo.util,
         defined = util.defined;
@@ -503,7 +494,7 @@
 
 (function() {
 
-(function ($) {
+(function () {
     // Imports ================================================================
     var kendo = window.kendo,
         deepExtend = kendo.deepExtend,
@@ -578,7 +569,7 @@
         encodeUTF8: encodeUTF8
     });
 
-})(window.kendo.jQuery);
+})();
 
 
 
@@ -1632,8 +1623,7 @@
 (function ($) {
 
     // Imports ================================================================
-    var doc = document,
-        noop = $.noop,
+    var noop = $.noop,
         toString = Object.prototype.toString,
 
         kendo = window.kendo,
@@ -2002,7 +1992,7 @@
 
 (function(){
 
-(function ($) {
+(function () {
 
     // Imports ================================================================
     var kendo = window.kendo,
@@ -2088,13 +2078,14 @@
         }
     });
 
-})(window.kendo.jQuery);
+})();
 
 })();
 
 (function(){
 
 (function ($) {
+    /* jshint latedef: nofunc */
 
     // Imports ================================================================
     var kendo = window.kendo,
@@ -2171,7 +2162,6 @@
         parentTransform: function() {
             var element = this,
                 transformation,
-                matrix,
                 parentMatrix;
 
             while (element.parent) {
@@ -3246,7 +3236,7 @@
                 var scale = rect.size[sizeField] / groupBox.size[sizeField];
                 var scaledStart = groupBox.topLeft().scale(scale, scale);
                 var scaledSize = groupBox.size[groupsSizeField] * scale;
-                var newStart = alignStart(scaledSize, rect, options.alignContent, groupsAxis, groupsSizeField)
+                var newStart = alignStart(scaledSize, rect, options.alignContent, groupsAxis, groupsSizeField);
                 var transform = g.transform();
                 if (groupAxis === "x") {
                     transform.translate(rect.origin.x - scaledStart.x, newStart - scaledStart.y);
@@ -3572,7 +3562,7 @@
     }
 
     function alignElements(elements, rect, alignment, axis, sizeField) {
-        var bbox, start, point;
+        var bbox, point;
         alignment = alignment || "start";
 
         for (var idx = 0; idx < elements.length; idx++) {
@@ -3654,9 +3644,7 @@
         deepExtend = kendo.deepExtend,
         trim = $.trim,
         util = kendo.util,
-        deg = util.deg,
-        last = util.last,
-        round = util.round;
+        last = util.last;
 
     var SEGMENT_REGEX = /([a-df-z]{1})([^a-df-z]*)(z)?/gi,
         SPLIT_REGEX = /[,\s]?([+\-]?(?:\d*\.\d+|\d+)(?:[eE][+\-]?\d+)?)/g,
@@ -3665,7 +3653,6 @@
 
     var PathParser = Class.extend({
         parse: function(str, options) {
-            var parser = this;
             var multiPath = new drawing.MultiPath(options);
             var position = new Point();
             var previousCommand;
@@ -3945,7 +3932,6 @@
         isTransparent = util.isTransparent,
         renderAttr = util.renderAttr,
         renderAllAttr = util.renderAllAttr,
-        renderSize = util.renderSize,
         renderTemplate = util.renderTemplate,
         inArray = $.inArray;
 
@@ -3957,7 +3943,6 @@
         NS = ".kendo",
         SOLID = "solid",
         SPACE = " ",
-        SQUARE = "square",
         SVG_NS = "http://www.w3.org/2000/svg",
         TRANSFORM = "transform",
         UNDEFINED = "undefined";
@@ -4563,7 +4548,7 @@
             "stroke.opacity": "stroke-opacity"
         },
 
-        content: function(value) {
+        content: function() {
             if (this.element) {
                 this.element.textContent = this.srcElement.content();
             }
@@ -5177,8 +5162,7 @@
 (function ($) {
 
     // Imports ================================================================
-    var noop = $.noop,
-        doc = document,
+    var doc = document,
 
         kendo = window.kendo,
         deepExtend = kendo.deepExtend,
@@ -5197,7 +5181,6 @@
     var BUTT = "butt",
         DASH_ARRAYS = d.DASH_ARRAYS,
         FRAME_DELAY = 1000 / 60,
-        NONE = "none",
         SOLID = "solid";
 
     // Canvas Surface ==========================================================
@@ -5665,7 +5648,7 @@
                 img.crossOrigin = cors;
             }
 
-            var src = img.src = srcElement.src();
+            img.src = srcElement.src();
 
             if (img.complete) {
                 this.onLoad();
@@ -5849,7 +5832,6 @@
         isTransparent = util.isTransparent,
         defined = util.defined,
         deg = util.deg,
-        renderTemplate = util.renderTemplate,
         round = util.round,
         valueOrDefault = util.valueOrDefault;
 
@@ -6409,7 +6391,6 @@
         mapLinearGradient: function(fill) {
             var start = fill.start();
             var end = fill.end();
-            var stops = fill.stops;
             var angle = util.deg(atan2(end.y - start.y, end.x - start.x));
 
             var attrs = [
@@ -6426,7 +6407,6 @@
         mapRadialGradient: function(fill) {
             var bbox = this.srcElement.rawBBox();
             var center = fill.center();
-            var stops = fill.stops;
             var focusx = (center.x - bbox.origin.x) / bbox.width();
             var focusy = (center.y - bbox.origin.y) / bbox.height();
             var attrs = [
@@ -6503,7 +6483,6 @@
             var transform = this.transform;
 
             var attrs = [],
-                a, b, c, d,
                 matrix = toMatrix(transform);
 
             if (matrix) {
@@ -9971,10 +9950,9 @@
 
 (function(){
 
-(function ($, Math) {
+(function ($) {
     // Imports ================================================================
-    var doc = document,
-        noop = $.noop,
+    var noop = $.noop,
 
         kendo = window.kendo,
         Class = kendo.Class,
@@ -10093,7 +10071,7 @@
         AnimationFactory: AnimationFactory
     });
 
-})(window.kendo.jQuery, Math);
+})(window.kendo.jQuery);
 
 })();
 

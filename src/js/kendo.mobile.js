@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1020 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -42,7 +42,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.3.1014";
+    kendo.version = "2015.3.1020";
 
     function Class() {}
 
@@ -14882,7 +14882,11 @@ function pad(number, digits, end) {
             element.on(kendo.applyEventMap("down", ns), filter, "_start");
 
             if (support.pointers || support.msPointers) {
-                element.css("-ms-touch-action", "pinch-zoom double-tap-zoom");
+                if (support.browser.version < 11) {
+                    element.css("-ms-touch-action", "pinch-zoom double-tap-zoom");
+                } else {
+                    element.css("touch-action", "none");
+                }
             }
 
             if (options.preventDragEvent) {
@@ -15462,10 +15466,16 @@ function pad(number, digits, end) {
                 movable: movable
             });
 
-            that.userEvents.bind(["move", "end", "gesturestart", "gesturechange"], {
+            that.userEvents.bind(["press", "move", "end", "gesturestart", "gesturechange"], {
                 gesturestart: function(e) {
                     that.gesture = e;
                     that.offset = that.dimensions.container.offset();
+                },
+
+                press: function(e) {
+                    if ($(e.event.target).closest("a").is("[data-navigate-on-press=true]")) {
+                        e.sender.cancel();
+                    }
                 },
 
                 gesturechange: function(e) {
@@ -17991,7 +18001,7 @@ function pad(number, digits, end) {
 
             if (this.options.$angular) {
                 controller = this.element.controller();
-                scope = this.$angular[0];
+                scope = this.options.$angular[0];
 
                 if (controller) {
                     var callback = $.proxy(this, '_callController', controller, scope);
@@ -19146,7 +19156,7 @@ function pad(number, digits, end) {
             }
 
             if (!options.modal) {
-                that.shim.on("up", "_hide");
+                that.shim.on("down", "_hide");
             }
 
             (app ? app.element : $(document.body)).append(shim);
@@ -20372,7 +20382,8 @@ function pad(number, digits, end) {
             that.shim = new ShimClass(that.wrapper, $.extend({modal: os.ios && os.majorVersion < 7, className: "km-actionsheet-root"}, that.options.popup) );
 
             that._closeProxy = $.proxy(that, "_close");
-            that.shim.bind("hide", that._closeProxy);
+            that._shimHideProxy = $.proxy(that, "_shimHide");
+            that.shim.bind("hide", that._shimHideProxy);
 
             if (tablet) {
                 kendo.onResize(that._closeProxy);
@@ -20446,6 +20457,14 @@ function pad(number, digits, end) {
 
             e.preventDefault();
             this._close();
+        },
+
+        _shimHide: function(e) {
+            if (!this.trigger(CLOSE)) {
+                this.context = this.target = null;
+            } else {
+                e.preventDefault();
+            }
         },
 
         _close: function(e) {
@@ -23794,15 +23813,17 @@ function pad(number, digits, end) {
         };
         return function(scope, element, role, source) {
             var type = types[role] || 'DataSource';
-            var ds = toDataSource(scope.$eval(source), type);
+            var current = scope.$eval(source);
+            var ds = toDataSource(current, type);
 
-            // not recursive -- this triggers when the whole data source changed
-            scope.$watch(source, function(mew, old){
-                if (mew !== old) {
-                    var ds = toDataSource(mew, type);
-                    var widget = kendoWidgetInstance(element);
-                    if (widget && typeof widget.setDataSource == "function") {
+            scope.$watch(source, function(mew) {
+                var widget = kendoWidgetInstance(element);
+
+                if (widget && typeof widget.setDataSource == "function") {
+                    if (mew !== current) {
+                        var ds = toDataSource(mew, type);
                         widget.setDataSource(ds);
+                        current = mew;
                     }
                 }
             });
@@ -24208,26 +24229,48 @@ function pad(number, digits, end) {
         var setter = getter.assign;
         var updating = false;
 
-        widget.$angular_setLogicValue(getter(scope));
+        var current = getter(scope);
+
+        widget.$angular_setLogicValue(current);
+
+        var valueIsCollection = kendo.ui.MultiSelect && widget instanceof kendo.ui.MultiSelect;
+
+        if (valueIsCollection) {
+            var sourceItemCount = current.length;
+        }
 
         // keep in sync
-        var watchHandler = function(newValue, oldValue) {
+        var watchHandler = function(newValue) {
             if (newValue === undefined) {
                 // because widget's value() method usually checks if the new value is undefined,
                 // in which case it returns the current value rather than clearing the field.
                 // https://github.com/telerik/kendo-ui-core/issues/299
                 newValue = null;
             }
+
+            if (valueIsCollection) {
+                if (newValue == current) {
+                    if (newValue.length == sourceItemCount) {
+                        return;
+                    }
+                }
+            } else {
+                if (newValue == current) {
+                    return;
+                }
+            }
+
             if (updating) {
                 return;
             }
-            if (newValue === oldValue) {
-                return;
-            }
 
+            current = newValue;
+            if (valueIsCollection) {
+                sourceItemCount = current.length;
+            }
             widget.$angular_setLogicValue(newValue);
         };
-        if (kendo.ui.MultiSelect && widget instanceof kendo.ui.MultiSelect) {
+        if (valueIsCollection) {
             scope.$watchCollection(kNgModel, watchHandler);
         } else {
             scope.$watch(kNgModel, watchHandler);
@@ -24363,8 +24406,10 @@ function pad(number, digits, end) {
 
                 widget = null;
 
-                if (_wrapper && _element) {
-                    _wrapper.parentNode.replaceChild(_element, _wrapper);
+                if (_element) {
+                    if (_wrapper) {
+                        _wrapper.parentNode.replaceChild(_element, _wrapper);
+                    }
                     $(element).replaceWith(originalElement);
                 }
 
@@ -25379,7 +25424,7 @@ function pad(number, digits, end) {
 
 
 (function (kendo, System) {
-    if (!System) {
+    if (!System || !System.register) {
         return;
     }
 

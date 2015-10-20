@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1020 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -4335,7 +4335,7 @@ var Clipboard = Class.extend({
 
         var reader = new FileReader();
 
-        if (!(blob instanceof window.File)) {
+        if (!(blob instanceof window.File) && blob.getAsFile) {
             blob = blob.getAsFile();
         }
 

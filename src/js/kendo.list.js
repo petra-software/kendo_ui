@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1020 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -212,12 +212,12 @@
                 return;
             }
 
-            if (filter) {
-                expression = {
-                    filters: expression.filters || [],
-                    logic: "and"
-                };
+            expression = {
+                filters: expression.filters || [],
+                logic: "and"
+            };
 
+            if (filter) {
                 expression.filters.push(filter);
             }
 
@@ -1299,6 +1299,8 @@
             if (this._refreshHandler) {
                 this.dataSource.unbind(CHANGE, this._refreshHandler);
             }
+
+            clearTimeout(this._scrollId);
 
             Widget.fn.destroy.call(this);
         },

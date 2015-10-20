@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1020 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1784,6 +1784,7 @@
                 point: point,
                 offset: roundPoint(offset),
                 zoom: this._zoom,
+                size: this.options.tileSize,
                 subdomain: this.subdomainText(),
                 urlTemplate: this.options.urlTemplate,
                 errorUrlTemplate: this.options.errorUrlTemplate
@@ -1827,6 +1828,7 @@
 
         createElement: function() {
             this.element = $("<img style='position: absolute; display: block;' />")
+                            .css({ width: this.options.size, height: this.options.size })
                             .error(proxy(function(e) {
                                 if (this.errorUrl()) {
                                     e.target.setAttribute("src", this.errorUrl());

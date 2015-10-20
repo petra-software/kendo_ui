@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1020 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -336,10 +336,16 @@
                 movable: movable
             });
 
-            that.userEvents.bind(["move", "end", "gesturestart", "gesturechange"], {
+            that.userEvents.bind(["press", "move", "end", "gesturestart", "gesturechange"], {
                 gesturestart: function(e) {
                     that.gesture = e;
                     that.offset = that.dimensions.container.offset();
+                },
+
+                press: function(e) {
+                    if ($(e.event.target).closest("a").is("[data-navigate-on-press=true]")) {
+                        e.sender.cancel();
+                    }
                 },
 
                 gesturechange: function(e) {

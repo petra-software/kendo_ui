@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1020 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -2906,7 +2906,7 @@
             that.cancelRow();
 
             if (model) {
-
+                row = that.tbody.children("[" + kendo.attr("uid") + "=" + model.uid + "]");
                 that._attachModelChange(model);
 
                 if (mode === "popup") {

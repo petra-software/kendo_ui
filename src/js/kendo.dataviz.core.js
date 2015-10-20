@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1020 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -641,6 +641,13 @@
             return parent ? parent.getRoot() : null;
         },
 
+        getChart: function() {
+            var root = this.getRoot();
+            if (root) {
+                return root.chart;
+            }
+        },
+
         translateChildren: function(dx, dy) {
             var element = this,
                 children = element.children,
@@ -810,19 +817,24 @@
                         opacity: 0.2
                     }
                 };
+
                 if (customVisual) {
-                    highlight = that._highlight = customVisual(deepExtend(that.highlightVisualArgs(), {
-                        createVisual: function() {
-                            return that.createHighlight(highlightOptions);
-                        },
-                        series: that.series,
-                        dataItem: that.dataItem,
-                        category: that.category,
-                        value: that.value,
-                        percentage: that.percentage,
-                        runningTotal: that.runningTotal,
-                        total: that.total
-                    }));
+                    highlight = that._highlight = customVisual(
+                        $.extend(that.highlightVisualArgs(), {
+                            createVisual: function() {
+                                return that.createHighlight(highlightOptions);
+                            },
+                            sender: that.getChart(),
+                            series: that.series,
+                            dataItem: that.dataItem,
+                            category: that.category,
+                            value: that.value,
+                            percentage: that.percentage,
+                            runningTotal: that.runningTotal,
+                            total: that.total
+                        }
+                    ));
+
                     if (!highlight) {
                         return;
                     }
@@ -1406,6 +1418,7 @@
             return {
                 text: textbox.content,
                 rect: targetBox.toRect(),
+                sender: this.getChart(),
                 options: textbox.visualOptions(),
                 createVisual: function() {
                     textbox._boxReflow = true;
@@ -2551,6 +2564,7 @@
                     category: that.category,
                     value: that.value,
                     text: that.text,
+                    sender: that.getChart(),
                     series: that.series,
                     rect: that.targetBox.toRect(),
                     options: {
@@ -2698,6 +2712,7 @@
                 visual = customVisual({
                     value: pointData.value,
                     dataItem: pointData.dataItem,
+                    sender: that.getChart(),
                     series: pointData.series,
                     category: pointData.category,
                     rect: that.paddingBox.toRect(),

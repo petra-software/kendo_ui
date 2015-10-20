@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1020 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -3668,6 +3668,7 @@
                         category: bar.category,
                         dataItem: bar.dataItem,
                         value: bar.value,
+                        sender: bar.getChart(),
                         series: bar.series,
                         percentage: bar.percentage,
                         runningTotal: bar.runningTotal,
@@ -5210,6 +5211,7 @@
                     low: that.low,
                     high: that.high,
                     rect: that.box.toRect(),
+                    sender: that.getChart(),
                     options: {
                         endCaps: options.endCaps,
                         color: options.color,
@@ -9955,6 +9957,7 @@
                 range = categoryAxis.range(),
                 result = deepExtend({}, series),
                 aggregatorSeries = deepExtend({}, series),
+                dataItems = axisOptions.dataItems || [],
                 i, category, categoryIx,
                 data,
                 aggregator,
@@ -9988,9 +9991,12 @@
                 data[i] = aggregator.aggregatePoints(
                     srcPoints[i], categories[i]
                 );
+                if (srcPoints[i]) {
+                    dataItems[i] = data[i];
+                }
             }
 
-            categoryAxis.options.dataItems = data;
+            categoryAxis.options.dataItems = dataItems;
 
             return result;
         },

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1020 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -59,25 +59,17 @@
 
 (function() {
 
-(function ($) {
+(function () {
     // Imports ================================================================
     var math = Math,
         kendo = window.kendo,
-        deepExtend = kendo.deepExtend,
-        dataviz = kendo.dataviz;
+        deepExtend = kendo.deepExtend;
 
     // Constants
     var DEG_TO_RAD = math.PI / 180,
         MAX_NUM = Number.MAX_VALUE,
         MIN_NUM = -Number.MAX_VALUE,
-        UNDEFINED = "undefined",
-        inArray = $.inArray,
-        push = [].push,
-        pop = [].pop,
-        splice = [].splice,
-        shift = [].shift,
-        slice = [].slice,
-        unshift = [].unshift;
+        UNDEFINED = "undefined";
 
     // Generic utility functions ==============================================
     function defined(value) {
@@ -390,7 +382,7 @@
     kendo.drawing.util = kendo.util;
     kendo.dataviz.util = kendo.util;
 
-})(window.kendo.jQuery);
+})();
 
 
 
@@ -405,7 +397,6 @@
 
         kendo = window.kendo,
         Class = kendo.Class,
-        deepExtend = kendo.deepExtend,
 
         util = kendo.util,
         defined = util.defined;
@@ -7133,6 +7124,10 @@
             return this._property(this._columns.unhide.bind(this._columns), columnIndex, { layout: true });
         },
 
+        isHiddenColumn: function(columnIndex) {
+            return this._grid._columns.hidden(columnIndex);
+        },
+
         _copyRange: function(sourceRangeRef, targetRef) {
             var grid = this._grid;
             var rowCount = grid.rowCount;
@@ -7363,6 +7358,10 @@
 
         unhideRow: function(rowIndex) {
             return this._property(this._rows.unhide.bind(this._rows), rowIndex, { layout: true });
+        },
+
+        isHiddenRow: function(rowIndex) {
+            return this._grid._rows.hidden(rowIndex);
         },
 
         columnWidth: function(columnIndex, width) {
@@ -8176,7 +8175,7 @@
                     });
 
                     this._refreshFilter();
-                }, { layout: true });
+                }, { layout: true, filter: true });
             }
         },
 
@@ -10251,11 +10250,13 @@
                 return tr.visible;
             });
 
+            var offset = 0;
             this.cols = this.cols.filter(function(col, ci) {
                 if (!col.visible) {
                     this.trs.forEach(function(tr) {
-                        tr.children.splice(ci, 1);
+                        tr.children.splice(ci - offset, 1);
                     });
+                    offset++;
                 }
 
                 return col.visible;
@@ -20172,15 +20173,22 @@
 
         var FilterMenuViewModel = kendo.spreadsheet.FilterMenuViewModel = kendo.data.ObservableObject.extend({
             valuesChange: function(e) {
-                var checked = function(item) { return item.checked; };
-                var text = function(item) { return item.text; };
+                var checked = function(item) { return item.checked && item.value; };
+                var value = function(item) {
+                    return item.dataType === "date" ? kendo.spreadsheet.dateToNumber(item.value) : item.value;
+                };
                 var data = e.sender.dataSource.data();
                 var values = data[0].children.data().toJSON();
+                var blanks = values.filter(function(item) {
+                    return item.dataType === "blank";
+                });
 
-                values = values.filter(checked).map(text);
+                blanks = blanks.length ? blanks[0].checked : false;
+                values = values.filter(checked).map(value);
 
                 this.set("valueFilter", {
-                    values: values
+                    values: values,
+                    blanks: blanks
                 });
             },
             valueSelect: function(e) {
@@ -20379,6 +20387,7 @@
                 var messages = this.options.messages;
                 var column = this.options.column;
                 var columnRange = this.options.range.resize({ top: 1 }).column(column);
+                var sheet = this.options.range.sheet();
 
                 columnRange.forEachCell(function(row, col, cell) {
                     var formatter;
@@ -20401,6 +20410,8 @@
                     if (cell.dataType === "date") {
                         cell.value = kendo.spreadsheet.numberToDate(cell.value);
                     }
+
+                    cell.checked = !sheet.isHiddenRow(row);
 
                     values.push(cell);
                 });

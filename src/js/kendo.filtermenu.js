@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1020 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -259,7 +259,7 @@
 
             that.link = link || $();
 
-            that.dataSource = options.dataSource;
+            that.dataSource = DataSource.create(options.dataSource);
 
             that.field = options.field || element.attr(kendo.attr("field"));
 

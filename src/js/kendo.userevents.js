@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1014 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1020 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -340,7 +340,11 @@
             element.on(kendo.applyEventMap("down", ns), filter, "_start");
 
             if (support.pointers || support.msPointers) {
-                element.css("-ms-touch-action", "pinch-zoom double-tap-zoom");
+                if (support.browser.version < 11) {
+                    element.css("-ms-touch-action", "pinch-zoom double-tap-zoom");
+                } else {
+                    element.css("touch-action", "none");
+                }
             }
 
             if (options.preventDragEvent) {
