@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1020 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1023 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -4686,7 +4686,7 @@
             if (that.editable) {
                 if ($.contains(editContainer[0], active[0])) {
                     if (browser.opera || oldIE) {
-                        active.change().triggerHandler("blur");
+                        active.blur().change().triggerHandler("blur");
                     } else {
                         active.blur();
                         if (isIE) {
@@ -4879,7 +4879,7 @@
                 } else {
                     that.scrollables.unbind("scroll" + NS).bind("scroll" + NS, function (e) {
                         that.scrollables.not(e.currentTarget).scrollLeft(this.scrollLeft);
-                        if (that.lockedContent) {
+                        if (that.lockedContent && e.currentTarget == that.content[0]) {
                             that.lockedContent[0].scrollTop = this.scrollTop;
                         }
                     });
@@ -7514,6 +7514,8 @@
            function exportPage() {
                 grid._drawPDFShadow({
                     width: grid.wrapper.width()
+                }, {
+                    avoidLinks: grid.options.pdf.avoidLinks
                 })
                 .done(function(group) {
                     var pageNum = dataSource.page();

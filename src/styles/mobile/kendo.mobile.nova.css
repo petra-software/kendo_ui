@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1020 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1023 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -3734,7 +3734,9 @@ body:before {
   content: "\e0f0";
 }
 .km-drawer-icon:after,
-.km-drawer-icon:before {
+.km-drawer-icon:before,
+.km-hamburger:before,
+.km-hamburger:after {
   content: "\e105";
 }
 .km-root .km-pane .km-icon.km-check {

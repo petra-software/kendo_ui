@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1020 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1023 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -10407,7 +10407,7 @@
             }
 
             for (var name in options) {
-                if (options[name]) {
+                if (options[name] === true || options[name] instanceof Array) {
                     tabs.push({ id: name, text: name.charAt(0).toUpperCase() + name.substr(1), content: "" });
                 }
             }
@@ -18059,7 +18059,7 @@
         init: function(options, toolbar) {
             this.element = $("<a href='#' class='k-button k-button-icon'>" +
                                 "<span class='" + options.spriteCssClass + "'>" +
-                                "</span><span class='k-font-icon k-icon k-i-arrow-s'></span>" +
+                                "</span><span class='k-icon k-i-arrow-s'></span>" +
                             "</a>");
 
             this.element

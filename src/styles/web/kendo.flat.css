@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1020 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1023 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -2274,4 +2274,11 @@ html .km-pane-wrapper .km-widget,
 .k-spreadsheet-pane .k-spreadsheet-row-header td.k-selection-full {
   background-color: #10c4b2;
   border-color: #0d9a8b;
+}
+.k-spreadsheet-toolbar .k-combobox .k-input {
+  color: #ffffff;
+}
+.k-spreadsheet-toolbar .k-combobox .k-state-hover .k-input,
+.k-spreadsheet-toolbar .k-combobox .k-state-active .k-input {
+  color: #4c5356;
 }

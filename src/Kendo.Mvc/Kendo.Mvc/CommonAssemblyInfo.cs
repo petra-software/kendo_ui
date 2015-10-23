@@ -16,14 +16,14 @@ using System.Security;
 [assembly: AssemblyTitle("Kendo.Mvc.Web")]
 #endif
 #if MVC3
-[assembly: AssemblyVersion("2015.3.1020.340")]
-[assembly: AssemblyFileVersion("2015.3.1020.340")]
+[assembly: AssemblyVersion("2015.3.1023.340")]
+[assembly: AssemblyFileVersion("2015.3.1023.340")]
 #elif MVC4
-[assembly: AssemblyVersion("2015.3.1020.440")]
-[assembly: AssemblyFileVersion("2015.3.1020.440")]
+[assembly: AssemblyVersion("2015.3.1023.440")]
+[assembly: AssemblyFileVersion("2015.3.1023.440")]
 #elif MVC5
-[assembly: AssemblyVersion("2015.3.1020.545")]
-[assembly: AssemblyFileVersion("2015.3.1020.545")]
+[assembly: AssemblyVersion("2015.3.1023.545")]
+[assembly: AssemblyFileVersion("2015.3.1023.545")]
 #endif
 [assembly: SecurityRules(SecurityRuleSet.Level1)]
 [assembly: AllowPartiallyTrustedCallers]

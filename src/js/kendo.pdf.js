@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1020 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1023 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -3917,7 +3917,7 @@ kendo.PDFMixin = {
         return promise;
     },
 
-    _drawPDFShadow: function(settings) {
+    _drawPDFShadow: function(settings, drawOptions) {
         settings = settings || {};
         var wrapper = this.wrapper;
         var shadow = $("<div class='k-pdf-export-shadow'>");
@@ -3943,7 +3943,7 @@ kendo.PDFMixin = {
          * needless work, so better do it here.
          */
         setTimeout(function(){
-            var promise = kendo.drawing.drawDOM(shadow);
+            var promise = kendo.drawing.drawDOM(shadow, drawOptions);
             promise.always(function() {
                 shadow.remove();
             }).then(function(){

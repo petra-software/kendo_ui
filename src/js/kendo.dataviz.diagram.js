@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1020 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1023 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -799,6 +799,14 @@
             this.width *= zoom;
             this.height *= zoom;
             return this;
+        },
+
+        overlaps: function(rect) {
+            var bottomRight = this.bottomRight();
+            var rectBottomRight = rect.bottomRight();
+            var overlaps = !(bottomRight.x < rect.x || bottomRight.y < rect.y ||
+                rectBottomRight.x < this.x || rectBottomRight.y < this.y);
+            return overlaps;
         }
     });
 
@@ -2155,6 +2163,8 @@
              * @type {Array}
              */
             this.nodes = [];
+
+            this._nodeMap = new Dictionary();
             /**
              * The optional reference to the Diagram on which this Graph is based.
              * @type {null}
@@ -2359,7 +2369,7 @@
 
             var visited = [];
             var remaining = [];
-            tree.nodes.push(tree.root);
+            tree._addNode(tree.root);
             visited.push(root);
             remaining.push(root);
 
@@ -2601,21 +2611,9 @@
          * Gets the node with the specified Id or null if not part of this graph.
          */
         getNode: function (nodeOrId) {
-            if (Utils.isUndefined(nodeOrId)) {
-                throw "No identifier or Node specified.";
-            }
-            if (Utils.isString(nodeOrId)) {
-                return Utils.find(this.nodes, function (n) {
-                    return n.id == nodeOrId;
-                });
-            }
-            else {
-                if (this.hasNode(nodeOrId)) {
-                    return nodeOrId;
-                }
-                else {
-                    return null;
-                }
+            var id = nodeOrId.id || nodeOrId;
+            if (this._nodeMap.containsKey(id)) {
+                return this._nodeMap.get(id);
             }
         },
 
@@ -2623,17 +2621,18 @@
          * Returns whether the given node or node Id is part of this graph.
          */
         hasNode: function (nodeOrId) {
-            if (Utils.isString(nodeOrId)) {
-                return Utils.any(this.nodes, function (n) {
-                    return n.id === nodeOrId;
-                });
-            }
-            if (Utils.isObject(nodeOrId)) {
-                return Utils.any(this.nodes, function (n) {
-                    return n === nodeOrId;
-                });
-            }
-            throw "The identifier should be a Node or the Id (string) of a node.";
+            var id = nodeOrId.id || nodeOrId;
+            return this._nodeMap.containsKey(id);
+        },
+
+        _addNode: function(node) {
+            this.nodes.push(node);
+            this._nodeMap.add(node.id, node);
+        },
+
+        _removeNode: function(node) {
+            Utils.remove(this.nodes, node);
+            this._nodeMap.remove(node.id);
         },
 
         /**
@@ -2653,7 +2652,7 @@
                     var link = links[i];
                     this.removeLink(link);
                 }
-                Utils.remove(this.nodes, n);
+                this._removeNode(n);
             }
             else {
                 throw "The identifier should be a Node or the Id (string) of a node.";
@@ -2719,7 +2718,7 @@
             if (Utils.isDefined(owner)) {
                 newNode.owner = owner;
             }
-            this.nodes.push(newNode);
+            this._addNode(newNode);
             return newNode;
         },
 
@@ -2727,9 +2726,8 @@
          * Adds the given Node and its outgoing links.
          */
         addNodeAndOutgoings: function (node) {
-
-            if (!contains(this.nodes, node)) {
-                this.nodes.push(node);
+            if (!this.hasNode(node)) {
+                this._addNode(node);
             }
 
             var newLinks = node.outgoing;
@@ -2768,7 +2766,7 @@
             Utils.forEach(this.nodes, function (nOriginal) {
                 var nCopy = nOriginal.clone();
                 map.set(nOriginal, nCopy);
-                copy.nodes.push(nCopy);
+                copy._addNode(nCopy);
 
                 if (save) {
                     copy.nodeMap.set(nCopy, nOriginal);
@@ -3039,7 +3037,7 @@
                             source.removeLink(targetLink);
                             catalogEqualIntensity(source, intensityCatalog);
                         }
-                        Utils.remove(copy.nodes, target);
+                        copy._removeNode(target);
                         targetStack.unshift(target);
                     }
                 }
@@ -3058,7 +3056,7 @@
                             catalogEqualIntensity(target, intensityCatalog);
                         }
                         sourceStack.push(source);
-                        Utils.remove(copy.nodes, source);
+                        copy._removeNode(source);
                     }
                 }
 
@@ -3077,7 +3075,7 @@
                                 catalogEqualIntensity(u, intensityCatalog);
                             }
                             sourceStack.push(v);
-                            Utils.remove(copy.nodes, v);
+                            copy._removeNode(v);
                             break;
                         }
                     }
@@ -3754,6 +3752,8 @@
         }
     });
 
+    Rotation.ZERO = new Rotation(0);
+
     Rotation.create = function (rotation) {
         return new Rotation(rotation.angle, rotation.x, rotation.y);
     };
@@ -3933,7 +3933,7 @@
                 this._transform.rotate = new Rotation(angle, center.x, center.y);
                 this._renderTransform();
             }
-            return this._transform.rotate || new Rotation(0);
+            return this._transform.rotate || Rotation.ZERO;
         },
 
         drawingContainer: function() {
@@ -7887,9 +7887,7 @@
          * @returns {*}
          */
         mapConnection: function (connection) {
-            return this.edgeMap.first(function (edge) {
-                return contains(this.edgeMap.get(edge), connection);
-            });
+            return this.edgeMap.get(connection.id);
         },
 
         /**
@@ -7898,13 +7896,7 @@
          * @returns {*}
          */
         mapShape: function (shape) {
-            var keys = this.nodeMap.keys();
-            for (var i = 0, len = keys.length; i < len; i++) {
-                var key = keys[i];
-                if (contains(this.nodeMap.get(key), shape)) {
-                    return key;
-                }
-            }
+            return this.nodeMap.get(shape.id);
         },
 
         /**
@@ -8112,7 +8104,7 @@
                     node.isVirtual = false;
 
                     // the mapping will always contain singletons and the hyperTree will be null
-                    this.nodeMap.add(node, [shape]);
+                    this.nodeMap.add(shape.id, node);
                     this.nodes.push(node);
                 }
             }
@@ -8181,7 +8173,7 @@
                     }
                     var newEdge = new Link(sourceNode, sinkNode, conn.id, conn);
 
-                    this.edgeMap.add(newEdge, [conn]);
+                    this.edgeMap.add(conn.id, newEdge);
                     this.edges.push(newEdge);
                 }
                 else {
@@ -9440,13 +9432,11 @@
         },
         _prepare: function (graph) {
             var current = [], i, l, link;
-            for (l = 0; l < graph.links.length; l++) {
-                // of many dummies have been inserted to make things work
-                graph.links[l].depthOfDumminess = 0;
-            }
 
             // defines a mapping of a node to the layer index
             var layerMap = new Dictionary();
+            var layerCount = 0;
+            var targetLayer, next, target;
 
             Utils.forEach(graph.nodes, function (node) {
                 if (node.incoming.length === 0) {
@@ -9456,15 +9446,19 @@
             });
 
             while (current.length > 0) {
-                var next = current.shift();
+                next = current.shift();
                 for (i = 0; i < next.outgoing.length; i++) {
                     link = next.outgoing[i];
-                    var target = link.target;
+                    target = link.target;
 
                     if (layerMap.containsKey(target)) {
-                        layerMap.set(target, Math.max(layerMap.get(next) + 1, layerMap.get(target)));
+                        targetLayer = Math.max(layerMap.get(next) + 1, layerMap.get(target));
                     } else {
-                        layerMap.set(target, layerMap.get(next) + 1);
+                        targetLayer = layerMap.get(next) + 1;
+                    }
+                    layerMap.set(target, targetLayer);
+                    if (targetLayer > layerCount) {
+                        layerCount = targetLayer;
                     }
 
                     if (!contains(current, target)) {
@@ -9473,14 +9467,8 @@
                 }
             }
 
-            // the node count in the map defines how many layers w'll need
-            var layerCount = 0;
-            layerMap.forEachValue(function (nodecount) {
-                layerCount = Math.max(layerCount, nodecount);
-            });
+            var sortedNodes = layerMap.keys();
 
-            var sortedNodes = [];
-            Utils.addRange(sortedNodes, layerMap.keys());
             sortedNodes.sort(function (o1, o2) {
                 var o1layer = layerMap.get(o1);
                 var o2layer = layerMap.get(o2);
@@ -9506,8 +9494,11 @@
             }
 
             this.layers = [];
+            var layer;
             for (i = 0; i < layerCount + 1; i++) {
-                this.layers.push([]);
+                layer = [];
+                layer.linksTo = {};
+                this.layers.push(layer);
             }
 
             layerMap.forEach(function (node, layer) {
@@ -9517,13 +9508,12 @@
 
             // set initial grid positions
             for (l = 0; l < this.layers.length; l++) {
-                var layer = this.layers[l];
+                layer = this.layers[l];
                 for (i = 0; i < layer.length; i++) {
                     layer[i].gridPosition = i;
                 }
             }
         },
-
         /**
          * Performs the layout of a single component.
          */
@@ -10471,6 +10461,13 @@
             this.nodeToLinkMap = new Dictionary();
 
             var layer, pos, newNode, node, r, newLink, i, l, links = this.graph.links.slice(0);
+            var layers = this.layers;
+
+            var addLinkBetweenLayers = function(upLayer, downLayer, link) {
+                layers[upLayer].linksTo[downLayer] = layers[upLayer].linksTo[downLayer] || [];
+                layers[upLayer].linksTo[downLayer].push(link);
+            };
+
             for (l = 0; l < links.length; l++) {
                 var link = links[l];
                 var o = link.source;
@@ -10492,15 +10489,15 @@
                         newNode.width = o.width / 100;
                         newNode.height = o.height / 100;
 
-                        layer = this.layers[i];
+                        layer = layers[i];
                         pos = (i - dLayer) * step + oPos;
                         if (pos > layer.length) {
                             pos = layer.length;
                         }
 
                         // check if origin and dest are both last
-                        if (oPos >= this.layers[oLayer].length - 1 &&
-                            dPos >= this.layers[dLayer].length - 1) {
+                        if (oPos >= layers[oLayer].length - 1 &&
+                            dPos >= layers[dLayer].length - 1) {
                             pos = layer.length;
                         }
 
@@ -10527,10 +10524,13 @@
 
                         newLink = new Link(p, newNode);
                         newLink.depthOfDumminess = 0;
+
+                        addLinkBetweenLayers(i - 1, i, newLink);
+
                         p = newNode;
 
                         // add the new node and the new link to the graph
-                        this.graph.nodes.push(newNode);
+                        this.graph._addNode(newNode);
                         this.graph.addLink(newLink);
 
                         newNode.index = this.graph.nodes.length - 1;
@@ -10538,11 +10538,10 @@
                     }
 
                     // set the origin of the real arrow to the last dummy
+                    addLinkBetweenLayers(dLayer - 1, dLayer, newLink);
                     link.changeSource(p);
                     link.depthOfDumminess = oLayer - dLayer - 1;
-                }
-
-                if (oLayer - dLayer < -1) {
+                } else if (oLayer - dLayer < -1) {
                     for (i = oLayer + 1; i < dLayer; i++) {
                         newNode = new Node();
                         newNode.x = o.x;
@@ -10550,15 +10549,15 @@
                         newNode.width = o.width / 100;
                         newNode.height = o.height / 100;
 
-                        layer = this.layers[i];
+                        layer = layers[i];
                         pos = (i - oLayer) * step + oPos;
                         if (pos > layer.length) {
                             pos = layer.length;
                         }
 
                         // check if origin and dest are both last
-                        if (oPos >= this.layers[oLayer].length - 1 &&
-                            dPos >= this.layers[dLayer].length - 1) {
+                        if (oPos >= layers[oLayer].length - 1 &&
+                            dPos >= layers[dLayer].length - 1) {
                             pos = layer.length;
                         }
 
@@ -10586,19 +10585,24 @@
 
                         newLink = new Link(p, newNode);
                         newLink.depthOfDumminess = 0;
+                        addLinkBetweenLayers(i - 1, i, newLink);
+
                         p = newNode;
 
                         // add the new node and the new link to the graph
-                        this.graph.nodes.push(newNode);
+                        this.graph._addNode(newNode);
                         this.graph.addLink(newLink);
 
                         newNode.index = this.graph.nodes.length - 1;
                         this.mapVirtualNode(newNode, link);
                     }
+                    addLinkBetweenLayers(dLayer - 1, dLayer, link);
 
                     // Set the origin of the real arrow to the last dummy
                     link.changeSource(p);
                     link.depthOfDumminess = dLayer - oLayer - 1;
+                } else {
+                    addLinkBetweenLayers(oLayer, dLayer, link);
                 }
             }
         },
@@ -10614,7 +10618,7 @@
 
                 for (var l = 0; l < this.graph.links.length; l++) {
                     var link = this.graph.links[l];
-                    if (link.depthOfDumminess === 0) {
+                    if (!link.depthOfDumminess) {
                         continue;
                     }
 
@@ -10988,58 +10992,18 @@
         /// <param name="layerIndex2">Another layer index.</param>
         /// <returns></returns>
         countLinksCrossingBetweenTwoLayers: function (ulayer, dlayer) {
-            var i, crossings = 0;
+            var links = this.layers[ulayer].linksTo[dlayer];
+            var link1, link2, n11, n12, n21, n22, l1, l2;
+            var crossings = 0;
+            var length = links.length;
 
-            var upperLayer = new Set();
-            var temp1 = this.layers[ulayer];
-            for (i = 0; i < temp1.length; i++) {
-                upperLayer.add(temp1[i]);
-            }
+            for (l1 = 0; l1 < length; l1++) {
+                link1 = links[l1];
+                for (l2 = l1 + 1; l2 < length; l2++) {
 
-            var lowerLayer = new Set();
-            var temp2 = this.layers[dlayer];
-            for (i = 0; i < temp2.length; i++) {
-                lowerLayer.add(temp2[i]);
-            }
+                    link2 = links[l2];
 
-            // collect the links located between the layers
-            var dlinks = new Set();
-            var links = [];
-            var temp = [];
-
-            upperLayer.forEach(function (node) {
-                //throw "";
-                Utils.addRange(temp, node.incoming);
-                Utils.addRange(temp, node.outgoing);
-            });
-
-            for (var ti = 0; ti < temp.length; ti++) {
-                var link = temp[ti];
-
-                if (upperLayer.contains(link.source) &&
-                    lowerLayer.contains(link.target)) {
-                    dlinks.add(link);
-                    links.push(link);
-                }
-                else if (lowerLayer.contains(link.source) &&
-                    upperLayer.contains(link.target)) {
-                    links.push(link);
-                }
-            }
-
-            for (var l1 = 0; l1 < links.length; l1++) {
-                var link1 = links[l1];
-                for (var l2 = 0; l2 < links.length; l2++) {
-                    if (l1 === l2) {
-                        continue;
-                    }
-
-                    var link2 = links[l2];
-
-                    var n11, n12;
-                    var n21, n22;
-
-                    if (dlinks.contains(link1)) {
+                    if (link1.target.layer === dlayer) {
                         n11 = link1.source;
                         n12 = link1.target;
                     }
@@ -11048,7 +11012,7 @@
                         n12 = link1.source;
                     }
 
-                    if (dlinks.contains(link2)) {
+                    if (link2.target.layer === dlayer) {
                         n21 = link2.source;
                         n22 = link2.target;
                     }
@@ -11068,7 +11032,7 @@
                 }
             }
 
-            return crossings / 2;
+            return crossings;
         },
 
         calcBaryCenter: function (node) {
@@ -11469,6 +11433,7 @@
                     id: that.options.id,
                     autoSize: that.options.autoSize
                 });
+                that.id = that.options.id;
                 that._template();
             },
 
@@ -11638,22 +11603,11 @@
                 options = that.options;
                 that.connectors = [];
                 that.type = options.type;
-                that.shapeVisual = Shape.createShapeVisual(that.options);
-                that.visual.append(this.shapeVisual);
+                that.createShapeVisual();
                 that.updateBounds();
                 that.content(that.content());
 
-                // TODO: Swa added for phase 2; included here already because the GraphAdapter takes it into account
                 that._createConnectors();
-                that.parentContainer = null;
-                that.isContainer = false;
-                that.isCollapsed = false;
-                that.id = that.visual.id;
-
-                if (options.hasOwnProperty("layout") && options.layout !== undefined) {
-                    // pass the defined shape layout, it overtakes the default resizing
-                    that.layout = options.layout.bind(options);
-                }
             },
 
             options: diagram.shapeDefaults(),
@@ -11701,8 +11655,7 @@
                 this.visual.clear();
                 this._contentVisual = null;
                 this.options.dataItem = this.dataItem;
-                this.shapeVisual = Shape.createShapeVisual(this.options);
-                this.visual.append(this.shapeVisual);
+                this.createShapeVisual();
                 this.updateBounds();
             },
 
@@ -11812,7 +11765,9 @@
                     } else {
                         this._setBounds(value);
                         this._triggerBoundsChange();
-                        this.refreshConnections();
+                        if (!(this.diagram && this.diagram._layouting)) {
+                            this.refreshConnections();
+                        }
                     }
                 } else {
                     bounds = this._bounds;
@@ -12051,9 +12006,7 @@
                     source: options.source,
                     hover: options.hover,
                     fill: options.fill,
-                    stroke: options.stroke,
-                    startCap: options.startCap,
-                    endCap: options.endCap
+                    stroke: options.stroke
                 };
             },
 
@@ -12145,43 +12098,39 @@
                 return {
                     shapeId: this.options.id
                 };
+            },
+
+            createShapeVisual: function() {
+                var options = this.options;
+                var visualOptions = this._visualOptions(options);
+                var visualTemplate = options.visual;
+                var type = (options.type + "").toLocaleLowerCase();
+                var shapeVisual;
+
+                visualOptions.width = options.width;
+                visualOptions.height = options.height;
+
+                if (isFunction(visualTemplate)) { // custom template
+                    shapeVisual = visualTemplate.call(this, options);
+                } else if (visualOptions.data) {
+                    shapeVisual = new Path(visualOptions);
+                    translateToOrigin(shapeVisual);
+                } else if (type == "rectangle"){
+                    shapeVisual = new Rectangle(visualOptions);
+                } else if (type == "circle") {
+                    shapeVisual = new Circle(visualOptions);
+                } else if (type == "text") {
+                    shapeVisual = new TextBlock(visualOptions);
+                } else if (type == "image") {
+                    shapeVisual = new Image(visualOptions);
+                } else {
+                    shapeVisual = new Path(visualOptions);
+                }
+
+                this.shapeVisual = shapeVisual;
+                this.visual.append(this.shapeVisual);
             }
         });
-
-        Shape.createShapeVisual = function(options) {
-            delete options.diagram; // avoid stackoverflow and reassign later on again
-            var shapeDefaults = deepExtend({}, options, { x: 0, y: 0 });
-            var visualTemplate = shapeDefaults.visual; // Shape visual should not have position in its parent group.
-            var type = (shapeDefaults.type + "").toLocaleLowerCase();
-            var shapeVisual;
-
-            if (isFunction(visualTemplate)) { // custom template
-                shapeVisual = visualTemplate.call(this, shapeDefaults);
-            } else if (shapeDefaults.path) {
-                shapeDefaults.data = shapeDefaults.path;
-                shapeVisual = new Path(shapeDefaults);
-                translateToOrigin(shapeVisual);
-            } else if (type == "rectangle"){
-                shapeVisual = new Rectangle(shapeDefaults);
-            } else if (type == "circle") {
-                shapeVisual = new Circle(shapeDefaults);
-            } else if (type == "text") {
-                shapeVisual = new TextBlock(shapeDefaults);
-            } else if (type == "image") {
-                shapeVisual = new Image(shapeDefaults);
-            } else {
-                shapeVisual = new Path(shapeDefaults);
-            }
-
-            return shapeVisual;
-        };
-
-        function translateToOrigin(visual) {
-            var bbox = visual.drawingContainer().clippedBBox(null);
-            if (bbox.origin.x !== 0 || bbox.origin.y !== 0) {
-                visual.position(-bbox.origin.x, -bbox.origin.y);
-            }
-        }
 
         /**
          * The visual link between two Shapes through the intermediate of Connectors.
@@ -12196,14 +12145,13 @@
                 that.path.fill(TRANSPARENT);
                 that.visual.append(that.path);
                 that._sourcePoint = that._targetPoint = new Point();
-                that.source(from);
-                that.target(to);
+                that._setSource(from);
+                that._setTarget(to);
                 that.content(that.options.content);
                 that.definers = [];
                 if (defined(options) && options.points) {
                     that.points(options.points);
                 }
-                that.refresh();
             },
 
             options: {
@@ -12322,61 +12270,58 @@
                 return this._resolvedSourceConnector ? this._resolvedSourceConnector.position() : this._sourcePoint;
             },
 
-            /**
-             * Gets or sets the Point where the source of the connection resides.
-             * @param source The source of this connection. Can be a Point, Shape, Connector.
-             * @param undoable Whether the change or assignment should be undoable.
-             */
-            source: function (source, undoable) {
+            _setSource: function(source) {
+                var shapeSource = source instanceof Shape;
+                var defaultConnector = this.options.fromConnector || AUTO;
                 var dataItem;
-                if (isDefined(source)) {
-                    var shapeSource = source instanceof Shape;
-                    var defaultConnector = this.options.fromConnector || AUTO;
-                    if (shapeSource && !source.getConnector(defaultConnector)) {
-                        return;
+                if (shapeSource && !source.getConnector(defaultConnector)) {
+                    return;
+                }
+
+                if (source !== undefined) {
+                    this.from = source;
+                }
+
+                this._removeFromSourceConnector();
+
+                if (source === null) { // detach
+                    if (this.sourceConnector) {
+                        this._sourcePoint = (this._resolvedSourceConnector || this.sourceConnector).position();
+                        this._clearSourceConnector();
+                        this._setFromOptions(null, this._sourcePoint);
+                    }
+                } else if (source instanceof Connector) {
+                    dataItem = source.shape.dataItem;
+                    if (dataItem) {
+                        this._setFromOptions(dataItem.id);
+                    }
+                    this.sourceConnector = source;
+                    this.sourceConnector.connections.push(this);
+                } else if (source instanceof Point) {
+                    this._setFromOptions(null, source);
+                    this._sourcePoint = source;
+                    if (this.sourceConnector) {
+                        this._clearSourceConnector();
                     }
 
+                } else if (shapeSource) {
+                    dataItem = source.dataItem;
+                    if (dataItem) {
+                        this._setFromOptions(dataItem.id);
+                    }
+
+                    this.sourceConnector = source.getConnector(defaultConnector);
+                    this.sourceConnector.connections.push(this);
+                }
+            },
+
+            source: function (source, undoable) {
+                if (isDefined(source)) {
                     if (undoable && this.diagram) {
                         this.diagram.undoRedoService.addCompositeItem(new diagram.ConnectionEditUnit(this, source));
                     }
-                    if (source !== undefined) {
-                        this.from = source;
-                    }
-
-                    this._removeFromSourceConnector();
-
-                    if (source === null) { // detach
-                        if (this.sourceConnector) {
-                            this._sourcePoint = this._resolvedSourceConnector.position();
-                            this._clearSourceConnector();
-                            this._setFromOptions(null, this._sourcePoint);
-                        }
-                    } else if (source instanceof Connector) {
-                        dataItem = source.shape.dataItem;
-                        if (dataItem) {
-                            this._setFromOptions(dataItem.id);
-                        }
-                        this.sourceConnector = source;
-                        this.sourceConnector.connections.push(this);
-                    } else if (source instanceof Point) {
-                        this._setFromOptions(null, source);
-                        this._sourcePoint = source;
-                        if (this.sourceConnector) {
-                            this._clearSourceConnector();
-                        }
-
-                    } else if (shapeSource) {
-                        dataItem = source.dataItem;
-                        if (dataItem) {
-                            this._setFromOptions(dataItem.id);
-                        }
-
-                        this.sourceConnector = source.getConnector(defaultConnector);
-                        this.sourceConnector.connections.push(this);
-                    }
-
+                    this._setSource(source);
                     this.refresh();
-
                 }
                 return this.sourceConnector ? this.sourceConnector : this._sourcePoint;
             },
@@ -12421,58 +12366,57 @@
             targetPoint: function () {
                 return this._resolvedTargetConnector ? this._resolvedTargetConnector.position() : this._targetPoint;
             },
-            /**
-             * Gets or sets the Point where the target of the connection resides.
-             * @param target The target of this connection. Can be a Point, Shape, Connector.
-             * @param undoable  Whether the change or assignment should be undoable.
-             */
-            target: function (target, undoable) {
+
+            _setTarget: function(target) {
+                var shapeTarget = target instanceof Shape;
+                var defaultConnector = this.options.toConnector || AUTO;
                 var dataItem;
-                if (isDefined(target)) {
-                    var shapeTarget = target instanceof Shape;
-                    var defaultConnector = this.options.toConnector || AUTO;
 
-                    if (shapeTarget && !target.getConnector(defaultConnector)) {
-                        return;
+                if (shapeTarget && !target.getConnector(defaultConnector)) {
+                    return;
+                }
+
+                if (target !== undefined) {
+                    this.to = target;
+                }
+
+                this._removeFromTargetConnector();
+
+                if (target === null) { // detach
+                    if (this.targetConnector) {
+                        this._targetPoint = (this._resolvedTargetConnector || this.targetConnector).position();
+                        this._clearTargetConnector();
+                        this._setToOptions(null, this._targetPoint);
                     }
+                } else if (target instanceof Connector) {
+                    dataItem = target.shape.dataItem;
+                    if (dataItem) {
+                        this._setToOptions(dataItem.id);
+                    }
+                    this.targetConnector = target;
+                    this.targetConnector.connections.push(this);
+                } else if (target instanceof Point) {
+                    this._setToOptions(null, target);
+                    this._targetPoint = target;
+                    if (this.targetConnector) {
+                        this._clearTargetConnector();
+                    }
+                } else if (shapeTarget) {
+                    dataItem = target.dataItem;
+                    if (dataItem) {
+                        this._setToOptions(dataItem.id);
+                    }
+                    this.targetConnector = target.getConnector(defaultConnector);
+                    this.targetConnector.connections.push(this);
+                }
+            },
 
+            target: function (target, undoable) {
+                if (isDefined(target)) {
                     if (undoable && this.diagram) {
                         this.diagram.undoRedoService.addCompositeItem(new diagram.ConnectionEditUnit(this, undefined, target));
                     }
-
-                    if (target !== undefined) {
-                        this.to = target;
-                    }
-
-                    this._removeFromTargetConnector();
-
-                    if (target === null) { // detach
-                        if (this.targetConnector) {
-                            this._targetPoint = this._resolvedTargetConnector.position();
-                            this._clearTargetConnector();
-                            this._setToOptions(null, this._targetPoint);
-                        }
-                    } else if (target instanceof Connector) {
-                        dataItem = target.shape.dataItem;
-                        if (dataItem) {
-                            this._setToOptions(dataItem.id);
-                        }
-                        this.targetConnector = target;
-                        this.targetConnector.connections.push(this);
-                    } else if (target instanceof Point) {
-                        this._setToOptions(null, target);
-                        this._targetPoint = target;
-                        if (this.targetConnector) {
-                            this._clearTargetConnector();
-                        }
-                    } else if (shapeTarget) {
-                        dataItem = target.dataItem;
-                        if (dataItem) {
-                            this._setToOptions(dataItem.id);
-                        }
-                        this.targetConnector = target.getConnector(defaultConnector);
-                        this.targetConnector.connections.push(this);
-                    }
+                    this._setTarget(target);
 
                     this.refresh();
                 }
@@ -13008,12 +12952,11 @@
             },
 
             _clearSourceConnector: function () {
-                Utils.remove(this.sourceConnector.connections, this);
                 this.sourceConnector = undefined;
                 this._resolvedSourceConnector = undefined;
             },
+
             _clearTargetConnector: function () {
-                Utils.remove(this.targetConnector.connections, this);
                 this.targetConnector = undefined;
                 this._resolvedTargetConnector = undefined;
             },
@@ -13107,12 +13050,7 @@
 
                 that.pauseMouseHandlers = false;
 
-                that._createShapes();
-                that._createConnections();
-
-                if (that.options.layout) {
-                    that.layout(that.options.layout);
-                }
+                that._createOptionElements();
 
                 that.zoom(that.options.zoom);
 
@@ -13550,6 +13488,23 @@
                 }
             },
 
+            _createOptionElements: function() {
+                var options = this.options;
+                var shapesLength = options.shapes.length;
+
+                if (shapesLength) {
+                    this._createShapes();
+                }
+
+                if (options.connections.length) {
+                    this._createConnections();
+                }
+
+                if (shapesLength && options.layout) {
+                    this.layout(options.layout);
+                }
+            },
+
             _createShapes: function() {
                 var that = this,
                     options = that.options,
@@ -13794,39 +13749,34 @@
              * @param options. The options to be passed to the newly created Shape.
              * @returns The newly created shape.
              */
-            addShape: function(item, options) {
+            addShape: function(item, undoable) {
                 var shape,
                     shapeDefaults = this.options.shapeDefaults;
 
                 if (item instanceof Shape) {
-                    shapeDefaults = deepExtend({}, shapeDefaults, options);
-                    item.redraw(options);
                     shape = item;
                 } else if (!(item instanceof kendo.Class)) {
                     shapeDefaults = deepExtend({}, shapeDefaults, item || {});
-                    shape = new Shape(shapeDefaults);
+                    shape = new Shape(shapeDefaults, this);
                 } else {
                     return;
                 }
 
-                if (shapeDefaults.undoable) {
+                if (undoable !== false) {
                     this.undoRedoService.add(new diagram.AddShapeUnit(shape, this), false);
                 }
 
                 this.shapes.push(shape);
-                shape.diagram = this;
+                if (shape.diagram !== this) {
+                    this._shapesQuadTree.insert(shape);
+                    shape.diagram = this;
+                }
                 this.mainLayer.append(shape.visual);
-                this._shapesQuadTree.insert(shape);
 
                 this.trigger(CHANGE, {
                     added: [shape],
                     removed: []
                 });
-
-                // for shapes which have their own internal layout mechanism
-                if (shape.hasOwnProperty("layout")) {
-                    shape.layout(shape);
-                }
 
                 return shape;
             },
@@ -13848,7 +13798,7 @@
                         return shape;
                     }
                 } else if (!this.trigger("add", { shape: shape })) {
-                    return this.addShape(shape, { undoable: undoable });
+                    return this.addShape(shape, undoable);
                 }
             },
             /**
@@ -14434,7 +14384,7 @@
              * @param options Layout-specific options.
              */
             layout: function (options) {
-                this.isLayouting = true;
+                this._layouting = true;
                 // TODO: raise layout event?
                 var type;
                 if(isUndefined(options)) {
@@ -14471,7 +14421,8 @@
                     var unit = new diagram.LayoutUndoUnit(initialState, finalState, options ? options.animate : null);
                     this.undoRedoService.add(unit);
                 }
-                this.isLayouting = false;
+                this._layouting = false;
+                this._redrawConnections();
             },
             /**
              * Gets a shape on the basis of its identifier.
@@ -14708,7 +14659,7 @@
                 var options = deepExtend({}, this.options.shapeDefaults);
                 options.dataItem = dataItem;
                 shape = new Shape(options, this);
-                this.addShape(shape, { undoable: undoable !== false });
+                this.addShape(shape, undoable !== false);
                 this._dataMap[dataItem.id] = shape;
                 return shape;
             },
@@ -14749,7 +14700,8 @@
                     action = e.action,
                     items = e.items,
                     options = that.options,
-                    idx;
+                    idx,
+                    dataBound;
 
                 if (e.field) {
                     return;
@@ -14758,10 +14710,10 @@
                 if (action == "remove") {
                     this._removeDataItems(e.items, true);
                 } else {
-                    var triggerDataBound;
+
                     if ((!action || action === "itemloaded") && !this._bindingRoots) {
                         this._bindingRoots = true;
-                        triggerDataBound = true;
+                        dataBound = true;
                     }
 
                     if (!action && !node) {
@@ -14773,15 +14725,15 @@
                     for (idx = 0; idx < items.length; idx++) {
                         items[idx].load();
                     }
-
-                    if (triggerDataBound) {
-                        this.trigger("dataBound");
-                        this._bindingRoots = false;
-                    }
                 }
 
-                if (options.layout) {
+                if (options.layout && (dataBound || action == "remove" || action == "add")) {
                     that.layout(options.layout);
+                }
+
+                if (dataBound) {
+                    this.trigger("dataBound");
+                    this._bindingRoots = false;
                 }
             },
 
@@ -15067,8 +15019,9 @@
 
                 if (this.options.layout) {
                     this.layout(this.options.layout);
+                } else {
+                    this._redrawConnections();
                 }
-                this._redrawConnections();
                 this.trigger("dataBound");
             },
 
@@ -15107,7 +15060,7 @@
                     if (!dataItem.isNew()) {
                         if (shape) {
                             shape._setOptionsFromModel();
-                            diagram.addShape(shape, { undoable: inactiveItem.undoable });
+                            diagram.addShape(shape, inactiveItem.undoable);
                             diagram._dataMap[dataItem.id] = shape;
                         } else {
                             diagram._addDataItem(dataItem);
@@ -16037,15 +15990,14 @@
 
             _testRect: function(shape, rect) {
                 var angle = shape.rotate().angle;
-                return Intersect.rects(rect, shape.bounds(), -angle);
-            },
-
-            _overlaps: function(rect1, rect2) {
-                    var rect1BottomRight = rect1.bottomRight();
-                    var rect2BottomRight = rect2.bottomRight();
-                    var overlaps = !(rect1BottomRight.x < rect2.x || rect1BottomRight.y < rect2.y ||
-                        rect2BottomRight.x < rect1.x || rect2BottomRight.y < rect1.y);
-                    return overlaps;
+                var bounds = shape.bounds();
+                var hit;
+                if (!angle) {
+                    hit = bounds.overlaps(rect);
+                } else {
+                    hit = Intersect.rects(rect, bounds, -angle);
+                }
+                return hit;
             }
         });
 
@@ -16066,7 +16018,7 @@
             },
 
             overlapsBounds: function(rect) {
-                return this._overlaps(this.rect, rect);
+                return this.rect.overlaps(rect);
             },
 
             insert: function (shape, bounds) {
@@ -16150,8 +16102,9 @@
             ROOT_SIZE: 1000,
 
             init: function(diagram) {
-                diagram.bind(ITEMBOUNDSCHANGE, proxy(this._boundsChange, this));
-                diagram.bind(ITEMROTATE, proxy(this._boundsChange, this));
+                var boundsChangeHandler = proxy(this._boundsChange, this);
+                diagram.bind(ITEMBOUNDSCHANGE, boundsChangeHandler);
+                diagram.bind(ITEMROTATE, boundsChangeHandler);
                 this.initRoots();
             },
 
@@ -16167,8 +16120,8 @@
             _boundsChange: function(e) {
                 if (e.item._quadNode) {
                     e.item._quadNode.remove(e.item);
-                    this.insert(e.item);
                 }
+                this.insert(e.item);
             },
 
             insert: function(shape) {
@@ -16292,6 +16245,13 @@
                 if (elementOptions && !defined(elementOptions[field])) {
                     elementOptions[field] = mainOptions[field];
                 }
+            }
+        }
+
+        function translateToOrigin(visual) {
+            var bbox = visual.drawingContainer().clippedBBox(null);
+            if (bbox.origin.x !== 0 || bbox.origin.y !== 0) {
+                visual.position(-bbox.origin.x, -bbox.origin.y);
             }
         }
 
