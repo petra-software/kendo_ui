@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1023 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1110 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -701,6 +701,8 @@
                 modal: true, resizable: false, draggable: true,
                 animation: false
             },
+            imageBrowser: null,
+            fileBrowser: null,
             fontName: [
                 { text: "Arial", value: "Arial,Helvetica,sans-serif" },
                 { text: "Courier New", value: "'Courier New',Courier,monospace" },
@@ -1405,7 +1407,7 @@ var Dom = {
     },
 
     emptyNode: function(node) {
-        return !Dom.significantNodes(node.childNodes).length;
+        return node.nodeType == 1 && !Dom.significantNodes(node.childNodes).length;
     },
 
     name: function (node) {
@@ -2263,7 +2265,9 @@ var Serializer = {
                     specified = false;
                 } else if (name == 'altHtml') {
                     specified = false;
-                } else if (name == 'start' && (dom.is(node, "ul") || dom.is(node, "ol"))) {
+                } else if (name == 'start' && dom.is(node, "ul")) {
+                    specified = false;
+                } else if (name == 'start' && dom.is(node, "ol") && value == "1") {
                     specified = false;
                 } else if (name.indexOf('_moz') >= 0) {
                     specified = false;
@@ -5408,7 +5412,6 @@ var ColorTool = Tool.extend({
             palette = options.palette;
 
         ui = this._widget = new kendo.ui.ColorPicker(ui, {
-            value: $.isArray(palette) ? palette[0] : "#000",
             toolIcon: "k-" + options.name,
             palette: palette,
             change: function() {
@@ -5893,7 +5896,11 @@ var ParagraphCommand = Command.extend({
             if (dom.isEmpty(focusNode)) {
                 range.setStartBefore(focusNode);
             } else {
-                range.selectNodeContents(focusNode);
+                if (dom.emptyNode(focusNode)) {
+                    focusNode.innerHTML = "\ufeff";
+                }
+
+                range.setStartBefore(focusNode.firstChild || focusNode);
             }
         }
     },

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1023 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1110 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -13281,7 +13281,7 @@
             },
 
             _editArgs: function() {
-                var result = { container: this.editor.element };
+                var result = { container: this.editor.wrapper };
                 result[this.editor.options.type] = this.editor.model;
                 return result;
             },
@@ -15791,7 +15791,7 @@
                 this.wrapper.append(
                     $('<div class="k-edit-form-container"/>').append(formContent));
 
-                this.window = new kendo.ui.Window(this.wrapper, this.options.window);
+                this.window = new kendo.ui.Window(this.wrapper.appendTo(this.element), this.options.window);
                 this.window.bind("close", function(e) {
                     //The bellow line is required due to: draggable window in IE, change event will be triggered while the window is closing
                     if (e.userTriggered) {
@@ -16264,7 +16264,8 @@
             DiagramToolBar: DiagramToolBar,
             QuadNode: QuadNode,
             QuadRoot: QuadRoot,
-            ShapesQuadTree: ShapesQuadTree
+            ShapesQuadTree: ShapesQuadTree,
+            PopupEditor: PopupEditor
         });
 })(window.kendo.jQuery);
 

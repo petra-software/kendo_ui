@@ -3150,10 +3150,11 @@
             Gets or sets file name.
             </summary>
         </member>
-        <member name="P:Telerik.Windows.Zip.FileHeaderBase.ExtraField">
+        <member name="P:Telerik.Windows.Zip.FileHeaderBase.ExtraFieldsData">
             <summary>
-            Gets or sets extra field.
+            Gets or sets extra fields data.
             </summary>
+            <value>The extra fields data.</value>
         </member>
         <member name="P:Telerik.Windows.Zip.FileHeaderBase.ExtraFields">
             <summary>
@@ -3371,11 +3372,11 @@
             ZIP File Format Specification v6.3.3, #4.5.2.
             </summary>
         </member>
-        <member name="M:Telerik.Windows.Zip.ExtraFieldBase.GetExtraFields(System.Byte[])">
+        <member name="M:Telerik.Windows.Zip.ExtraFieldBase.GetExtraFields(Telerik.Windows.Zip.FileHeaderInfoBase)">
             <summary>
             Gets extra field collection.
             </summary>
-            <param name="extraField">Extra field data.</param>
+            <param name="headerInfo">The header info.</param>
             <returns>IEnumerable of ExtraFieldBase instances.</returns>
         </member>
         <member name="M:Telerik.Windows.Zip.ExtraFieldBase.GetExtraFieldsData(System.Collections.Generic.IEnumerable{Telerik.Windows.Zip.ExtraFieldBase})">

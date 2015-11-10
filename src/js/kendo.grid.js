@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1023 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1110 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -63,6 +63,7 @@
         COLUMNREORDER = "columnReorder",
         COLUMNLOCK = "columnLock",
         COLUMNUNLOCK = "columnUnlock",
+        NAVIGATE = "navigate",
         CLICK = "click",
         HEIGHT = "height",
         TABINDEX = "tabIndex",
@@ -1389,7 +1390,8 @@
            COLUMNSHOW,
            COLUMNHIDE,
            COLUMNLOCK,
-           COLUMNUNLOCK
+           COLUMNUNLOCK,
+           NAVIGATE
         ],
 
         setDataSource: function(dataSource) {
@@ -1641,6 +1643,10 @@
 
             if (result.dataSource.transport) {
                 result.dataSource.transport.dataSource = null;
+            }
+
+            if (result.pageable && result.pageable.pageSize) {
+                result.pageable.pageSize = dataSource.pageSize();
             }
 
             result.$angular = undefined;
@@ -2811,6 +2817,8 @@
                 $('<span class="k-dirty"/>').prependTo(cell);
             }
 
+            that.trigger("itemChange", { item: tr, data: model, ns: ui });
+
             if (that.lockedContent) {
                 adjustRowHeight(tr.css("height", "")[0], that._relatedRow(tr).css("height", "")[0]);
             }
@@ -2970,7 +2978,7 @@
             that.cancelRow();
 
             if (navigatable) {
-                that.current(that.items().eq(currentIndex).children().filter(NAVCELL).first());
+                that._setCurrent(that.items().eq(currentIndex).children().filter(NAVCELL).first());
                 focusTable(that.table, true);
             }
         },
@@ -3083,7 +3091,7 @@
 
                             that.cancelRow();
                             if (that.options.navigatable) {
-                                that.current(that.items().eq(currentIndex).children().filter(NAVCELL).first());
+                                that._setCurrent(that.items().eq(currentIndex).children().filter(NAVCELL).first());
                                 focusTable(that.table, true);
                             }
                         }
@@ -3201,13 +3209,18 @@
             that.trigger(EDIT, { container: row, model: model });
         },
 
-        cancelRow: function() {
+        cancelRow: function(notify) {
             var that = this,
                 container = that._editContainer,
                 model;
 
             if (container) {
+
                 model = that._modelForContainer(container);
+
+                if (notify && that.trigger("cancel", { container: container, model: model })) {
+                    return;
+                }
 
                 that._destroyEditable();
 
@@ -4014,6 +4027,10 @@
         },
 
         current: function(next) {
+            return this._setCurrent(next, true);
+        },
+
+        _setCurrent: function(next, preventTrigger) {
             var current = this._current;
             next = $(next);
 
@@ -4022,6 +4039,12 @@
                     this._updateCurrentAttr(current, next);
 
                     this._scrollCurrent();
+
+                    if (!preventTrigger) {
+                        this.trigger(NAVIGATE, {
+                            element: next
+                        });
+                    }
                 }
             }
 
@@ -4149,7 +4172,7 @@
             if (current && current.is(":visible")) {
                 current.addClass(FOCUSED);
             } else {
-                this.current(table.find(FIRSTNAVITEM));
+                this._setCurrent(table.find(FIRSTNAVITEM));
             }
 
             this._setTabIndex(table);
@@ -4250,7 +4273,7 @@
                     }
                 }
 
-                this.current(next);
+                this._setCurrent(next);
             }
 
             return true;
@@ -4278,7 +4301,7 @@
                     }
                 }
 
-                this.current(next);
+                this._setCurrent(next);
             }
 
             return true;
@@ -4299,7 +4322,7 @@
                 }
             }
 
-            this.current(next);
+            this._setCurrent(next);
 
             return true;
         },
@@ -4318,7 +4341,7 @@
                 }
             }
 
-            this.current(next);
+            this._setCurrent(next);
 
             return true;
         },
@@ -4389,9 +4412,9 @@
                 if (active) {
                     active.blur();
                 }
-                this.cancelRow();
+                this.cancelRow(true);
                 if (currentIndex >= 0) {
-                    this.current(this.items().eq(currentIndex).children(NAVCELL).first());
+                    this._setCurrent(this.items().eq(currentIndex).children(NAVCELL).first());
                 }
             }
 
@@ -4404,9 +4427,16 @@
             return true;
         },
 
-        _toggleCurrent: function(current) {
+        _toggleCurrent: function(current, editable) {
             var row = current.parent();
-            if (row.is(".k-master-row,.k-grouping-row")) {
+
+            if (row.is(".k-grouping-row")) {
+                row.find(".k-icon:first").click();
+
+                return true;
+            }
+
+            if (!editable && row.is(".k-master-row")) {
                 row.find(".k-icon:first").click();
 
                 return true;
@@ -4430,7 +4460,7 @@
                 return true;
             }
 
-            if (!editable && this._toggleCurrent(current)) {
+            if (this._toggleCurrent(current, editable)) {
                 return true;
             }
 
@@ -4711,9 +4741,9 @@
                     }
                 } else {
                     if (mode == "incell") {
-                        that.current(editContainer);
+                        that._setCurrent(editContainer);
                     } else {
-                        that.current(editContainer.children().filter(DATA_CELL).first());
+                        that._setCurrent(editContainer.children().filter(DATA_CELL).first());
                     }
                     focusable = editContainer.find(":kendoFocusable:first")[0];
                     if (focusable) {
@@ -4724,7 +4754,7 @@
             }
 
             if (next) {
-                that.current(next);
+                that._setCurrent(next);
             }
 
             if (oldIE) {
@@ -6236,7 +6266,7 @@
             }
 
             lockedCols = lockedCols.add(cols.filter(".k-group-col"));
-            for (idx = 0, length = leafColumns(visibleLockedColumns(that.columns)).length; idx < length; idx++) {
+            for (idx = 0, length = visibleColumns(leafColumns(visibleLockedColumns(that.columns))).length; idx < length; idx++) {
                 lockedCols = lockedCols.add(cols.eq(idx + groups));
             }
 
@@ -7261,7 +7291,9 @@
                 that.selectable.resetTouchEvents();
             }
 
-            that._angularItems("compile");
+            that._muteAngularRebind(function() {
+                that._angularItems("compile");
+            });
 
             that.trigger(DATABOUND);
        },
@@ -7274,7 +7306,7 @@
             this._removeCurrent();
 
             if (isCurrentInHeader) {
-                this.current(this.thead.find("th:not(.k-group-cell)").eq(currentIndex));
+                this._setCurrent(this.thead.find("th:not(.k-group-cell)").eq(currentIndex));
             } else {
                 var rowIndex = 0;
                 if (this._rowVirtualIndex) {
@@ -7293,7 +7325,7 @@
                 var td = row.find(">td:not(.k-group-cell):not(.k-hierarchy-cell)")
                     .eq(currentIndex);
 
-                this.current(td);
+                this._setCurrent(td);
             }
 
             if (this._current) {
@@ -7696,7 +7728,7 @@
        }
 
        if (isInput && currentTarget.find(kendo.roleSelector("filtercell")).length) {
-           this.current(currentTarget);
+           this._setCurrent(currentTarget);
            return;
        }
 
@@ -7709,7 +7741,7 @@
        }
 
        if (this.options.navigatable) {
-           this.current(currentTarget);
+           this._setCurrent(currentTarget);
        }
 
        if (isHeader || !isInput) {

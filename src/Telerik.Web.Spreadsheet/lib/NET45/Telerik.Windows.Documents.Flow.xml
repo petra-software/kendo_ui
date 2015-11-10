@@ -36202,9 +36202,9 @@
         </member>
         <member name="P:Telerik.Windows.Documents.Flow.Model.Styles.Style.IsCustom">
             <summary>
-            Gets or sets a value indicating if the current style is custom.
+            Gets or sets a value indicating if the current style is custom. 
+            The default value is <code>false</code>.
             </summary>
-            <value>The is custom.</value>
         </member>
         <member name="P:Telerik.Windows.Documents.Flow.Model.Styles.Style.IsPrimary">
             <summary>

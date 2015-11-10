@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1023 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1110 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -573,8 +573,26 @@
             }
         },
 
-        exportVisual: function() {
-            return this.surface.exportVisual();
+        exportVisual: function(options) {
+            var visual;
+            if (options && (options.width || options.height)) {
+                var chartArea = this.options.chartArea;
+                var originalChartArea = this._originalOptions.chartArea;
+
+                deepExtend(chartArea, options);
+
+                var model = this._getModel();
+
+                chartArea.width = originalChartArea.width;
+                chartArea.height = originalChartArea.height;
+
+                model.renderVisual();
+
+                visual = model.visual;
+            } else {
+                visual = this.surface.exportVisual();
+            }
+            return visual;
         },
 
         _sharedTooltip: function() {
@@ -3694,7 +3712,11 @@
             var options = this.options;
             var border = options.border;
             var strokeOpacity = defined(border.opacity) ? border.opacity : options.opacity;
-            var rect = this.rectVisual = draw.Path.fromRect(this.box.toRect(), {
+
+            var rect = this.box.toRect();
+            rect.size.width = Math.round(rect.size.width);
+
+            var path = this.rectVisual = draw.Path.fromRect(rect, {
                 fill: {
                     color: this.color,
                     opacity: options.opacity
@@ -3713,17 +3735,18 @@
             var size = options.vertical ? width : height;
 
             if (size > BAR_ALIGN_MIN_WIDTH) {
-                alignPathToPixel(rect);
-                //fixes lineJoin issue in firefox when the joined lines are parallel
+                alignPathToPixel(path);
+
+                // Fixes lineJoin issue in firefox when the joined lines are parallel
                 if (width < 1 || height < 1) {
-                    rect.options.stroke.lineJoin = "round";
+                    path.options.stroke.lineJoin = "round";
                 }
             }
 
-            visual.append(rect);
+            visual.append(path);
 
             if (hasGradientOverlay(options)) {
-                visual.append(this.createGradientOverlay(rect, {
+                visual.append(this.createGradientOverlay(path, {
                         baseColor: this.color
                     }, deepExtend({
                          end: !options.vertical ? [0, 1] : undefined
@@ -5770,13 +5793,12 @@
 
         _setChildrenAnimation: function(clipPath) {
             var points = this.animationPoints();
-            var point, pointVisual;
+            var point;
 
             for (var idx = 0; idx < points.length; idx++) {
                 point = points[idx];
-                pointVisual = point.visual;
-                if (pointVisual && defined(pointVisual.options.zIndex)) {
-                    pointVisual.clip(clipPath);
+                if (point && point.visual && defined(point.visual.options.zIndex)) {
+                    point.visual.clip(clipPath);
                 }
             }
         }
@@ -5871,19 +5893,12 @@
         },
 
         animationPoints: function() {
-            var series = this.seriesOptions;
-            var points = [];
-            var seriesPoints;
-            var pointsIdx, idx;
-            for (idx = 0; idx < series.length; idx++) {
-                if (series[idx].markers.visible) {
-                    seriesPoints = this.seriesPoints[idx];
-                    for (pointsIdx = 0; pointsIdx < seriesPoints.length; pointsIdx++) {
-                        points.push(seriesPoints[pointsIdx].marker);
-                    }
-                }
+            var points = this.points;
+            var result = [];
+            for (var idx = 0; idx < points.length; idx++) {
+                result.push((points[idx] || {}).marker);
             }
-            return points.concat(this._segments);
+            return result.concat(this._segments);
         }
     });
     deepExtend(LineChart.fn, LineChartMixin, ClipAnimationMixin);
@@ -6700,16 +6715,12 @@
         },
 
         animationPoints: function() {
-            var seriesPoints = this.points;
-            var points = [];
-            var idx;
-
-            for (idx = 0; idx < seriesPoints.length; idx++) {
-                if (seriesPoints[idx].marker) {
-                    points.push(seriesPoints[idx].marker);
-                }
+            var points = this.points;
+            var result = [];
+            for (var idx = 0; idx < points.length; idx++) {
+                result.push((points[idx] || {}).marker);
             }
-            return points;
+            return result;
         }
     });
 

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1023 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1110 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1715,7 +1715,7 @@
             var options = this.options;
             var contents = nodeContents(node);
             var direction = expand ? "expand" : "collapse";
-            var loaded, empty;
+            var loaded;
 
             if (contents.data("animating")) {
                 return;
@@ -1725,9 +1725,8 @@
                 this._expanded(node, expand);
 
                 loaded = dataItem && dataItem.loaded();
-                empty = !contents.children().length;
 
-                if (expand && (!loaded || empty)) {
+                if (expand && !loaded) {
                     if (options.loadOnDemand) {
                         this._progress(node, true);
                     }
@@ -2063,11 +2062,11 @@
             tryExpand(node, complete, treeview);
         },
 
-        _parents: function(node) {
+        _parentIds: function(node) {
             var parent = node && node.parentNode();
             var parents = [];
             while (parent && parent.parentNode) {
-                parents.push(parent);
+                parents.unshift(parent.id);
                 parent = parent.parentNode();
             }
 
@@ -2079,11 +2078,9 @@
                 node = this.dataSource.get(node);
             }
 
-            var parents = this._parents(node);
+            var parents = this._parentIds(node);
 
-            for (var i = 0; i < parents.length; i++) {
-                parents[i].set("expanded", true);
-            }
+            this.expandPath(parents);
         },
 
         _renderItem: function (options) {

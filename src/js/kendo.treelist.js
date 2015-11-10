@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1023 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1110 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1969,7 +1969,7 @@
         },
 
         _trs: function(options) {
-            var model, attr, className, hasChildren, childNodes, i, length, parentId;
+            var model, attr, className, hasChildren, childNodes, i, length;
             var rows = [];
             var level = options.level;
             var data = options.data;
@@ -2026,7 +2026,6 @@
                 if (hasChildren) {
                     rows = rows.concat(this._trs({
                         columns: columns,
-                        parentId: model.id,
                         aggregates: aggregates,
                         selected: options.selected,
                         visible: options.visible && !!model.expanded,
@@ -2037,11 +2036,9 @@
             }
 
             if (this._hasFooterTemplate()) {
-                parentId = options.parentId || null;
-
                 attr = {
                     className: classNames.footerTemplate,
-                    "data-parentId": parentId
+                    "data-parentId": model.parentId
                 };
 
                 if (!options.visible) {
@@ -2049,7 +2046,7 @@
                 }
 
                 rows.push(this._tds({
-                    model: aggregates[parentId],
+                    model: aggregates[model.parentId],
                     attr: attr,
                     level: level
                 }, columns, this._footerTd));
@@ -2207,6 +2204,7 @@
 
             return kendoDomElement(
                 "button", {
+                    "type": "button",
                     "data-command": name,
                     className: [ "k-button", "k-button-icontext", command.className ].join(" ")
                 }, icon.concat([ kendoTextElement(command.text || command.name) ])

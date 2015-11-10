@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1023 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1110 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -18,6 +18,10 @@
 @icon-positioning: "material";
 
 @import "common/all.less";
+
+@checkbox-size: 1.357em;
+@checkbox-check-size: 1em;
+
 
 .k-grid .k-header,
 .k-gantt .k-grid-header,
@@ -885,6 +889,10 @@ div.k-window-content {
     .k-plus {
         background-position: 0 -16px;
     }
+
+	.k-loading {
+        background-position: 50%;
+	}
 }
 
 .k-header > .k-link > .k-i-arrow-n,
@@ -1049,18 +1057,10 @@ div.k-window-content {
     }
 
 }
-.k-checkbox-label,
+
 .k-radio-label {
     line-height: normal;
     padding-left: 2em;
-}
-
-.k-checkbox-label:before,
-.k-checkbox-label:after,
-.k-checkbox:checked + .k-checkbox-label:after {
-    width: 1.357em;
-    height: 1.357em;
-
 }
 
 .k-radio-label:before {

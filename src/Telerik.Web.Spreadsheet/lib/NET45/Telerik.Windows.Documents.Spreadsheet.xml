@@ -22133,6 +22133,13 @@
             </summary>
             <param name="password">The password.</param>
         </member>
+        <member name="M:Telerik.Windows.Documents.Spreadsheet.Model.Worksheet.GetUsedCellRange(System.Collections.Generic.IEnumerable{Telerik.Windows.Documents.Spreadsheet.PropertySystem.IPropertyDefinition})">
+            <summary>
+            Gets the used cell range for specific cell property definitions.
+            </summary>
+            <param name="propertyDefinitions">The cell property definitions from <see cref="T:Telerik.Windows.Documents.Spreadsheet.PropertySystem.CellPropertyDefinitions"/></param>
+            <returns>The used cell range for specific cell property definitions.</returns>
+        </member>
         <member name="M:Telerik.Windows.Documents.Spreadsheet.Model.Worksheet.Dispose(System.Boolean)">
             <summary>
             Disposes the specified disposing.

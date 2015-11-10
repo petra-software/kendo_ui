@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1023 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1110 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -3229,7 +3229,7 @@ PDF.TTFFont = TTFFont;
                 var bbox = tmp.bbox;
                 group = tmp.root;
                 // var tmp, bbox;
-                
+
                 var paperSize = getOption("paperSize", getOption("paperSize", "auto"), options), addMargin = false;
                 if (paperSize == "auto") {
                     if (bbox) {
@@ -3327,12 +3327,13 @@ PDF.TTFFont = TTFFont;
 
         setStrokeOptions(element, page, pdf);
         setFillOptions(element, page, pdf);
-        setClipping(element, page, pdf);
 
         if (transform) {
             var m = transform.matrix();
             page.transform(m.a, m.b, m.c, m.d, m.e, m.f);
         }
+
+        setClipping(element, page, pdf);
 
         dispatch({
             Path      : drawPath,
@@ -3341,7 +3342,8 @@ PDF.TTFFont = TTFFont;
             Arc       : drawArc,
             Text      : drawText,
             Image     : drawImage,
-            Group     : drawGroup
+            Group     : drawGroup,
+            Rect      : drawRect
         }, element, page, pdf);
 
         page.restore();
@@ -3650,6 +3652,12 @@ PDF.TTFFont = TTFFont;
         page.drawImage(url);
     }
 
+    function drawRect(element, page, pdf) {
+        var geometry = element.geometry();
+        page.rect(geometry.origin.x, geometry.origin.y, geometry.size.width, geometry.size.height);
+        maybeFillStroke(element, page, pdf);
+    }
+
     function exportPDF(group, options) {
         var defer = $.Deferred();
 
@@ -3796,6 +3804,12 @@ PDF.TTFFont = TTFFont;
                             return change(null);
                         }
                         return el;
+                    },
+                    Rect: function(shape) {
+                        if (!visible(shape)) {
+                            return change(null);
+                        }
+                        return shape;
                     }
                 }, shape);
             });

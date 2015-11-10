@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1023 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1110 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1568,11 +1568,12 @@
 
         redraw: function () {
             var size = this._getSize();
-            this.surfaceWrap.css({
+
+            this.surface.clear();
+            this.surface.setSize({
                 width: size.width,
                 height: size.height
             });
-            this.surface.clear();
 
             this.createVisual();
             this.surface.draw(this.visual);

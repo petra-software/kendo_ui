@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1023 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1110 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -551,6 +551,7 @@
     var Command = kendo.spreadsheet.Command = kendo.Class.extend({
         init: function(options) {
             this.options = options;
+            this._workbook = options.workbook;
             this._property = options && options.property;
             this._state = {};
         },
@@ -604,20 +605,49 @@
             options.property = "input";
             PropertyChangeCommand.fn.init.call(this, options);
         },
+        rejectState: function(validationState) {
+            this.undo();
+
+            return {
+                title: validationState.title,
+                body: validationState.message,
+                reason: "error"
+            };
+        },
         exec: function() {
+            var range = this.range();
+            var value = this._value;
+            this.getState();
             try {
-                return PropertyChangeCommand.fn.exec.apply(this, arguments);
-            } catch(ex) {
-                if (ex instanceof kendo.spreadsheet.calc.ParseError) {
-                    // XXX: error handling.  We should ask the user
-                    // whether to accept the formula as text (prepend
-                    // '), or re-edit.  ex.pos+1 will be the index of
-                    // the character where the error occurred.
-                    window.alert(ex);
-                    // store as string for now
-                    this.range().input("'" + this._value);
+                range.input(value);
+
+                var validationState = range._getValidationState();
+                if (validationState) {
+                    return this.rejectState(validationState);
+                }
+            } catch(ex1) {
+                if (ex1 instanceof kendo.spreadsheet.calc.ParseError) {
+                    // it's a formula. maybe a closing paren fixes it?
+                    try {
+                        range.input(value + ")");
+
+                        var validationState = range._getValidationState();
+                        if (validationState) {
+                            return this.rejectState(validationState);
+                        }
+                    } catch(ex2) {
+                        if (ex2 instanceof kendo.spreadsheet.calc.ParseError) {
+                            range.input("'" + value);
+
+                            return {
+                                title : "Error in formula",
+                                body  : ex1+"",
+                                reason: "error"
+                            };
+                        }
+                    }
                 } else {
-                    throw ex;
+                    throw ex1;
                 }
             }
         }
@@ -846,7 +876,6 @@
     kendo.spreadsheet.PasteCommand = Command.extend({
         init: function(options) {
             Command.fn.init.call(this, options);
-            this._workbook = options.workbook;
             this._clipboard = this._workbook.clipboard();
         },
         getState: function() {
@@ -858,11 +887,10 @@
             this._clipboard.menuInvoked = true;
             if(!status.canPaste) {
                 if(status.menuInvoked) {
-                    this._workbook._view.openDialog("useKeyboard");
-                    return;
+                    return { reason: "useKeyboard" };
                 }
                 if(status.pasteOnMerged) {
-                    this._workbook._view.openDialog("modifyMerged");
+                    return { reason: "modifyMerged" };
                 }
                 return;
             }
@@ -883,16 +911,14 @@
     });
 
     kendo.spreadsheet.ToolbarPasteCommand = Command.extend({
-        init: function(options) {
-            Command.fn.init.call(this, options);
-            this._workbook = options.workbook;
-        },
         exec: function() {
-            if(kendo.support.browser.msie && kendo.support.browser.version >= 10) {
+            if(kendo.support.clipboard.paste) {
                 this._workbook._view.clipboard.focus().select();
+
+                //reason : focusclipbord
                 document.execCommand('paste');
             } else {
-                this._workbook._view.openDialog("useKeyboard");
+                return { reason: "useKeyboard" };
             }
         }
     });
@@ -900,7 +926,6 @@
     kendo.spreadsheet.CopyCommand = Command.extend({
         init: function(options) {
             Command.fn.init.call(this, options);
-            this._workbook = options.workbook;
             this._clipboard = options.workbook.clipboard();
         },
         undo: $.noop,
@@ -909,9 +934,9 @@
             this._clipboard.menuInvoked = true;
             if(!status.canCopy) {
                 if(status.menuInvoked) {
-                    this._workbook._view.openDialog("useKeyboard");
+                    return { reason: "useKeyboard" };
                 } else if(status.multiSelection) {
-                    this._workbook._view.openDialog("unsupportedSelection");
+                    return { reason: "unsupportedSelection" };
                 }
                 return;
             }
@@ -922,20 +947,19 @@
     kendo.spreadsheet.ToolbarCopyCommand = Command.extend({
         init: function(options) {
             Command.fn.init.call(this, options);
-            this._workbook = options.workbook;
             this._clipboard = options.workbook.clipboard();
         },
         undo: $.noop,
         exec: function() {
-            if(kendo.support.browser.msie && kendo.support.browser.version >= 10) {
+            if(kendo.support.clipboard.copy) {
                 var clipboard = this._workbook._view.clipboard;
                 var textarea = document.createElement('textarea');
-                $(textarea).val(clipboard.html()).appendTo(document.body).focus().select();
+                $(textarea).addClass("k-spreadsheet-clipboard").val(clipboard.html()).appendTo(document.body).focus().select();
                 document.execCommand('copy');
                 clipboard.trigger("copy");
                 $(textarea).remove();
             } else {
-                this._workbook._view.openDialog("useKeyboard");
+                return { reason: "useKeyboard" };
             }
         }
     });
@@ -953,22 +977,34 @@
         }
     });
 
+    kendo.spreadsheet.AutoFillCommand = Command.extend({
+        init: function(options) {
+            Command.fn.init.call(this, options);
+        },
+        origin: function(origin) {
+            this._origin = origin;
+        },
+        exec: function() {
+            this.getState();
+            this._range.fillFrom(this._origin);
+        }
+    });
+
     kendo.spreadsheet.ToolbarCutCommand = Command.extend({
         init: function(options) {
             Command.fn.init.call(this, options);
-            this._workbook = options.workbook;
             this._clipboard = options.workbook.clipboard();
         },
         exec: function() {
-            if(kendo.support.browser.msie && kendo.support.browser.version >= 10) {
+            if(kendo.support.clipboard.copy) {
                 var clipboard = this._workbook._view.clipboard;
                 var textarea = document.createElement('textarea');
                 $(textarea).val(clipboard.html()).appendTo(document.body).focus().select();
-                document.execCommand('cut');
+                document.execCommand('copy');
                 clipboard.trigger("cut");
                 $(textarea).remove();
             } else {
-                this._workbook._view.openDialog("useKeyboard");
+                return { reason: "useKeyboard" };
             }
         }
     });
@@ -984,8 +1020,10 @@
 
             if (range.hasFilter()) {
                 range.filter(false);
-            } else {
+            } else if (!range.intersectingMerged().length) {
                 range.filter(true);
+            } else {
+               return { reason: "filterRangeContainingMerges" };
             }
         }
     });
@@ -1159,7 +1197,7 @@
             var sheet = this.range().sheet();
 
             if (!sheet.axisManager().canAddRow()) {
-                return { reason: "shiftingNonblankCells" };
+                return { reason: "error", type: "shiftingNonblankCells" };
             }
 
             this._state = sheet.getState();
@@ -1268,7 +1306,7 @@
         32: 'spacebar'
     };
 
-    var PRIVATE_FORMULA_CHECK = /[a-z0-9]$/i;
+    var PRIVATE_FORMULA_CHECK = /(^_|[^a-z0-9]$)/i;
 
     var FormulaInput = Widget.extend({
         init: function(element, options) {
@@ -1401,7 +1439,7 @@
             var value;
 
             for (var key in kendo.spreadsheet.calc.runtime.FUNCS) {
-                if (PRIVATE_FORMULA_CHECK.test(key)) {
+                if (!PRIVATE_FORMULA_CHECK.test(key)) {
                     value = key.toUpperCase();
                     result.push({ value: value, text: value });
                 }
@@ -1670,6 +1708,9 @@
         },
 
         _canInsertRef: function(isKeyboardAction) {
+            if (this.popup.visible()) {
+                return null;
+            }
             var strictMode = isKeyboardAction;
             var point = this.getPos();
             var tokens, tok;
@@ -1837,8 +1878,8 @@
                     tok.cls = [ "k-syntax-" + tok.type ];
 
                     if (tok.type == "ref") {
-                        tok.seriesCls = refClasses[(refIndex++) % refClasses.length];
-                        tok.cls.push(tok.seriesCls);
+                        tok.colorClass = refClasses[(refIndex++) % refClasses.length];
+                        tok.cls.push(tok.colorClass);
                         highlightedRefs.push(tok);
                     }
                     if (pos && tok.type == "punc") {
@@ -2942,6 +2983,9 @@
         map: function(callback, obj) {
             return callback.call(obj, this);
         },
+        intersects: function(ref) {
+            return this.intersect(ref) !== NULL;
+        },
         isCell: function() {
             return false;
         },
@@ -3300,9 +3344,6 @@
                 return ref.intersect(this);
             }
             throw new Error("Unknown reference");
-        },
-        intersects: function(ref) {
-            return this.intersect(ref) !== NULL;
         },
         simplify: function() {
             if (this.isCell()) {
@@ -3715,6 +3756,95 @@
     var RangeRef = kendo.spreadsheet.RangeRef;
     var CellRef = kendo.spreadsheet.CellRef;
 
+    var AutoFillCalculator = kendo.Class.extend({
+        init: function(grid) {
+            this._grid = grid;
+        },
+
+        rectIsVertical: function(start, end, x, y) {
+            var startRect = this._grid.rectangle(start.toRangeRef());
+            var endRect = this._grid.rectangle(end.toRangeRef());
+            return Math.abs(endRect[y] - startRect[y]) > Math.abs(startRect[x] - endRect[x]);
+        },
+
+        autoFillDest: function(selection, cursor) {
+            var topLeft = selection.topLeft;
+            var bottomRight = selection.bottomRight;
+
+            var quadrant;
+            var lower = cursor.row >= topLeft.row;
+            var further = cursor.col >= topLeft.col;
+
+            if (lower) {
+                quadrant = further ? 4 : 3;
+            } else {
+                quadrant = further ? 2 : 1;
+            }
+
+            var pivot, opposite, cornerResult, expanding;
+
+            if (quadrant === 4) {
+                pivot = topLeft;
+                opposite = bottomRight;
+
+                expanding = cursor.row > opposite.row || cursor.col > opposite.col;
+
+                if (expanding) {
+                    cursor = new CellRef(Math.max(cursor.row, opposite.row), Math.max(cursor.col, opposite.col));
+                }
+
+                if (this.rectIsVertical(opposite, cursor, 'right', 'bottom')) { // vertical
+                    cornerResult = new CellRef(cursor.row, opposite.col);
+                } else {
+                    cornerResult = new CellRef(opposite.row, cursor.col);
+                }
+            } else if (quadrant === 3) {
+                var bottomLeft = new CellRef(topLeft.col, bottomRight.row);
+
+                if (cursor.row > bottomRight.row && this.rectIsVertical(bottomLeft, cursor, 'left', 'bottom')) { // vertical
+                    pivot = topLeft;
+                    cornerResult = new CellRef(cursor.row, bottomRight.col);
+                } else {
+                    pivot = bottomRight;
+                    cornerResult = new CellRef(topLeft.row, cursor.col);
+                }
+            } else if (quadrant === 2){
+                var topRight = new CellRef(topLeft.row, bottomRight.col);
+
+                if (cursor.col > bottomRight.col && !this.rectIsVertical(topRight, cursor, 'right', 'top')) { // horizontal
+                    pivot = topLeft;
+                    cornerResult = new CellRef(bottomRight.row, cursor.col);
+                } else {
+                    pivot = bottomRight;
+                    cornerResult = new CellRef(cursor.row, topLeft.col);
+                }
+            } else {
+                pivot = bottomRight;
+                if (this.rectIsVertical(topLeft, cursor, 'left', 'top')) { // horizontal
+                    cornerResult = new CellRef(cursor.row, topLeft.col);
+                } else {
+                    cornerResult = new CellRef(topLeft.row, cursor.col);
+                }
+            }
+
+            return this._grid.normalize(new RangeRef(pivot, cornerResult));
+        }
+    });
+
+    kendo.spreadsheet.AutoFillCalculator = AutoFillCalculator;
+})(kendo);
+})();
+
+(function(){
+
+(function(kendo) {
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
+    var RangeRef = kendo.spreadsheet.RangeRef;
+    var CellRef = kendo.spreadsheet.CellRef;
+
     var EdgeNavigator = kendo.Class.extend({
         init: function(field, axis, rangeGetter, union) {
             this.rangeGetter = rangeGetter;
@@ -3757,6 +3887,7 @@
         init: function(sheet) {
             this._sheet = sheet;
             this.columns = this._sheet._grid._columns;
+            this.autoFillCalculator = new kendo.spreadsheet.AutoFillCalculator(sheet._grid);
 
             this.colEdge = new EdgeNavigator("col", this._sheet._grid._columns, this.columnRange.bind(this), this.union.bind(this));
             this.rowEdge = new EdgeNavigator("row", this._sheet._grid._rows, this.rowRange.bind(this), this.union.bind(this));
@@ -3826,8 +3957,12 @@
         },
 
         startSelection: function(ref, mode, addToExisting) {
-            this._sheet.startSelection();
-            this.select(ref, mode, addToExisting);
+            if (mode == "autofill") {
+                this._sheet.startAutoFill();
+            } else {
+                this._sheet.startSelection();
+                this.select(ref, mode, addToExisting);
+            }
         },
 
         completeSelection: function() {
@@ -4117,10 +4252,14 @@
             var sheet = this._sheet;
             var grid = sheet._grid;
 
+            if (mode === "autofill") {
+               this.resizeAutoFill(ref);
+               return;
+            }
             if (mode === "range") {
                 ref = grid.normalize(ref);
             }
-            if (mode === "row") {
+            else if (mode === "row") {
                 ref = grid.rowRef(ref.row).bottomRight;
             } else if (mode === "column") {
                 ref = grid.colRef(ref.col).bottomRight;
@@ -4141,6 +4280,38 @@
             });
 
             return isMerged;
+        },
+
+        resizeAutoFill: function(ref) {
+            var sheet = this._sheet;
+            var selection = sheet.select();
+            var origin = sheet._autoFillOrigin;
+            var dest = this.autoFillCalculator.autoFillDest(selection, ref);
+
+            var punch = this.punch(selection, dest);
+            var hint, direction, row;
+
+            if (!punch) {
+                var preview = sheet.range(dest)._previewFillFrom(sheet.range(origin));
+
+                if (preview) {
+                    direction = preview.direction;
+                    var props = preview.props;
+
+                    if (direction === 0 || direction == 1) {
+                        row = props[props.length - 1];
+                        hint = row[row.length - 1].value;
+                    } else if (direction === 2) {
+                        row = props[0];
+                        hint = row[row.length - 1].value;
+                    } else if (direction === 3) {
+                        row = props[props.length - 1];
+                        hint = row[0].value;
+                    }
+                }
+            }
+
+            sheet.updateAutoFill(dest, punch, hint, direction);
         },
 
         determineDirection: function(action) {
@@ -4182,6 +4353,29 @@
         updateCurrentSelectionRange: function(ref) {
             var sheet = this._sheet;
             sheet.select(sheet.originalSelect().replaceAt(sheet.selectionRangeIndex(), ref), false);
+        },
+
+        punch: function(selection, subset) {
+            var punch;
+            if (subset.topLeft.eq(selection.topLeft)) {
+                if (subset.bottomRight.row < selection.bottomRight.row) {
+                    var bottomRow = this.rowEdge.nextRight(subset.bottomRight.row);
+
+                    punch = new RangeRef(
+                        new CellRef(bottomRow, selection.topLeft.col),
+                        selection.bottomRight
+                    );
+                } else if (subset.bottomRight.col < selection.bottomRight.col) {
+                    var bottomCol = this.colEdge.nextRight(subset.bottomRight.col);
+
+                    punch = new RangeRef(
+                        new CellRef(selection.topLeft.row, bottomCol),
+                        selection.bottomRight
+                    );
+                }
+            }
+
+            return punch;
         }
     });
 
@@ -4354,7 +4548,9 @@
             var ref = this.pasteRef();
             var status = {canPaste: true};
             if(ref === kendo.spreadsheet.NULLREF) {
-                status.canPaste = this._external.hasOwnProperty("html") || this._external.hasOwnProperty("plain");
+                var external = this._external.hasOwnProperty("html") || this._external.hasOwnProperty("plain");
+                status.pasteOnMerged = this.intersectsMerged();
+                status.canPaste = status.pasteOnMerged ? false : external;
                 return status;
             }
             if(!ref.eq(sheet.unionWithMerged(ref))) {
@@ -4366,6 +4562,14 @@
                 status.menuInvoked = true;
             }
             return status;
+        },
+
+        intersectsMerged: function() {
+            var sheet = this.workbook.activeSheet();
+            var state = this.parse(this._external);
+            this.origin = this.stateRangeRef(state);
+            var ref = this.pasteRef();
+            return !ref.eq(sheet.unionWithMerged(ref));
         },
 
         copy: function() {
@@ -4390,41 +4594,45 @@
             return this.origin.relative(rowDelta, colDelta, 3);
         },
 
+        stateRangeRef: function(state) {
+            var rows = [];
+            var cols = [];
+            for (var key in state) {
+                if (key === "mergedCells" || key === "ref") {
+                    continue;
+                }
+                var address = key.split(",");
+                rows.push(address[0]);
+                cols.push(address[1]);
+            }
+            var topLeft = new CellRef(Math.min.apply(null, rows), Math.min.apply(null, cols));
+            var bottomRight = new CellRef(Math.max.apply(null, rows), Math.max.apply(null, cols));
+            return new RangeRef(topLeft, bottomRight, 0);
+        },
+
         destroy: function() {
             document.body.removeChild(this.iframe);
         },
 
         paste: function() {
-            var content = {};
+            var state = {};
             var sheet = this.workbook.activeSheet();
             if(this._isInternal()) {
-                content = this.contents;
-            }else{
-                var rows = [];
-                var cols = [];
-                content = this.parse(this._external);
-                for (var key in content) {
-                    if(key === "mergedCells" || key === "ref") {
-                        continue;
-                    }
-                    var address = key.split(",");
-                    rows.push(address[0]);
-                    cols.push(address[1]);
-                }
-                var topLeft = new CellRef(Math.min.apply(null, rows), Math.min.apply(null, cols));
-                var bottomRight = new CellRef(Math.max.apply(null, rows), Math.max.apply(null, cols));
-                this.origin = new RangeRef(topLeft, bottomRight, 0);
+                state = this.contents;
+            } else {
+                state = this.parse(this._external);
+                this.origin = this.stateRangeRef(state);
             }
             var pasteRef = this.pasteRef();
-            sheet.range(pasteRef).clear().setState(content);
+            sheet.range(pasteRef).clear().setState(state);
             sheet.triggerChange({recalc: true});
 
         },
 
         external: function(data) {
-            if(data.html || data.plain){
+            if (data.html || data.plain) {
                 this._external = data;
-            }else{
+            } else {
                 return this._external;
             }
         },
@@ -4614,7 +4822,7 @@
                     return;
                 }
                 borderObject[key] = {
-                    size: "1px",
+                    size: 1,
                     color: styles[key + "Color"]
                 };
             });
@@ -4781,6 +4989,8 @@
                         formula = kendo.spreadsheet.calc.compile(x);
                     } else if (x.type == "date") {
                         this.format(toExcelFormat(kendo.culture().calendar.patterns.d));
+                    } else if (x.type == "percent") {
+                        this.format(x.value*100 == (x.value*100|0) ? "0%" : "0.00%");
                     }
                     this.formula(formula);
                     if (!formula) {
@@ -4797,13 +5007,16 @@
                 value = this._get("value");
                 var format = this._get("format");
                 var formula = this._get("formula");
+                var type = format && !formula && kendo.spreadsheet.formatting.type(value, format);
 
                 if (formula) {
                     // it's a Formula object which stringifies to the
                     // formula as text (without the starting `=`).
                     value = "=" + formula;
-                } else if (format && kendo.spreadsheet.formatting.type(value, format) === "date") {
+                } else if (type === "date") {
                     value = kendo.toString(kendo.spreadsheet.numberToDate(value), kendo.culture().calendar.patterns.d);
+                } else if (type === "percent") {
+                    value = (value * 100) + "%";
                 } else if (typeof value == "string" &&
                            (/^[=']/.test(value) ||
                             (/^(?:true|false)$/i).test(value) ||
@@ -4836,6 +5049,27 @@
                 return f ? f.toJSON() : null; // stringify if present
             }
             return this._property("validation", value);
+        },
+
+        _getValidationState: function() {
+            var ref = this._ref.toRangeRef();
+            var topLeftRow = ref.topLeft.row;
+            var topLeftCol = ref.topLeft.col;
+            var bottomRightRow = ref.bottomRight.row;
+            var bottomRightCol = ref.bottomRight.col;
+            var ci, ri;
+
+            for (ci = topLeftCol; ci <= bottomRightCol; ci ++) {
+                for (ri = topLeftRow; ri <= bottomRightRow; ri ++) {
+                    var validation = this._sheet._validation(ri, ci);
+
+                    if (validation && validation.type === "reject" && validation.value === false) {
+                        return validation;
+                    }
+                }
+            }
+
+            return false;
         },
 
         merge: function() {
@@ -4918,6 +5152,62 @@
             }
         },
 
+        _properties: function(props) {
+            if (this._ref instanceof UnionRef) {
+                throw new Error("Unsupported for multiple ranges.");
+            }
+
+            if (this._ref === kendo.spreadsheet.NULLREF) {
+                if (props !== undefined) {
+                    throw new Error("Unsupported for NULLREF.");
+                } else {
+                    return [];
+                }
+            }
+
+            var ref = this._ref.toRangeRef();
+            var topLeftRow = ref.topLeft.row;
+            var topLeftCol = ref.topLeft.col;
+            var bottomRightRow = ref.bottomRight.row;
+            var bottomRightCol = ref.bottomRight.col;
+            var ci, ri;
+            var sheet = this._sheet;
+
+            if (props === undefined) {
+                props = new Array(ref.height());
+                sheet.forEach(ref, function(row, col, data){
+                    row -= topLeftRow;
+                    col -= topLeftCol;
+                    var line = props[row] || (props[row] = []);
+                    line[col] = data;
+                });
+                return props;
+            }
+            else {
+                var data;
+                ref = ref.clone();
+                var setProp = function(propName) {
+                    var propValue = data[propName];
+                    ref.topLeft.row = ref.bottomRight.row = ri;
+                    ref.topLeft.col = ref.bottomRight.col = ci;
+                    sheet._set(ref, propName, propValue);
+                };
+                for (ci = topLeftCol; ci <= bottomRightCol; ci ++) {
+                    for (ri = topLeftRow; ri <= bottomRightRow; ri ++) {
+                        var row = props[ri - topLeftRow];
+                        if (row) {
+                            data = row[ci - topLeftCol];
+                            if (data) {
+                                Object.keys(data).forEach(setProp);
+                            }
+                        }
+                    }
+                }
+                sheet.triggerChange({ recalc: true });
+                return this;
+            }
+        },
+
         clear: function(options) {
             var clearAll = !options || !Object.keys(options).length;
 
@@ -4931,6 +5221,9 @@
 
                 if (reason.recalc) {
                     this.formula(null);
+                }
+
+                if (clearAll) {
                     this.validation(null);
                 }
 
@@ -5093,23 +5386,22 @@
 
         getState: function(propertyName) {
             var state = {ref: this._ref.first()};
-            var properties = [propertyName];
+            var properties;
             if (!propertyName) {
                 properties = kendo.spreadsheet.ALL_PROPERTIES;
                 state.mergedCells = this.intersectingMerged();
-            }
-
-            if (propertyName === "border") {
+            } else if (propertyName === "input") {
+                properties = ["value", "formula"];
+            } else if (propertyName === "border") {
                 properties = ["borderLeft", "borderTop", "borderRight", "borderBottom"];
+            } else {
+                properties = [propertyName];
             }
 
             this.forEachCell(function(row, col, cell) {
                 var cellState = state[row + "," + col] = {};
 
                 properties.forEach(function(property) {
-                    if (property === "input") {
-                        property = "value";
-                    }
                     cellState[property] = cell[property] || null;
                 });
             });
@@ -5234,7 +5526,7 @@
 
     function looksLikeANumber(str) {
         // XXX: could do with just a regexp instead of calling parse.
-        return !(/^=/.test(str)) && kendo.spreadsheet.calc.parse(null, 0, 0, str).type == "number";
+        return !(/^=/.test(str)) && (/number|percent/).test(kendo.spreadsheet.calc.parse(null, 0, 0, str).type);
     }
 
     var measureBox = $('<div style="position: absolute !important; top: -4000px !important; height: auto !important;' +
@@ -5244,8 +5536,8 @@
                      )[0];
 
     function getTextHeight(text, width, fontSize, wrap) {
-        var styles = { 
-            "baselineMarkerSize" : 0, 
+        var styles = {
+            "baselineMarkerSize" : 0,
             "width" : width + "px",
             "font-size" : (fontSize || 12) + "px",
             "word-break" : (wrap === true) ? "break-all" : "normal"
@@ -5408,8 +5700,9 @@
 
         func: function(fname, callback, args) {
             fname = fname.toLowerCase();
-            if (Object.prototype.hasOwnProperty.call(FUNCS, fname)) {
-                return FUNCS[fname].call(this, callback, args);
+            var f = FUNCS[fname];
+            if (f) {
+                return f.call(this, callback, args);
             }
             callback(new CalcError("NAME"));
         },
@@ -5494,6 +5787,10 @@
 
         getRefData: function(ref) {
             return this.ss.getData(ref);
+        },
+
+        workbook: function() {
+            return this.ss.workbook;
         }
     });
 
@@ -5827,6 +6124,18 @@
             this.pending = false;
             delete this.value;
         },
+        renameSheet: function(oldSheetName, newSheetName) {
+            oldSheetName = oldSheetName.toLowerCase();
+            this.absrefs = null;
+            if (this.sheet.toLowerCase() == oldSheetName) {
+                this.sheet = newSheetName;
+            }
+            this.refs.forEach(function(ref){
+                if (ref.sheet.toLowerCase() == oldSheetName) {
+                    ref.sheet = newSheetName;
+                }
+            });
+        },
         adjust: function(affectedSheet, operation, start, delta) {
             affectedSheet = affectedSheet.toLowerCase();
             var formulaRow = this.row;
@@ -5879,52 +6188,52 @@
     });
 
     // spreadsheet functions --------
-    var FUNCS = {
-        "if": function(callback, args) {
-            var self = this;
-            var co = args[0], th = args[1], el = args[2];
-            // XXX: I don't like this resolveCells here.  We should try to declare IF with
-            // defineFunction.
-            this.resolveCells([ co ], function(){
-                var comatrix = self.asMatrix(co);
-                if (comatrix) {
-                    // XXX: calling both branches in this case, since we'll typically need values from
-                    // both.  We could optimize and call them only when first needed, but oh well.
-                    th(function(th){
-                        el(function(el){
-                            var thmatrix = self.asMatrix(th);
-                            var elmatrix = self.asMatrix(el);
-                            callback(comatrix.map(function(val, row, col){
-                                if (self.bool(val)) {
-                                    return thmatrix ? thmatrix.get(row, col) : th;
-                                } else {
-                                    return elmatrix ? elmatrix.get(row, col) : el;
-                                }
-                            }));
-                        });
-                    });
-                } else {
-                    if (self.bool(co)) {
-                        th(callback);
-                    } else {
-                        el(callback);
-                    }
-                }
-            });
-        },
+    var FUNCS = Object.create(null);
 
-        "φ": function(callback) {
-            callback((1+Math.sqrt(5))/2);
-        }
+    FUNCS["if"] = function(callback, args) {
+        var self = this;
+        var co = args[0], th = args[1], el = args[2];
+        // XXX: I don't like this resolveCells here.  We should try to declare IF with
+        // defineFunction.
+        this.resolveCells([ co ], function(){
+            var comatrix = self.asMatrix(co);
+            if (comatrix) {
+                // XXX: calling both branches in this case, since we'll typically need values from
+                // both.  We could optimize and call them only when first needed, but oh well.
+                th(function(th){
+                    el(function(el){
+                        var thmatrix = self.asMatrix(th);
+                        var elmatrix = self.asMatrix(el);
+                        callback(comatrix.map(function(val, row, col){
+                            if (self.bool(val)) {
+                                return thmatrix ? thmatrix.get(row, col) : th;
+                            } else {
+                                return elmatrix ? elmatrix.get(row, col) : el;
+                            }
+                        }));
+                    });
+                });
+            } else {
+                if (self.bool(co)) {
+                    th(callback);
+                } else {
+                    el(callback);
+                }
+            }
+        });
+    };
+
+    FUNCS["φ"] = function(callback) {
+        callback((1+Math.sqrt(5))/2);
     };
 
     // Lasciate ogni speranza, voi ch'entrate.
     //
     // XXX: document this function.
-    function compileArgumentChecks(args) {
+    function compileArgumentChecks(functionName, args) {
         var arrayArgs = "function arrayArgs(args) { var xargs = [], width = 0, height = 0, arrays = [], i = 0; ";
         var resolve = "function resolve(args, callback) { var toResolve = [], i = 0; ";
-        var name, forced, main = "'use strict'; function check(args) { var xargs = [], i = 0, m, err = 'VALUE'; ", haveForced = false;
+        var name, forced, main = "'use strict'; function check(args) { var stack = [], tmp, xargs = [], i = 0, m, err = 'VALUE'; ", haveForced = false;
         var canBeArrayArg = false, hasArrayArgs = false;
         main += args.map(comp).join("");
         main += "if (i < args.length) return new CalcError('N/A'); ";
@@ -5950,17 +6259,21 @@
             if (Array.isArray(name)) {
                 arrayArgs += "while (i < args.length) { ";
                 resolve += "while (i < args.length) { ";
+                code += "xargs.push(tmp = []); stack.push(xargs); xargs = tmp; ";
                 code += "while (i < args.length) { ";
                 code += x.map(comp).join("");
                 code += "} ";
+                code += "xargs = stack.pop(); ";
                 resolve += "} ";
                 arrayArgs += "} ";
             } else if (name == "+") {
                 arrayArgs += "while (i < args.length) { ";
                 resolve += "while (i < args.length) { ";
+                code += "xargs.push(tmp = []); stack.push(xargs); xargs = tmp; ";
                 code += "do { ";
                 code += x.slice(1).map(comp).join("");
                 code += "} while (i < args.length); ";
+                code += "xargs = stack.pop(); ";
                 resolve += "} ";
                 arrayArgs += "} ";
             } else if (name == "?") {
@@ -5992,6 +6305,10 @@
                 } else if (type == "rest") {
                     code += "xargs.push(args.slice(i)); i = args.length; ";
                 } else {
+                    if ((canBeArrayArg = /^\*/.test(name))) {
+                        hasArrayArgs = true;
+                        name = name.substr(1);
+                    }
                     code += "var $" + name + " = args[i++]; ";
                     var allowError = false;
                     if (/!$/.test(type)) {
@@ -6018,7 +6335,6 @@
         }
 
         function typeCheck(type, allowError) {
-            canBeArrayArg = false;
             forced = false;
             var ret = "if (!(" + cond(type) + ")) { ";
             if (forced && !allowError) {
@@ -6080,10 +6396,6 @@
                 }
                 throw new Error("Unknown array type condition: " + type[0]);
             }
-            if (/^\*/.test(type)) {
-                canBeArrayArg = hasArrayArgs = true;
-                type = type.substr(1);
-            }
             if (type == "number") {
                 return "(typeof " + force() + " == 'number' || typeof $"+name+" == 'boolean')";
             }
@@ -6104,13 +6416,13 @@
                 return "((typeof " + force() + " == 'number' || typeof $"+name+" == 'boolean') && ($"+name+" >= 0 ? true : ((err = 'NUM'), false)))";
             }
             if (type == "integer+") {
-                return "(((typeof " + force() + " == 'number' || typeof $"+name+" == 'boolean') && ($"+name+" >= 0 ? true : ((err = 'NUM'), false))) ? ($"+name+" |= 0, true) : false)";
+                return "((typeof " + force() + " == 'number' || typeof $"+name+" == 'boolean') && (($"+name+" |= 0) >= 0 ? true : ((err = 'NUM'), false)))";
             }
             if (type == "number++") {
                 return "((typeof " + force() + " == 'number' || typeof $"+name+" == 'boolean') && ($"+name+" > 0 ? true : ((err = 'NUM'), false)))";
             }
             if (type == "integer++") {
-                return "(((typeof " + force() + " == 'number' || typeof $"+name+" == 'boolean') && ($"+name+" > 0) ? true : ((err = 'NUM'), false)) ? ($"+name+" |= 0, true) : false)";
+                return "((typeof " + force() + " == 'number' || typeof $"+name+" == 'boolean') && (($"+name+" |= 0 ) > 0) ? true : ((err = 'NUM'), false))";
             }
             if (type == "string") {
                 return "(typeof " + force() + " == 'string')";
@@ -6156,6 +6468,21 @@
         }
     }
 
+    function withErrorHandling(obj, f, args) {
+        if (args instanceof CalcError) {
+            return args;
+        }
+        try {
+            return f.apply(obj, args);
+        } catch(ex) {
+            if (ex instanceof CalcError) {
+                return ex;
+            } else {
+                throw ex;
+            }
+        }
+    }
+
     function makeSyncFunction(handler, resolve, check, arrayArgs) {
         return function(callback, args) {
             function doit() {
@@ -6175,40 +6502,14 @@
                                     }
                                 }
                                 xargs = check.call(this, xargs);
-                                if (xargs instanceof CalcError) {
-                                    result.set(row, col, xargs);
-                                } else {
-                                    try {
-                                        result.set(row, col, handler.apply(this, xargs));
-                                    } catch(ex) {
-                                        if (ex instanceof CalcError) {
-                                            result.set(row, col, ex);
-                                        } else {
-                                            throw ex;
-                                        }
-                                    }
-                                }
+                                result.set(row, col, withErrorHandling(this, handler, xargs));
                             }
                         }
                         return callback(result);
                     }
                 }
                 var xargs = check.call(this, args);
-                if (xargs instanceof CalcError) {
-                    callback(xargs);
-                } else {
-                    var val;
-                    try {
-                        val = handler.apply(this, xargs);
-                    } catch(ex) {
-                        if (ex instanceof CalcError) {
-                            val = ex;
-                        } else {
-                            throw ex;
-                        }
-                    }
-                    callback(val);
-                }
+                callback(withErrorHandling(this, handler, xargs));
             }
             if (resolve) {
                 resolve.call(this, args, doit);
@@ -6218,9 +6519,6 @@
         };
     }
 
-    // XXX: the duplication here sucks.  the only difference vs the above function is that this one
-    // will insert the callback as first argument when calling the handler, and thus supports async
-    // handlers.
     function makeAsyncFunction(handler, resolve, check, arrayArgs) {
         return function(callback, args) {
             function doit() {
@@ -6286,7 +6584,7 @@
         FUNCS[name] = func;
         return {
             args: function(args, log) {
-                var code = compileArgumentChecks(args);
+                var code = compileArgumentChecks(name, args);
                 // XXX: DEBUG
                 if (log) {
                     if (code.arrayArgs) {console.log(code.arrayArgs.toString());}
@@ -6298,7 +6596,7 @@
                 return this;
             },
             argsAsync: function(args, log) {
-                var code = compileArgumentChecks(args);
+                var code = compileArgumentChecks(name, args);
                 // XXX: DEBUG
                 if (log) {
                     if (code.arrayArgs) {console.log(code.arrayArgs.toString());}
@@ -6313,6 +6611,42 @@
     }
 
     /* -----[ date calculations ]----- */
+
+    // Julian days algorithms from http://www.hermetic.ch/cal_stud/jdn.htm#comp
+
+    function dateToJulianDays(y, m, d) {
+        m++;
+        return ((1461 * (y + 4800 + ((m - 14) / 12 | 0))) / 4 | 0) +
+            ((367 * (m - 2 - 12 * ((m - 14) / 12 | 0))) / 12 | 0) -
+            ((3 * (((y + 4900 + ((m - 14) / 12 | 0)) / 100 | 0))) / 4 | 0) +
+            d - 32075;
+    }
+
+    function julianDaysToDate(jd) {
+        var l, n, j, i, m, d, y;
+        l = jd + 68569;
+        n = (4 * l) / 146097 | 0;
+        l = l - ((146097 * n + 3) / 4 | 0);
+        i = (4000 * (l + 1) / 1461001) | 0;
+        l = l - ((1461 * i) / 4 | 0) + 31;
+        j = (80 * l) / 2447 | 0;
+        d = l - ((2447 * j) / 80 | 0);
+        l = j / 11 | 0;
+        m = j + 2 - (12 * l);
+        y = 100 * (n - 49) + i + l;
+        m--;
+        return {
+            year  : y,
+            month : m,
+            date  : d,
+            day   : (jd + 1) % 7,
+            ord   : ORDINAL_ADD_DAYS[isLeapYear(y)][m] + d
+        };
+    }
+
+    // This uses the Google Spreadsheet approach: treat 1899-12-31 as day 1, allowing to avoid
+    // implementing the "Leap Year Bug" yet still be Excel compatible for dates starting 1900-03-01.
+    var BASE_DATE = dateToJulianDays(1900, 0, -1);
 
     var DAYS_IN_MONTH = [ 31, 28, 31,
                           30, 31, 30,
@@ -6346,15 +6680,11 @@
     }
 
     function unpackDate(serial) {
-        // This uses the Google Spreadsheet approach: treat 1899-12-31
-        // as day 1, allowing to avoid implementing the "Leap Year
-        // Bug" yet still be Excel compatible for dates starting
-        // 1900-03-01.
-        return _unpackDate(serial - 1);
+        return julianDaysToDate((serial | 0) + BASE_DATE);
     }
 
-    function packDate(date, month, year) {
-        return _packDate(date, month, year) + 1;
+    function packDate(year, month, date) {
+        return dateToJulianDays(year, month, date) - BASE_DATE;
     }
 
     var MS_IN_MIN = 60 * 1000;
@@ -6387,75 +6717,6 @@
                         t.hours, t.minutes, t.seconds, t.milliseconds);
     }
 
-    // Unpack date by assuming serial is number of days since
-    // 1900-01-01 (that being day 1).  Negative numbers are allowed
-    // and go backwards in time.
-    function _unpackDate(serial) {
-        serial |= 0;            // discard time part
-        var month, tmp;
-        var backwards = serial <= 0;
-        var year = 1900;
-        var day = serial % 7;   // 1900-01-01 was a Monday
-        if (backwards) {
-            serial = -serial;
-            year--;
-            day = (day + 7) % 7;
-        }
-
-        while (serial > (tmp = daysInYear(year))) {
-            serial -= tmp;
-            year += backwards ? -1 : 1;
-        }
-
-        if (backwards) {
-            month = 11;
-            while (serial >= (tmp = daysInMonth(year, month))) {
-                serial -= tmp;
-                month--;
-            }
-            serial = tmp - serial;
-        } else {
-            month = 0;
-            while (serial > (tmp = daysInMonth(year, month))) {
-                serial -= tmp;
-                month++;
-            }
-        }
-
-        return {
-            year  : year,
-            month : month,
-            date  : serial,
-            day   : day,
-            ord   : ORDINAL_ADD_DAYS[isLeapYear(year)][month] + serial
-        };
-    }
-
-    function _packDate(year, month, date) {
-        var serial = 0;
-        year += Math.floor(month / 12);
-        month %= 12;
-        if (month < 0) {
-            // no need to decrease year because e.g. Math.floor(-1/12) is -1, so
-            // it's already subtracted.
-            month += 12;
-        }
-        if (year >= 1900) {
-            for (var i = 1900; i < year; ++i) {
-                serial += daysInYear(i);
-            }
-        } else {
-            for (var i = 1899; i >= year; --i) {
-                serial -= daysInYear(i);
-            }
-        }
-        for (var i = 0; i < month; ++i) {
-            serial += daysInMonth(year, i);
-        }
-        serial += date;
-        return serial;
-    }
-
     function packTime(hours, minutes, seconds, ms) {
         return (hours + minutes/60 + seconds/3600 + ms/3600000) / 24;
     }
@@ -6475,6 +6736,36 @@
         }
     }
 
+    function parseDate(str) {
+        // XXX: this is biased towards US style (when numeric, month must come first).
+        return kendo.parseDate(str, [
+            "MM/dd/yyyy",
+            "MM-dd-yyyy",
+            "MM/dd/yy",
+            "MM-dd-yy",
+            "MMMM dd yyyy",
+            "MMMM dd yy",
+            "MMM dd yyyy",
+            "MMM dd yy",
+            "dd MMMM yyyy",
+            "dd MMMM yy",
+            "dd MMM yyyy",
+            "dd MMM yy",
+            "MMMM dd, yyyy",
+            "MMMM dd, yy",
+            "MMM dd, yyyy",
+            "MMM dd, yy",
+            "MMMM dd",
+            "MMM dd",
+            "MMMM yyyy",
+            "MMM yyyy",
+            "dd MMMM",
+            "dd MMM",
+            "MM-dd",
+            "MM/dd"
+        ]) || kendo.parseDate(str);
+    }
+
     /* -----[ exports ]----- */
 
     exports.CalcError = CalcError;
@@ -6490,9 +6781,12 @@
     exports.daysInMonth = daysInMonth;
     exports.isLeapYear = isLeapYear;
     exports.daysInYear = daysInYear;
+    exports.parseDate = parseDate;
 
     spreadsheet.dateToNumber = dateToSerial;
     spreadsheet.numberToDate = serialToDate;
+    spreadsheet.defineFunction = defineFunction;
+    spreadsheet.CalcError = CalcError;
 
     exports.defineFunction = defineFunction;
     exports.defineAlias = function(alias, name) {
@@ -6511,13 +6805,13 @@
     /* -----[ Excel operators ]----- */
 
     var ARGS_NUMERIC = [
-        [ "a", "*number" ],
-        [ "b", "*number" ]
+        [ "*a", "number" ],
+        [ "*b", "number" ]
     ];
 
     var ARGS_ANYVALUE = [
-        [ "a", "*anyvalue" ],
-        [ "b", "*anyvalue" ]
+        [ "*a", "anyvalue" ],
+        [ "*b", "anyvalue" ]
     ];
 
     defineFunction("binary+", function(a, b){
@@ -6535,8 +6829,8 @@
     defineFunction("binary/", function(a, b){
         return a / b;
     }).args([
-        [ "a", "*number" ],
-        [ "b", "*divisor" ]
+        [ "*a", "number" ],
+        [ "*b", "divisor" ]
     ]);
 
     defineFunction("binary^", function(a, b){
@@ -6548,8 +6842,8 @@
         if (b == null) { b = ""; }
         return "" + a + b;
     }).args([
-        [ "a", [ "or", "*number", "*string", "*boolean", "*null" ] ],
-        [ "b", [ "or", "*number", "*string", "*boolean", "*null" ] ]
+        [ "*a", [ "or", "number", "string", "boolean", "null" ] ],
+        [ "*b", [ "or", "number", "string", "boolean", "null" ] ]
     ]);
 
     defineFunction("binary=", function(a, b){
@@ -6579,19 +6873,19 @@
     defineFunction("unary+", function(a){
         return a;
     }).args([
-        [ "a", "*number" ]
+        [ "*a", "number" ]
     ]);
 
     defineFunction("unary-", function(a){
         return -a;
     }).args([
-        [ "a", "*number" ]
+        [ "*a", "number" ]
     ]);
 
     defineFunction("unary%", function(a){
         return a / 100;
     }).args([
-        [ "a", "*number" ]
+        [ "*a", "number" ]
     ]);
 
     // range operator
@@ -6624,7 +6918,7 @@
     defineFunction("not", function(a){
         return !this.bool(a);
     }).args([
-        [ "a", "*anyvalue" ]
+        [ "*a", "anyvalue" ]
     ]);
 
     /* -----[ the IS* functions ]----- */
@@ -6636,56 +6930,56 @@
         }
         return false;
     }).args([
-        [ "value", "*anything!" ]
+        [ "*value", "anything!" ]
     ]);
 
     defineFunction("iserror", function(val){
         return val instanceof CalcError;
     }).args([
-        [ "value", "*forced!" ]
+        [ "*value", "forced!" ]
     ]);
 
     defineFunction("iserr", function(val){
         return val instanceof CalcError && val.code != "N/A";
     }).args([
-        [ "value", "*forced!" ]
+        [ "*value", "forced!" ]
     ]);
 
     defineFunction("isna", function(val){
         return val instanceof CalcError && val.code == "N/A";
     }).args([
-        [ "value", "*forced!" ]
+        [ "*value", "forced!" ]
     ]);
 
     defineFunction("islogical", function(val){
         return typeof val == "boolean";
     }).args([
-        [ "value", "*forced!" ]
+        [ "*value", "forced!" ]
     ]);
 
     defineFunction("isnontext", function(val){
         return typeof val != "string";
     }).args([
-        [ "value", "*forced!" ]
+        [ "*value", "forced!" ]
     ]);
 
     defineFunction("istext", function(val){
         return typeof val == "string";
     }).args([
-        [ "value", "*forced!" ]
+        [ "*value", "forced!" ]
     ]);
 
     defineFunction("isnumber", function(val){
         return typeof val == "number";
     }).args([
-        [ "value", "*forced!" ]
+        [ "*value", "forced!" ]
     ]);
 
     defineFunction("isref", function(val){
         // apparently should return true only for cell and range
         return val instanceof CellRef || val instanceof RangeRef;
     }).args([
-        [ "value", "*anything!" ]
+        [ "*value", "anything!" ]
     ]);
 
     /// utils
@@ -6732,15 +7026,27 @@
     spreadsheet.validation = exports;
     var calc = spreadsheet.calc;
     var Class = kendo.Class;
+    var TRANSPOSE_FORMAT = "_matrix({0})";
+
+    calc.runtime.defineFunction("_matrix", function(m){
+        return m;
+    }).args([
+        [ "m", "matrix" ]
+    ]);
 
     function compileValidation(sheet, row, col, validation) {
         var validationHandler;
+        var comparer;
 
         if (typeof validation === "string") {
             validation = JSON.parse(validation);
         }
 
         if (validation.from) {
+            if (validation.dataType === "list") {
+                validation.from = kendo.format(TRANSPOSE_FORMAT, validation.from);
+            }
+
             validation.from = calc.compile(calc.parseFormula(sheet, row, col, validation.from));
         }
 
@@ -6748,8 +7054,13 @@
             validation.to = calc.compile(calc.parseFormula(sheet, row, col, validation.to));
         }
 
-
-        var comparer = validation.dataType == "custom" ? exports.validationComparers.custom : exports.validationComparers[validation.comparerType];
+        if (validation.dataType == "custom") {
+            comparer = exports.validationComparers.custom;
+        } else if (validation.dataType == "list") {
+            comparer = exports.validationComparers.list;
+        } else {
+            comparer = exports.validationComparers[validation.comparerType];
+        }
 
         if (!comparer) {
             throw kendo.format("'{0}' comparer is not implemented.", validation.comparerType);
@@ -6758,8 +7069,12 @@
         validationHandler = function (valueToCompare) { //add 'valueFormat' arg when add isDate comparer
             var toValue = this.to && this.to.value ? this.to.value : undefined;
 
-            if ( this.dataType == "custom") {
+            if (this.dataType == "custom") {
                 this.value = comparer(valueToCompare, this.from.value,  toValue);
+            } else if (this.dataType == "list") {
+                var data = this._getListData();
+
+                this.value = comparer(valueToCompare, data, toValue);
             } else if (valueToCompare === null) {
                 if (this.allowNulls) {
                     this.value = true;
@@ -6814,32 +7129,61 @@
             }
         },
 
+        _formatMessages: function(format) {
+            var from = this.from ? this.from.value : "";
+            var to = this.to ? this.to.value : "";
+
+            var fromFormula = this.from ? this.from.toString() : "";
+            var toFormula = this.to ? this.to.toString() : "";
+            var dataType = this.dataType;
+            var type = this.type;
+            var comparerType = this.comparerType;
+
+            return kendo.format(format, from, to, fromFormula, toFormula, dataType, type, comparerType);
+        },
+
         _setMessages: function() {
-            var options = {
-                from: this.from ? this.from.value : "",
-                to: this.to ? this.to.value : "",
-                fromFormula: this.from ? this.from.toString() : "",
-                toFormula: this.from ? this.from.toString() : "",
-                dataType: this.dataType,
-                type: this.type,
-                comparerType: this.comparerType
-            };
+            this.title = "";
+            this.message = "";
 
             if (this.tooltipTitleTemplate) {
-                this.tooltipTitle = kendo.template(this.tooltipTitleTemplate)(options);
+                this.tooltipTitle = this._formatMessages(this.tooltipTitleTemplate);
             }
 
             if (this.tooltipMessageTemplate) {
-                this.tooltipMessage = kendo.template(this.tooltipMessageTemplate)(options);
+                this.tooltipMessage = this._formatMessages(this.tooltipMessageTemplate);
             }
 
             if (this.titleTemplate) {
-                this.title = kendo.template(this.titleTemplate)(options);
+                this.title = this._formatMessages(this.titleTemplate);
             }
 
             if (this.messageTemplate) {
-                this.message = kendo.template(this.messageTemplate)(options);
+                this.message = this._formatMessages(this.messageTemplate);
             }
+        },
+
+        _getListData: function() {
+            if (!this.from.value || !this.from.value.data) {
+                return [];
+            }
+
+            var cube = this.from.value.data;
+            var i;
+            var y;
+            var data = [];
+
+            for (i = 0; i < cube.length; i++ ) {
+                var array = cube[i];
+
+                if (array) {
+                    for (y = 0; y < array.length; y++ ) {
+                        data.push(array[y]);
+                    }
+                }
+            }
+
+            return data;
         },
 
         clone: function(sheet, row, col) {
@@ -6863,6 +7207,7 @@
             var self = this;
 
             var calculateFromCallBack = function() {
+
                 self.value = self.handler.call(self, compareValue, compareFormat);
                 self._setMessages();
                 if (callback) {
@@ -6919,6 +7264,10 @@
 
             if (options.from) {
                 options.from = options.from.toString();
+
+                if (options.dataType === "list") {
+                    options.from = options.from.replace(/^_matrix\((.*)\)$/i, "$1");
+                }
             }
 
             if (options.to) {
@@ -6983,6 +7332,10 @@
 
         custom: function (valueToCompare, from) {
             return from;
+        },
+
+        list: function (valueToCompare, data) {
+            return data.indexOf(valueToCompare) > -1;
         }
     };
 
@@ -7003,6 +7356,90 @@
     var Range = kendo.spreadsheet.Range;
     var Color = kendo.Color;
 
+    var Selection = kendo.Class.extend({
+        init: function(sheet) {
+            this._sheet = sheet;
+            this.selection = kendo.spreadsheet.FIRSTREF.toRangeRef();
+            this.originalSelection = kendo.spreadsheet.FIRSTREF.toRangeRef();
+            this._activeCell = kendo.spreadsheet.FIRSTREF.toRangeRef();
+            this.originalActiveCell = kendo.spreadsheet.FIRSTREF;
+        },
+
+        currentSelectionRange: function() {
+            return this.selection.rangeAt(this.selectionRangeIndex).toRangeRef();
+        },
+
+        currentOriginalNavigationRange: function() {
+            return this.originalSelection.rangeAt(this.selectionRangeIndex).toRangeRef();
+        },
+
+        currentNavigationRange: function() {
+            if (this.singleCellSelection()) {
+                return this._sheet._sheetRef;
+            } else {
+                return this.selection.rangeAt(this.selectionRangeIndex).toRangeRef();
+            }
+        },
+
+        nextNavigationRange: function() {
+            if (!this.singleCellSelection()) {
+                this.selectionRangeIndex = this.selection.nextRangeIndex(this.selectionRangeIndex);
+            }
+
+            return this.currentNavigationRange();
+        },
+
+        previousNavigationRange: function() {
+            if (!this.singleCellSelection()) {
+                this.selectionRangeIndex = this.selection.previousRangeIndex(this.selectionRangeIndex);
+            }
+
+            return this.currentNavigationRange();
+        },
+
+        activeCell: function(ref) {
+            if (ref) {
+                this.originalActiveCell = ref;
+                this._activeCell = this._sheet.unionWithMerged(ref.toRangeRef());
+                this._sheet.focus(ref);
+                this._sheet.triggerChange({ activeCell: true, selection: true });
+            }
+
+            return this._activeCell;
+        },
+
+        select: function(ref, expanded, changeActiveCell) {
+            if (ref) {
+                if (ref.eq(this.originalSelection)) {
+                    return;
+                }
+
+                this.originalSelection = ref;
+
+                this.selection = expanded;
+
+                if (changeActiveCell !== false) {
+
+                    if (ref.isCell()) {
+                        this.activeCell(ref);
+                    } else {
+                        this.activeCell(this.selection.lastRange().first());
+                    }
+
+                    this.selectionRangeIndex = this.selection.size() - 1;
+                } else {
+                    this._sheet.triggerChange({ selection: true });
+                }
+            }
+
+            return this.selection;
+        },
+
+        singleCellSelection: function() {
+            return this._activeCell.eq(this.selection);
+        }
+    });
+
     var Sheet = kendo.Observable.extend({
         init: function(rowCount, columnCount, rowHeight, columnWidth, headerHeight, headerWidth) {
             kendo.Observable.prototype.init.call(this);
@@ -7021,19 +7458,9 @@
             this._properties = new kendo.spreadsheet.PropertyBag(cellCount);
             this._sorter = new kendo.spreadsheet.Sorter(this._grid, this._properties.sortable());
 
-            this._viewSelection = {
-                selection: kendo.spreadsheet.FIRSTREF.toRangeRef(),
-                originalSelection: kendo.spreadsheet.FIRSTREF.toRangeRef(),
-                activeCell: kendo.spreadsheet.FIRSTREF.toRangeRef(),
-                originalActiveCell: kendo.spreadsheet.FIRSTREF
-            };
+            this._viewSelection = new Selection(this);
 
-            this._editSelection = {
-                selection: kendo.spreadsheet.FIRSTREF.toRangeRef(),
-                originalSelection: kendo.spreadsheet.FIRSTREF.toRangeRef(),
-                activeCell: kendo.spreadsheet.FIRSTREF.toRangeRef(),
-                originalActiveCell: kendo.spreadsheet.FIRSTREF
-            };
+            this._editSelection = new Selection(this);
 
             this._formulaSelections = [];
         },
@@ -7179,8 +7606,8 @@
 
         _forValidations: function(callback) {
             var props = this._properties;
-            props.get("validation").values().forEach(function(f){
-                callback.call(this, f.value);
+            props.get("validation").values().forEach(function(v){
+                callback.call(this, v.value);
             }, this);
         },
 
@@ -7484,6 +7911,34 @@
             this._resizeInProgress = true;
         },
 
+        startAutoFill: function() {
+            this._autoFillInProgress = true;
+            var selection = this.select();
+            this._autoFillOrigin = selection;
+            this._autoFillDest = selection;
+            this.triggerChange({ selection: true });
+        },
+
+        updateAutoFill: function(dest, punch, hint, direction) {
+            this._autoFillDest = dest;
+            this._autoFillPunch = punch;
+            this._autoFillHint = hint;
+            this._autoFillDirection = direction;
+            this.triggerChange({ selection: true });
+        },
+
+        autoFillRef: function() {
+            return this._autoFillDest;
+        },
+
+        autoFillPunch: function() {
+            return this._autoFillPunch;
+        },
+
+        autoFillInProgress: function() {
+            return this._autoFillInProgress;
+        },
+
         resizingInProgress: function() {
             return this._resizeInProgress;
         },
@@ -7542,6 +7997,31 @@
                 this._resizeHintPosition = undefined;
                 this.trigger("change", { selection: true });
             }
+            if (this._autoFillInProgress) {
+                this._autoFillInProgress = false;
+                var dest = this._autoFillDest;
+                var origin = this._autoFillOrigin;
+
+                if (this._autoFillPunch) { // we just clear data here
+                    this._workbook.execute({
+                        command: "ClearContentCommand", options: { operatingRange: this.range(this._autoFillPunch) }
+                    });
+                } else {
+                    if (!dest.eq(origin)) {
+                        this._workbook.execute({
+                            command: "AutoFillCommand", options: { operatingRange: this.range(dest), origin: this.range(origin) }
+                        });
+                    } else {
+                        this.triggerChange({ selection: true });
+                    }
+                }
+
+                this._autoFillDest = null;
+                this._autoFillPunch = null;
+                this._autoFillOrigin = null;
+
+                this.select(dest);
+            }
         },
 
         selectionInProgress: function() {
@@ -7551,30 +8031,14 @@
         select: function(ref, changeActiveCell) {
             var selectionState = this._selectionState();
 
+            var expandedRef;
+
             if (ref) {
                 ref = this._ref(ref);
-
-                if (ref.eq(selectionState.originalSelection)) {
-                    return;
-                }
-
-                selectionState.originalSelection = ref;
-
-                selectionState.selection = this._grid.isAxis(ref) ? ref : this.unionWithMerged(ref);
-
-                if (changeActiveCell !== false) {
-                    if (ref.isCell()) {
-                        this.activeCell(ref);
-                    } else {
-                        this.activeCell(selectionState.selection.lastRange().first());
-                    }
-                    selectionState.selectionRangeIndex = selectionState.selection.size() - 1;
-                } else {
-                    this.triggerChange({ selection: true });
-                }
+                expandedRef = this._grid.isAxis(ref) ? ref : this.unionWithMerged(ref);
             }
 
-            return selectionState.selection;
+            return selectionState.select(ref, expandedRef, changeActiveCell);
         },
 
         originalSelect: function() {
@@ -7582,49 +8046,40 @@
         },
 
         currentSelectionRange: function() {
-            var selectionState = this._selectionState();
-            return selectionState.selection.rangeAt(selectionState.selectionRangeIndex).toRangeRef();
+            return this._selectionState().currentSelectionRange();
         },
 
         currentOriginalSelectionRange: function() {
-            var selectionState = this._selectionState();
-            return selectionState.originalSelection.rangeAt(selectionState.selectionRangeIndex).toRangeRef();
+            return this._selectionState().currentOriginalNavigationRange();
         },
 
         currentNavigationRange: function() {
-            var selectionState = this._selectionState();
-
-            if (this.singleCellSelection()) {
-                return this._sheetRef;
-            } else {
-                return selectionState.selection.rangeAt(selectionState.selectionRangeIndex).toRangeRef();
-            }
+            return this._selectionState().currentNavigationRange();
         },
 
         nextNavigationRange: function() {
-            var selectionState = this._selectionState();
-
-            if (!this.singleCellSelection()) {
-                selectionState.selectionRangeIndex = selectionState.selection.nextRangeIndex(selectionState.selectionRangeIndex);
-            }
-
-            return this.currentNavigationRange();
+            return this._selectionState().nextNavigationRange();
         },
 
         previousNavigationRange: function() {
-            var selectionState = this._selectionState();
-
-            if (!this.singleCellSelection()) {
-                selectionState.selectionRangeIndex = selectionState.selection.previousRangeIndex(selectionState.selectionRangeIndex);
-            }
-
-            return this.currentNavigationRange();
+            return this._selectionState().previousNavigationRange();
         },
 
         selectionRangeIndex: function() {
             return this._selectionState().selectionRangeIndex;
         },
 
+        activeCell: function(ref) {
+            return this._selectionState().activeCell(ref);
+        },
+
+        originalActiveCell: function() {
+            return this._selectionState().originalActiveCell;
+        },
+
+        singleCellSelection: function() {
+            return this._selectionState().singleCellSelection();
+        },
 
         unionWithMerged: function(ref) {
             var mergedCells = this._mergedCells;
@@ -7643,22 +8098,6 @@
             return this.unionWithMerged(ref.topLeft.toRangeRef().union(trims));
         },
 
-        activeCell: function(ref) {
-            var selectionState = this._selectionState();
-            if (ref) {
-                selectionState.originalActiveCell = ref;
-                selectionState.activeCell = this.unionWithMerged(ref.toRangeRef());
-                this.focus(selectionState.activeCell);
-                this.triggerChange({ activeCell: true, selection: true });
-            }
-
-            return selectionState.activeCell;
-        },
-
-        originalActiveCell: function() {
-            return this._selectionState().originalActiveCell;
-        },
-
         focus: function(ref) {
             if (ref) {
                 this._focus = ref.toRangeRef();
@@ -7675,11 +8114,6 @@
 
         selection: function() {
             return new Range(this._grid.normalize(this._selectionState().selection), this);
-        },
-
-        singleCellSelection: function() {
-            var selectionState = this._selectionState();
-            return selectionState.activeCell.eq(selectionState.selection);
         },
 
         selectedHeaders: function() {
@@ -7737,7 +8171,7 @@
             };
         },
 
-        _edit: function(isInEdit) {
+        isInEditMode: function(isInEdit) {
             if (isInEdit === undefined) {
                 return this._inEdit;
             }
@@ -7747,7 +8181,7 @@
             if (isInEdit) {
                 this._editSelection.selection = this._viewSelection.selection.clone();
                 this._editSelection.originalSelection = this._viewSelection.originalSelection.clone();
-                this._editSelection.activeCell = this._viewSelection.activeCell.clone();
+                this._editSelection._activeCell = this._viewSelection._activeCell.clone();
                 this._editSelection.originalActiveCell = this._viewSelection.originalActiveCell.clone();
             }
         },
@@ -7758,7 +8192,7 @@
         },
 
         _viewActiveCell: function() {
-            return this._viewSelection.activeCell.toRangeRef();
+            return this._viewSelection._activeCell.toRangeRef();
         },
 
         toJSON: function() {
@@ -7832,7 +8266,7 @@
                 rows: rows,
                 columns: columns,
                 selection: viewSelection.selection.toString(),
-                activeCell: viewSelection.activeCell.toString(),
+                activeCell: viewSelection.activeCell().toString(),
                 frozenRows: this.frozenRows(),
                 frozenColumns: this.frozenColumns(),
                 mergedCells: this._mergedCells.map(function(ref) {
@@ -7925,8 +8359,10 @@
                 }
 
                 if (json.activeCell) {
-                    this._viewSelection.activeCell =
-                        this._viewSelection.originalActiveCell = this._ref(json.activeCell);
+                    var activeCellRef = this._ref(json.activeCell);
+
+                    this._viewSelection._activeCell = activeCellRef.toRangeRef();
+                    this._viewSelection.originalActiveCell = activeCellRef;
                 }
 
 
@@ -7986,15 +8422,16 @@
         },
 
         recalc: function(context) {
-            var self = this;
             this._forFormulas(function(formula){
                 formula.exec(context);
             });
+        },
 
+        revalidate: function(context) {
+            var self = this;
             this._forValidations(function(validation){
                 var cellRef = new CellRef(validation.row, validation.col);
                 var ref =  new RangeRef(cellRef, cellRef);
-
                 validation.exec(context, self._get(ref, "value"), self._get(ref, "format"));
             });
         },
@@ -8009,13 +8446,19 @@
             }
         },
 
+        _validation: function(row, col) {
+            var index = this._grid.index(row, col);
+
+            return this._properties.get("validation", index);
+        },
+
         _compileValidation: function(row, col, validation) {
             if (validation.from) {
                 validation.from = (validation.from + "").replace(/^=/, "");
             }
 
             if (validation.to) {
-                validation.to = (validation.from + "").replace(/^=/, "");
+                validation.to = (validation.to + "").replace(/^=/, "");
             }
 
             return kendo.spreadsheet.validation.compile(this._name, row, col, validation);
@@ -8246,7 +8689,7 @@
                 var viewSelection = sheet._viewSelection;
 
                 viewSelection.selection = sheet.unionWithMerged(viewSelection.originalSelection);
-                viewSelection.activeCell = sheet.unionWithMerged(viewSelection.originalActiveCell);
+                viewSelection._activeCell = sheet.unionWithMerged(viewSelection.originalActiveCell);
             }, { activeCell: true, selection: true });
 
             return mergedRef;
@@ -8706,6 +9149,7 @@
             this.undoRedoStack.bind(["undo", "redo"], this._onUndoRedo.bind(this));
 
             this._context = new kendo.spreadsheet.FormulaContext(this);
+            this._validationContext = new kendo.spreadsheet.ValidationFormulaContext(this);
 
             this.fromJSON(this.options);
         },
@@ -8746,6 +9190,10 @@
             var command = new kendo.spreadsheet[options.command](commandOptions);
             var sheet = this.activeSheet();
 
+            if (commandOptions.origin) {
+                command.origin(commandOptions.origin);
+            }
+
             if (commandOptions.operatingRange) {
                 command.range(commandOptions.operatingRange);
             } else if (commandOptions.editActiveCell) {
@@ -8756,11 +9204,11 @@
 
             var result = command.exec();
 
-            if (!result) {
+            if (!result || result.reason !== "error") {
                 this.undoRedoStack.push(command);
-            } else {
-                return result;
             }
+
+            return result;
         },
 
         resetFormulas: function() {
@@ -8780,6 +9228,7 @@
                 this.resetFormulas();
                 this.resetValidations();
                 this._sheet.recalc(this._context);
+                this._sheet.revalidate(this._validationContext);
             }
         },
 
@@ -8857,6 +9306,10 @@
 
             sheets.splice(insertIndex, 0, sheet);
 
+            if (options.data) {
+                sheet.fromJSON(options.data);
+            }
+
             if (options.dataSource) {
                 sheet.setDataSource(options.dataSource);
             }
@@ -8914,6 +9367,13 @@
             }
 
             this._sheetsSearchCache = {};
+
+            // update references
+            this._sheets.forEach(function(sheet){
+                sheet._forFormulas(function(formula){
+                    formula.renameSheet(oldSheetName, newSheetName);
+                });
+            });
 
             sheet.name(newSheetName);
 
@@ -9031,7 +9491,7 @@
                 sheet = this.workbook.sheetByName(ref.sheet);
                 if (!sheet) {
                     return [{
-                        value: new kendo.spreadsheet.calc.runtime.CalcError("SHEET")
+                        value: new kendo.spreadsheet.calc.runtime.CalcError("REF")
                     }];
                 }
                 formula = sheet.formula(ref);
@@ -9065,7 +9525,7 @@
 
                 if (i < 0 || n < 0) {
                     return [{
-                        value: new kendo.spreadsheet.calc.runtime.CalcError("SHEET")
+                        value: new kendo.spreadsheet.calc.runtime.CalcError("REF")
                     }];
                 }
 
@@ -9148,12 +9608,7 @@
             if (currentFormula !== f) {
                 // could have been deleted or modified in the mean time,
                 // if the formula was asynchronous.  ignore this result.
-                //
-                // XXX: if we return false here, validation won't work
-                // (since it really evaluates a formula that is not in
-                // the cell).  This is a temporary fix until we find a
-                // better solution.
-                return true;
+                return false;
             }
 
             if (value instanceof kendo.spreadsheet.calc.runtime.Matrix) {
@@ -9168,7 +9623,14 @@
         }
     });
 
+    var ValidationFormulaContext = FormulaContext.extend({
+        onFormula: function() {
+            return true;
+        }
+    });
+
     spreadsheet.FormulaContext = FormulaContext;
+    spreadsheet.ValidationFormulaContext = ValidationFormulaContext;
 
 })();
 
@@ -9182,6 +9644,7 @@
     }
 
     var $ = kendo.jQuery;
+    var alphaNumRegExp = /:alphanum$/;
 
     var ACTIONS = {
        "up": "up",
@@ -9247,7 +9710,8 @@
        cell: "range",
        rowheader: "row",
        columnheader: "column",
-       topcorner: "sheet"
+       topcorner: "sheet",
+       autofill: "autofill"
     };
 
     function toActionSelector(selectors) {
@@ -9290,6 +9754,7 @@
             this.colHeaderContextMenu = view.colHeaderContextMenu;
             this.scroller = view.scroller;
             this.tabstrip = view.tabstrip;
+            this.sheetsbar = view.sheetsbar;
 
             this.editor = view.editor;
             this.editor.bind("change", this.onEditorChange.bind(this));
@@ -9304,10 +9769,12 @@
             this.barKeyListener = new kendo.spreadsheet.EventListener(this.editor.barElement(), this, FORMULABAR_EVENTS);
             this.inputKeyListener = new kendo.spreadsheet.EventListener(this.editor.cellElement(), this, FORMULAINPUT_EVENTS);
 
-            view.sheetsbar.bind("select", this.onSheetBarSelect.bind(this));
-            view.sheetsbar.bind("reorder", this.onSheetBarReorder.bind(this));
-            view.sheetsbar.bind("rename", this.onSheetBarRename.bind(this));
-            view.sheetsbar.bind("remove", this.onSheetBarRemove.bind(this));
+            if (this.sheetsbar) {
+                this.sheetsbar.bind("select", this.onSheetBarSelect.bind(this));
+                this.sheetsbar.bind("reorder", this.onSheetBarReorder.bind(this));
+                this.sheetsbar.bind("rename", this.onSheetBarRename.bind(this));
+                this.sheetsbar.bind("remove", this.onSheetBarRemove.bind(this));
+            }
 
             this.cellContextMenu.bind("select", this.onContextMenuSelect.bind(this));
             this.rowHeaderContextMenu.bind("select", this.onContextMenuSelect.bind(this));
@@ -9326,7 +9793,11 @@
             var result = this._workbook.execute(command);
 
             if (result) {
-                this.view.showError(result);
+                if (result.reason === "error") {
+                    this.view.showError(result);
+                } else {
+                    this.view.openDialog(result.reason);
+                }
             }
         },
 
@@ -9505,9 +9976,8 @@
                 if (action == "delete" || action == "backspace") {
                     this._execute({ command: "ClearContentCommand" });
                     event.preventDefault();
-                }
-                else if (action === ":alphanum" || action === ":edit") {
-                    if (action === ":alphanum") {
+                } else if (alphaNumRegExp.test(action) || action === ":edit") {
+                    if (action !== ":edit") {
                         this.editor.value("");
                     }
 
@@ -9517,7 +9987,6 @@
                             tooltip: this._activeTooltip()
                         })
                         .focus();
-
                 } else {
                     this.navigator.navigateInSelection(ENTRY_ACTIONS[action]);
                     event.preventDefault();
@@ -9755,18 +10224,28 @@
             if(e) {
                 if (e.originalEvent.clipboardData && e.originalEvent.clipboardData.getData) {
                     e.preventDefault();
-                    if (/text\/html/.test(e.originalEvent.clipboardData.types)) {
+                    var hasHTML = false;
+                    var hasPlainText = false;
+                    //Firefox uses DOMStringList, needs special handling
+                    if(window.DOMStringList && e.originalEvent.clipboardData.types instanceof window.DOMStringList) {
+                        hasHTML = e.originalEvent.clipboardData.types.contains("text/html");
+                        hasPlainText = e.originalEvent.clipboardData.types.contains("text/plain");
+                    } else {
+                        hasHTML = (/text\/html/.test(e.originalEvent.clipboardData.types));
+                        hasPlainText = (/text\/plain/.test(e.originalEvent.clipboardData.types));
+                    }
+                    if (hasHTML) {
                         html = e.originalEvent.clipboardData.getData('text/html');
                     }
-                    if (/text\/plain/.test(e.originalEvent.clipboardData.types)) {
-                        plain = e.originalEvent.clipboardData.getData('text/plain');
+                    if (hasPlainText) {
+                        plain = e.originalEvent.clipboardData.getData('text/plain').trim();
                     }
                 } else {
                     //workaround for IE's lack of access to the HTML clipboard data
                     var table = this.clipboardElement.find("table.kendo-clipboard-"+ this.clipboard._uid).detach();
                     this.clipboardElement.empty();
                     setTimeout(function() {
-                        this.clipboard.external({html: this.clipboardElement.html(), plain: window.clipboardData.getData("Text")});
+                        this.clipboard.external({html: this.clipboardElement.html(), plain: window.clipboardData.getData("Text").trim()});
                         this.clipboardElement.empty().append(table);
                         this._execute({
                             command: "PasteCommand",
@@ -9776,7 +10255,6 @@
                     }.bind(this));
                     return;
                 }
-
             } else {
                 if(kendo.support.browser.msie) {
                     this.clipboardElement.focus().select();
@@ -9910,7 +10388,7 @@
 ////////////////////////////////////////////////////////////////////
 
         onEditorChange: function(e) {
-            this._workbook.activeSheet()._edit(false);
+            this._workbook.activeSheet().isInEditMode(false);
 
             this._execute({
                 command: "EditCommand",
@@ -9926,13 +10404,13 @@
             var sheet = workbook.activeSheet();
 
             sheet._setFormulaSelections(this.editor.highlightedRefs());
-            sheet._edit(true);
+            sheet.isInEditMode(true);
         },
 
         onEditorDeactivate: function() {
             var sheet = this._workbook.activeSheet();
 
-            sheet._edit(false);
+            sheet.isInEditMode(false);
             sheet._setFormulaSelections([]);
         },
 
@@ -10052,6 +10530,18 @@
         colHeaderContextMenu: "k-spreadsheet-col-header-context-menu"
     };
 
+    var VIEW_MESAGES = kendo.spreadsheet.messages.view = {
+        errors: {
+            shiftingNonblankCells: "Cannot insert cells due to data loss possibility. Select another insert location or delete the data from the end of your worksheet.",
+            filterRangeContainingMerges: "Cannot create a filter within a range containing merges"
+        },
+        tabs: {
+            home: "Home",
+            insert: "Insert",
+            data: "Data"
+        }
+    };
+
     function selectElementContents(el) {
         var sel = window.getSelection();
         sel.removeAllRanges();
@@ -10079,7 +10569,7 @@
     function cellBorder(value) {
         return [
             "solid",
-            value.size || "1px",
+            (value.size || 1) + "px",
             value.color || "#000"
         ].join(" ");
     }
@@ -10152,13 +10642,14 @@
 
         if (!style.textAlign) {
             switch (type) {
-               case "number":
-               case "date":
-                   style.textAlign = "right";
-               break;
-               case "boolean":
-                   style.textAlign = "center";
-               break;
+              case "number":
+              case "date":
+              case "percent":
+                style.textAlign = "right";
+                break;
+              case "boolean":
+                style.textAlign = "center";
+                break;
             }
         }
 
@@ -10230,15 +10721,18 @@
             }
 
             var children = [ text ];
-            var properties = { style: style, className: className };
+            var properties = { style: style };
 
             if (validation && !validation.value) {
                 children.push(kendo.dom.element("span", { className: "k-dirty" }));
 
-                properties.className = (className || "") + (className ? " " : "") + "k-dirty-cell";
+                className = (className || "") + (className ? " " : "") + "k-dirty-cell";
                 properties.title = validation._getOptions().messageTemplate;
             }
 
+            if (className) {
+                properties.className = className;
+            }
             var td = kendo.dom.element("td", properties, children);
 
             this.trs[rowIndex].children.push(td);
@@ -10338,8 +10832,8 @@
             this.clipboardContents = new kendo.dom.Tree(this.clipboard[0]);
 
             this.editor = new kendo.spreadsheet.SheetEditor(this);
-            this.sheetsbar = new kendo.spreadsheet.SheetsBar(element.find(DOT + classNames.sheetsBar), $.extend(true, this.options.sheetsbar));
 
+            this._sheetsbar();
 
             var contextMenuConfig = {
                 target: element,
@@ -10361,14 +10855,6 @@
             });
         },
 
-        options: {
-            messages: {
-                errors: {
-                    shiftingNonblankCells: "Cannot insert cells due to data loss possibility. Select another insert location or delete the data from the end of your worksheet."
-                }
-            }
-        },
-
         _resize: function() {
             var tabstripHeight = this.tabstrip ? this.tabstrip.element.outerHeight() : 0;
             var formulaBarHeight = this.formulaBar ? this.formulaBar.element.outerHeight() : 0;
@@ -10378,6 +10864,10 @@
                 this.element.height() -
                     (tabstripHeight + formulaBarHeight + sheetsBarHeight)
             );
+
+            if (this.tabstrip) {
+                this.tabstrip.quickAccessAdjust();
+            }
         },
 
         _chrome: function() {
@@ -10397,7 +10887,14 @@
             });
         },
 
+        _sheetsbar: function() {
+            if (this.options.sheetsbar) {
+                this.sheetsbar = new kendo.spreadsheet.SheetsBar(this.element.find(DOT + View.classNames.sheetsBar), $.extend(true, {}, this.options.sheetsbar));
+            }
+        },
+
         _tabstrip: function() {
+            var messages = VIEW_MESAGES.tabs;
             var options = $.extend(true, { home: true, insert: true, data: true }, this.options.toolbar);
             var tabs = [];
 
@@ -10408,7 +10905,7 @@
 
             for (var name in options) {
                 if (options[name] === true || options[name] instanceof Array) {
-                    tabs.push({ id: name, text: name.charAt(0).toUpperCase() + name.substr(1), content: "" });
+                    tabs.push({ id: name, text: messages[name], content: "" });
                 }
             }
 
@@ -10480,6 +10977,29 @@
             return result;
         },
 
+        isAutoFill: function(x, y, pane) {
+            var selection = this._sheet.select();
+
+            if (selection.size > 1) {
+                return false;
+            }
+
+            x -= this._sheet._grid._headerWidth;
+            y -= this._sheet._grid._headerHeight;
+
+            if (!pane._grid.columns.frozen) {
+                x += this.scroller.scrollLeft;
+            }
+
+            if (!pane._grid.rows.frozen) {
+                y += this.scroller.scrollTop;
+            }
+
+            var rectangle = this._rectangle(pane, selection);
+
+            return Math.abs(rectangle.right - x) < 8 && Math.abs(rectangle.bottom - y) < 8;
+        },
+
         objectAt: function(x, y) {
             var grid = this._sheet._grid;
 
@@ -10498,7 +11018,9 @@
                 var type = "cell";
                 var ref = new CellRef(row, column);
 
-                if (this.isFilterIcon(x, y, pane, ref)) {
+                if (this.isAutoFill(x, y, pane)) {
+                    type = "autofill";
+                } else if (this.isFilterIcon(x, y, pane, ref)) {
                     type = "filtericon";
                 } else if (x < grid._headerWidth) {
                     ref = new CellRef(row, -Infinity);
@@ -10550,13 +11072,13 @@
                 this.tabstrip.refreshTools(sheet.range(sheet.activeCell()));
             }
 
-            if (reason.sheetSelection) {
+            if (reason.sheetSelection && this.sheetsbar) {
                 this.sheetsbar.renderSheets(this._workbook.sheets(), this._workbook.sheetIndex(this._sheet));
-                this._resize();
             }
 
-            //TODO: refresh sheets list on sheetSelection
+            this._resize();
 
+            //TODO: refresh sheets list on sheetSelection
             this.viewSize[0].style.height = sheet._grid.totalHeight() + "px";
             this.viewSize[0].style.width = sheet._grid.totalWidth() + "px";
 
@@ -10662,8 +11184,11 @@
         },
 
         showError: function(options) {
-            var errorMessages = this.options.messages.errors;
-            this.openDialog("message", { title: "Error", text: errorMessages[options.reason] });
+            var errorMessages = VIEW_MESAGES.errors;
+            this.openDialog("message", {
+                title : options.title || "Error",
+                text  : options.type ? errorMessages[options.type] : options.body
+            });
         },
 
         destroy: function() {
@@ -10690,6 +11215,9 @@
         },
 
         render: function() {
+            if (!this.element.is(":visible")) {
+                return;
+            }
             var sheet = this._sheet;
             var focus = sheet.focus();
 
@@ -10732,7 +11260,7 @@
 
             if (this.editor.isActive()) {
                 this.editor.toggleTooltip(this.activeCellRectangle());
-            } else if (!sheet.selectionInProgress() && !sheet.resizingInProgress() && !sheet._edit()) {
+            } else if (!sheet.selectionInProgress() && !sheet.resizingInProgress() && !sheet.isInEditMode()) {
                 this.renderClipboardContents();
             }
         },
@@ -10837,28 +11365,6 @@
         }
     });
 
-    function orientedClass(classNames, defaultClass, left, top, right, bottom) {
-        var classes = [defaultClass];
-
-        if (top) {
-            classes.push(classNames.top);
-        }
-
-        if (right) {
-            classes.push(classNames.right);
-        }
-
-        if (bottom) {
-            classes.push(classNames.bottom);
-        }
-
-        if (left) {
-            classes.push(classNames.left);
-        }
-
-        return classes.join(" ");
-    }
-
     var paneClassNames = {
         rowHeader: "k-spreadsheet-row-header",
         columnHeader: "k-spreadsheet-column-header",
@@ -10869,6 +11375,7 @@
         activeCell: "k-spreadsheet-active-cell",
         selection: "k-spreadsheet-selection",
         selectionWrapper: "k-selection-wrapper",
+        autoFillWrapper: "k-auto-fill-wrapper",
         single: "k-single",
         top: "k-top",
         right: "k-right",
@@ -10921,6 +11428,8 @@
 
             children.push(this.renderSelection());
 
+            children.push(this.renderAutoFill());
+
             children.push(this.renderEditorSelection());
 
             children.push(this.renderFilterHeaders());
@@ -10968,9 +11477,19 @@
                 }
             }
 
+            var paneClasses = [classNames.pane];
+
+            if (grid.hasColumnHeader) {
+                paneClasses.push(classNames.top);
+            }
+
+            if (grid.hasRowHeader) {
+                paneClasses.push(classNames.left);
+            }
+
             return kendo.dom.element("div", {
                 style: grid.style,
-                className: orientedClass(classNames, classNames.pane, grid.hasRowHeader, grid.hasColumnHeader)
+                className: paneClasses.join(" ")
             }, children);
         },
 
@@ -11132,68 +11651,100 @@
                     return;
                 }
 
-                this._addDiv(selections, ref, classNames.selectionHighlight + " " + range.seriesCls);
+                this._addDiv(selections, ref, classNames.selectionHighlight + " " + range.colorClass);
             }.bind(this));
 
             return kendo.dom.element("div", { className: classNames.selectionWrapper }, selections);
 
-        },
-
-        _active: function() {
-            return this._sheet._formulaSelections.filter(function(sel) {
-                return sel.active;
-            })[0];
         },
 
         renderSelection: function() {
             var classNames = Pane.classNames;
             var selections = [];
-            var seriesColorClass = "";
+            var activeCellClasses = [classNames.activeCell];
+            var selectionClasses = [classNames.selection];
             var sheet = this._sheet;
-            var view = this._currentView;
             var activeCell = sheet.activeCell().toRangeRef();
-            var className = orientedClass(
-                classNames,
-                classNames.activeCell,
-                !activeCell.move(0, -1).intersects(view.ref),
-                !activeCell.move(-1, 0).intersects(view.ref),
-                !activeCell.move(0, 1).intersects(view.ref),
-                !activeCell.move(1, 0).intersects(view.ref)
-            );
+            var activeFormulaColor = this._activeFormulaColor();
+            var selection = sheet.select();
 
-            if (sheet._edit()) {
-                var token = this._active();
+            activeCellClasses = activeCellClasses.concat(activeFormulaColor, this._directionClasses(activeCell));
+            selectionClasses = selectionClasses.concat(activeFormulaColor);
 
-                if (token && token.type == "ref") {
-                    seriesColorClass = " " + token.seriesCls;
-                    className += seriesColorClass;
-                }
+            if (sheet.singleCellSelection()) {
+                activeCellClasses.push(classNames.single);
             }
 
-            if (sheet.select().eq(activeCell)) {
-                className += " " + classNames.single;
+            if (selection.size() === 1) {
+                selectionClasses.push("k-single-selection");
             }
 
-            sheet.select().forEach(function(ref) {
-                if (ref === kendo.spreadsheet.NULLREF) {
-                    return;
-                }
+            if (this._sheet.autoFillPunch()) {
+               selectionClasses.push("k-dim-auto-fill-handle");
+            }
 
-                this._addDiv(selections, ref, classNames.selection + seriesColorClass);
+            selection.forEach(function(ref) {
+                if (ref !== kendo.spreadsheet.NULLREF) {
+                    this._addDiv(selections, ref, selectionClasses.join(" "));
+                }
             }.bind(this));
 
-            this._addTable(selections, activeCell, className);
+            this._addTable(selections, activeCell, activeCellClasses.join(" "));
 
             return kendo.dom.element("div", { className: classNames.selectionWrapper }, selections);
         },
 
+        renderAutoFill: function() {
+            var autoFillRectangle = [];
+
+            if (this._sheet.autoFillInProgress()) {
+                var autoFillRef = this._sheet.autoFillRef();
+                var punch = this._sheet.autoFillPunch();
+                var direction = this._sheet._autoFillDirection;
+
+                this._addDiv(autoFillRectangle, autoFillRef, "k-auto-fill");
+
+                if (punch) { // collapsing, add overlay
+                    this._addDiv(autoFillRectangle, punch, "k-auto-fill-punch");
+                } else if (direction !== undefined) { // expanding - add hint
+                    var ref, cssClass;
+
+                    switch(direction) {
+                        case 0:
+                            ref = autoFillRef.bottomRight;
+                            cssClass = "k-auto-fill-br-hint";
+                            break;
+                        case 1:
+                            ref = autoFillRef.bottomRight;
+                            cssClass = "k-auto-fill-br-hint";
+                            break;
+                        case 2:
+                            ref = new CellRef(autoFillRef.topLeft.row, autoFillRef.bottomRight.col);
+                            cssClass = "k-auto-fill-tr-hint";
+                            break;
+                        case 3:
+                            ref = new CellRef(autoFillRef.bottomRight.row, autoFillRef.topLeft.col);
+                            cssClass = "k-auto-fill-bl-hint";
+                            break;
+                    }
+
+                    var hint = kendo.dom.element("span", { className: "k-tooltip" }, [ kendo.dom.text(this._sheet._autoFillHint) ]);
+
+                    this._addDiv(autoFillRectangle, ref, cssClass).children.push(hint);
+                }
+            }
+
+            return kendo.dom.element("div", { className: Pane.classNames.autoFillWrapper }, autoFillRectangle);
+        },
+
         _addDiv: function(collection, ref, className) {
-            var view = this._currentView;
+            var view = this._currentView, div;
 
             if (view.ref.intersects(ref)) {
-                var div = this._rectangle(ref).resize(1, 1).toDiv(className);
+                div = this._rectangle(ref).resize(1, 1).toDiv(className);
                 collection.push(div);
             }
+            return div;
         },
 
         _addTable: function(collection, ref, className) {
@@ -11212,6 +11763,45 @@
                     collection.push(table.toDomTree(rectangle.left, rectangle.top, className));
                 }.bind(this));
             }
+        },
+
+        _activeFormulaColor: function() {
+            var activeFormulaSelection;
+            var colorClasses = [];
+
+            if (this._sheet.isInEditMode()) {
+                activeFormulaSelection = this._sheet._formulaSelections.filter(function(sel) { return sel.active && sel.type == "ref"; })[0];
+
+                if (activeFormulaSelection) {
+                    colorClasses.push(activeFormulaSelection.colorClass);
+                }
+            }
+
+            return colorClasses;
+        },
+
+        _directionClasses: function(cell) {
+            var cellClasses = [];
+            var classNames = Pane.classNames;
+            var view = this._currentView.ref;
+
+            if (!cell.move(0, -1).intersects(view)) {
+                cellClasses.push(classNames.left);
+            }
+
+            if (!cell.move(-1, 0).intersects(view)) {
+                cellClasses.push(classNames.top);
+            }
+
+            if (!cell.move(0, 1).intersects(view)) {
+                cellClasses.push(classNames.right);
+            }
+
+            if (!cell.move(1, 0).intersects(view)) {
+                cellClasses.push(classNames.bottom);
+            }
+
+            return cellClasses;
         },
 
         _rectangle: function(ref) {
@@ -11705,7 +12295,7 @@
                 offset += endSegment.value.value - (endOffset - (endIndex - endSegment.value.start) * endSegment.value.value);
             }
 
-            offset = -offset;
+            offset = Math.min(-offset, 0);
 
             return {
                 values: this.values.iterator(startIndex, endIndex),
@@ -12448,7 +13038,7 @@
     // Excel formula parser and compiler to JS.
     // some code adapted from http://lisperator.net/pltut/
 
-    var OPERATORS = {};
+    var OPERATORS = Object.create(null);
 
     var ParseError = kendo.Class.extend({
         init: function ParseError(message, pos) {
@@ -13082,25 +13672,26 @@
 
     var makeClosure = (function(cache){
         return function(code) {
-            if (Object.prototype.hasOwnProperty.call(cache, code)) {
-                return cache[code];
+            var f = cache[code];
+            if (!f) {
+                f = cache[code] = new Function("'use strict';return(" + code + ")")();
             }
-            cache[code] = new Function("'use strict';return(" + code + ")")();
-            return cache[code];
+            return f;
         };
-    })({});
+    })(Object.create(null));
 
-    var FORMULA_CACHE = {};
+    var FORMULA_CACHE = Object.create(null);
 
     function makeFormula(exp) {
         var printer = makePrinter(exp);
         var hash = printer.call(exp); // needs .refs
-        if (Object.prototype.hasOwnProperty.call(FORMULA_CACHE, hash)) {
+        var formula = FORMULA_CACHE[hash];
+        if (formula) {
             // we need to clone because formulas cache the result; even if the formula is the same,
             // its value will depend on its location, hence we need different objects.  Still, using
             // this cache is a good idea because we'll reuse the same refs array, handler and
             // printer instead of allocating new ones (and we skip compiling it).
-            return FORMULA_CACHE[hash].clone(exp.sheet, exp.row, exp.col);
+            return formula.clone(exp.sheet, exp.row, exp.col);
         }
         var code = js(toCPS(exp.ast, function(ret){
             return {
@@ -13116,7 +13707,7 @@
             "}"
         ].join(";\n");
 
-        var formula = new runtime.Formula(exp.refs, makeClosure(code), printer, exp.sheet, exp.row, exp.col);
+        formula = new runtime.Formula(exp.refs, makeClosure(code), printer, exp.sheet, exp.row, exp.col);
         FORMULA_CACHE[hash] = formula;
         return formula;
 
@@ -13352,7 +13943,7 @@
             return peek() === "";
         }
         function croak(msg) {
-            throw new ParseError(msg + " (pos " + col + ")", pos);
+            throw new ParseError(msg, pos);
         }
         function skip(ch) {
             if (typeof ch == "string") {
@@ -13424,6 +14015,16 @@
                 value: input.substr(1)
             };
         }
+        if (/^[0-9.]+%$/.test(input)) {
+            var str = input.substr(0, input.length - 1);
+            var num = parseFloat(str);
+            if (!isNaN(num) && num == str) {
+                return {
+                    type: "percent",
+                    value: num / 100
+                };
+            }
+        }
         if (/^=/.test(input)) {
             input = input.substr(1);
             if (/\S/.test(input)) {
@@ -13441,7 +14042,7 @@
         if (input.toLowerCase() == "false") {
             return { type: "boolean", value: false };
         }
-        var date = kendo.parseDate(input);
+        var date = runtime.parseDate(input);
         if (date) {
             return { type: "date", value: runtime.dateToSerial(date) };
         }
@@ -13988,6 +14589,7 @@
                 code += "output += ','; ";
             }
             else if (tok.type == "percent") {
+                code += "type = 'percent'; ";
                 code += "output += culture.numberFormat.percent.symbol; ";
             }
             else if (tok.type == "str") {
@@ -14038,20 +14640,20 @@
         return code;
     }
 
-    var CACHE = {};
+    var CACHE = Object.create(null);
 
     function compile(format) {
-        if (Object.prototype.hasOwnProperty.call(CACHE, format)) {
-            return CACHE[format];
+        var f = CACHE[format];
+        if (!f) {
+            var tree = parse(format);
+            var code = tree.map(compileFormatPart).join("\n");
+            code = "return function(value, culture){ "
+                + "'use strict'; "
+                + "if (!culture) culture = kendo.culture(); "
+                + "var output = '', type = null, element = dom.element('span'); " + code + "; return element; };";
+            f = CACHE[format] = new Function("runtime", "dom", code)(runtime, kendo.dom);
         }
-        var tree = parse(format);
-        var code = tree.map(compileFormatPart).join("\n");
-        code = "return function(value, culture){ "
-            + "'use strict'; "
-            + "if (!culture) culture = kendo.culture(); "
-            + "var output = '', type = null, element = dom.element('span'); " + code + "; return element; };";
-        CACHE[format] = new Function("runtime", "dom", code)(runtime, kendo.dom);
-        return CACHE[format];
+        return f;
     }
 
     var runtime = {
@@ -14096,7 +14698,7 @@
         time: function(culture, t, part, length, ampm) {
             switch (part) {
               case "h":
-                var h = ampm ? t.hours % 12 : t.hours;
+                var h = ampm ? t.hours % 12 || 12 : t.hours;
                 switch (length) {
                   case 1: return h;
                   case 2: return padLeft(h, 2, "0");
@@ -14296,29 +14898,26 @@
 
     [ "abs", "cos", "sin", "acos", "asin", "tan", "atan", "exp", "sqrt" ].forEach(function(name){
         defineFunction(name, Math[name]).args([
-            [ "n", "*number" ]
+            [ "*n", "number" ]
         ]);
     });
 
     defineFunction("ln", Math.log).args([
-        [ "n", "*number" ]
+        [ "*n", "number" ]
     ]);
 
     defineFunction("log", function(num, base){
         return Math.log(num) / Math.log(base);
     }).args([
-        [ "num", [ "and", "*number",
-                   [ "assert", "$num > 0", "NUM" ] ] ],
-        [ "base", [ "and", [ "or", "*number", [ "null", 10 ] ],
-                    [ "assert", "$base != 1", "DIV/0" ],
-                    [ "assert", "$base > 0", "NUM" ] ] ]
+        [ "*num", "number++" ],
+        [ "*base", [ "or", "number++", [ "null", 10 ] ] ],
+        [ "?", [ "assert", "$base != 1", "DIV/0" ] ]
     ]);
 
     defineFunction("log10", function(num){
         return Math.log(num) / Math.log(10);
     }).args([
-        [ "num", [ "and", "*number",
-                   [ "assert", "$num > 0", "NUM" ] ] ]
+        [ "*num", "number++" ]
     ]);
 
     defineFunction("pi", function(){
@@ -14328,19 +14927,19 @@
     defineFunction("sqrtpi", function(n){
         return Math.sqrt(n * Math.PI);
     }).args([
-        [ "num", "*number+" ]
+        [ "*num", "number+" ]
     ]);
 
     defineFunction("degrees", function(rad){
         return ((180 * rad) / Math.PI) % 360;
     }).args([
-        [ "radians", "*number" ]
+        [ "*radians", "number" ]
     ]);
 
     defineFunction("radians", function(deg){
         return Math.PI * deg / 180;
     }).args([
-        [ "degrees", "*number" ]
+        [ "*degrees", "number" ]
     ]);
 
     function _cosh(n){
@@ -14348,14 +14947,14 @@
     }
 
     defineFunction("cosh", _cosh).args([
-        [ "num", "*number" ]
+        [ "*num", "number" ]
     ]);
 
     defineFunction("acosh", function(n){
         return Math.log(n + Math.sqrt(n - 1) * Math.sqrt(n + 1));
     }).args([
-        [ "num", [ "and", "*number",
-                   [ "assert", "$num >= 1" ] ] ]
+        [ "*num", "number" ],
+        [ "?", [ "assert", "$num >= 1" ] ]
     ]);
 
     function _sinh(n){
@@ -14363,44 +14962,44 @@
     }
 
     defineFunction("sinh", _sinh).args([
-        [ "num", "*number" ]
+        [ "*num", "number" ]
     ]);
 
     defineFunction("asinh", function(n){
         return Math.log(n + Math.sqrt(n * n + 1));
     }).args([
-        [ "num", "*number" ]
+        [ "*num", "number" ]
     ]);
 
     defineFunction("sec", function(n){
         return 1 / Math.cos(n);
     }).args([
-        [ "num", "*number" ]
+        [ "*num", "number" ]
     ]);
 
     defineFunction("sech", function(n){
         return 1 / _cosh(n);
     }).args([
-        [ "num", "*number" ]
+        [ "*num", "number" ]
     ]);
 
     defineFunction("csc", function(n){
         return 1 / Math.sin(n);
     }).args([
-        [ "num", "*number" ]
+        [ "*num", "number" ]
     ]);
 
     defineFunction("csch", function(n){
         return 1 / _sinh(n);
     }).args([
-        [ "num", "*number" ]
+        [ "*num", "number" ]
     ]);
 
     defineFunction("atan2", function(x, y){
         return Math.atan(y / x);
     }).args([
-        [ "x", "*divisor" ],
-        [ "y", "*number" ]
+        [ "*x", "divisor" ],
+        [ "*y", "number" ]
     ]);
 
     function _tanh(n) {
@@ -14408,76 +15007,77 @@
     }
 
     defineFunction("tanh", _tanh).args([
-        [ "num", "*number" ]
+        [ "*num", "number" ]
     ]);
 
     defineFunction("atanh", function(n){
         return Math.log(Math.sqrt(1 - n*n) / (1 - n));
     }).args([
-        [ "num", [ "and", "*number",
-                   [ "assert", "$num > -1 && $num < 1" ] ] ]
+        [ "*num", [ "and", "number", [ "(between)", -1, 1 ] ] ]
     ]);
 
     defineFunction("cot", function(n){
         return 1 / Math.tan(n);
     }).args([
-        [ "num", "*divisor" ]
+        [ "*num", "divisor" ]
     ]);
 
     defineFunction("coth", function(n){
         return 1 / _tanh(n);
     }).args([
-        [ "num", "*divisor" ]
+        [ "*num", "divisor" ]
     ]);
 
     defineFunction("acot", function(n){
         return Math.PI / 2 - Math.atan(n);
     }).args([
-        [ "num", "*number" ]
+        [ "*num", "number" ]
     ]);
 
     defineFunction("acoth", function(n){
         return Math.log((n + 1) / (n - 1)) / 2;
     }).args([
-        [ "num", [ "and", "*number",
-                   [ "assert", "$num < -1 || $num > 1" ] ] ]
+        [ "*num", "number" ],
+        [ "?", [ "or",
+                 [ "assert", "$num < -1"],
+                 [ "assert", "$num > 1" ] ] ]
     ]);
 
     defineFunction("power", function(a, b){
         return Math.pow(a, b);
     }).args([
-        [ "a", "*number" ],
-        [ "b", "*number" ]
+        [ "*a", "number" ],
+        [ "*b", "number" ]
     ]);
 
     defineFunction("mod", function(a, b){
         return a % b;
     }).args([
-        [ "a", "*number" ],
-        [ "b", "*divisor" ]
+        [ "*a", "number" ],
+        [ "*b", "divisor" ]
     ]);
 
     defineFunction("quotient", function(a, b){
         return Math.floor(a / b);
     }).args([
-        [ "a", "*number" ],
-        [ "b", "*divisor" ]
+        [ "*a", "number" ],
+        [ "*b", "divisor" ]
     ]);
 
     defineFunction("ceiling", function(num, s){
         return s ? s * Math.ceil(num / s) : 0;
     }).args([
-        [ "number", "*number" ],
-        [ "significance", [ "and", "*number",
-                            [ "assert", "$significance >= 0 || $number < 0" ] ] ]
+        [ "*number", "number" ],
+        [ "*significance", "number" ],
+        [ "?", [ "assert", "$significance >= 0 || $number < 0" ] ]
     ]);
 
     defineFunction("ceiling.precise", function(num, s){
         s = Math.abs(s);
         return s ? s * Math.ceil(num / s) : 0;
     }).args([
-        [ "number", "*number" ],
-        [ "significance", [ "or", "*number", [ "null", 1 ] ] ]
+        [ "*number", "number" ],
+        [ "*significance", [ "or", "number", [ "null", 1 ] ] ]
     ]);
 
     defineAlias("iso.ceiling", "ceiling.precise");
@@ -14497,25 +15097,25 @@
         }
         return s ? s * Math.ceil(num / s) : 0;
     }).args([
-        [ "number", "*number" ],
-        [ "significance", [ "or", "*number", [ "null", "$number < 0 ? -1 : 1" ] ] ],
-        [ "mode", [ "or", "*logical", [ "null", 0 ] ] ]
+        [ "*number", "number" ],
+        [ "*significance", [ "or", "number", [ "null", "$number < 0 ? -1 : 1" ] ] ],
+        [ "*mode", [ "or", "logical", [ "null", 0 ] ] ]
     ]);
 
     defineFunction("floor", function(num, s){
         return s ? s * Math.floor(num / s) : 0;
     }).args([
-        [ "number", "*number" ],
-        [ "significance", [ "and", "*number",
-                            [ "assert", "$significance >= 0 || $number < 0" ] ] ]
+        [ "*number", "number" ],
+        [ "*significance", "number" ],
+        [ "?", [ "assert", "$significance >= 0 || $number < 0" ] ]
     ]);
 
     defineFunction("floor.precise", function(num, s){
         s = Math.abs(s);
         return s ? s * Math.floor(num / s) : 0;
     }).args([
-        [ "number", "*number" ],
-        [ "significance", [ "or", "*number", [ "null", 1 ] ] ]
+        [ "*number", "number" ],
+        [ "*significance", [ "or", "number", [ "null", 1 ] ] ]
     ]);
 
     // XXX: check this
@@ -14528,40 +15128,40 @@
         }
         return s ? s * Math.floor(num / s) : 0;
     }).args([
-        [ "number", "*number" ],
-        [ "significance", [ "or", "*number", [ "null", "$number < 0 ? -1 : 1" ] ] ],
-        [ "mode", [ "or", "*logical", [ "null", 0 ] ] ]
+        [ "*number", "number" ],
+        [ "*significance", [ "or", "number", [ "null", "$number < 0 ? -1 : 1" ] ] ],
+        [ "*mode", [ "or", "logical", [ "null", 0 ] ] ]
     ]);
 
     defineFunction("int", Math.floor).args([
-        [ "number", "*number" ]
+        [ "*number", "number" ]
     ]);
 
     defineFunction("mround", function(num, mult){
         return mult ? mult * Math.round(num / mult) : 0;
     }).args([
-        [ "number", "*number" ],
-        [ "multiple", "*number" ]
+        [ "*number", "number" ],
+        [ "*multiple", "number" ]
     ]);
 
     defineFunction("even", function(num){
         var n = num < 0 ? Math.floor(num) : Math.ceil(num);
         return n % 2 ? n + (n < 0 ? -1 : 1) : n;
     }).args([
-        [ "number", "*number" ]
+        [ "*number", "number" ]
     ]);
 
     defineFunction("odd", function(num){
         var n = num < 0 ? Math.floor(num) : Math.ceil(num);
         return n % 2 ? n : n + (n < 0 ? -1 : 1);
     }).args([
-        [ "number", "*number" ]
+        [ "*number", "number" ]
     ]);
 
     defineFunction("sign", function(num){
         return num < 0 ? -1 : num > 0 ? 1 : 0;
     }).args([
-        [ "number", "*number" ]
+        [ "*number", "number" ]
     ]);
 
     function _gcd(a, b) {
@@ -14613,8 +15213,8 @@
         [ "numbers", [ "collect", "number" ] ]
     ]);
 
-    defineFunction("sumproduct", function() {
-        var sum = 0, a = arguments;
+    defineFunction("sumproduct", function(a) {
+        var sum = 0;
         a[0].each(function(p, row, col){
             if (typeof p == "number") {
                 for (var i = 1; i < a.length; ++i) {
@@ -14748,7 +15348,7 @@
         [ "values", [ "#collect", "anyvalue" ] ]
     ]);
 
-    defineFunction("countblank", function(){
+    defineFunction("countblank", function(a){
         var count = 0;
         function add(val) {
             if (val == null || val === "") {
@@ -14765,7 +15365,7 @@
                 }
             }
         }
-        loop(arguments);
+        loop(a);
         return count;
     }).args([
         [ "+", [ "args", [ "or", "matrix", "anyvalue" ] ] ]
@@ -14774,13 +15374,13 @@
     defineFunction("iseven", function(num){
         return num % 2 === 0;
     }).args([
-        [ "number", "*number" ]
+        [ "*number", "number" ]
     ]);
 
     defineFunction("isodd", function(num){
         return num % 2 !== 0;
     }).args([
-        [ "number", "*number" ]
+        [ "*number", "number" ]
     ]);
 
     defineFunction("n", function(val){
@@ -14792,7 +15392,7 @@
         }
         return 0;
     }).args([
-        [ "value", "*anyvalue" ]
+        [ "*value", "anyvalue" ]
     ]);
 
     defineFunction("na", function(){
@@ -14835,9 +15435,10 @@
           [ "c2", "anyvalue" ] ]
     ];
 
-    defineFunction("countifs", function(){
+    defineFunction("countifs", function(m1, c1, rest){
         var count = 0;
-        forIFS(arguments, function(){ count++; });
+        rest.unshift(m1, c1);
+        forIFS(rest, function(){ count++; });
         return count;
     }).args(ARGS_COUNTIFS);
 
@@ -14845,15 +15446,14 @@
         [ "range", "matrix" ]
     ].concat(ARGS_COUNTIFS);
 
-    defineFunction("sumifs", function(m){
+    defineFunction("sumifs", function(range, m1, c1, args){
         // hack: insert a predicate that filters out non-numeric
         // values; should also accept blank cells.  it's safe to
         // modify args.
-        var args = Array.prototype.slice.call(arguments);
-        args.splice(1, 0, numericPredicate);
+        args.unshift(range, numericPredicate, m1, c1);
         var sum = 0;
         forIFS(args, function(row, col){
-            var val = m.get(row, col);
+            var val = range.get(row, col);
             if (val) {
                 sum += val;
             }
@@ -14862,12 +15462,11 @@
     }).args(ARGS_SUMIFS);
 
     // similar to sumifs, but compute average of matching cells
-    defineFunction("averageifs", function(m){
-        var args = Array.prototype.slice.call(arguments);
-        args.splice(1, 0, numericPredicate);
+    defineFunction("averageifs", function(range, m1, c1, args){
+        args.unshift(range, numericPredicate, m1, c1);
         var sum = 0, count = 0;
         forIFS(args, function(row, col){
-            var val = m.get(row, col);
+            var val = range.get(row, col);
             if (val == null || val === "") {
                 val = 0;
             }
@@ -14888,12 +15487,12 @@
         return count;
     }).args([
         [ "range", "matrix" ],
-        [ "criteria", "*anyvalue" ]
+        [ "*criteria", "anyvalue" ]
     ]);
 
     var ARGS_SUMIF = [
         [ "range", "matrix" ],
-        [ "criteria", "*anyvalue" ],
+        [ "*criteria", "anyvalue" ],
         [ "sumRange", [ "or",
                         [ "and", "matrix",
                           [ "assert", "$sumRange.width == $range.width" ],
@@ -14957,7 +15556,7 @@
             return handler(numbers, nth - 1);
         }).args([
             [ "array", "matrix" ],
-            [ "nth", "*number++" ]
+            [ "*nth", "number++" ]
         ]);
     });
 
@@ -15107,8 +15706,7 @@
         return sum / (n - discard * 2);
     }).args([
         [ "numbers", [ "collect", "number", 1 ] ],
-        [ "percent", [ "and", "number",
-                       [ "assert", "$percent >= 0 && $percent < 1", "NUM" ] ] ],
+        [ "percent", [ "and", "number", [ "[between)", 0, 1 ] ] ],
         [ "?", [ "assert", "$numbers.length > 0", "NUM" ] ]
     ]);
 
@@ -15210,9 +15808,7 @@
     var ARGS_PERCENTRANK = [
         [ "array", [ "collect", "number", 1 ] ],
         [ "x", "number" ],
-        [ "significance", [ "or", [ "null", 3 ],
-                            [ "and", "integer",
-                              [ "assert", "$significance >= 1", "NUM" ] ] ] ],
+        [ "significance", [ "or", [ "null", 3 ], "integer++" ] ],
         [ "?", [ "assert", "$array.length > 0", "NUM" ] ]
     ];
 
@@ -15246,9 +15842,8 @@
     }).args([
         [ "array1", [ "collect", "number", 1 ] ],
         [ "array2", [ "collect", "number", 1 ] ],
-        [ "?", [ "and",
-                 [ "assert", "$array1.length == $array2.length", "N/A" ],
-                 [ "assert", "$array1.length > 0", "DIV/0" ] ] ]
+        [ "?", [ "assert", "$array1.length == $array2.length", "N/A" ] ],
+        [ "?", [ "assert", "$array1.length > 0", "DIV/0" ] ]
     ]);
 
     defineFunction("covariance.s", function(x, y){
@@ -15256,9 +15851,8 @@
     }).args([
         [ "array1", [ "collect", "number", 1 ] ],
         [ "array2", [ "collect", "number", 1 ] ],
-        [ "?", [ "and",
-                 [ "assert", "$array1.length == $array2.length", "N/A" ],
-                 [ "assert", "$array1.length > 1", "DIV/0" ] ] ]
+        [ "?", [ "assert", "$array1.length == $array2.length", "N/A" ] ],
+        [ "?", [ "assert", "$array1.length > 1", "DIV/0" ] ]
     ]);
 
     defineAlias("covar", "covariance.p");
@@ -15273,7 +15867,7 @@
     });
 
     defineFunction("fact", _fact).args([
-        [ "n", "*integer+" ]
+        [ "*n", "integer+" ]
     ]);
 
     defineFunction("factdouble", function(n){
@@ -15282,7 +15876,7 @@
         }
         return fact;
     }).args([
-        [ "n", "*integer+" ]
+        [ "*n", "integer+" ]
     ]);
 
     defineFunction("multinomial", function(numbers){
@@ -15308,17 +15902,15 @@
     });
 
     defineFunction("combin", _combinations).args([
-        [ "n", "*integer++" ],
-        [ "k", [ "and", "*integer+",
-                 [ "assert", "$k <= $n" ] ] ]
+        [ "*n", "integer++" ],
+        [ "*k", [ "and", "integer", [ "[between]", 0, "$n" ] ] ]
     ]);
 
     defineFunction("combina", function(n, k){
         return _combinations(n + k - 1, n - 1);
     }).args([
-        [ "n", "*integer++" ],
-        [ "k", [ "and", "*integer++",
-                 [ "assert", "$k <= $n" ] ] ]
+        [ "*n", "integer++" ],
+        [ "*k", [ "and", "integer", [ "[between]", 1, "$n" ] ] ]
     ]);
 
     /* -----[ Statistical functions ]----- */
@@ -15603,14 +16195,14 @@
         [ "ref", "ref" ]
     ]);
 
-    defineFunction("choose", function(index){
-        if (index >= arguments.length) {
+    defineFunction("choose", function(index, args){
+        if (index > args.length) {
             return new CalcError("N/A");
         } else {
-            return arguments[index];
+            return args[index - 1];
         }
     }).args([
-        [ "index", "*integer" ],
+        [ "*index", "integer" ],
         [ "+", [ "value", "anything" ] ]
     ]);
 
@@ -15766,10 +16358,10 @@
         return topLeft;
     }).args([
         [ "ref", "area" ],
-        [ "rows", "*integer" ],
-        [ "cols", "*integer" ],
-        [ "height", [ "or", "*integer++", [ "null", "$ref.height()" ]]],
-        [ "width", [ "or", "*integer++", [ "null", "$ref.width()" ]]]
+        [ "*rows", "integer" ],
+        [ "*cols", "integer" ],
+        [ "*height", [ "or", "integer++", [ "null", "$ref.height()" ]]],
+        [ "*width", [ "or", "integer++", [ "null", "$ref.width()" ]]]
     ]);
 
     defineFunction("row", function(ref){
@@ -15822,34 +16414,34 @@
     defineFunction("date", function(year, month, date){
         return packDate(year, month-1, date);
     }).args([
-        [ "year", "*integer" ],
-        [ "month", "*integer" ],
-        [ "date", "*integer" ]
+        [ "*year", "integer" ],
+        [ "*month", "integer" ],
+        [ "*date", "integer" ]
     ]);
 
     defineFunction("day", function(date){
         return unpackDate(date).date;
     }).args([
-        [ "date", "*date" ]
+        [ "*date", "date" ]
     ]);
 
     defineFunction("month", function(date){
         return unpackDate(date).month + 1;
     }).args([
-        [ "date", "*date" ]
+        [ "*date", "date" ]
     ]);
 
     defineFunction("year", function(date){
         return unpackDate(date).year;
     }).args([
-        [ "date", "*date" ]
+        [ "*date", "date" ]
     ]);
 
     defineFunction("weekday", function(date){
         // XXX: TODO type
         return unpackDate(date).day + 1;
     }).args([
-        [ "date", "*date" ]
+        [ "*date", "date" ]
     ]);
 
     // https://support.office.com/en-GB/article/WEEKNUM-function-e5c43a03-b4ab-426c-b411-b18c13c75340
@@ -15890,9 +16482,9 @@
         fw -= diff;
         return Math.ceil((date + 1 - fw) / 7);
     }).args([
-        [ "date", "*date" ],
-        [ "type", [ "or", [ "null", 1 ],
-                    [ "values", 1, 2, 11, 12, 13, 14, 15, 16, 17, 21 ] ] ]
+        [ "*date", "date" ],
+        [ "*type", [ "or", [ "null", 1 ],
+                     [ "values", 1, 2, 11, 12, 13, 14, 15, 16, 17, 21 ] ] ]
     ]);
 
     function weeksInYear(year) {
@@ -15916,7 +16508,7 @@
         }
         return wk;
     }).args([
-        [ "date", "*date" ]
+        [ "*date", "date" ]
     ]);
 
     defineFunction("now", function(){
@@ -15930,27 +16522,27 @@
     defineFunction("time", function(hh, mm, ss){
         return runtime.packTime(hh, mm, ss, 0);
     }).args([
-        [ "hours", "*integer" ],
-        [ "minutes", "*integer" ],
-        [ "seconds", "*integer" ]
+        [ "*hours", "integer" ],
+        [ "*minutes", "integer" ],
+        [ "*seconds", "integer" ]
     ]);
 
     defineFunction("hour", function(time){
         return runtime.unpackTime(time).hours;
     }).args([
-        [ "time", "*datetime" ]
+        [ "*time", "datetime" ]
     ]);
 
     defineFunction("minute", function(time){
         return runtime.unpackTime(time).minutes;
     }).args([
-        [ "time", "*datetime" ]
+        [ "*time", "datetime" ]
     ]);
 
     defineFunction("second", function(time){
         return runtime.unpackTime(time).seconds;
     }).args([
-        [ "time", "*datetime" ]
+        [ "*time", "datetime" ]
     ]);
 
     defineFunction("edate", function(base, months){
@@ -15964,8 +16556,8 @@
         d = Math.min(d.date, daysInMonth(y, m));
         return packDate(y, m, d);
     }).args([
-        [ "start_date", "*date" ],
-        [ "months", "*integer" ]
+        [ "*start_date", "date" ],
+        [ "*months", "integer" ]
     ]);
 
     defineFunction("eomonth", function(base, months){
@@ -15979,8 +16571,8 @@
         d = daysInMonth(y, m);
         return packDate(y, m, d);
     }).args([
-        [ "start_date", "*date" ],
-        [ "months", "*integer" ]
+        [ "*start_date", "date" ],
+        [ "*months", "integer" ]
     ]);
 
     defineFunction("workday", function(date, n, holidays){
@@ -16028,8 +16620,8 @@
     defineFunction("days", function(start, end){
         return end - start;
     }).args([
-        [ "start_date", "*date" ],
-        [ "end_date", "*date" ]
+        [ "*start_date", "date" ],
+        [ "*end_date", "date" ]
     ]);
 
     function _days_360(start, end, method) {
@@ -16067,9 +16659,9 @@
     }
 
     defineFunction("days360", _days_360).args([
-        [ "start_date", "*date" ],
-        [ "end_date", "*date" ],
-        [ "method", [ "or", "*logical", [ "null", "false" ] ] ]
+        [ "*start_date", "date" ],
+        [ "*end_date", "date" ],
+        [ "*method", [ "or", "logical", [ "null", "false" ] ] ]
     ]);
 
     defineFunction("yearfrac", function(start, end, method){
@@ -16086,19 +16678,19 @@
             return _days_360(start, end, true) / 360;
         }
     }).args([
-        [ "start_date", "*date" ],
-        [ "end_date", "*date" ],
-        [ "method", [ "or", [ "null", 0 ], [ "values", 0, 1, 2, 3, 4 ] ] ]
+        [ "*start_date", "date" ],
+        [ "*end_date", "date" ],
+        [ "*method", [ "or", [ "null", 0 ], [ "values", 0, 1, 2, 3, 4 ] ] ]
     ]);
 
     defineFunction("datevalue", function(text){
-        var date = kendo.parseDate(text);
+        var date = runtime.parseDate(text);
         if (date) {
             return runtime.dateToSerial(date);
         }
         return new CalcError("VALUE");
     }).args([
-        [ "text", "*string" ]
+        [ "*text", "string" ]
     ]);
 
     defineFunction("timevalue", function(text){
@@ -16119,7 +16711,7 @@
         }
         return new CalcError("VALUE");
     }).args([
-        [ "text", "*string" ]
+        [ "*text", "string" ]
     ]);
 
     /* -----[ Matrix functions ]----- */
@@ -16192,14 +16784,14 @@
     defineFunction("roman", function(num){
         return util.arabicToRoman(num).toUpperCase();
     }).args([
-        [ "number", "*integer" ]
+        [ "*number", "integer" ]
     ]);
 
     defineFunction("arabic", function(rom){
         var num = util.romanToArabic(rom);
         return num == null ? new CalcError("VALUE") : num;
     }).args([
-        [ "roman", "*string" ]
+        [ "*roman", "string" ]
     ]);
 
     defineFunction("base", function(number, radix, minLen){
@@ -16209,9 +16801,9 @@
         }
         return str;
     }).args([
-        [ "number", "*integer" ],
-        [ "radix", [ "and", "*integer", [ "[between]", 2, 36 ] ] ],
-        [ "minLen", [ "or", "*integer+", [ "null", 0 ] ] ]
+        [ "*number", "integer" ],
+        [ "*radix", [ "and", "integer", [ "[between]", 2, 36 ] ] ],
+        [ "*minLen", [ "or", "integer+", [ "null", 0 ] ] ]
     ]);
 
     defineFunction("decimal", function(text, radix){
@@ -16230,8 +16822,8 @@
         }
         return val;
     }).args([
-        [ "text", "*string" ],
-        [ "radix", [ "and", "*integer", [ "[between]", 2, 36 ] ] ]
+        [ "*text", "string" ],
+        [ "*radix", [ "and", "integer", [ "[between]", 2, 36 ] ] ]
     ]);
 
     /* -----[ String functions ]----- */
@@ -16239,7 +16831,7 @@
     defineFunction("char", function(code){
         return String.fromCharCode(code);
     }).args([
-        [ "code", "*integer+" ]
+        [ "*code", "integer+" ]
     ]);
 
     // From XRegExp
@@ -16248,13 +16840,13 @@
     defineFunction("clean", function(text){
         return text.replace(RX_NON_PRINTABLE, "");
     }).args([
-        [ "text", "*string" ]
+        [ "*text", "string" ]
     ]);
 
     defineFunction("code", function(text){
         return text.charAt(0);
     }).args([
-        [ "text", "*string" ]
+        [ "*text", "string" ]
     ]);
 
     defineAlias("unichar", "char");
@@ -16268,7 +16860,7 @@
         return out;
     }).args([
         [ "+",
-          [ "text", "*string" ] ]
+          [ "*text", "string" ] ]
     ]);
 
     defineFunction("dollar", function(number, decimals){
@@ -16278,24 +16870,24 @@
         format = format.replace(/DECIMALS/g, dec);
         return spreadsheet.formatting.format(number, format).text();
     }).args([
-        [ "number", "*number" ],
-        [ "decimals", [ "or", "*integer++", [ "null", 2 ] ] ]
+        [ "*number", "number" ],
+        [ "*decimals", [ "or", "integer++", [ "null", 2 ] ] ]
     ]);
 
     defineFunction("exact", function(a, b){
         return a === b;
     }).args([
-        [ "text1", "*string" ],
-        [ "text2", "*string" ]
+        [ "*text1", "string" ],
+        [ "*text2", "string" ]
     ]);
 
     defineFunction("find", function(substring, string, start){
         var pos = string.indexOf(substring, start - 1);
         return pos < 0 ? new CalcError("VALUE") : pos + 1;
     }).args([
-        [ "substring", "*string" ],
-        [ "string", "*string" ],
-        [ "start", [ "or", "*integer++", [ "null", 1 ] ] ]
+        [ "*substring", "string" ],
+        [ "*string", "string" ],
+        [ "*start", [ "or", "integer++", [ "null", 1 ] ] ]
     ]);
 
     defineFunction("fixed", function(number, decimals, noCommas){
@@ -16305,67 +16897,67 @@
         format = format.replace(/DECIMALS/g, dec);
         return spreadsheet.formatting.format(number, format).text();
     }).args([
-        [ "number", "*number" ],
-        [ "decimals", [ "or", "*integer++", [ "null", 2 ] ] ],
-        [ "noCommas", [ "or", "*boolean", [ "null", false ] ] ]
+        [ "*number", "number" ],
+        [ "*decimals", [ "or", "integer++", [ "null", 2 ] ] ],
+        [ "*noCommas", [ "or", "boolean", [ "null", false ] ] ]
     ]);
 
     defineFunction("left", function(text, length){
         return text.substr(0, length);
     }).args([
-        [ "text", "*string" ],
-        [ "length", [ "or", "*integer+", [ "null", 1 ] ] ]
+        [ "*text", "string" ],
+        [ "*length", [ "or", "integer+", [ "null", 1 ] ] ]
     ]);
 
     defineFunction("right", function(text, length){
         return text.substr(-length);
     }).args([
-        [ "text", "*string" ],
-        [ "length", [ "or", "*integer+", [ "null", 1 ] ] ]
+        [ "*text", "string" ],
+        [ "*length", [ "or", "integer+", [ "null", 1 ] ] ]
     ]);
 
     defineFunction("len", function(text){
         return text.length;
     }).args([
-        [ "text", "*string" ]
+        [ "*text", "string" ]
     ]);
 
     defineFunction("lower", function(text){
         return text.toLowerCase();
     }).args([
-        [ "text", "*string" ]
+        [ "*text", "string" ]
     ]);
 
     defineFunction("upper", function(text){
         return text.toUpperCase();
     }).args([
-        [ "text", "*string" ]
+        [ "*text", "string" ]
     ]);
 
     defineFunction("ltrim", function(text){
         return text.replace(/^\s+/, "");
     }).args([
-        [ "text", "*string" ]
+        [ "*text", "string" ]
     ]);
 
     defineFunction("rtrim", function(text){
         return text.replace(/\s+$/, "");
     }).args([
-        [ "text", "*string" ]
+        [ "*text", "string" ]
     ]);
 
     defineFunction("trim", function(text){
         return text.replace(/^\s+|\s+$/, "");
     }).args([
-        [ "text", "*string" ]
+        [ "*text", "string" ]
     ]);
 
     defineFunction("mid", function(text, start, length){
         return text.substr(start - 1, length);
     }).args([
-        [ "text", "*string" ],
-        [ "start", "*integer++" ],
-        [ "length", "*integer+" ]
+        [ "*text", "string" ],
+        [ "*start", "integer++" ],
+        [ "*length", "integer+" ]
     ]);
 
     defineFunction("proper", function(text){
@@ -16373,16 +16965,16 @@
             return s.toUpperCase();
         });
     }).args([
-        [ "text", "*string" ]
+        [ "*text", "string" ]
     ]);
 
     defineFunction("replace", function(text, start, length, newText){
         return text.substr(0, --start) + newText + text.substr(start + length);
     }).args([
-        [ "text", "*string" ],
-        [ "start", "*integer++" ],
-        [ "length", "*integer+" ],
-        [ "newText", "*string" ]
+        [ "*text", "string" ],
+        [ "*start", "integer++" ],
+        [ "*length", "integer+" ],
+        [ "*newText", "string" ]
     ]);
 
     defineFunction("rept", function(text, number){
@@ -16390,17 +16982,17 @@
         while (number-- > 0) { out += text; }
         return out;
     }).args([
-        [ "text", "*string" ],
-        [ "number", "*integer+" ]
+        [ "*text", "string" ],
+        [ "*number", "integer+" ]
     ]);
 
     defineFunction("search", function(substring, string, start){
         var pos = string.toLowerCase().indexOf(substring.toLowerCase(), start - 1);
         return pos < 0 ? new CalcError("VALUE") : pos + 1;
     }).args([
-        [ "substring", "*string" ],
-        [ "string", "*string" ],
-        [ "start", [ "or", "*integer++", [ "null", 1 ] ] ]
+        [ "*substring", "string" ],
+        [ "*string", "string" ],
+        [ "*start", [ "or", "integer++", [ "null", 1 ] ] ]
     ]);
 
     defineFunction("substitute", function(text, oldText, newText, nth){
@@ -16421,23 +17013,23 @@
         }
         return text;
     }).args([
-        [ "text", "*string" ],
-        [ "oldText", "*string" ],
-        [ "newText", "*string" ],
-        [ "nth", [ "or", "*integer++", "null" ] ]
+        [ "*text", "string" ],
+        [ "*oldText", "string" ],
+        [ "*newText", "string" ],
+        [ "*nth", [ "or", "integer++", "null" ] ]
     ]);
 
     defineFunction("t", function(value){
         return typeof value == "string" ? value : "";
     }).args([
-        [ "value", "*anyvalue" ]
+        [ "*value", "anyvalue" ]
     ]);
 
     defineFunction("text", function(value, format){
         return spreadsheet.formatting.format(value, format).text();
     }).args([
-        [ "value", "*anyvalue" ],
-        [ "format", "*string" ]
+        [ "*value", "anyvalue" ],
+        [ "*format", "string" ]
     ]);
 
     defineFunction("value", function(value){
@@ -16452,13 +17044,13 @@
         value = parseFloat(value);
         return isNaN(value) ? new CalcError("VALUE") : value;
     }).args([
-        [ "value", "*anyvalue" ]
+        [ "*value", "anyvalue" ]
     ]);
 
     //// utils
 
     var parseCriteria = (function(){
-        var RXCACHE = {};
+        var RXCACHE = Object.create(null);
 
         function makeComparator(cmp, x) {
             if (typeof x == "string") {
@@ -16521,10 +17113,8 @@
             }
             if (/[?*]/.exec(cmp)) {
                 // has wildchars
-                var rx;
-                if (Object.prototype.hasOwnProperty.call(RXCACHE, cmp)) {
-                    rx = RXCACHE[cmp];
-                } else {
+                var rx = RXCACHE[cmp];
+                if (!rx) {
                     rx = cmp.replace(/(~\?|~\*|[\]({\+\.\|\^\$\\})\[]|[?*])/g, function(s){
                         switch (s) {
                           case "~?" : return "\\?";
@@ -16584,7 +17174,6 @@
     var runtime = calc.runtime;
     var defineFunction = runtime.defineFunction;
     var CalcError = runtime.CalcError;
-    var Matrix = runtime.Matrix;
 
     /* -----[ Spreadsheet API ]----- */
 
@@ -16651,10 +17240,9 @@
         [ "beta", "number++" ],
         [ "A", [ "or", "number", [ "null", 0 ] ] ],
         [ "B", [ "or", "number", [ "null", 1 ] ] ],
-        [ "?", [ "and",
-                 [ "assert", "$x >= $A", "NUM" ],
-                 [ "assert", "$x <= $B", "NUM" ],
-                 [ "assert", "$A < $B", "NUM" ] ] ]
+        [ "?", [ "assert", "$x >= $A", "NUM" ] ],
+        [ "?", [ "assert", "$x <= $B", "NUM" ] ],
+        [ "?", [ "assert", "$A < $B", "NUM" ] ]
     ]);
 
     defineFunction("BETA.DIST", BETA_DIST).args([
@@ -16664,10 +17252,9 @@
         [ "cumulative", "logical" ],
         [ "A", [ "or", "number", [ "null", 0 ] ] ],
         [ "B", [ "or", "number", [ "null", 1 ] ] ],
-        [ "?", [ "and",
-                 [ "assert", "$x >= $A", "NUM" ],
-                 [ "assert", "$x <= $B", "NUM" ],
-                 [ "assert", "$A < $B", "NUM" ] ] ]
+        [ "?", [ "assert", "$x >= $A", "NUM" ] ],
+        [ "?", [ "assert", "$x <= $B", "NUM" ] ],
+        [ "?", [ "assert", "$A < $B", "NUM" ] ]
     ]);
 
     defineFunction("BETA.INV", BETA_INV).args([
@@ -16704,9 +17291,8 @@
     }).args([
         [ "actual_range", "matrix" ],
         [ "expected_range", "matrix" ],
-        [ "?", [ "and",
-                 [ "assert", "$actual_range.width == $expected_range.width" ],
-                 [ "assert", "$actual_range.height == $expected_range.height" ] ] ]
+        [ "?", [ "assert", "$actual_range.width == $expected_range.width" ] ],
+        [ "?", [ "assert", "$actual_range.height == $expected_range.height" ] ]
     ]);
 
     defineFunction("EXPON.DIST", expon).args([
@@ -16749,9 +17335,8 @@
     defineFunction("F.TEST", Ftest).args([
         [ "array1", [ "collect", "number", 1 ] ],
         [ "array2", [ "collect", "number", 1 ] ],
-        [ "?", [ "and",
-                 [ "assert", "$array1.length >= 2", "DIV/0" ],
-                 [ "assert", "$array2.length >= 2", "DIV/0" ] ] ]
+        [ "?", [ "assert", "$array1.length >= 2", "DIV/0" ] ],
+        [ "?", [ "assert", "$array2.length >= 2", "DIV/0" ] ]
     ]);
 
     defineFunction("FISHER", fisher).args([
@@ -16793,10 +17378,9 @@
         [ "array2", [ "collect", "number", 1 ] ],
         [ "tails", [ "and", "integer", [ "values", 1, 2 ] ] ],
         [ "type", [ "and", "integer", [ "values", 1, 2, 3 ] ] ],
-        [ "?", [ "and",
-                 [ "assert", "$type != 1 || $array1.length == $array2.length", "N/A" ],
-                 [ "assert", "$array1.length >= 2", "DIV/0" ],
-                 [ "assert", "$array2.length >= 2", "DIV/0" ] ] ]
+        [ "?", [ "assert", "$type != 1 || $array1.length == $array2.length", "N/A" ] ],
+        [ "?", [ "assert", "$array1.length >= 2", "DIV/0" ] ],
+        [ "?", [ "assert", "$array2.length >= 2", "DIV/0" ] ]
     ]);
 
     defineFunction("CONFIDENCE.T", confidence_t).args([
@@ -16838,75 +17422,258 @@
         [ "prob_range", [ "collect", "number", 1 ] ],
         [ "lower_limit", "number" ],
         [ "upper_limit", [ "or", "number", [ "null", "$lower_limit" ] ] ],
-        [ "?", [ "and",
-                 [ "assert", "$prob_range.length == $x_range.length", "N/A" ] ] ]
+        [ "?", [ "assert", "$prob_range.length == $x_range.length", "N/A" ] ]
     ]);
 
     defineFunction("SLOPE", slope).args([
         [ "known_y", [ "collect", "number", 1 ] ],
         [ "known_x", [ "collect", "number", 1 ] ],
-        [ "?", [ "and",
-                 [ "assert", "$known_x.length == $known_y.length", "N/A" ],
-                 [ "assert", "$known_x.length > 0 && $known_y.length > 0", "N/A" ] ] ]
+        [ "?", [ "assert", "$known_x.length == $known_y.length", "N/A" ] ],
+        [ "?", [ "assert", "$known_x.length > 0 && $known_y.length > 0", "N/A" ] ]
     ]);
 
     defineFunction("INTERCEPT", intercept).args([
         [ "known_y", [ "collect", "number", 1 ] ],
         [ "known_x", [ "collect", "number", 1 ] ],
-        [ "?", [ "and",
-                 [ "assert", "$known_x.length == $known_y.length", "N/A" ],
-                 [ "assert", "$known_x.length > 0 && $known_y.length > 0", "N/A" ] ] ]
+        [ "?", [ "assert", "$known_x.length == $known_y.length", "N/A" ] ],
+        [ "?", [ "assert", "$known_x.length > 0 && $known_y.length > 0", "N/A" ] ]
     ]);
 
     defineFunction("PEARSON", pearson).args([
         [ "array1", [ "collect", "number", 1 ] ],
         [ "array2", [ "collect", "number", 1 ] ],
-        [ "?", [ "and",
-                 [ "assert", "$array2.length == $array1.length", "N/A" ],
-                 [ "assert", "$array2.length > 0 && $array1.length > 0", "N/A" ] ] ]
+        [ "?", [ "assert", "$array2.length == $array1.length", "N/A" ] ],
+        [ "?", [ "assert", "$array2.length > 0 && $array1.length > 0", "N/A" ] ]
     ]);
 
     defineFunction("RSQ", rsq).args([
         [ "known_y", [ "collect", "number", 1 ] ],
         [ "known_x", [ "collect", "number", 1 ] ],
-        [ "?", [ "and",
-                 [ "assert", "$known_x.length == $known_y.length", "N/A" ],
-                 [ "assert", "$known_x.length > 0 && $known_y.length > 0", "N/A" ],
-                 [ "assert", "$known_x.length != 1 && $known_y.length != 1", "N/A" ] ] ]
+        [ "?", [ "assert", "$known_x.length == $known_y.length", "N/A" ] ],
+        [ "?", [ "assert", "$known_x.length > 0 && $known_y.length > 0", "N/A" ] ],
+        [ "?", [ "assert", "$known_x.length != 1 && $known_y.length != 1", "N/A" ] ]
     ]);
 
     defineFunction("STEYX", steyx).args([
         [ "known_y", [ "collect", "number", 1 ] ],
         [ "known_x", [ "collect", "number", 1 ] ],
-        [ "?", [ "and",
-                 [ "assert", "$known_x.length == $known_y.length", "N/A" ],
-                 [ "assert", "$known_x.length >= 3 && $known_y.length >= 3", "DIV/0" ] ] ]
+        [ "?", [ "assert", "$known_x.length == $known_y.length", "N/A" ] ],
+        [ "?", [ "assert", "$known_x.length >= 3 && $known_y.length >= 3", "DIV/0" ] ]
     ]);
 
     defineFunction("FORECAST", forecast).args([
         [ "x", "number" ],
         [ "known_y", [ "collect", "number", 1 ] ],
         [ "known_x", [ "collect", "number", 1 ] ],
-        [ "?", [ "and",
-                 [ "assert", "$known_x.length == $known_y.length", "N/A" ],
-                 [ "assert", "$known_x.length > 0 && $known_y.length > 0", "N/A" ] ] ]
+        [ "?", [ "assert", "$known_x.length == $known_y.length", "N/A" ] ],
+        [ "?", [ "assert", "$known_x.length > 0 && $known_y.length > 0", "N/A" ] ]
     ]);
 
     defineFunction("LINEST", linest).args([
-        [ "known_y", [ "collect", "number", 1 ] ],
-        [ "known_x", [ "collect", "number", 1 ] ],
+        [ "known_y", "matrix" ],
+        [ "known_x", [ "or", "matrix", "null" ] ],
         [ "const", [ "or", "logical", [ "null", true ] ] ],
         [ "stats", [ "or", "logical", [ "null", false ] ] ]
     ]);
 
     defineFunction("LOGEST", logest).args([
-        [ "known_y", [ "collect", "number", 1 ] ],
-        [ "known_x", [ "collect", "number", 1 ] ],
+        [ "known_y", "matrix" ],
+        [ "known_x", [ "or", "matrix", "null" ] ],
         [ "const", [ "or", "logical", [ "null", true ] ] ],
         [ "stats", [ "or", "logical", [ "null", false ] ] ]
     ]);
 
-    /* -----[ definitions ]----- */
+    defineFunction("TREND", trend).args([
+        [ "known_y", "matrix" ],
+        [ "known_x", [ "or", "matrix", "null" ] ],
+        [ "new_x", [ "or", "matrix", "null" ] ],
+        [ "const", [ "or", "logical", [ "null", true ] ] ]
+    ]);
+
+    defineFunction("GROWTH", growth).args([
+        [ "known_y", "matrix" ],
+        [ "known_x", [ "or", "matrix", "null" ] ],
+        [ "new_x", [ "or", "matrix", "null" ] ],
+        [ "const", [ "or", "logical", [ "null", true ] ] ]
+    ]);
+
+    defineFunction("FV", FV).args([
+        [ "rate", "number" ],
+        [ "nper", "number" ],
+        [ "pmt", [ "or", "number", [ "null", 0 ] ] ],
+        [ "pv", [ "or", "number", [ "null", 0 ] ] ],
+        [ "type", [ "or", [ "values", 0, 1 ], [ "null", 0 ] ] ],
+        [ "?", [ "assert", "$pmt || $pv" ] ]
+    ]);
+
+    defineFunction("PV", PV).args([
+        [ "rate", "number" ],
+        [ "nper", "number" ],
+        [ "pmt", [ "or", "number", [ "null", 0 ] ] ],
+        [ "fv", [ "or", "number", [ "null", 0 ] ] ],
+        [ "type", [ "or", [ "values", 0, 1 ], [ "null", 0 ] ] ],
+        [ "?", [ "assert", "$pmt || $fv" ] ]
+    ]);
+
+    defineFunction("PMT", PMT).args([
+        [ "rate", "number" ],
+        [ "nper", "number" ],
+        [ "pmt", "number" ],
+        [ "fv", [ "or", "number", [ "null", 0 ] ] ],
+        [ "type", [ "or", [ "values", 0, 1 ], [ "null", 0 ] ] ]
+    ]);
+
+    defineFunction("NPER", NPER).args([
+        [ "rate", "number" ],
+        [ "pmt", "number" ],
+        [ "pv", "number" ],
+        [ "fv", [ "or", "number", [ "null", 0 ] ] ],
+        [ "type", [ "or", [ "values", 0, 1 ], [ "null", 0 ] ] ]
+    ]);
+
+    defineFunction("RATE", RATE).args([
+        [ "nper", "number" ],
+        [ "pmt", [ "or", "number", [ "null", 0 ] ] ],
+        [ "pv", "number" ],
+        [ "fv", [ "or", "number", [ "null", 0 ] ] ],
+        [ "type", [ "or", [ "values", 0, 1 ], [ "null", 0 ] ] ],
+        [ "guess", [ "or", "number++", [ "null", 0.01 ] ] ],
+        [ "?", [ "assert", "$pmt || $fv" ] ]
+    ]);
+
+    defineFunction("IPMT", IPMT).args([
+        [ "rate", "number" ],
+        [ "per", "number++" ],
+        [ "nper", "number++" ],
+        [ "pv", "number" ],
+        [ "fv", [ "or", "number", [ "null", 0 ] ] ],
+        [ "type", [ "or", [ "values", 0, 1 ], [ "null", 0 ] ] ],
+        [ "?", [ "assert", "$per >= 1 && $per <= $nper" ] ]
+    ]);
+
+    defineFunction("PPMT", PPMT).args([
+        [ "rate", "number" ],
+        [ "per", "number++" ],
+        [ "nper", "number++" ],
+        [ "pv", "number" ],
+        [ "fv", [ "or", "number", [ "null", 0 ] ] ],
+        [ "type", [ "or", [ "values", 0, 1 ], [ "null", 0 ] ] ],
+        [ "?", [ "assert", "$per >= 1 && $per <= $nper" ] ]
+    ]);
+
+    defineFunction("CUMPRINC", CUMPRINC).args([
+        [ "rate", "number++" ],
+        [ "nper", "number++" ],
+        [ "pv", "number++" ],
+        [ "start_period", "number++" ],
+        [ "end_period", "number++" ],
+        [ "type", [ "or", [ "values", 0, 1 ], [ "null", 0 ] ] ],
+        [ "?", [ "assert", "$end_period >= $start_period", "NUM" ] ]
+    ]);
+
+    defineFunction("CUMIPMT", CUMIPMT).args([
+        [ "rate", "number++" ],
+        [ "nper", "number++" ],
+        [ "pv", "number++" ],
+        [ "start_period", "number++" ],
+        [ "end_period", "number++" ],
+        [ "type", [ "or", [ "values", 0, 1 ], [ "null", 0 ] ] ],
+        [ "?", [ "assert", "$end_period >= $start_period", "NUM" ] ]
+    ]);
+
+    defineFunction("NPV", NPV).args([
+        [ "rate", "number" ],
+        [ "values", [ "collect", "number" ] ],
+        [ "?", [ "assert", "$values.length > 0", "N/A" ] ]
+    ]);
+
+    defineFunction("IRR", IRR).args([
+        [ "values", [ "collect", "number", 1 ] ],
+        [ "guess", [ "or", "number", [ "null", 0.1 ] ] ]
+    ]);
+
+    defineFunction("EFFECT", EFFECT).args([
+        [ "nominal_rate", "number++" ],
+        [ "npery", "integer++" ]
+    ]);
+
+    defineFunction("NOMINAL", NOMINAL).args([
+        [ "effect_rate", "number++" ],
+        [ "npery", "integer++" ]
+    ]);
+
+    defineFunction("XNPV", XNPV).args([
+        [ "rate", "number" ],
+        [ "values", [ "collect", "number", 1 ] ],
+        [ "dates", [ "collect", "date", 1 ] ],
+        [ "?", [ "assert", "$values.length == $dates.length", "NUM" ] ]
+    ]);
+
+    defineFunction("XIRR", XIRR).args([
+        [ "values", [ "collect", "number", 1 ] ],
+        [ "dates", [ "collect", "date", 1 ] ],
+        [ "guess", [ "or", "number", [ "null", 0.1 ] ] ],
+        [ "?", [ "assert", "$values.length == $dates.length", "NUM" ] ]
+    ]);
+
+    defineFunction("ISPMT", ISPMT).args([
+        [ "rate", "number" ],
+        [ "per", "number++" ],
+        [ "nper", "number++" ],
+        [ "pv", "number" ],
+        [ "?", [ "assert", "$per >= 1 && $per <= $nper" ] ]
+    ]);
+
+    defineFunction("DB", DB).args([
+        [ "cost", "number" ],
+        [ "salvage", "number" ],
+        [ "life", "number++" ],
+        [ "period", "number++" ],
+        [ "month", [ "or", "number", [ "null", 12 ] ] ]
+    ]);
+
+    defineFunction("DDB", DDB).args([
+        [ "cost", "number" ],
+        [ "salvage", "number" ],
+        [ "life", "number++" ],
+        [ "period", "number++" ],
+        [ "factor", [ "or", "number", [ "null", 2 ] ] ]
+    ]);
+
+    defineFunction("SLN", SLN).args([
+        [ "cost", "number" ],
+        [ "salvage", "number" ],
+        [ "life", "number++" ]
+    ]);
+
+    defineFunction("SYD", SYD).args([
+        [ "cost", "number" ],
+        [ "salvage", "number" ],
+        [ "life", "number++" ],
+        [ "per", "number++" ]
+    ]);
+
+    defineFunction("VDB", VDB).args([
+        [ "cost", "number+" ],
+        [ "salvage", "number+" ],
+        [ "life", "number++" ],
+        [ "start_period", "number+" ],
+        [ "end_period", "number+" ],
+        [ "factor", [ "or", "number+", [ "null", 2 ] ] ],
+        [ "no_switch", [ "or", "logical", [ "null", false ] ] ],
+        [ "?", [ "assert", "$end_period >= $start_period", "NUM" ] ]
+    ]);
+
+    /* -----[ utils ]----- */
+
+    // function resultAsMatrix(f) {
+    //     return function() {
+    //         var a = f.apply(this, arguments);
+    //         return this.asMatrix(a);
+    //     };
+    // }
+
+    /* -----[ definitions: statistical functions ]----- */
 
     var MAX_IT = 300,     // Maximum allowed number of iterations
         EPS = 2.2204e-16, // Relative accuracy; 1-3*(4/3-1) = 2.220446049250313e-16
@@ -17493,38 +18260,20 @@
         return sq;
     }
 
-    function _def_known(dim) { // returns [[1,2,3,...,dim]]
-        var tmp = [];
-        for (var i=1; i <= dim; i++) {
-            tmp.push(i);
+    function linest(Y, X, konst, stats) { // LINEST(known_y's, [known_x's], [const], [stats])
+        var i = 0;
+
+        if (!X) {
+            // if not passed, X should default to array {1, 2, 3, ...} (same size as Y)
+            X = Y.map(function(){ return ++i; });
         }
-        return [tmp];
-    }
 
-    function linest(known_Y, known_X, _const, stats) { // LINEST(known_y's, [known_x's], [const], [stats])
-        // known_Y is an JS-array of numbers; known-X is an JS-array of JS_arrays of numbers.
-        var n = known_Y.length;
-        if (known_X.length > 0) {
-            known_X = [ known_X ];
-        } else {
-            known_X = _def_known(n); // Excel: "If known_x's is omitted, it is assumed to be the array {1,2,3,...}"
-        }
-        var k = known_X.length;
-        var i;
-
-        var Y = new Matrix(this), X = new Matrix(this);
-        Y.data = [known_Y];
-        Y.width = n; Y.height = 1;
-        Y = Y.transpose();
-        X.data = known_X;
-        X.width = n; X.height = k;
-        X = X.transpose();
-
-        if (_const) { // adding 1's column is unnecessary when _const==false (meaning that y_intercept==0)
-            for (i=0; i < n; i++) { // add a 1's first column
-                X.data[i].unshift(1);
-            }
-            X.width ++;
+        if (konst) { // adding 1's column is unnecessary when const==false (meaning that y_intercept==0)
+            X = X.clone();
+            X.eachRow(function(row){
+                X.data[row].unshift(1);
+            });
+            ++X.width;
         }
 
         var Xt = X.transpose();
@@ -17533,18 +18282,18 @@
         for (i = B.height-1; i >= 0; i--) {
             line_1.push(B.data[i][0]); // regression coefficients ('slopes') and the y_intercept
         }
-        if (!_const) {
-            line_1.push(0); // display 0 for y_intercept, when _const==false
+        if (!konst) {
+            line_1.push(0); // display 0 for y_intercept, when const==false
         }
         if (!stats) {
-            return [ line_1 ]; // don't display statistics about the regression, when stats==false
+            return this.asMatrix([ line_1 ]); // don't display statistics about the regression, when stats==false
         }
 
         var Y1 = X.multiply(B); // the predicted Y values
         var y_y1 = Y.adds(Y1, true); // the errors of the predictions (= Y - Y1)
-        var mp = !_const? 0 : _mat_mean(Y1);
+        var mp = !konst? 0 : _mat_mean(Y1);
         var SSreg = _mat_devsq(Y1, mp); // The regression sum of squares
-        var me = !_const? 0 : _mat_mean(y_y1);
+        var me = !konst? 0 : _mat_mean(y_y1);
         var SSresid = _mat_devsq(y_y1, me); // The residual sum of squares
         var line_5 = [];
         line_5.push(SSreg, SSresid);
@@ -17553,7 +18302,7 @@
         var err_est = Math.sqrt(SSresid / degfre); // The standard error for the y estimate
         var line_3 = [];
         line_3.push(R2, err_est);
-        var F_sta = !_const ? (R2/X.width)/((1-R2)/(degfre)) : (SSreg/(X.width-1))/(SSresid/degfre); // The F statistic
+        var F_sta = !konst ? (R2/X.width)/((1-R2)/(degfre)) : (SSreg/(X.width-1))/(SSresid/degfre); // The F statistic
         var line_4 = [];
         line_4.push(F_sta, degfre);
         var SCP = Xt.multiply(X).inverse();
@@ -17561,19 +18310,49 @@
         for (i=SCP.height-1; i >= 0; i--) { // The standard errors (of coefficients an y-intercept)
             line_2.push(Math.sqrt(SCP.data[i][i]*SSresid/degfre));
         }
-        return [line_1, line_2, line_3, line_4, line_5];
+        return this.asMatrix([line_1, line_2, line_3, line_4, line_5]);
     }
 
-    function logest(Y_, X_, _const, stats) { // LOGEST(known_y's, [known_x's], [const], [stats])
-        var i, n;
-        for (i = 0, n = Y_.length; i < n; i++) {
-            Y_[i] = Math.log(Y_[i]);
+    function logest(Y, X, konst, stats) { // LOGEST(known_y's, [known_x's], [const], [stats])
+        return linest.call(this, Y.map(Math.log), X, konst, stats).map(Math.exp);
+    }
+
+    function trend(Y, X, W, konst) { // TREND(known_y's, [known_x's], [new_x's], [const])
+        var i = 0;
+
+        if (!X) {
+            // if not passed, X should default to array {1, 2, 3, ...} (same size as Y)
+            X = Y.map(function(){ return ++i; });
         }
-        var result = linest(Y_, X_, _const, stats);
-        for (i = 0, n = result[0].length; i < n; i++) {
-            result[0][i] = Math.exp(result[0][i]);
+
+        if (konst) { // adding 1's column is unnecessary when const==false (meaning that y_intercept==0)
+            X = X.clone();
+            X.eachRow(function(row){
+                X.data[row].unshift(1);
+            });
+            ++X.width;
         }
-        return result;
+
+        var Xt = X.transpose();
+        var B = Xt.multiply(X).inverse().multiply(Xt).multiply(Y); // the last square estimate of the coefficients
+
+        if (!W) {
+            W = X;
+        } else {
+            if (konst) { // for non-zero y_intercept
+                W = W.clone();
+                W.eachRow(function(row){
+                    W.data[row].unshift(1);
+                });
+                ++W.width;
+            }
+        }
+        return W.multiply(B); // the predicted Y values for the W values
+    }
+
+    function growth(Y, X, new_X, konst) { // GROWTH(known_y's, [known_x's], [new_x's], [const])
+        // = EXP(TREND(LN(Y_), X_, new_X, const))
+        return trend.call(this, Y.map(Math.log), X, new_X, konst).map(Math.exp);
     }
 
     /*
@@ -17584,6 +18363,316 @@
 
       [2] https://en.wikibooks.org/wiki/Statistics/Numerical_Methods/Numerics_in_Excel
     */
+
+    /* -----[ financial functions ]----- */
+
+    //// find the root of a function known an initial guess (Newton's method) ////
+    function root_newton(func, guess, max_it, eps) { // func(x) must return [value_F(x), value_F'(x)]
+        var MAX_IT = max_it || 20, // maximum number of iterations
+            EPS = eps || 1E-7; // accuracy
+        var root = guess;
+        for (var j = 1; j <= MAX_IT; j++) {
+            var f_d = func(root),
+                f = f_d[0], // the value of the function
+                df = f_d[1]; // the value of the derivative
+            var dx = f / df;
+            root -= dx;
+            if (Math.abs(dx) < EPS) {
+                return root;
+            }
+        }
+        return new CalcError("NUM");
+    }
+
+
+    /* https://support.office.com/en-us/article/PV-function-23879d31-0e02-4321-be01-da16e8168cbd
+       if(rate==0):
+       PMT * nper + PV + FV = 0
+       else: //the basic equation (with six variables) implied in financial problems
+       PV * (1+rate)^nper + PMT * (1+rate*type) * ((1+rate)^nper-1) / rate + FV = 0         [1]
+    */
+
+
+
+    //// FV (final or future value) ////
+    /* I initially invest £1000 in a saving scheme and then at the end of each month I invest an
+       extra £50. If the interest rate is 0.5% per month and I continue this process for two year,
+       how much will my saving be worth: =FV(0.005, 24, -50, -1000, 0) */
+    function FV(rate, nper, pmt, pv, type) { // FV(rate,nper,pmt,[pv],[type])
+        var h1 = Math.pow(1+rate, nper);
+        var h2 = rate ? (h1 - 1)/rate : nper;
+        return -(pv * h1 + pmt * h2 * (1 + rate*type));
+    }
+
+    //// PV (present value of investment) ////
+    /* If I wish to accumulate £5000 in four years time by depositing £75 per month in a fixed
+       rate account with interest rate of 0.4% per month, what initial investment must I also
+       make: =PV(0.004, 4*12, -75, 5000, 0) */
+    function PV(rate, nper, pmt, fv, type) { // PV(rate, nper, pmt, [fv], [type])
+        if (!rate) {
+            return -fv - pmt*nper;
+        }
+        var h1 = Math.pow(1+rate, nper);
+        return -(fv + pmt * (h1 - 1)/rate * (1 + rate*type)) / h1;
+    }
+
+    //// PMT monthly payments (= principal part PPMT + interest part IPMT) ////
+    /* How much will the monthly repayments be if I borrow £100,000 over 20 years with an
+       effective monthly interest rate is 0.5%: =PMT(0.005, 12*20, 100000, 0, 0) */
+    function PMT(rate, nper, pv, fv, type) { // PMT(rate, nper, pv, [fv], [type])
+        if (!rate) {
+            return -(fv + pv)/nper;
+        }
+        var h1 = Math.pow(1+rate, nper);
+        return -rate*(fv + pv*h1)/((1 + rate*type)*(h1 - 1));
+    }
+
+    //// NPER (number of periods for an investment) ////
+    /* How long would it take me to pay off a loan of £10,000 at a rate of 0.5% per month if I
+       can afford to pay £100 per month: =NPER(0.5%, -100, 10000, 0, 0) */
+    function NPER(rate, pmt, pv, fv, type) { // NPER(rate,pmt,pv,[fv],[type])
+        if (!rate) {
+            return -(fv + pv) / pmt;
+        }
+        var h1 = pmt*(1 + rate*type);
+        return Math.log((h1 - fv*rate)/(h1 + pv*rate)) / Math.log(1 + rate);
+    }
+
+    //// RATE (the interest rate per period) ////
+    /* I borrow £1000 over 1 year making payments of £100 per month at the end of each
+       month. What is the monthly interest rate: =RATE(12, −100, 1000, 0, 0, 0) */
+
+    function RATE (nper, pmt, pv, fv, type, guess) { // RATE(nper, pmt, pv, [fv], [type], [guess])
+        function xfd(x) { // returns F(x) and F'(x), where F is given by the equation [1]
+            var h2 = Math.pow(1+x, nper-1), h1 = h2*(1+x);
+            return [ pv*h1 + pmt*(1/x + type)*(h1 - 1) + fv,
+                     nper*pv*h2 + pmt*(-(h1 - 1)/(x*x) + (1/x + type)*nper*h2) ];
+        }
+        return root_newton(xfd, guess); // a root of the equation F(x)=0
+    }
+
+    //// IPMT (interest part of a loan or investment) ////
+    //// PPMT (principal part of a loan) ////
+
+    function IPMT(rate, per, nper, pv, fv, type) { // IPMT(rate, per, nper, pv, [fv], [type])
+        if(type==1 && per==1) { // interest before beginnig of the payments... = ZERO
+            return 0;
+        }
+        var pmt = PMT(rate, nper, pv, fv, type);
+        var ipmt = FV(rate, per - 1, pmt, pv, type) * rate;
+        return type ? ipmt/(1 + rate) : ipmt;
+    }
+
+    function PPMT(rate, per, nper, pv, fv, type) { // PPMT(rate, per, nper, pv, [fv], [type])
+        var pmt = PMT(rate, nper, pv, fv, type);
+        return pmt - IPMT(rate, per, nper, pv, fv, type);
+    }
+
+    //// CUMPRINC (cumulative principal paid) ////
+    /* The amount financed is $200,000 at an interest rate of 7.25% for 30 years. How much is the amount of principal
+       and the amount of interest paid in the first year: CUMPRINC(0.0725/12, 12*30, 200000, 1, 12, 0)
+       and CUMIPMT(0.0725/12, 12*30, 200000, 1, 12, 0) */
+    function CUMPRINC(rate, nper, pv, start, end, type) { // CUMPRINC(rate, nper, pv, start_period, end_period, type)
+        if(type == 1) { // start >= 1 (as in Excel), but if pay at beginning of the period (type==1),
+            start --;    // then periods must be counted from Zero (decreasing given start and end parameters)
+            end --;
+        }
+        var tn = Math.pow(1 + rate, nper),
+            ts = Math.pow(1 + rate, start-1),
+            te = Math.pow(1 + rate, end);
+        var monthlyPayment = rate * pv * tn / (tn - 1);
+        var remainingBalanceAtStart = ts * pv - ((ts - 1) / rate) * monthlyPayment;
+        var remainingBalanceAtEnd = te * pv - ((te - 1) / rate) * monthlyPayment;
+        return remainingBalanceAtEnd - remainingBalanceAtStart;
+    }
+
+    //// CUMIPMT (cumulative  interest paid) ////
+    function CUMIPMT(rate, nper, pv, start, end, type) { // CUMIPMT(rate, nper, pv, start_period, end_period, type)
+        var cip = 0;
+        for(var i=start; i<=end; i++) {
+            cip += IPMT(rate, i, nper, pv, 0, type);
+        }
+        return cip;
+    }
+
+    //// NPV (Net Present Value of an investment based on a series of periodic cash flows and a discount rate) ////
+    function NPV(rate, flows) { // NPV(rate,value1,[value2],...)
+        var npv = 0;
+        for(var i=0, n=flows.length; i < n; i++) {
+            npv += flows[i]*Math.pow(1 + rate, -i-1);
+        }
+        return npv;
+    }
+
+    //// IRR (Internal Rate of Return on an investment based on a series of periodic cash flows) ////
+    function IRR(flows, guess) { // IRR(values, [guess])
+        function xfd(x) {
+            var npv = 0, npv1 = 0;
+            for(var j=0, n=flows.length; j < n; j++) {
+                npv += flows[j]*Math.pow(1 + x, -j-1); // construct the NPV(x) value,
+                npv1 += -j*flows[j]*Math.pow(1+x, -j-2); // the value in x of the NPV()-derivative
+            }
+            return [npv, npv1];
+        }
+        return root_newton(xfd, guess);
+    }
+
+    //// EFFECT (effective annual interest rate) ////
+    /* which investment option is better - one that pays 5 percent after one year, or a
+       savings account that pays a monthly interest of 4.75 percent:
+       = (5% - EFFECT(4.75%, 12)) * 10000 */
+    function EFFECT(nominal_rate, npery) { // EFFECT(nominal_rate, npery)
+        return Math.pow(1 + nominal_rate/npery, npery) - 1;
+    }
+
+    //// NOMINAL (nominal annual interest rate) ////
+    function NOMINAL(effect_rate, npery) { // NOMINAL(effect_rate, npery)
+        return npery*(Math.pow(effect_rate + 1, 1/npery) - 1);
+    }
+
+    //// XNPV (Net Present Value of a series of cashflows at irregular intervals) ////
+    function XNPV(rate, values, dates) { // XNPV(rate, values, dates)
+        var npv = 0;
+        for(var i=0, n=values.length; i < n; i++) {
+            npv += values[i]*Math.pow(1 + rate, (dates[0]-dates[i])/365);
+        }
+        return npv;
+    }
+
+    //// XIRR (Internal Rate of Return of a series of cashflows at irregular intervals) ////
+    function XIRR(values, dates, guess) { // XIRR(values, dates, [guess])
+        function xfd(x) {
+            var npv = values[0], npv1 = 0;
+            for(var j=1, n=values.length; j < n; j++) {
+                var delta = (dates[0] - dates[j]) / 365;
+                npv += values[j]*Math.pow(1 + x, delta); // construct the XNPV(x) value,
+                npv1 += delta*values[j]*Math.pow(1+x, delta - 1); // the value in x of the XNPV()-derivative
+            }
+            return [npv, npv1];
+        }
+        return root_newton(xfd, guess); // , 100, 0.1);
+    }
+
+    //// ISPMT (Interest paid during a Specific Period of an investment) ////
+    function ISPMT(rate, per, nper, pv) { // ISPMT(rate, per, nper, pv)
+        var tmp = -pv*rate;
+        return tmp*(1 - per/nper);
+    }
+
+    //// DB (Declining Balance depreciation) ////
+    function DB(cost, salvage, life, period, month) { // DB(cost, salvage, life, period, [month])
+        var rate = 1 - Math.pow(salvage/cost, 1/life);
+        rate = Math.floor(rate*1000 + 0.5) / 1000; // rounded to three decimals
+        var db = cost * rate * month / 12;
+        if(period == 1) {
+            return db;
+        }
+        for(var i=1; i < life; i++) {
+            if(i == period - 1) {
+                return (cost - db) * rate;
+            }
+            db += (cost - db) * rate;
+        }
+        return (cost - db) * rate * (12 - month) / 12;
+    }
+
+    //// DDB (Double Declining Balance depreciation) ////
+    function DDB(cost, salvage, life, period, factor) { // DDB(cost, salvage, life, period, [factor])
+        var f = factor / life;
+        var prior = -cost * (Math.pow(1-f, period-1) - 1);
+        var dep = (cost - prior) * f;
+        /* Depreciation cannot exceed book value.  */
+        dep = Math.min(dep, Math.max(0, cost - prior - salvage));
+        return dep;
+    }
+
+    //// SLN (straight-line depreciation) ////
+    function SLN(cost, salvage, life) { // SLN(cost, salvage, life)
+        return (cost - salvage) / life;
+    }
+
+    //// SYD (Sum-of-Years' digits Depreciation) ////
+    function SYD(cost, salvage, life, per) { // SYD(cost, salvage, life, per)
+        return (cost - salvage) * (life - per + 1) * 2 / (life * (life + 1));
+    }
+
+    //// VDB (Variable Declining Balance) ////
+    //
+    // Code adapted from Gnumeric, which in turn took it from OpenOffice.  The original code is
+    // available under GNU Lesser General Public License (LGPL).
+    // https://github.com/GNOME/gnumeric/blob/master/plugins/fn-financial/sc-fin.c
+    function VDB (cost, salvage, life, start, end, factor, no_switch) {
+        var interest = factor >= life ? 1 : factor / life;
+
+        function _getGDA(value, period) {
+            var gda, oldValue, newValue;
+            if (interest == 1) {
+                oldValue = period == 1 ? value : 0;
+            } else {
+                oldValue = value * Math.pow(1 - interest, period - 1);
+            }
+            newValue = value * Math.pow(1 - interest, period);
+            gda = newValue < salvage ? oldValue - salvage : oldValue - newValue;
+            return gda < 0 ? 0 : gda;
+        }
+
+        function _interVDB(cost, life1, period) {
+            var remValue = cost - salvage;
+            var intEnd = Math.ceil(period);
+            var term, lia = 0, vdb = 0, nowLia = false;
+            for (var i = 1; i <= intEnd; i++) {
+                if (!nowLia) {
+                    var gda = _getGDA(cost, i);
+                    lia = remValue / (life1 - i + 1);
+                    if (lia > gda) {
+                        term = lia;
+                        nowLia = true;
+                    } else {
+                        term = gda;
+                        remValue -= gda;
+                    }
+                } else {
+                    term = lia;
+                }
+                if (i == intEnd) {
+                    term *= period + 1 - intEnd;
+                }
+                vdb += term;
+            }
+            return vdb;
+        }
+
+        var intStart = Math.floor(start), intEnd = Math.ceil(end);
+        var vdb = 0;
+        if (no_switch) {
+            for (var i = intStart + 1; i <= intEnd; i++) {
+                var term = _getGDA(cost, i);
+                if (i == intStart + 1) {
+                    term *= Math.min(end, intStart + 1) - start;
+                } else {
+                    if (i == intEnd) {
+                        term *= end + 1 - intEnd;
+                    }
+                }
+                vdb += term;
+            }
+        } else {
+            var life1 = life;
+            if (start != Math.floor(start)) {
+                if (factor > 1) {
+                    if (start >= life / 2) {
+                        var part = start - life / 2;
+                        start = life / 2;
+                        end -= part;
+                        life1 += 1;
+                    }
+                }
+            }
+            cost -= _interVDB(cost, life1, start);
+            vdb = _interVDB(cost, life - start, end - start);
+        }
+        return vdb;
+    }
 
 })();
 
@@ -17596,6 +18685,19 @@
 
         var $ = kendo.jQuery;
         var BORDER_TYPES = [ "allBorders", "insideBorders", "insideHorizontalBorders", "insideVerticalBorders", "outsideBorders", "leftBorder", "topBorder", "rightBorder", "bottomBorder", "noBorders" ];
+
+        var BORDER_PALETTE_MESSAGES = kendo.spreadsheet.messages.borderPalette = {
+            allBorders: "All borders",
+            insideBorders: "Inside borders",
+            insideHorizontalBorders: "Inside horizontal borders",
+            insideVerticalBorders: "Inside vertical borders",
+            outsideBorders: "Outside borders",
+            leftBorder: "Left border",
+            topBorder: "Top border",
+            rightBorder: "Right border",
+            bottomBorder: "Bottom border",
+            noBorders: "No border"
+        };
 
         var BorderPalette = kendo.ui.Widget.extend({
             init: function(element, options) {
@@ -17621,9 +18723,10 @@
             ],
 
             _borderTypePalette: function() {
+                var messages = BORDER_PALETTE_MESSAGES;
                 var buttons = BORDER_TYPES.map(function(type) {
-                    return '<a href="#" data-border-type="' + type + '" class="k-button k-button-icon">' +
-                                '<span class="k-sprite k-font-icon k-icon k-i-' + kendo.toHyphens(type) + '">' + type.replace(/([A-Z])/g, ' $1').toLowerCase() + '</span>' +
+                    return '<a title="' + messages[type] + '" href="#" data-border-type="' + type + '" class="k-button k-button-icon">' +
+                                '<span class="k-sprite k-font-icon k-icon k-i-' + kendo.toHyphens(type) + '"></span>' +
                            '</a>';
                 }).join("");
 
@@ -17692,6 +18795,81 @@
 
     var ToolBar = kendo.ui.ToolBar;
 
+    var MESSAGES = kendo.spreadsheet.messages.toolbar = {
+        addColumnLeft: "Add column left",
+        addColumnRight: "Add column right",
+        addRowAbove: "Add row above",
+        addRowBelow: "Add row below",
+        alignment: "Alignment",
+        alignmentButtons: {
+            justtifyLeft: "Align left",
+            justifyCenter: "Center",
+            justifyRight: "Align right",
+            justifyFull: "Justify",
+            alignTop: "Align top",
+            alignMiddle: "Align middle",
+            alignBottom: "Align bottom"
+        },
+        backgroundColor: "Background",
+        bold: "Bold",
+        borders: "Borders",
+        copy: "Copy",
+        cut: "Cut",
+        deleteColumn: "Delete column",
+        deleteRow: "Delete row",
+        excelExport: "Export to Excel...",
+        filter: "Filter",
+        fontFamily: "Font",
+        fontSize: "Font size",
+        format: "Custom format...",
+        formatTypes: {
+            automatic: "Automatic",
+            number: "Number",
+            percent: "Percent",
+            financial: "Financial",
+            currency: "Currency",
+            date: "Date",
+            time: "Time",
+            dateTime: "Date time",
+            duration: "Duration",
+            moreFormats: "More formats..."
+        },
+        formatDecreaseDecimal: "Decrease decimal",
+        formatIncreaseDecimal: "Increase decimal",
+        freeze: "Freeze panes",
+        freezeButtons: {
+            freezePanes: "Freeze panes",
+            freezeRows: "Freeze rows",
+            freezeColumns: "Freeze columns",
+            unfreeze: "Unfreeze panes"
+        },
+        italic: "Italic",
+        merge: "Merge cells",
+        mergeButtons: {
+            mergeCells: "Merge all",
+            mergeHorizontally: "Merge horizontally",
+            mergeVertically: "Merge vertically",
+            unmerge: "Unmerge"
+        },
+        paste: "Paste",
+        quickAccess: {
+            redo: "Redo",
+            undo: "Undo"
+        },
+        sortAsc: "Sort ascending",
+        sortDesc: "Sort descending",
+        sortButtons: {
+            sortSheetAsc: "Sort sheet A to Z",
+            sortSheetDesc: "Sort sheet Z to A",
+            sortRangeAsc: "Sort range A to Z",
+            sortRangeDesc: "Sort range Z to A"
+        },
+        textColor: "Text Color",
+        textWrap: "Wrap text",
+        underline: "Underline",
+        validation: "Data validation..."
+    };
+
     var defaultTools = {
         home: [
             "excelExport",
@@ -17731,7 +18909,6 @@
         cut:                   { type: "button", command: "ToolbarCutCommand",                                                 iconClass: "cut" },
         copy:                  { type: "button", command: "ToolbarCopyCommand",                                                iconClass: "copy" },
         paste:                 { type: "button", command: "ToolbarPasteCommand",                                               iconClass: "paste" },
-        filter:                { type: "button", command: "FilterCommand",         property: "hasFilter",                      iconClass: "filter", togglable: true },
         separator:             { type: "separator" },
         alignment:             { type: "alignment",                           iconClass: "justify-left" },
         backgroundColor:       { type: "colorPicker", property: "background", iconClass: "background" },
@@ -17739,6 +18916,7 @@
         fontFamily:            { type: "fontFamily",  property: "fontFamily", iconClass: "text" },
         fontSize:              { type: "fontSize",    property: "fontSize",   iconClass: "font-size" },
         format:                { type: "format",      property: "format",     iconClass: "format-number" },
+        filter:                { type: "filter",      property: "hasFilter",  iconClass: "filter" },
         merge:                 { type: "merge",                               iconClass: "merge-cells" },
         freeze:                { type: "freeze",                              iconClass: "freeze-panes" },
         borders:               { type: "borders",                             iconClass: "all-borders" },
@@ -17779,8 +18957,6 @@
             groups.slice(2).before("<span class='k-separator' />");
         },
         _expandTools: function(tools) {
-            var messages = this.options.messages;
-
             function expandTool(toolName) {
                 // expand string to object, add missing tool properties
                 var options = $.isPlainObject(toolName) ? toolName : toolDefaults[toolName] || {};
@@ -17798,9 +18974,9 @@
 
                 var tool = $.extend({
                     name: options.name || toolName,
-                    text: messages[options.name || toolName],
+                    text: MESSAGES[options.name || toolName],
                     spriteCssClass: spriteCssClass,
-                    attributes: { title: messages[options.name || toolName] }
+                    attributes: { title: MESSAGES[options.name || toolName] }
                 }, typeDefaults[type], options);
 
                 if (type == "splitButton") {
@@ -17863,38 +19039,7 @@
         options: {
             name: "SpreadsheetToolBar",
             resizable: true,
-            tools: defaultTools,
-            messages: {
-                addColumnLeft: "Add column left",
-                addColumnRight: "Add column right",
-                addRowAbove: "Add row above",
-                addRowBelow: "Add row below",
-                alignment: "Alignment",
-                backgroundColor: "Background",
-                bold: "Bold",
-                borders: "Borders",
-                copy: "Copy",
-                cut: "Cut",
-                deleteColumn: "Delete column",
-                deleteRow: "Delete row",
-                excelExport: "Export to Excel...",
-                filter: "Filter",
-                fontFamily: "Font",
-                fontSize: "Font size",
-                format: "Custom format...",
-                formatDecreaseDecimal: "Decrease decimal",
-                formatIncreaseDecimal: "Increase decimal",
-                italic: "Italic",
-                merge: "Merge cells",
-                freeze: "Freeze panes",
-                paste: "Paste",
-                sortAsc: "Sort ascending",
-                sortDesc: "Sort descending",
-                textColor: "Text Color",
-                textWrap: "Wrap text",
-                underline: "Underline",
-                validation: "Data validation..."
-            }
+            tools: defaultTools
         },
         action: function(args) {
             this.trigger("action", args);
@@ -18323,16 +19468,16 @@
                     "#: data.name #"
             });
             ddl.setDataSource([
-                { format: null, name: "Automatic" },
-                { format: "0", name: "Number", sample: "1,499.99" },
-                { format: "0.00%", name: "Percent", sample: "14.50%" },
-                { format: '_("$"* #,##0.00_);_("$"* (#,##0.00);_("$"* "-"??_);_(@_)', name: "Financial", sample: "(1,000.12)" },
-                { format: "$#,##0.00;[Red]$#,##0.00", name: "Currency", sample: "$1,499.99" },
-                { format: "m/d/yyyy", name: "Date", sample: "4/21/2012" },
-                { format: "h:mm:ss AM/PM", name: "Time", sample: "5:49:00 PM" },
-                { format: "m/d/yyyy h:mm", name: "Date time", sample: "4/21/2012 5:49:00" },
-                { format: "[h]:mm:ss", name: "Duration", sample: "168:05:00" },
-                { popup: "formatCells", name: "More formats..." }
+                { format: null, name: MESSAGES.formatTypes.automatic },
+                { format: "#,0.00", name: MESSAGES.formatTypes.number , sample: "1,499.99" },
+                { format: "0.00%", name: MESSAGES.formatTypes.percent , sample: "14.50%" },
+                { format: '_("$"* #,##0.00_);_("$"* (#,##0.00);_("$"* "-"??_);_(@_)', name: MESSAGES.formatTypes.financial , sample: "(1,000.12)" },
+                { format: "$#,##0.00;[Red]$#,##0.00", name: MESSAGES.formatTypes.currency , sample: "$1,499.99" },
+                { format: "m/d/yyyy", name: MESSAGES.formatTypes.date , sample: "4/21/2012" },
+                { format: "h:mm:ss AM/PM", name: MESSAGES.formatTypes.time , sample: "5:49:00 PM" },
+                { format: "m/d/yyyy h:mm", name: MESSAGES.formatTypes.dateTime , sample: "4/21/2012 5:49:00" },
+                { format: "[h]:mm:ss", name: MESSAGES.formatTypes.duration , sample: "168:05:00" },
+                { popup: "formatCells", name: MESSAGES.formatTypes.moreFormats }
             ]);
 
             this.element.data({
@@ -18375,7 +19520,7 @@
                 command: "BorderChangeCommand",
                 options: {
                     border: e.type,
-                    style: { size: "1px", color: e.color }
+                    style: { size: 1, color: e.color }
                 }
             });
         }
@@ -18407,13 +19552,13 @@
             });
         },
         buttons: [
-            { property: "textAlign",     value: "left",    iconClass: "justify-left" },
-            { property: "textAlign",     value: "center",  iconClass: "justify-center" },
-            { property: "textAlign",     value: "right",   iconClass: "justify-right" },
-            { property: "textAlign",     value: "justify", iconClass: "justify-full" },
-            { property: "verticalAlign", value: "top",     iconClass: "align-top" },
-            { property: "verticalAlign", value: "middle",  iconClass: "align-middle" },
-            { property: "verticalAlign", value: "bottom",  iconClass: "align-bottom" }
+            { property: "textAlign",     value: "left",    iconClass: "justify-left",   text: MESSAGES.alignmentButtons.justtifyLeft },
+            { property: "textAlign",     value: "center",  iconClass: "justify-center", text: MESSAGES.alignmentButtons.justifyCenter },
+            { property: "textAlign",     value: "right",   iconClass: "justify-right",  text: MESSAGES.alignmentButtons.justifyRight },
+            { property: "textAlign",     value: "justify", iconClass: "justify-full",   text: MESSAGES.alignmentButtons.justifyFull },
+            { property: "verticalAlign", value: "top",     iconClass: "align-top",      text: MESSAGES.alignmentButtons.alignTop },
+            { property: "verticalAlign", value: "middle",  iconClass: "align-middle",   text: MESSAGES.alignmentButtons.alignMiddle },
+            { property: "verticalAlign", value: "bottom",  iconClass: "align-bottom",   text: MESSAGES.alignmentButtons.alignBottom }
         ],
         destroy: function() {
             this.popup.element.off();
@@ -18437,7 +19582,7 @@
             var buttons = this.buttons;
             var element = $("<div />").appendTo(this.popup.element);
             buttons.forEach(function(options, index) {
-                var button = "<a title='Align " + options.value + "' data-property='" + options.property + "' data-value='" + options.value + "' class='k-button k-button-icon'>" +
+                var button = "<a title='" + options.text + "' data-property='" + options.property + "' data-value='" + options.value + "' class='k-button k-button-icon'>" +
                                 "<span class='k-icon k-font-icon k-i-" + options.iconClass + "'></span>" +
                              "</a>";
                 if (index !== 0 && buttons[index - 1].property !== options.property) {
@@ -18484,10 +19629,10 @@
             });
         },
         buttons: [
-            { value: "cells",        iconClass: "merge-cells" },
-            { value: "horizontally", iconClass: "merge-horizontally" },
-            { value: "vertically",   iconClass: "merge-vertically" },
-            { value: "unmerge",      iconClass: "normal-layout" }
+            { value: "cells",        iconClass: "merge-cells",        text: MESSAGES.mergeButtons.mergeCells },
+            { value: "horizontally", iconClass: "merge-horizontally", text: MESSAGES.mergeButtons.mergeHorizontally },
+            { value: "vertically",   iconClass: "merge-vertically",   text: MESSAGES.mergeButtons.mergeVertically },
+            { value: "unmerge",      iconClass: "normal-layout",      text: MESSAGES.mergeButtons.unmerge }
         ],
         destroy: function() {
             this.popup.element.off();
@@ -18496,9 +19641,8 @@
         _commandPalette: function() {
             var element = $("<div />").appendTo(this.popup.element);
             this.buttons.forEach(function(options) {
-                var title = options.value === "unmerge" ? "Unmerge" : "Merge " + options.value;
-                var button = "<a title='" + title + "' data-value='" + options.value + "' class='k-button k-button-icontext'>" +
-                                "<span class='k-icon k-font-icon k-i-" + options.iconClass + "'></span>" + title +
+                var button = "<a title='" + options.text + "' data-value='" + options.value + "' class='k-button k-button-icontext'>" +
+                                "<span class='k-icon k-font-icon k-i-" + options.iconClass + "'></span>" + options.text +
                              "</a>";
                 element.append(button);
             });
@@ -18539,10 +19683,10 @@
             });
         },
         buttons: [
-            { value: "panes",    iconClass: "freeze-panes" },
-            { value: "rows",      iconClass: "freeze-row" },
-            { value: "columns",   iconClass: "freeze-col" },
-            { value: "unfreeze", iconClass: "normal-layout" }
+            { value: "panes",    iconClass: "freeze-panes",  text: MESSAGES.freezeButtons.freezePanes },
+            { value: "rows",     iconClass: "freeze-row",    text: MESSAGES.freezeButtons.freezeRows },
+            { value: "columns",  iconClass: "freeze-col",    text: MESSAGES.freezeButtons.freezeColumns },
+            { value: "unfreeze", iconClass: "normal-layout", text: MESSAGES.freezeButtons.unfreeze }
         ],
         destroy: function() {
             this.popup.element.off();
@@ -18551,9 +19695,8 @@
         _commandPalette: function() {
             var element = $("<div />").appendTo(this.popup.element);
             this.buttons.forEach(function(options) {
-                var title = options.value === "unfreeze" ? "Unfreeze panes" : "Freeze " + options.value;
-                var button = "<a title='" + title + "' data-value='" + options.value + "' class='k-button k-button-icontext'>" +
-                                "<span class='k-icon k-font-icon k-i-" + options.iconClass + "'></span>" + title +
+                var button = "<a title='" + options.text + "' data-value='" + options.value + "' class='k-button k-button-icontext'>" +
+                                "<span class='k-icon k-font-icon k-i-" + options.iconClass + "'></span>" + options.text +
                              "</a>";
                 element.append(button);
             });
@@ -18595,10 +19738,10 @@
                 dataValueField: "value"
             });
             ddl.setDataSource([
-                // { value: 1, sheet: true, asc: true,  text: "Sort sheet A to Z",  iconClass: "sort-asc" },
-                // { value: 2, sheet: true, asc: false, text: "Sort sheet Z to A", iconClass: "sort-desc" },
-                { value: 1, sheet: false, asc: true,  text: "Sort range A to Z",  iconClass: "sort-asc" },
-                { value: 2, sheet: false, asc: false, text: "Sort range Z to A", iconClass: "sort-desc" }
+                // { value: 1, sheet: true, asc: true,  text: MESSAGES.sortButtons.sortSheetAsc,  iconClass: "sort-asc" },
+                // { value: 2, sheet: true, asc: false, text: MESSAGES.sortButtons.sortSheetDesc,  , iconClass: "sort-desc" },
+                { value: 1, sheet: false, asc: true,  text: MESSAGES.sortButtons.sortRangeAsc, iconClass: "sort-asc" },
+                { value: 2, sheet: false, asc: false, text: MESSAGES.sortButtons.sortRangeDesc, iconClass: "sort-desc" }
             ]);
 
             this.element.data({
@@ -18630,6 +19773,45 @@
     });
 
     kendo.toolbar.registerComponent("sort", Sort, SortButton);
+
+    var Filter = kendo.toolbar.ToolBarButton.extend({
+        init: function(options, toolbar) {
+            options.showText = "overflow";
+            kendo.toolbar.ToolBarButton.fn.init.call(this, options, toolbar);
+
+            this.element.on("click", this._click.bind(this));
+
+            this.element.data({
+                type: "filter",
+                filter: this
+            });
+        },
+        _click: function() {
+            this.toolbar.action({ command: "FilterCommand" });
+        },
+        update: function(value) {
+            this.toggle(value);
+        }
+    });
+
+    var FilterButton = OverflowDialogButton.extend({
+        init: function(options, toolbar) {
+            OverflowDialogButton.fn.init.call(this, options, toolbar);
+
+            this.element.data({
+                type: "filter",
+                filter: this
+            });
+        },
+        _click: function() {
+            this.toolbar.action({ command: "FilterCommand" });
+        },
+        update: function(value) {
+            this.toggle(value);
+        }
+    });
+
+    kendo.toolbar.registerComponent("filter", Filter, FilterButton);
 
     kendo.spreadsheet.ToolBar = SpreadsheetToolBar;
 
@@ -18687,10 +19869,10 @@
 
         _quickAccessButtons: function() {
             var buttons = [
-                { title: "Undo", iconClass: "undo-large", action: "undo" },
-                { title: "Redo", iconClass: "redo-large", action: "redo" }
+                { title: MESSAGES.quickAccess.undo, iconClass: "undo-large", action: "undo" },
+                { title: MESSAGES.quickAccess.redo, iconClass: "redo-large", action: "redo" }
             ];
-            var buttonTemplate = kendo.template("<a href='\\#' title='#= title #' class='k-button k-button-icon'><span class='k-icon k-font-icon k-i-#=iconClass#'></span></a>");
+            var buttonTemplate = kendo.template("<a href='\\#' title='#= title #' data-action='#= action #' class='k-button k-button-icon'><span class='k-icon k-font-icon k-i-#=iconClass#'></span></a>");
 
             this.quickAccessToolBar = $("<div />", {
                 "class": "k-spreadsheet-quick-access-toolbar",
@@ -18702,6 +19884,10 @@
                 this.action({ action: action });
             }.bind(this));
 
+            this.quickAccessAdjust();
+        },
+
+        quickAccessAdjust: function() {
             this.tabGroup.css("padding-left", this.quickAccessToolBar.outerWidth());
         },
 
@@ -18743,6 +19929,139 @@
 
     var $ = kendo.jQuery;
     var ObservableObject = kendo.data.ObservableObject;
+
+    var MESSAGES = kendo.spreadsheet.messages.dialogs = {
+        apply: "Apply",
+        save: "Save",
+        cancel: "Cancel",
+        remove: "Remove",
+        okText: "OK",
+        formatCellsDialog: {
+            title: "Format",
+            categories: {
+                number: "Number",
+                currency: "Currency",
+                date: "Date"
+            }
+        },
+        fontFamilyDialog: {
+            title: "Font"
+        },
+        fontSizeDialog: {
+            title: "Font size"
+        },
+        bordersDialog: {
+            title: "Borders"
+        },
+        alignmentDialog: {
+            title: "Alignment",
+            buttons: {
+                justtifyLeft: "Align left",
+                justifyCenter: "Center",
+                justifyRight: "Align right",
+                justifyFull: "Justify",
+                alignTop: "Align top",
+                alignMiddle: "Align middle",
+                alignBottom: "Align bottom"
+            }
+        },
+        mergeDialog: {
+            title: "Merge cells",
+            buttons: {
+                mergeCells: "Merge all",
+                mergeHorizontally: "Merge horizontally",
+                mergeVertically: "Merge vertically",
+                unmerge: "Unmerge"
+            }
+        },
+        freezeDialog: {
+            title: "Freeze panes",
+            buttons: {
+                freezePanes: "Freeze panes",
+                freezeRows: "Freeze rows",
+                freezeColumns: "Freeze columns",
+                unfreeze: "Unfreeze panes"
+            }
+        },
+        validationDialog: {
+            title: "Data Validation",
+            hintMessage: "Please enter a valid {0} value {1}.",
+            hintTitle: "Validation {0}",
+            criteria: {
+                any: "Any value",
+                number: "Number",
+                text: "Text",
+                date: "Date",
+                custom: "Custom Formula",
+                list: "List"
+            },
+            comparers: {
+                greaterThan: "greater than",
+                lessThan: "less than",
+                between: "between",
+                notBetween: "not between",
+                equalTo: "equal to",
+                notEqualTo: "not equal to",
+                greaterThanOrEqualTo: "greater than or equal to",
+                lessThanOrEqualTo: "less than or equal to"
+            },
+            comparerMessages: {
+                greaterThan: "greater than {0}",
+                lessThan: "less than {0}",
+                between: "between {0} and {1}",
+                notBetween: "not between {0} and {1}",
+                equalTo: "equal to {0}",
+                notEqualTo: "not equal to {0}",
+                greaterThanOrEqualTo: "greater than or equal to {0}",
+                lessThanOrEqualTo: "less than or equal to {0}",
+                custom: "that satisfies the formula: {0}"
+            },
+            labels: {
+                criteria: "Criteria",
+                comparer: "Comparer",
+                min: "Min",
+                max: "Max",
+                value: "Value",
+                start: "Start",
+                end: "End",
+                onInvalidData: "On invalid data",
+                rejectInput: "Reject input",
+                showWarning: "Show warning",
+                showHint: "Show hint",
+                hintTitle: "Hint title",
+                hintMessage: "Hint message"
+            },
+            placeholders: {
+                typeTitle: "Type title",
+                typeMessage: "Type message"
+            }
+        },
+        saveAsDialog: {
+            title: "Save As...",
+            labels: {
+                fileName: "File name",
+                saveAsType: "Save as type"
+            }
+        },
+        excelExportDialog: {
+            title: "Export to Excel..."
+        },
+        modifyMergedDialog: {
+            errorMessage: "Cannot change part of a merged cell."
+        },
+        useKeyboardDialog: {
+            title: "Copying and pasting",
+            errorMessage: "These actions cannot be invoked through the menu. Please use the keyboard shortcuts instead:",
+            labels: {
+                forCopy: "for copy",
+                forCut: "for cut",
+                forPaste: "for paste"
+            }
+        },
+        unsupportedSelectionDialog: {
+            errorMessage: "That action cannot be performed on multiple selection."
+        }
+    };
 
     var registry = {};
     kendo.spreadsheet.dialogs = {
@@ -18937,12 +20256,12 @@
             this._generateFormats();
         },
         options: {
-            title: "Format number",
+            title: MESSAGES.formatCellsDialog.title,
             className: "k-spreadsheet-format-cells",
             categories: [
-                { type: "number", name: "Number" },
-                { type: "currency", name: "Currency" },
-                { type: "date", name: "Date" }
+                { type: "number", name: MESSAGES.formatCellsDialog.categories.number },
+                { type: "currency", name: MESSAGES.formatCellsDialog.categories.currency },
+                { type: "date", name: MESSAGES.formatCellsDialog.categories.date }
             ],
             template:
                 "<div class='k-root-tabs' data-role='tabstrip' " +
@@ -18969,8 +20288,8 @@
                     "data-bind='source: formats, value: format' />" +
 
                 "<div class='k-action-buttons'>" +
-                    "<button class='k-button k-primary' data-bind='click: apply'>Apply</button>" +
-                    "<button class='k-button' data-bind='click: close'>Cancel</button>" +
+                    "<button class='k-button k-primary' data-bind='click: apply'>" + MESSAGES.apply + "</button>" +
+                    "<button class='k-button' data-bind='click: close'>" + MESSAGES.cancel + "</button>" +
                 "</div>"
         },
         _generateFormats: function() {
@@ -19090,7 +20409,7 @@
 
             kendo.bind(this.dialog().element, {
                 text: this.options.text,
-                okText: "OK",
+                okText: MESSAGES.okText,
                 close: this.close.bind(this)
             });
         }
@@ -19105,7 +20424,7 @@
             this._list();
         },
         options: {
-            title: "Font",
+            title: MESSAGES.fontFamilyDialog.title,
             template: "<ul class='k-list k-reset'></ul>"
         },
         _list: function() {
@@ -19144,7 +20463,7 @@
             this._list();
         },
         options: {
-            title: "Font Size",
+            title: MESSAGES.fontSizeDialog.title,
             template: "<ul class='k-list k-reset'></ul>"
         },
         _list: function() {
@@ -19191,12 +20510,12 @@
             kendo.bind(this.element.find(".k-action-buttons"), this.viewModel);
         },
         options: {
-            title: "Borders",
+            title: MESSAGES.bordersDialog.title,
             width: 177,
             template:   "<div></div>" +
                         "<div class='k-action-buttons'>" +
-                            "<button class='k-button k-primary' data-bind='click: apply'>Apply</button>" +
-                            "<button class='k-button' data-bind='click: close'>Cancel</button>" +
+                            "<button class='k-button k-primary' data-bind='click: apply'>" + MESSAGES.apply + "</button>" +
+                            "<button class='k-button' data-bind='click: close'>" + MESSAGES.cancel + "</button>" +
                         "</div>"
         },
         apply: function() {
@@ -19208,7 +20527,7 @@
                 command: "BorderChangeCommand",
                 options: {
                     border: state.type,
-                    style: { size: "1px", color: state.color }
+                    style: { size: 1, color: state.color }
                 }
             });
         },
@@ -19250,8 +20569,8 @@
             width: 177,
             template:   "<div></div>" +
                         "<div class='k-action-buttons'>" +
-                            "<button class='k-button k-primary' data-bind='click: apply'>Apply</button>" +
-                            "<button class='k-button' data-bind='click: close'>Cancel</button>" +
+                            "<button class='k-button k-primary' data-bind='click: apply'>" + MESSAGES.apply + "</button>" +
+                            "<button class='k-button' data-bind='click: close'>" + MESSAGES.cancel + "</button>" +
                         "</div>"
         },
         apply: function() {
@@ -19300,13 +20619,13 @@
             title: "Alignment",
             template: "<ul class='k-list k-reset'></ul>",
             buttons: [
-                { property: "textAlign",     value: "left",    iconClass: "justify-left" },
-                { property: "textAlign",     value: "center",  iconClass: "justify-center" },
-                { property: "textAlign",     value: "right",   iconClass: "justify-right" },
-                { property: "textAlign",     value: "justify", iconClass: "justify-full" },
-                { property: "verticalAlign", value: "top",     iconClass: "align-top" },
-                { property: "verticalAlign", value: "middle",  iconClass: "align-middle" },
-                { property: "verticalAlign", value: "bottom",  iconClass: "align-bottom" }
+                { property: "textAlign",     value: "left",    iconClass: "justify-left",   text: MESSAGES.alignmentDialog.buttons.justtifyLeft },
+                { property: "textAlign",     value: "center",  iconClass: "justify-center", text: MESSAGES.alignmentDialog.buttons.justifyCenter },
+                { property: "textAlign",     value: "right",   iconClass: "justify-right",  text: MESSAGES.alignmentDialog.buttons.justifyRight },
+                { property: "textAlign",     value: "justify", iconClass: "justify-full",   text: MESSAGES.alignmentDialog.buttons.justifyFull },
+                { property: "verticalAlign", value: "top",     iconClass: "align-top",      text: MESSAGES.alignmentDialog.buttons.alignTop },
+                { property: "verticalAlign", value: "middle",  iconClass: "align-middle",   text: MESSAGES.alignmentDialog.buttons.alignMiddle },
+                { property: "verticalAlign", value: "bottom",  iconClass: "align-bottom",   text: MESSAGES.alignmentDialog.buttons.alignBottom }
             ]
         },
         _list: function() {
@@ -19314,9 +20633,9 @@
 
             this.list = new kendo.ui.StaticList(ul, {
                 dataSource: new kendo.data.DataSource({ data: this.options.buttons }),
-                template: "<a title='Align #=value#' data-property='#=property#' data-value='#=value#'>" +
+                template: "<a title='#=text#' data-property='#=property#' data-value='#=value#'>" +
                                 "<span class='k-icon k-font-icon k-i-#=iconClass#'></span>" +
-                                "Align #=value#" +
+                                "#=text#" +
                            "</a>",
                 change: this.apply.bind(this)
             });
@@ -19346,13 +20665,13 @@
             this._list();
         },
         options: {
-            title: "Merge cells",
+            title: MESSAGES.mergeDialog.title,
             template: "<ul class='k-list k-reset'></ul>",
             buttons: [
-                { value: "cells",        iconClass: "merge-cells" },
-                { value: "horizontally", iconClass: "merge-horizontally" },
-                { value: "vertically",   iconClass: "merge-vertically" },
-                { value: "unmerge",      iconClass: "normal-layout" }
+                { value: "cells",        iconClass: "merge-cells",        text: MESSAGES.mergeDialog.buttons.mergeCells },
+                { value: "horizontally", iconClass: "merge-horizontally", text: MESSAGES.mergeDialog.buttons.mergeHorizontally },
+                { value: "vertically",   iconClass: "merge-vertically",   text: MESSAGES.mergeDialog.buttons.mergeVertically },
+                { value: "unmerge",      iconClass: "normal-layout",      text: MESSAGES.mergeDialog.buttons.unmerge }
             ]
         },
         _list: function() {
@@ -19360,13 +20679,9 @@
 
             this.list = new kendo.ui.StaticList(ul, {
                 dataSource: new kendo.data.DataSource({ data: this.options.buttons }),
-                template: function(data) {
-                    var title = data.value === "unmerge" ? "Unmerge" : "Merge " + data.value;
-
-                    return "<a title='" + title + "' data-value=" + data.value + ">" +
-                                "<span class='k-icon k-font-icon k-i-" + data.iconClass + "'></span>" + title +
-                           "</a>";
-                },
+                template: "<a title='#=text#' data-value='#=value#'>" +
+                            "<span class='k-icon k-font-icon k-i-#=iconClass#'></span>#=text#" +
+                          "</a>",
                 change: this.apply.bind(this)
             });
 
@@ -19394,13 +20709,13 @@
             this._list();
         },
         options: {
-            title: "Freeze panes",
+            title: MESSAGES.freezeDialog.title,
             template: "<ul class='k-list k-reset'></ul>",
             buttons: [
-                { value: "panes",    iconClass: "freeze-panes" },
-                { value: "rows",      iconClass: "freeze-row" },
-                { value: "columns",   iconClass: "freeze-col" },
-                { value: "unfreeze", iconClass: "normal-layout" }
+                { value: "panes",    iconClass: "freeze-panes",  text: MESSAGES.freezeDialog.buttons.freezePanes },
+                { value: "rows",     iconClass: "freeze-row",    text: MESSAGES.freezeDialog.buttons.freezeRows },
+                { value: "columns",  iconClass: "freeze-col",    text: MESSAGES.freezeDialog.buttons.freezeColumns },
+                { value: "unfreeze", iconClass: "normal-layout", text: MESSAGES.freezeDialog.buttons.unfreeze }
             ]
         },
         _list: function() {
@@ -19408,13 +20723,9 @@
 
             this.list = new kendo.ui.StaticList(ul, {
                 dataSource: new kendo.data.DataSource({ data: this.options.buttons }),
-                template: function(data) {
-                    var title = data.value === "unfreeze" ? "Unfreeze panes" : "Freeze " + data.value;
-
-                    return "<a title='" + title + "' data-value=" + data.value + ">" +
-                                "<span class='k-icon k-font-icon k-i-" + data.iconClass + "'></span>" + title +
-                           "</a>";
-                },
+                template: "<a title='#=text#' data-value='#=value#'>" +
+                            "<span class='k-icon k-font-icon k-i-#=iconClass#'></span>#=text#" +
+                          "</a>",
                 change: this.apply.bind(this)
             });
 
@@ -19444,7 +20755,7 @@
                 if (e.field === "criterion") {
                     this.reset();
 
-                    if (this.criterion === "custom") {
+                    if (this.criterion === "custom" || this.criterion === "list") {
                         this.setHintMessageTemplate();
                     }
                 }
@@ -19503,7 +20814,7 @@
             this.set("comparers", comparers);
         },
         setHintMessageTemplate: function() {
-           if (this.criterion !== "custom") {
+           if (this.criterion !== "custom" && this.criterion !== "list") {
                this.set("hintMessageTemplate", kendo.format(this.defaultHintMessage, this.criterion, this.comparerMessages[this.comparer]));
            } else {
                this.set("hintMessageTemplate", "");
@@ -19521,6 +20832,9 @@
         },
         isDate: function() {
             return this.get("criterion") === "date";
+        },
+        isList: function() {
+            return this.get("criterion") === "list";
         },
         isCustom: function() {
             return this.get("criterion") === "custom";
@@ -19583,44 +20897,34 @@
         },
         options: {
             width: 420,
-            title: "Data Validation",
+            title: MESSAGES.validationDialog.title,
             criterion: "any",
             type: "reject",
-            hintMessage: "Please enter a valid {0} value {1}.",
-            hintTitle: "Validation {0}",
+            hintMessage: MESSAGES.validationDialog.hintMessage,
+            hintTitle: MESSAGES.validationDialog.hintTitle,
             useCustomMessages: false,
             criteria: [
                 { type: "any", name: "Any value" },
                 { type: "number", name: "Number" },
                 { type: "text", name: "Text" },
                 { type: "date", name: "Date" },
-                { type: "custom", name: "Custom Formula" }
+                { type: "custom", name: "Custom Formula" },
+                { type: "list", name: "List" }
             ],
             comparers: [
-                { type: "greaterThan", name: "greater than" },
-                { type: "lessThan", name: "less than" },
-                { type: "between", name: "between" },
-                { type: "notBetween", name: "not between" },
-                { type: "equalTo", name: "equal to" },
-                { type: "notEqualTo", name: "not equal to" },
-                { type: "greaterThanOrEqualTo", name: "greater than or equal to" },
-                { type: "lessThanOrEqualTo", name: "less than or equal to" }
+                { type: "greaterThan", name: MESSAGES.validationDialog.comparers.greaterThan },
+                { type: "lessThan",    name: MESSAGES.validationDialog.comparers.lessThan },
+                { type: "between",     name: MESSAGES.validationDialog.comparers.between },
+                { type: "notBetween",  name: MESSAGES.validationDialog.comparers.notBetween },
+                { type: "equalTo",     name: MESSAGES.validationDialog.comparers.equalTo },
+                { type: "notEqualTo",  name: MESSAGES.validationDialog.comparers.notEqualTo },
+                { type: "greaterThanOrEqualTo", name: MESSAGES.validationDialog.comparers.greaterThanOrEqualTo },
+                { type: "lessThanOrEqualTo",    name: MESSAGES.validationDialog.comparers.lessThanOrEqualTo }
             ],
-            comparerMessages: {
-                greaterThan: "greater than {0}",
-                lessThan: "less than {0}",
-                between: "between {0} and {1}",
-                notBetween: "not between {0} and {1}",
-                equalTo: "equal to {0}",
-                notEqualTo: "not equal to {0}",
-                greaterThanOrEqualTo: "greater than or equal to {0}",
-                lessThanOrEqualTo: "less than or equal to {0}",
-                custom: "that satisfies the formula: {0}"
-            },
-            //TODO: use simple template and build the proper Labels and input placeholders dynamically!!!
+            comparerMessages: MESSAGES.validationDialog.comparerMessages,
             template:
                 '<div class="k-edit-form-container">' +
-                    '<div class="k-edit-label"><label>Criteria:</label></div>' +
+                    '<div class="k-edit-label"><label>' + MESSAGES.validationDialog.labels.criteria + ':</label></div>' +
                     '<div class="k-edit-field">' +
                         '<select data-role="dropdownlist" ' +
                             'data-text-field="name" ' +
@@ -19629,19 +20933,19 @@
                     '</div>' +
 
                     '<div data-bind="visible: isNumber">' +
-                        '<div class="k-edit-label"><label>Comparer:</label></div>' +
+                        '<div class="k-edit-label"><label>' + MESSAGES.validationDialog.labels.comparer + ':</label></div>' +
                         '<div class="k-edit-field">' +
                             '<select data-role="dropdownlist" ' +
                                 'data-text-field="name" ' +
                                 'data-value-field="type" ' +
                                 'data-bind="value: comparer, source: comparers" />' +
                         '</div>' +
-                        '<div class="k-edit-label"><label>Min:</label></div>' +
+                        '<div class="k-edit-label"><label>' + MESSAGES.validationDialog.labels.min + ':</label></div>' +
                         '<div class="k-edit-field">' +
                             '<input placeholder="e.g. 10" class="k-textbox" data-bind="value: from" />' +
                         '</div>' +
                         '<div data-bind="visible: showTo">' +
-                            '<div class="k-edit-label"><label>Max:</label></div>' +
+                            '<div class="k-edit-label"><label>' + MESSAGES.validationDialog.labels.max + ':</label></div>' +
                             '<div class="k-edit-field">' +
                                 '<input placeholder="e.g. 100" class="k-textbox" data-bind="value: to" />' +
                             '</div>' +
@@ -19649,33 +20953,33 @@
                     '</div>' +
 
                     '<div data-bind="visible: isText">' +
-                        '<div class="k-edit-label"><label>Comparer:</label></div>' +
+                        '<div class="k-edit-label"><label>' + MESSAGES.validationDialog.labels.comparer + ':</label></div>' +
                         '<div class="k-edit-field">' +
                             '<select data-role="dropdownlist" ' +
                                 'data-text-field="name" ' +
                                 'data-value-field="type" ' +
                                 'data-bind="value: comparer, source: comparers" />' +
                         '</div>' +
-                        '<div class="k-edit-label"><label>Value:</label></div>' +
+                        '<div class="k-edit-label"><label>' + MESSAGES.validationDialog.labels.value + ':</label></div>' +
                         '<div class="k-edit-field">' +
                             '<input class="k-textbox" data-bind="value: from" />' +
                         '</div>' +
                     '</div>' +
 
                     '<div data-bind="visible: isDate">' +
-                        '<div class="k-edit-label"><label>Comparer:</label></div>' +
+                        '<div class="k-edit-label"><label>' + MESSAGES.validationDialog.labels.comparer + ':</label></div>' +
                         '<div class="k-edit-field">' +
                             '<select data-role="dropdownlist" ' +
                                 'data-text-field="name" ' +
                                 'data-value-field="type" ' +
                                 'data-bind="value: comparer, source: comparers" />' +
                         '</div>' +
-                        '<div class="k-edit-label"><label>Start:</label></div>' +
+                        '<div class="k-edit-label"><label>' + MESSAGES.validationDialog.labels.start + ':</label></div>' +
                         '<div class="k-edit-field">' +
                             '<input class="k-textbox" data-bind="value: from" />' +
                         '</div>' +
                         '<div data-bind="visible: showTo">' +
-                            '<div class="k-edit-label"><label>End:</label></div>' +
+                            '<div class="k-edit-label"><label>' + MESSAGES.validationDialog.labels.end + ':</label></div>' +
                             '<div class="k-edit-field">' +
                                 '<input class="k-textbox" data-bind="value: to" />' +
                             '</div>' +
@@ -19683,47 +20987,57 @@
                     '</div>' +
 
                     '<div data-bind="visible: isCustom">' +
-                        '<div class="k-edit-label"><label>Value:</label></div>' +
+                        '<div class="k-edit-label"><label>' + MESSAGES.validationDialog.labels.value + ':</label></div>' +
+                        '<div class="k-edit-field">' +
+                            '<input class="k-textbox" data-bind="value: from" />' +
+                        '</div>' +
+                    '</div>' +
+
+                    '<div data-bind="visible: isList">' +
+                        '<div class="k-edit-label"><label>' + MESSAGES.validationDialog.labels.value + ':</label></div>' +
                         '<div class="k-edit-field">' +
                             '<input class="k-textbox" data-bind="value: from" />' +
                         '</div>' +
                     '</div>' +
 
                     '<div data-bind="invisible: isAny">' +
-                        '<div class="k-edit-label"><label>On invalid data:</label></div>' +
+                        '<div class="k-action-buttons"></div>' +
+                        '<div class="k-edit-label"><label>' + MESSAGES.validationDialog.labels.onInvalidData + ':</label></div>' +
                         '<div class="k-edit-field">' +
-                            '<input type="radio" name="validationType" value="reject" data-bind="checked: type" />' +
-                            'Reject input' +
-                        '</div>' +
-                        '<div class="k-edit-field">' +
-                            '<input type="radio" name="validationType" value="warning" data-bind="checked: type" />' +
-                            'Show warning' +
+                            '<input type="radio" id="validationTypeReject" name="validationType" value="reject" data-bind="checked: type" class="k-radio" />' +
+                            '<label for="validationTypeReject" class="k-radio-label">' +
+                                 MESSAGES.validationDialog.labels.rejectInput +
+                            '</label> ' +
+                            '<input type="radio" id="validationTypeWarning" name="validationType" value="warning" data-bind="checked: type" class="k-radio" />' +
+                            '<label for="validationTypeWarning" class="k-radio-label">' +
+                                 MESSAGES.validationDialog.labels.showWarning +
+                            '</label>' +
                         '</div>' +
                     '</div>' +
 
                     '<div data-bind="invisible: isAny">' +
-                        '<div class="k-edit-label"><label>Show hint:</label></div>' +
+                        '<div class="k-edit-label"><label>' + MESSAGES.validationDialog.labels.showHint + ':</label></div>' +
                         '<div class="k-edit-field">' +
                             '<input type="checkbox" name="useCustomMessages" id="useCustomMessages" class="k-checkbox" data-bind="checked: useCustomMessages" />' +
                             '<label class="k-checkbox-label" for="useCustomMessages"></label>' +
                         '</div>' +
 
                         '<div data-bind="visible: useCustomMessages">' +
-                            '<div class="k-edit-label"><label>Hint title:</label></div>' +
+                            '<div class="k-edit-label"><label>' + MESSAGES.validationDialog.labels.hintTitle + ':</label></div>' +
                             '<div class="k-edit-field">' +
-                                '<input class="k-textbox" placeholder="Type title" data-bind="value: hintTitle" />' +
+                                '<input class="k-textbox" placeholder="' + MESSAGES.validationDialog.placeholders.typeTitle + '" data-bind="value: hintTitle" />' +
                             '</div>' +
-                            '<div class="k-edit-label"><label>Hint message:</label></div>' +
+                            '<div class="k-edit-label"><label>' + MESSAGES.validationDialog.labels.hintMessage + ':</label></div>' +
                             '<div class="k-edit-field">' +
-                                '<input class="k-textbox" placeholder="Type message" data-bind="value: hintMessage" />' +
+                                '<input class="k-textbox" placeholder="' + MESSAGES.validationDialog.placeholders.typeMessage + '" data-bind="value: hintMessage" />' +
                             '</div>' +
                         '</div>' +
                     '</div>' +
 
                     '<div class="k-action-buttons">' +
-                        '<button class="k-button" data-bind="visible: showRemove, click: remove">Remove</button>' +
-                        '<button class="k-button k-primary" data-bind="click: apply">Apply</button>' +
-                        '<button class="k-button" data-bind="click: close">Cancel</button>' +
+                        '<button class="k-button" data-bind="visible: showRemove, click: remove">' + MESSAGES.remove + '</button>' +
+                        '<button class="k-button k-primary" data-bind="click: apply">' + MESSAGES.apply + '</button>' +
+                        '<button class="k-button" data-bind="click: close">' + MESSAGES.cancel + '</button>' +
                     "</div>" +
                 "</div>"
         },
@@ -19790,7 +21104,7 @@
             kendo.bind(this.dialog().element, this.viewModel);
         },
         options: {
-            title: "Save As...",
+            title: MESSAGES.saveAsDialog.title,
             name: "Workbook",
             extension: ".xlsx",
             editExtension: true,
@@ -19800,12 +21114,12 @@
             }],
             width: 350,
             template:
-                "<div class='k-edit-label'><label>File name:</label></div>" +
+                "<div class='k-edit-label'><label>" + MESSAGES.saveAsDialog.labels.fileName + ":</label></div>" +
                     "<div class='k-edit-field'>" +
                     "<input class='k-textbox' data-bind='value: name' />" +
                 "</div>" +
                 "<div data-bind='visible: editExtension'>" +
-                    "<div class='k-edit-label'><label>Save as type:</label></div>" +
+                    "<div class='k-edit-label'><label>" + MESSAGES.saveAsDialog.labels.saveAsType + ":</label></div>" +
                         "<div class='k-edit-field'>" +
                         "<select data-role='dropdownlist' class='k-file-format' " +
                             "data-text-field='description' " +
@@ -19815,8 +21129,8 @@
                 "</div>" +
 
                 "<div class='k-action-buttons'>" +
-                    "<button class='k-button k-primary' data-bind='click: apply'>Save</button>" +
-                    "<button class='k-button' data-bind='click: close'>Cancel</button>" +
+                    "<button class='k-button k-primary' data-bind='click: apply'>" + MESSAGES.save + "</button>" +
+                    "<button class='k-button' data-bind='click: close'>" + MESSAGES.cancel + "</button>" +
                 "</div>"
         },
         apply: function() {
@@ -19834,7 +21148,7 @@
 
     var ExcelExportDialog = SaveAsDialog.extend({
         options: {
-            title: "Export to Excel...",
+            title: MESSAGES.excelExportDialog.title,
             editExtension: false
         }
     });
@@ -19845,7 +21159,7 @@
             SpreadsheetDialog.fn.init.call(this, options);
         },
         options: {
-            template: "Cannot change part of a merged cell." +
+            template: MESSAGES.modifyMergedDialog.errorMessage +
                 '<div class="k-action-buttons">' +
                     "<button class='k-button k-primary' data-bind='click: close, text: okText' />" +
                 "</div>"
@@ -19859,11 +21173,11 @@
             SpreadsheetDialog.fn.init.call(this, options);
         },
         options: {
-            title: "Copying and pasting",
-            template: "These actions cannot be invoked through the menu. Please use the keyboard shortcuts instead:" +
-                "<div>Ctrl+C for copy</div>" +
-                "<div>Ctrl+X for cut</div>" +
-                "<div>Ctrl+V for paste</div>" +
+            title: MESSAGES.useKeyboardDialog.title,
+            template: MESSAGES.useKeyboardDialog.errorMessage +
+                "<div>Ctrl+C " + MESSAGES.useKeyboardDialog.labels.forCopy + "</div>" +
+                "<div>Ctrl+X " + MESSAGES.useKeyboardDialog.labels.forCut + "</div>" +
+                "<div>Ctrl+V " + MESSAGES.useKeyboardDialog.labels.forPaste + "</div>" +
                 '<div class="k-action-buttons">' +
                     "<button class='k-button k-primary' data-bind='click: close, text: okText' />" +
                 "</div>"
@@ -19877,7 +21191,7 @@
             SpreadsheetDialog.fn.init.call(this, options);
         },
         options: {
-            template: "That action cannot be performed on multiple selection." +
+            template: MESSAGES.unsupportedSelectionDialog.errorMessage +
                 '<div class="k-action-buttons">' +
                     "<button class='k-button k-primary' data-bind='click: close, text: okText' />" +
                 "</div>"
@@ -20119,6 +21433,42 @@
             }
         });
 
+        var FILTERMENU_MESSAGES = kendo.spreadsheet.messages.filterMenu = {
+            sortAscending: "Sort range A to Z",
+            sortDescending: "Sort range Z to A",
+            filterByValue: "Filter by value",
+            filterByCondition: "Filter by condition",
+            apply: "Apply",
+            search: "Search",
+            clear: "Clear",
+            blanks: "(Blanks)",
+            operatorNone: "None",
+            and: "AND",
+            or: "OR",
+            operators: {
+                string: {
+                    contains: "Text contains",
+                    doesnotcontain: "Text does not contain",
+                    startswith: "Text starts with",
+                    endswith: "Text ends with"
+                },
+                date: {
+                    eq:  "Date is",
+                    neq: "Date is not",
+                    lt:  "Date is before",
+                    gt:  "Date is after"
+                },
+                number: {
+                    eq: "Is equal to",
+                    neq: "Is not equal to",
+                    gte: "Is greater than or equal to",
+                    gt: "Is greater than",
+                    lte: "Is less than or equal to",
+                    lt: "Is less than"
+                }
+            }
+        };
+
         var templates = {
             filterByValue:
                 "<div class='" + classNames.detailsSummary + "'>#= messages.filterByValue #</div>" +
@@ -20242,11 +21592,12 @@
         });
 
         function flattern(operators) {
+            var messages = FILTERMENU_MESSAGES.operators;
             var result = [];
             for (var type in operators) {
                 for (var operator in operators[type]) {
                     result.push({
-                        text: operators[type][operator],
+                        text: messages[type][operator],
                         value: operator,
                         unique: type + "_" + operator,
                         type: type
@@ -20280,19 +21631,6 @@
                 name: "FilterMenu",
                 column: 0,
                 range: null,
-                messages: {
-                    sortAscending: "Sort range A to Z",
-                    sortDescending: "Sort range Z to A",
-                    filterByValue: "Filter by value",
-                    filterByCondition: "Filter by condition",
-                    apply: "Apply",
-                    search: "Search",
-                    clear: "Clear",
-                    blanks: "(Blanks)",
-                    operatorNone: "None",
-                    and: "AND",
-                    or: "OR"
-                },
                 operators: {
                     string: {
                         contains: "Text contains",
@@ -20384,7 +21722,7 @@
 
             getValues: function() {
                 var values = [];
-                var messages = this.options.messages;
+                var messages = FILTERMENU_MESSAGES;
                 var column = this.options.column;
                 var columnRange = this.options.range.resize({ top: 1 }).column(column);
                 var sheet = this.options.range.sheet();
@@ -20507,7 +21845,7 @@
 
             _sort: function() {
                 var template = kendo.template(FilterMenu.templates.menuItem);
-                var messages = this.options.messages;
+                var messages = FILTERMENU_MESSAGES;
                 var items = [
                     { command: "sort", dir: "asc", text: messages.sortAscending, iconClass: "sort-asc" },
                     { command: "sort", dir: "desc", text: messages.sortDescending, iconClass: "sort-desc" }
@@ -20540,7 +21878,7 @@
             _appendTemplate: function(template, className, details, expanded) {
                 var compiledTemplate = kendo.template(template);
                 var wrapper = $("<div class='" + className + "'/>").html(compiledTemplate({
-                    messages: this.options.messages,
+                    messages: FILTERMENU_MESSAGES,
                     ns: kendo.ns
                 }));
 
@@ -20756,6 +22094,313 @@
 })();
 
 (function(){
+    "use strict";
+
+    // jshint eqnull:true
+
+    if (kendo.support.browser.msie && kendo.support.browser.version < 9) {
+        return;
+    }
+
+    var spreadsheet = kendo.spreadsheet;
+    var Range = spreadsheet.Range;
+    var runtime = spreadsheet.calc.runtime;
+    var Formula = runtime.Formula;
+
+    var MSG_INCOMPATIBLE = "Incompatible ranges in fillFrom";
+    var MSG_NO_DIRECTION = "Cannot determine fill direction";
+
+    // `srcRange`: the range containing data that we wish to fill.  `direction`: 0↓, 1→, 2↑, 3←.  So
+    // when bit 0 is set we're doing horizontal filling, and when bit 1 is set we're doing it in
+    // reverse order.
+    Range.prototype._previewFillFrom = function(srcRange, direction) {
+        var destRange = this, sheet = destRange._sheet;
+        if (typeof srcRange == "string") {
+            srcRange = sheet.range(srcRange);
+        }
+        var src = srcRange._ref.toRangeRef();
+        var dest = destRange._ref.toRangeRef();
+
+        if (src.intersects(dest)) {
+            // the UI will send e.g. C2:C8.fillFrom(C7:D8) (intersecting ranges).  this figures out
+            // the actual destination range.
+            if (src.eq(dest)) {
+                return null; // nothing to do
+            }
+            dest = dest.clone();
+            if (src.topLeft.eq(dest.topLeft)) {
+                if (src.width() == dest.width()) {
+                    dest.topLeft.row += src.height();
+                    direction = 0;
+                } else if (src.height() == dest.height()) {
+                    dest.topLeft.col += src.width();
+                    direction = 1;
+                } else {
+                    throw new Error(MSG_INCOMPATIBLE);
+                }
+            } else if (src.bottomRight.eq(dest.bottomRight)) {
+                if (src.width() == dest.width()) {
+                    dest.bottomRight.row -= src.height();
+                    direction = 2;
+                } else if (src.height() == dest.height()) {
+                    dest.bottomRight.col -= src.width();
+                    direction = 3;
+                } else {
+                    throw new Error(MSG_INCOMPATIBLE);
+                }
+            } else {
+                throw new Error(MSG_INCOMPATIBLE);
+            }
+            return sheet.range(dest)._previewFillFrom(srcRange, direction);
+        }
+
+        if (direction == null) {
+            // try to determine based on ranges location/geometry
+            if (src.topLeft.col == dest.topLeft.col) {
+                // assume vertical filling
+                direction = src.topLeft.row < dest.topLeft.row ? 0 : 2;
+            } else if (src.topLeft.row == dest.topLeft.row) {
+                direction = src.topLeft.col < dest.topLeft.col ? 1 : 3;
+            } else {
+                throw new Error(MSG_NO_DIRECTION);
+            }
+        }
+        var horizontal = direction & 1;
+        var descending = direction & 2;
+        if ((horizontal && src.height() != dest.height()) ||
+            (!horizontal && src.width() != dest.width())) {
+            throw new Error(MSG_INCOMPATIBLE);
+        }
+        var data = srcRange._properties(), n;
+        if (!horizontal) {
+            data = transpose(data);
+            n = dest.height();
+        } else {
+            n = dest.width();
+        }
+        var fill = new Array(data.length);
+        for (var i = 0; i < data.length; ++i) {
+            var s = data[i];
+            var f = findSeries(s);
+            var a = fill[i] = new Array(n);
+            for (var j = 0; j < n; ++j) {
+                var idx = descending ? -j - 1 : s.length + j;
+                var srcIdx = descending ? s.length - (j % s.length) - 1 : (j % s.length);
+                a[descending ? n - j - 1 : j] = f(idx, srcIdx);
+            }
+        }
+        if (!horizontal) {
+            fill = transpose(fill);
+        }
+        return { props: fill, direction: direction, dest: destRange };
+    };
+
+    Range.prototype.fillFrom = function(srcRange, direction) {
+        var x = this._previewFillFrom(srcRange, direction);
+        x.dest._properties(x.props);
+        return x.dest;
+    };
+
+    // This is essentially the FORECAST function, see ./runtime.functions.2.js.
+    // It receives an array of values, and returns a function that "predicts"
+    // the value in cell N.
+    function linearRegression(data) {
+        var N = data.length;
+        var mx = (N + 1) / 2, my = data.reduce(function(a, b){
+            return a + b;
+        }, 0) / N;
+        var s1 = 0, s2 = 0;
+        for (var i = 0; i < N; i++) {
+            var t1 = (i + 1) - mx, t2 = data[i] - my;
+            s1 += t1 * t2;
+            s2 += t1 * t1;
+        }
+        if (!s2) {
+            return function(N){
+                return data[N % data.length];
+            };
+        }
+        var b = s1 / s2, a = my - b * mx;
+        return function(N) {
+            return a + b * (N + 1);
+        };
+    }
+
+    function findSeries(properties) {
+        function findStep(a) {
+            var diff = a[1] - a[0];
+            for (var i = 2; i < a.length; ++i) {
+                if (a[i] - a[i-1] != diff) {
+                    return null;
+                }
+            }
+            return diff;
+        }
+        function getData(a) {
+            return a.map(function(v){
+                return v.number;
+            });
+        }
+        var series = [];
+        var data = properties.map(function(x){
+            return x.formula || x.value;
+        });
+        forEachSeries(data, function(begin, end, type, a){
+            var f, values;
+            if (type == "number") {
+                values = getData(a);
+                if (values.length == 1 && (begin > 0 || end < data.length || properties[begin].format)) {
+                    values.push(values[0] + 1);
+                }
+                f = linearRegression(values);
+            } else if (type == "string" || type == "formula") {
+                // formulas are simply copied over; the sheet will internally clone the objects
+                f = function(N, i) {
+                    return data[i];
+                };
+            } else if (Array.isArray(type)) {
+                if (a.length == 1) {
+                    f = function(N) {
+                        return type[(a[0].number + N) % type.length];
+                    };
+                } else {
+                    // figure out the step
+                    var diff = findStep(getData(a));
+                    if (diff == null) {
+                        // seemingly no pattern, just repeat those strings
+                        f = function(N) {
+                            return a[(N) % a.length].value;
+                        };
+                    } else {
+                        f = function(N) {
+                            var idx = a[0].number + diff * N;
+                            return type[idx % type.length];
+                        };
+                    }
+                }
+            } else if (type != "null") {
+                values = getData(a);
+                if (values.length == 1) {
+                    values.push(values[0] + 1);
+                }
+                values = linearRegression(values);
+                f = function(N, i) {
+                    return data[i].replace(/^(.*\D)\d+/, "$1" + values(N, i));
+                };
+            } else {
+                f = function() { return null; };
+            }
+            var s = { f: f, begin: begin, end: end, len: end - begin };
+            for (var i = begin; i < end; ++i) {
+                series[i] = s;
+            }
+        });
+        return function(N, i) {
+            var s = series[i];
+            var q = N / data.length | 0;
+            var r = N % data.length;
+            var n = q * s.len + r - s.begin;
+            var value = s.f(n, i);
+            var props = clone(properties[i]);
+            if (value instanceof Formula) {
+                props.formula = value;
+            } else {
+                props.value = value;
+            }
+            return props;
+        };
+    }
+
+    function clone(obj) {
+        var copy = {};
+        Object.keys(obj || {}).forEach(function(key){
+            copy[key] = obj[key];
+        });
+        return copy;
+    }
+
+    function forEachSeries(data, f) {
+        var prev = null, start = 0, a = [], type;
+        for (var i = 0; i < data.length; ++i) {
+            type = getType(data[i]);
+            a.push(type);
+            if (prev != null && type.type !== prev.type) {
+                f(start, i, prev.type, a.slice(start, i));
+                start = i;
+            }
+            prev = type;
+        }
+        f(start, i, prev.type, a.slice(start, i));
+    }
+
+    function getType(el) {
+        if (typeof el == "number") {
+            return { type: "number", number: el };
+        }
+        if (typeof el == "string") {
+            var lst = findStringList(el);
+            if (lst) {
+                return lst;
+            }
+            var m = /^(.*\D)(\d+)/.exec(el);
+            if (m) {
+                el = el.replace(/^(.*\D)\d+/, "$1-######");
+                return { type: el, match: m, number: parseFloat(m[2]) };
+            }
+            return { type: "string" };
+        }
+        if (typeof el == "boolean") {
+            return { type: "boolean" };
+        }
+        if (el == null) {
+            return { type: "null" };
+        }
+        if (el instanceof Formula) {
+            return { type: "formula" };
+        }
+        window.console.error(el);
+        throw new Error("Cannot fill data");
+    }
+
+    function stringLists() {
+        var culture = kendo.culture();
+        return [
+            culture.calendars.standard.days.namesAbbr,
+            culture.calendars.standard.days.names,
+            culture.calendars.standard.months.namesAbbr,
+            culture.calendars.standard.months.names
+        ];
+    }
+
+    function findStringList(str) {
+        var strl = str.toLowerCase();
+        var lists = stringLists();
+        for (var i = 0; i < lists.length; ++i) {
+            var a = lists[i];
+            for (var j = a.length; --j >= 0;) {
+                var el = a[j].toLowerCase();
+                if (el == strl) {
+                    return { type: a, number: j, value: str };
+                }
+            }
+        }
+    }
+
+    function transpose(a) {
+        var height = a.length, width = a[0].length;
+        var t = [];
+        for (var i = 0; i < width; ++i) {
+            t[i] = [];
+            for (var j = 0; j < height; ++j) {
+                t[i][j] = a[j][i];
+            }
+        }
+        return t;
+    }
+
+})();
+
+(function(){
     
 
     (function(kendo, undefined) {
@@ -20791,7 +22436,8 @@
                 this.element.addClass(Spreadsheet.classNames.wrapper);
 
                 this._view = new View(this.element, {
-                    toolbar: this.options.toolbar
+                    toolbar: this.options.toolbar,
+                    sheetsbar:this.options.sheetsbar
                 });
 
                 this._workbook = new Workbook(this.options, this._view);

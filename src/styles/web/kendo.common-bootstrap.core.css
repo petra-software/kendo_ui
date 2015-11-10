@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1023 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1110 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -163,7 +163,8 @@ body .k-split-button-arrow {
   padding-right: .8em;
 }
 .k-button-icontext .k-icon,
-.k-button-icontext .k-image {
+.k-button-icontext .k-image,
+.k-button-icontext .k-sprite {
   margin-right: 3px;
   margin-right: .3rem;
   margin-left: -3px;
@@ -1584,31 +1585,16 @@ input.k-checkbox,
   position: absolute;
   top: 0;
   left: 0;
-  width: 1em;
-  height: 1em;
   border-width: 1px;
   border-style: solid;
-}
-.k-checkbox-label:after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
   width: 1em;
   height: 1em;
-  border-width: 1px;
-  border-style: solid;
-}
-.k-checkbox:checked + .k-checkbox-label:after {
-  content: "\2713";
-  width: 1em;
-  height: 1em;
-  position: absolute;
-  top: 0;
-  left: 0;
-  border-width: 1px;
-  border-style: solid;
+  font-size: 1em;
+  line-height: 1em;
   text-align: center;
+}
+.k-checkbox:checked + .k-checkbox-label:before {
+  content: "\2713";
 }
 .k-checkbox:disabled + .k-checkbox-label {
   cursor: auto;
@@ -1650,7 +1636,6 @@ input.k-checkbox,
   padding-left: 0;
 }
 .k-ie8 .k-checkbox-label:before,
-.k-ie8 .k-checkbox-label:after,
 .k-ie8 .k-radio-label:before,
 .k-ie8 .k-radio-label:after {
   display: none;
@@ -1661,7 +1646,6 @@ input.k-checkbox,
   padding-right: 1.5em;
 }
 .k-rtl .k-checkbox-label:before,
-.k-rtl .k-checkbox-label:after,
 .k-rtl .k-radio-label:before {
   right: 0;
 }
@@ -4534,13 +4518,6 @@ span.k-tooltip {
 }
 .k-slider-track {
   border-width: 1px;
-  border-style: solid;
-}
-.k-grouping-dropclue {
-  margin-top: 10px;
-}
-.k-grid tr td {
-  border-width: 1px 0 0 1px;
   border-style: solid;
 }
 .k-slider-horizontal .k-slider-track,
