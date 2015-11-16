@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1111 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -42,7 +42,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.3.1111".replace(/^\s+|\s+$/g, '');
+    kendo.version = "2015.3.1116".replace(/^\s+|\s+$/g, '');
 
     function Class() {}
 
@@ -15514,34 +15514,11 @@ function pad(number, digits, end) {
         },
 
         _drag: function(e) {
-            var that = this;
-
             e.preventDefault();
 
             var cursorElement = this._elementUnderCursor(e);
-
-            that._withDropTarget(cursorElement, function(target, targetElement) {
-                if (!target) {
-                    if (lastDropTarget) {
-                        lastDropTarget._trigger(DRAGLEAVE, extend(e, { dropTarget: $(lastDropTarget.targetElement) }));
-                        lastDropTarget = null;
-                    }
-                    return;
-                }
-
-                if (lastDropTarget) {
-                    if (targetElement === lastDropTarget.targetElement) {
-                        return;
-                    }
-
-                    lastDropTarget._trigger(DRAGLEAVE, extend(e, { dropTarget: $(lastDropTarget.targetElement) }));
-                }
-
-                target._trigger(DRAGENTER, extend(e, { dropTarget: $(targetElement) }));
-                lastDropTarget = extend(target, { targetElement: targetElement });
-            });
-
-            that._trigger(DRAG, extend(e, { dropTarget: lastDropTarget, elementUnderCursor: cursorElement }));
+            this._lastEvent = e;
+            this._processMovement(e, cursorElement);
 
             if (this.options.autoScroll) {
                 if (this._cursorElement !== cursorElement) {
@@ -15566,9 +15543,34 @@ function pad(number, digits, end) {
                 }
             }
 
-            if (that.hint) {
-                that._updateHint(e);
+            if (this.hint) {
+                this._updateHint(e);
             }
+        },
+
+        _processMovement: function(e, cursorElement) {
+            this._withDropTarget(cursorElement, function(target, targetElement) {
+                if (!target) {
+                    if (lastDropTarget) {
+                        lastDropTarget._trigger(DRAGLEAVE, extend(e, { dropTarget: $(lastDropTarget.targetElement) }));
+                        lastDropTarget = null;
+                    }
+                    return;
+                }
+
+                if (lastDropTarget) {
+                    if (targetElement === lastDropTarget.targetElement) {
+                        return;
+                    }
+
+                    lastDropTarget._trigger(DRAGLEAVE, extend(e, { dropTarget: $(lastDropTarget.targetElement) }));
+                }
+
+                target._trigger(DRAGENTER, extend(e, { dropTarget: $(targetElement) }));
+                lastDropTarget = extend(target, { targetElement: targetElement });
+            });            
+
+            this._trigger(DRAG, extend(e, { dropTarget: lastDropTarget, elementUnderCursor: cursorElement }));
         },
 
         _autoScroll: function() {
@@ -15579,6 +15581,9 @@ function pad(number, digits, end) {
             if (!parent) {
                 return;
             }
+
+            var cursorElement = this._elementUnderCursor(this._lastEvent);
+            this._processMovement(this._lastEvent, cursorElement);
 
             var yIsScrollable, xIsScrollable;
 
@@ -77776,7 +77781,7 @@ function pad(number, digits, end) {
                 titleBarHeight;
 
             if (!arguments.length) {
-                return title.text();
+                return title.html();
             }
 
             if (text === false) {
@@ -79825,13 +79830,7 @@ function pad(number, digits, end) {
                         .on("mouseenter" + STATIC_LIST_NS, "li", function() { $(this).addClass(HOVER); })
                         .on("mouseleave" + STATIC_LIST_NS, "li", function() { $(this).removeClass(HOVER); });
 
-            this.content = this.element
-                        .wrap("<div unselectable='on'></div>")
-                        .parent()
-                        .css({
-                            "overflow": "auto",
-                            "position": "relative"
-                        });
+            this.content = this.element.wrap("<div class='k-list-scroller' unselectable='on'></div>").parent();
             this.header = this.content.before('<div class="k-group-header" style="display:none"></div>').prev();
 
             this._bound = false;
@@ -80212,7 +80211,7 @@ function pad(number, digits, end) {
                         "} " +
                         "return -1;";
 
-                comparer = new Function(["current", "values"], body);
+                comparer = new Function("current", "values", body);
 
                 that._valueComparer = function(current) {
                     return comparer(current, normalized);
@@ -87035,6 +87034,9 @@ function pad(number, digits, end) {
             this.element
                 .on(MOUSEOVER_NS, proxy(this._mouseover, this))
                 .on(MOUSELEAVE_NS, proxy(this._mouseleave, this));
+
+            this._resizeHandler = proxy(this.resize, this, false);
+            kendo.onResize(this._resizeHandler);
         },
 
         _setLayout: function() {
@@ -87088,6 +87090,7 @@ function pad(number, digits, end) {
             var item, i;
 
             if (!node) {
+                this._cleanItems();
                 this.element.empty();
                 item = this._wrapItem(items[0]);
                 this._layout.createRoot(
@@ -87128,6 +87131,13 @@ function pad(number, digits, end) {
                     node: node
                 });
             }
+        },
+
+        _cleanItems: function() {
+            var that = this;
+            that.angular("cleanup", function() {
+               return { elements: that.element.find(".k-leaf div,.k-treemap-title,.k-treemap-title-vertical") };
+            });
         },
 
         _setColors: function(items) {
@@ -87242,6 +87252,7 @@ function pad(number, digits, end) {
             }
 
             this._root = null;
+            kendo.unbindResize(this._resizeHandler);
 
             kendo.destroy(this.element);
         },
@@ -87255,7 +87266,35 @@ function pad(number, digits, end) {
         },
 
         _resize: function() {
-            this.dataSource.fetch();
+            var root = this._root;
+            if (root) {
+                var element = this.element;
+                var rootElement = element.children();
+                root.coord.width = element.outerWidth();
+                root.coord.height = element.outerHeight();
+
+                rootElement.css({
+                    width: root.coord.width,
+                    height: root.coord.height
+                });
+
+                this._resizeItems(root, rootElement);
+            }
+        },
+
+        _resizeItems: function(root, element) {
+            if (root.children && root.children.length) {
+                var elements = element.children(".k-treemap-wrap").children();
+                var child, childElement;
+
+                this._layout.compute(root.children, root.coord, {text: this._view.titleSize(root, element)});
+                for (var idx = 0; idx < root.children.length; idx++) {
+                    child = root.children[idx];
+                    childElement = elements.filter("[" + kendo.attr("uid") + "='" + child.dataItem.uid + "']");
+                    this._view.setItemSize(child, childElement);
+                    this._resizeItems(child, childElement);
+                }
+            }
         },
 
         setOptions: function(options) {
@@ -87500,6 +87539,11 @@ function pad(number, digits, end) {
             this.offset = 0;
         },
 
+        titleSize: function(item, element) {
+            var text = element.children(".k-treemap-title");
+            return text.height();
+        },
+
         htmlSize: function(root) {
             var rootElement = this._getByUid(root.dataItem.uid);
             var htmlSize = {
@@ -87514,6 +87558,8 @@ function pad(number, digits, end) {
                     var title = this._createTitle(root);
                     rootElement.append(title);
 
+                    this._compile(title, root.dataItem);
+
                     htmlSize.text = title.height();
                 }
 
@@ -87523,6 +87569,15 @@ function pad(number, digits, end) {
             }
 
             return htmlSize;
+        },
+
+        _compile: function(element, dataItem) {
+            this.treeMap.angular("compile", function(){
+                return {
+                    elements: element,
+                    data: [ { dataItem: dataItem } ]
+                };
+            });
         },
 
         _getByUid: function(uid) {
@@ -87539,6 +87594,9 @@ function pad(number, digits, end) {
                     var leaf = children[i];
                     var htmlElement = this._createLeaf(leaf);
                     rootWrap.append(htmlElement);
+
+                    this._compile(htmlElement.children(), leaf.dataItem);
+
                     this.treeMap.trigger(ITEM_CREATED, {
                         element: htmlElement
                     });
@@ -87549,6 +87607,7 @@ function pad(number, digits, end) {
         createRoot: function(root) {
             var htmlElement = this._createLeaf(root);
             this.element.append(htmlElement);
+            this._compile(htmlElement.children(), root.dataItem);
 
             this.treeMap.trigger(ITEM_CREATED, {
                 element: htmlElement
@@ -87556,6 +87615,12 @@ function pad(number, digits, end) {
         },
 
         _clean: function(root) {
+            this.treeMap.angular("cleanup", function() {
+                return {
+                    elements: root.children(":not(.k-treemap-wrap)")
+                };
+            });
+
             root.css("background-color", "");
             root.removeClass("k-leaf");
             root.removeClass("k-inverse");
@@ -87575,38 +87640,47 @@ function pad(number, digits, end) {
         },
 
         _createTile: function(item) {
-            var newCoord = {
-                width: item.coord.width,
-                height: item.coord.height,
-                left: item.coord.left,
-                top: item.coord.top
-            };
-
-            if (newCoord.left && this.offset) {
-                newCoord.width += this.offset * 2;
-            } else {
-                newCoord.width += this.offset;
-            }
-
-            if (newCoord.top) {
-                newCoord.height += this.offset * 2;
-            } else {
-                newCoord.height += this.offset;
-            }
-
-            var tile = $("<div class='k-treemap-tile'></div>")
-                .css({
-                    width: newCoord.width,
-                    height: newCoord.height,
-                    left: newCoord.left,
-                    top: newCoord.top
-                });
+            var tile = $("<div class='k-treemap-tile'></div>");
+            this.setItemSize(item, tile);
 
             if (defined(item.dataItem) && defined(item.dataItem.uid)) {
                 tile.attr(kendo.attr("uid"), item.dataItem.uid);
             }
 
             return tile;
+        },
+
+        _itemCoordinates: function(item) {
+            var coordinates = {
+                width: item.coord.width,
+                height: item.coord.height,
+                left: item.coord.left,
+                top: item.coord.top
+            };
+
+            if (coordinates.left && this.offset) {
+                coordinates.width += this.offset * 2;
+            } else {
+                coordinates.width += this.offset;
+            }
+
+            if (coordinates.top) {
+                coordinates.height += this.offset * 2;
+            } else {
+                coordinates.height += this.offset;
+            }
+
+            return coordinates;
+        },
+
+        setItemSize: function(item, element) {
+            var coordinates = this._itemCoordinates(item);
+            element.css({
+                width: coordinates.width,
+                height: coordinates.height,
+                left: coordinates.left,
+                top: coordinates.top
+            });
         },
 
         _getText: function(item) {
@@ -87768,6 +87842,7 @@ function pad(number, digits, end) {
                 if (text) {
                     var title = this._createTitle(root);
                     rootElement.append(title);
+                    this._compile(title, root.dataItem);
 
                     if (root.vertical) {
                         htmlSize.text = title.height();
@@ -87782,6 +87857,16 @@ function pad(number, digits, end) {
             }
 
             return htmlSize;
+        },
+
+        titleSize: function(item, element) {
+            var size;
+            if (item.vertical) {
+               size = element.children(".k-treemap-title").height();
+            } else {
+               size = element.children(".k-treemap-title-vertical").width();
+            }
+            return size;
         },
 
         _createTitle: function(item) {
@@ -88310,10 +88395,18 @@ function pad(number, digits, end) {
             setTimeout(function(){
                 if (widget) { // might have been destroyed in between. :-(
                     var kNgModel = scope[widget.element.attr("k-ng-model")];
+
                     if (kNgModel) {
                         val = kNgModel;
                     }
-                    widget.value(val);
+
+                    if (widget.options.autoBind === false && !widget.listView.isBound()) {
+                        if (val) {
+                            widget.value(val);
+                        }
+                    } else {
+                        widget.value(val);
+                    }
                 }
             }, 0);
         };

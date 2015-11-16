@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1111 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -174,14 +174,21 @@
        return value;
     }
 
+    function valueOrDefault(value, defaultValue) {
+        return typeof value !== "undefined" ? value : defaultValue;
+    }
+
     function translateGroup(group) {
-       return {
-           value: typeof group.Key !== "undefined" ? group.Key : group.value,
-           field: group.Member || group.field,
-           hasSubgroups: group.HasSubgroups || group.hasSubgroups || false,
-           aggregates: translateAggregate(group.Aggregates || group.aggregates),
-           items: group.HasSubgroups ? $.map(group.Items || group.items, translateGroup) : (group.Items || group.items)
-       };
+        var hasSubgroups = group.HasSubgroups || group.hasSubgroups || false;
+        var items = group.Items || group.items;
+
+        return {
+            value: valueOrDefault(group.Key, valueOrDefault(group.key, group.value)),
+            field: group.Member || group.member || group.field,
+            hasSubgroups: hasSubgroups,
+            aggregates: translateAggregate(group.Aggregates || group.aggregates),
+            items: hasSubgroups ? $.map(items, translateGroup) : items
+        };
     }
 
     function translateAggregateResults(aggregate) {

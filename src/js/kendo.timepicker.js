@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1111 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -70,7 +70,7 @@
                     .on("mouseenter" + ns, LI, function() { $(this).addClass(HOVER); })
                     .on("mouseleave" + ns, LI, function() { $(this).removeClass(HOVER); });
 
-        that.list = $("<div class='k-list-container'/>")
+        that.list = $("<div class='k-list-container k-list-scroller'/>")
                     .append(that.ul)
                     .on(MOUSEDOWN, preventDefault);
 

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1111 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -405,10 +405,18 @@
             setTimeout(function(){
                 if (widget) { // might have been destroyed in between. :-(
                     var kNgModel = scope[widget.element.attr("k-ng-model")];
+
                     if (kNgModel) {
                         val = kNgModel;
                     }
-                    widget.value(val);
+
+                    if (widget.options.autoBind === false && !widget.listView.isBound()) {
+                        if (val) {
+                            widget.value(val);
+                        }
+                    } else {
+                        widget.value(val);
+                    }
                 }
             }, 0);
         };

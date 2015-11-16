@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1111 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -3932,7 +3932,7 @@
             var that = this,
                 selectable = that.selectable;
 
-            items = $(items);
+            items = that.table.add(that.lockedTable).find(items);
             if(items.length) {
                 if(!selectable.options.multiple) {
                     selectable.clear();

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1111 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -2582,6 +2582,10 @@ span.k-dropdown,
 .k-header-column-menu {
   -webkit-touch-callout: none;
 }
+.k-list-scroller {
+  position: relative;
+  overflow: auto;
+}
 .k-popup.k-list-container,
 .k-popup.k-calendar-container {
   -webkit-touch-callout: none;
@@ -2789,7 +2793,7 @@ body .k-datetimepicker .k-select {
   border: 0;
 }
 .k-list {
-  height: 100%;
+  height: auto;
 }
 .k-popup .k-list .k-item,
 .k-fieldselector .k-list .k-item,

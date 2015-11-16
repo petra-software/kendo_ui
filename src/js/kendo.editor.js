@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1111 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1928,7 +1928,7 @@ var Serializer = {
 
         return html
             .replace(/<!\[CDATA\[(.*)?\]\]>/g, "<!--[CDATA[$1]]-->")
-            .replace(/<script([^>]*)>(.*)?<\/script>/ig, "<k:script$1>$2<\/k:script>")
+            .replace(/<(\/?)script([^>]*)>/ig, "<$1k:script$2>")
             .replace(/<img([^>]*)>/ig, function(match) {
                 return match.replace(onerrorRe, "");
             })

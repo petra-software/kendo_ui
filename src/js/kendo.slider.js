@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1111 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -756,7 +756,6 @@
                 .find(DRAG_HANDLE)
                 .attr(TABINDEX, 0)
                 .on(MOUSE_UP, function () {
-                    that._drag.draggable.userEvents.cancel();
                     that._setTooltipTimeout();
                 })
                 .on(CLICK, function (e) {
@@ -1011,7 +1010,8 @@
             this.owner._activeDragHandle = this;
             // HACK to initiate click on the line
             this.draggable.userEvents.cancel();
-            this.draggable.userEvents._start(e);
+            this._dragstart(e);
+            this.dragend();
         },
 
         _dragstart: function(e) {
@@ -1141,10 +1141,6 @@
                 tooltip = options.tooltip,
                 html = "";
 
-            if (that.val) {
-                val = that.val;
-            }
-
             if (!tooltip.enabled) {
                 return;
             }
@@ -1182,6 +1178,7 @@
                 that.draggable.userEvents._disposeAll();
             }
 
+            that.draggable.userEvents.cancel();
             return that._end();
         },
 
@@ -1462,7 +1459,6 @@
                 .attr(TABINDEX, 0)
                 .on(MOUSE_UP, function () {
                     that._setTooltipTimeout();
-                    that._drag.draggable.userEvents.cancel();
                 })
                 .on(CLICK, function (e) {
                     that._focusWithMouse(e.target);
