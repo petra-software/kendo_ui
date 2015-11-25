@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -260,7 +260,7 @@ var STYLES = kendo.template(
       '</font>' +
    '# } #' +
    '</fonts>' +
-    '<fills count="${fills.length+1}">' +
+    '<fills count="${fills.length+2}">' +
         '<fill><patternFill patternType="none"/></fill>' +
         '<fill><patternFill patternType="gray125"/></fill>' +
     '# for (var fi = 0; fi < fills.length; fi++) { #' +
@@ -314,6 +314,9 @@ var STYLES = kendo.template(
        '</xf>' +
    '# } #' +
    '</cellXfs>' +
+   '<cellStyles count="1">' +
+       '<cellStyle name="Normal" xfId="0" builtinId="0"/>' +
+   '</cellStyles>' +
    '<dxfs count="0" />' +
    '<tableStyles count="0" defaultTableStyle="TableStyleMedium2" defaultPivotStyle="PivotStyleMedium9" />' +
 '</styleSheet>');

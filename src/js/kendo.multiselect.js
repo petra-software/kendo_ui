@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -502,7 +502,7 @@
 
             that._render(data);
 
-            that._calculateGroupPadding(that._height(length));
+            that._resizePopup();
 
             if (that._open) {
                 that._open = false;

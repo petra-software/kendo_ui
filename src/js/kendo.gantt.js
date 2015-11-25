@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -625,7 +625,8 @@
                 operator: "eq",
                 value: null
             };
-            var order = this._sort || {
+
+            var order = (this._sort && this._sort.length) ? this._sort : {
                 field: "orderId",
                 dir: "asc"
             };

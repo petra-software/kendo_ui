@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1410,7 +1410,7 @@ html .km-pane-wrapper .km-widget,
 .k-panelbar > li.k-state-default > .k-link.k-state-hover {
   color: #333333;
 }
-.k-panelbar .k-state-focused.k-state-hover {
+.k-panelbar > .k-state-focused.k-state-hover {
   background: #eaeaea;
   -webkit-box-shadow: none;
           box-shadow: none;

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -291,6 +291,10 @@
                 }
 
                 thumbnailUrl = thumbnailUrl + urlJoin + "path=" + that.path() + encodeURIComponent(name);
+                if (dataItem._forceReload) {
+                    thumbnailUrl += "&_=" + new Date().getTime();
+                    delete dataItem._forceReload;
+                }
             }
 
             // IE8 will trigger the load event immediately when the src is assigned

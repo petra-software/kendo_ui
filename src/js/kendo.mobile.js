@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -42,7 +42,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.3.1116".replace(/^\s+|\s+$/g, '');
+    kendo.version = "2015.3.1125".replace(/^\s+|\s+$/g, '');
 
     function Class() {}
 
@@ -11968,6 +11968,10 @@ function pad(number, digits, end) {
                 element = this.container(),
                 template = this.template();
 
+            if (source == null) {
+                return;
+            }
+
             if (source instanceof kendo.data.DataSource) {
                 source = source.view();
             }
@@ -11988,8 +11992,7 @@ function pad(number, digits, end) {
                         bindElement(element.children[idx], source[idx], this.options.roles, [source[idx]].concat(parents));
                     }
                 }
-            }
-            else {
+            } else {
                 $(element).html(kendo.render(template, source));
             }
         }
@@ -13120,7 +13123,7 @@ function pad(number, digits, end) {
                 element.kendoBindingTarget = null;
             }
         }
-        
+
         if(destroyWidget) {
             var widget = kendo.widgetInstance($(element));
             if (widget && typeof widget.destroy === FUNCTION) {

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -51,8 +51,7 @@
         DEFAULT_FONT = "12px sans-serif",
         DEFAULT_HEIGHT = 400,
         DEFAULT_ICON_SIZE = 7,
-        DEFAULT_PRECISION = 6,
-        DEFAULT_AUTO_MAJOR_UNIT_PRECISION = 10,
+        DEFAULT_PRECISION = 10,
         DEFAULT_WIDTH = 600,
         DEG_TO_RAD = math.PI / 180,
         FORMAT_REGEX = /\{\d+:?/,
@@ -3685,7 +3684,7 @@
     };
 
     function autoMajorUnit(min, max) {
-        var diff = round(max - min, DEFAULT_AUTO_MAJOR_UNIT_PRECISION - 1);
+        var diff = round(max - min, DEFAULT_PRECISION - 1);
 
         if (diff === 0) {
             if (max === 0) {
@@ -3696,7 +3695,7 @@
         }
 
         var scale = math.pow(10, math.floor(math.log(diff) / math.log(10))),
-            relativeValue = round((diff / scale), DEFAULT_AUTO_MAJOR_UNIT_PRECISION),
+            relativeValue = round((diff / scale), DEFAULT_PRECISION),
             scaleMultiplier = 1;
 
         if (relativeValue < 1.904762) {
@@ -3709,7 +3708,7 @@
             scaleMultiplier = 2;
         }
 
-        return round(scale * scaleMultiplier, DEFAULT_AUTO_MAJOR_UNIT_PRECISION);
+        return round(scale * scaleMultiplier, DEFAULT_PRECISION);
     }
 
     // TODO: Replace with Point2D.rotate

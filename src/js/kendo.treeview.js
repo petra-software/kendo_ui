@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -174,13 +174,11 @@
     TreeView = kendo.ui.DataBoundWidget.extend({
         init: function (element, options) {
             var that = this,
-                dataInit,
                 inferred = false,
                 hasDataSource = options && !!options.dataSource,
                 list;
 
             if (isArray(options)) {
-                dataInit = true;
                 options = { dataSource: options };
             }
 
@@ -1207,7 +1205,7 @@
             var defaultTemplate;
 
             if (checkboxes) {
-                defaultTemplate = "<input type='checkbox' #= (item.enabled === false) ? 'disabled' : '' # #= item.checked ? 'checked' : '' #";
+                defaultTemplate = "<input type='checkbox' tabindex='-1' #= (item.enabled === false) ? 'disabled' : '' # #= item.checked ? 'checked' : '' #";
 
                 if (checkboxes.name) {
                     defaultTemplate += " name='" + checkboxes.name + "'";
@@ -1876,7 +1874,7 @@
 
             nodeData = this._toObservableData(nodeData);
 
-            return callback.call(this, destDataSource, nodeData, loadPromise);
+            return callback.call(destTreeview, destDataSource, nodeData, loadPromise);
         },
 
         _toObservableData: function(node) {
@@ -1922,15 +1920,15 @@
         insertBefore: insertAction(0),
 
         append: function (nodeData, parentNode, success) {
-            var that = this,
-                group = that.root;
+            var group = this.root;
 
             if (parentNode) {
                 group = subGroup(parentNode);
             }
 
-            return that._dataSourceMove(nodeData, group, parentNode, function (dataSource, model, loadModel) {
+            return this._dataSourceMove(nodeData, group, parentNode, function (dataSource, model, loadModel) {
                 var inserted;
+                var that = this;
 
                 function add() {
                     if (parentNode) {

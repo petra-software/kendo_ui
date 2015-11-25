@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -3732,7 +3732,7 @@ li.km-state-active .km-listview-label,
 }
 .km-switch-handle,
 .km-switch-background {
-  color: #008866;
+  color: #008886;
 }
 .km-rowinsert,
 .km-state-active,
@@ -3751,10 +3751,10 @@ li.km-state-active .km-listview-link,
 li.km-state-active .km-listview-label,
 .km-listview-label input[type=radio]:checked,
 .km-listview-label input[type=checkbox]:checked {
-  background: #008866;
+  background: #008886;
 }
 .km-filter-wrap > input:focus {
-  border-color: #008866;
+  border-color: #008886;
 }
 .km-badge,
 .km-rowdelete {

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -449,12 +449,13 @@
                 view = that.dataSource.view(),
                 file = that._findFile(fileName);
 
-            if (file && !that._showMessage(kendo.format(that.options.messages.overwriteFile, fileName), "confirm")) {
-                return null;
-            }
-
             if (file) {
-                return file;
+                if (!that._showMessage(kendo.format(that.options.messages.overwriteFile, fileName), "confirm")) {
+                    return null;
+                } else {
+                    file._forceReload = true;
+                    return file;
+                }
             }
 
             for (idx = 0, length = view.length; idx < length; idx++) {

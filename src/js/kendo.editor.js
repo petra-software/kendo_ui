@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -629,7 +629,7 @@
                         editor.selectRange(range);
                     }
                 })
-                .on("cut" + NS + " paste" + NS, function (e) {
+                .on("cut" + NS + " copy" + NS + " paste" + NS, function (e) {
                     editor.clipboard["on" + e.type](e);
                 })
                 .on("focusin" + NS, function() {
@@ -905,6 +905,8 @@
         },
 
         paste: function (html, options) {
+            this.focus();
+
             var command = new kendo.ui.editor.InsertHtmlCommand($.extend({
                 range: this.getRange(),
                 html: html
@@ -924,7 +926,7 @@
                 throw new Error("kendoEditor.exec(): `name` parameter cannot be empty");
             }
 
-            if (that.body.getAttribute("contenteditable") !== "true") {
+            if (that.body.getAttribute("contenteditable") !== "true" && name !== "print") {
                 return false;
             }
 
@@ -3555,8 +3557,12 @@ var RangeUtils = {
         }
     },
 
-    isStartOf: function(range, node) {
-        range = range.cloneRange();
+    isStartOf: function(originalRange, node) {
+        if (originalRange.startOffset !== 0) {
+            return false;
+        }
+
+        var range = originalRange.cloneRange();
 
         while (range.startOffset === 0 && range.startContainer != node) {
             var index = dom.findNodeIndex(range.startContainer);
@@ -3572,15 +3578,14 @@ var RangeUtils = {
         return range.startOffset === 0 && range.startContainer == node;
     },
 
-    isEndOf: function(range, node) {
-        range = range.cloneRange();
+    isEndOf: function(originalRange, node) {
+        var range = originalRange.cloneRange();
 
         range.collapse(false);
 
         var start = range.startContainer;
 
-        if (dom.isDataNode(start) &&
-            range.startOffset == dom.getNodeLength(start)) {
+        if (dom.isDataNode(start) && range.startOffset == dom.getNodeLength(start)) {
             range.setStart(start.parentNode, dom.findNodeIndex(start) + 1);
             range.collapse(true);
         }
@@ -3950,17 +3955,20 @@ var BackspaceHandler = Class.extend({
     },
     _handleBackspace: function(range) {
         var node = range.startContainer;
-        var i = range.startOffset;
         var li = dom.closestEditableOfType(node, ['li']);
         var block = dom.closestEditableOfType(node, 'p,h1,h2,h3,h4,h5,h6'.split(','));
 
         if (dom.isDataNode(node)) {
-            while (i >= 0 && node.nodeValue[i-1] == "\ufeff") {
-                node.deleteData(i-1, 1);
-                i--;
+            var offset = range.startOffset;
+            var text = node.nodeValue;
+            var count = 0;
+            while (offset-count >= 0 && text[offset-count-1] == "\ufeff") {
+                count++;
             }
 
-            range.setStart(node, Math.max(0, i));
+            node.deleteData(offset-count, count);
+
+            range.setStart(node, Math.max(0, offset-count));
             range.collapse(true);
 
             this.editor.selectRange(range);
@@ -4330,7 +4338,31 @@ var Clipboard = Class.extend({
         });
     },
 
+    _removeBomNodes: function(range) {
+        var nodes = editorNS.RangeUtils.textNodes(range);
+
+        for (var i = 0; i < nodes.length; i++) {
+            nodes[i].nodeValue = dom.stripBom(nodes[i].nodeValue);
+        }
+    },
+
+    _onBeforeCopy: function(range) {
+        var marker = new Marker();
+        marker.add(range);
+
+        this._removeBomNodes(range);
+
+        marker.remove(range);
+
+        this.editor.selectRange(range);
+    },
+
+    oncopy: function() {
+        this._onBeforeCopy(this.editor.getRange());
+    },
+
     oncut: function() {
+        this._onBeforeCopy(this.editor.getRange());
         this._contentModification($.noop, $.noop);
     },
 

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -20,7 +20,7 @@
         isPlainObject = $.isPlainObject,
         POINT = ".";
 
-    function parameterMap(options, operation, encode, stringifyDates) {
+    function parameterMap(options, operation, serializationOptions) {
        var result = {};
 
        if (options.sort) {
@@ -64,7 +64,7 @@
        }
 
        if (options.filter) {
-           result[this.options.prefix + "filter"] = serializeFilter(options.filter, encode);
+           result[this.options.prefix + "filter"] = serializeFilter(options.filter, serializationOptions.encode);
 
            delete options.filter;
        } else {
@@ -75,62 +75,66 @@
        delete options.take;
        delete options.skip;
 
-       serializeItem(result, options, "", stringifyDates);
+       var serializer = new Serializer(serializationOptions);
+       serializer.serialize(result, options, "");
 
        return result;
     }
 
-    function convertNumber(value){
-        var separator = kendo.culture().numberFormat[POINT];
-        value = value.toString().replace(POINT, separator);
+    var Serializer = function(options) {
+        options = options || {};
+        this.culture = options.culture || kendo.culture();
+        this.stringifyDates = options.stringifyDates;
+        this.decimalSeparator = this.culture.numberFormat[POINT];
+    };
 
-        return value;
-    }
+    Serializer.prototype = Serializer.fn = {
+        serialize: function(result, data, prefix) {
+            var valuePrefix;
+            for (var key in data) {
+                valuePrefix = prefix ? prefix + "." + key : key;
+                this.serializeField(result, data[key], data, key, valuePrefix);
+            }
+        },
 
-    function convert(value, stringifyDates) {
-        if (value instanceof Date) {
-            if (stringifyDates) {
-                value = kendo.stringify(value).replace(/"/g, "");
+        serializeField: function (result, value, data, key, prefix) {
+            if (isArray(value)) {
+                this.serializeArray(result, value, prefix);
+            } else if (isPlainObject(value)) {
+                this.serialize(result, value, prefix);
             } else {
-                value = kendo.format("{0:G}", value);
+                if (result[prefix] === undefined) {
+                    result[prefix] = data[key] = this.serializeValue(value);
+                }
             }
-        } else if (typeof value === "number") {
-            value = convertNumber(value);
-        }
+        },
 
-        return value;
-    }
-
-    function serialize(result, value, data, key, prefix, stringifyDates) {
-        if (isArray(value)) {
-            serializeArray(result, value, prefix, stringifyDates);
-        } else if (isPlainObject(value)) {
-            serializeItem(result, value, prefix, stringifyDates);
-        } else {
-            if (result[prefix] === undefined) {
-                result[prefix] = data[key]  = convert(value, stringifyDates);
-            }
-        }
-    }
-
-    function serializeItem(result, data, prefix, stringifyDates) {
-        for (var key in data) {
-            var valuePrefix = prefix ? prefix + "." + key : key,
-                value = data[key];
-            serialize(result, value, data, key, valuePrefix, stringifyDates);
-        }
-    }
-
-    function serializeArray(result, data, prefix, stringifyDates) {
-        for (var sourceIndex = 0, destinationIndex = 0; sourceIndex < data.length; sourceIndex++) {
-            var value = data[sourceIndex],
-                key = "[" + destinationIndex + "]",
+        serializeArray: function (result, data, prefix) {
+            var value, key, valuePrefix;
+            for (var sourceIndex = 0, destinationIndex = 0; sourceIndex < data.length; sourceIndex++) {
+                value = data[sourceIndex];
+                key = "[" + destinationIndex + "]";
                 valuePrefix = prefix + key;
-            serialize(result, value, data, key, valuePrefix, stringifyDates);
 
-            destinationIndex++;
+                this.serializeField(result, value, data, key, valuePrefix);
+
+                destinationIndex++;
+            }
+        },
+
+        serializeValue: function (value) {
+            if (value instanceof Date) {
+                if (this.stringifyDates) {
+                    value = kendo.stringify(value).replace(/"/g, "");
+                } else {
+                    value = kendo.toString(value, "G", this.culture.name);
+                }
+            } else if (typeof value === "number") {
+                value = value.toString().replace(POINT, this.decimalSeparator);
+            }
+            return value;
         }
-    }
+    };
 
     function serializeFilter(filter, encode) {
        if (filter.filters) {
@@ -264,7 +268,10 @@
                     kendo.data.RemoteTransport.fn.init.call(this,
                         extend(true, {}, this.options, options, {
                             parameterMap: function(options, operation) {
-                                return parameterMap.call(that, options, operation, false, stringifyDates);
+                                return parameterMap.call(that, options, operation, {
+                                    encode: false,
+                                    stringifyDates: stringifyDates
+                                });
                             }
                         })
                     );
@@ -345,7 +352,11 @@
                     kendo.data.RemoteTransport.fn.init.call(this,
                         extend(true, {}, this.options, options, {
                             parameterMap: function(options, operation) {
-                                return parameterMap.call(that, options, operation, false, stringifyDates);
+                                return parameterMap.call(that, options, operation, {
+                                    encode: false,
+                                    stringifyDates: stringifyDates,
+                                    culture: kendo.cultures["en-US"]
+                                });
                             }
                         })
                     );
@@ -397,7 +408,9 @@
                     kendo.data.RemoteTransport.fn.init.call(this,
                         extend(options, {
                             parameterMap: function(options, operation) {
-                                return parameterMap.call(that, options, operation, true);
+                                return parameterMap.call(that, options, operation, {
+                                    encode: true
+                                });
                             }
                         }
                     ));

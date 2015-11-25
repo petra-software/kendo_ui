@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1116 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -429,11 +429,12 @@
             var listStyles = GanttList.styles;
             var task = options.task;
             var column = options.column;
-            var value = task.get(column.field) || [];
+            var value = task.get(column.field);
             var formatedValue;
             var label;
 
             if (column.field == resourcesField) {
+                value = value || [];
                 formatedValue = [];
                 for (var i = 0; i < value.length; i++) {
                     formatedValue.push(kendo.format("{0} [{1}]", value[i].get("name"), value[i].get("formatedValue")));
