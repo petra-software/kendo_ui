@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -208,7 +208,7 @@
             result = [];
             for (idx = 0, length = items.length; idx < length; idx++) {
                 item = items[idx];
-                text = item.text || item.value || item;
+                text = item.text !== "" ? item.text || item.value || item : item.text;
                 value = item.value == null ? (item.text || item) : item.value;
 
                 result[idx] = { text: text, value: value };

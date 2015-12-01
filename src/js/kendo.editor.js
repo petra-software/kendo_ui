@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -3987,11 +3987,21 @@ var BackspaceHandler = Class.extend({
 
         // unwrap li element
         if (li && editorNS.RangeUtils.isStartOf(range, li)) {
-            var formatter = new editorNS.GreedyBlockFormatter([ { tags: ["p"] } ]);
             var child = li.firstChild;
-            formatter.editor = this.editor;
-            formatter.apply(li.childNodes);
-            range.setStart(child, 0);
+            if (!child) {
+                li.innerHTML = editorNS.emptyElementContent;
+                child = li.firstChild;
+            }
+
+            var formatter = new editorNS.ListFormatter(li.parentNode.tagName, "p");
+            formatter.remove(li.childNodes);
+
+            if (dom.insignificant(child)) {
+                range.setStartBefore(child);
+            } else {
+                range.setStart(child, 0);
+            }
+
             this.editor.selectRange(range);
 
             return true;

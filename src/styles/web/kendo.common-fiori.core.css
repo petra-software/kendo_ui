@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -9,6 +9,9 @@
 /* Kendo base CSS */
 .fake {
   color: red;
+}
+.k-common-test-class {
+  opacity: 0;
 }
 .k-reset {
   margin: 0;
@@ -2845,6 +2848,12 @@ body .k-datetimepicker .k-select {
   position: absolute;
   right: 6px;
   top: 1px;
+}
+.km-root .k-list-filter > .k-textbox {
+  padding-left: 0;
+  padding-right: 0;
+  border-left-width: 0;
+  border-right-width: 0;
 }
 /* MultiSelect */
 .k-multiselect-wrap {

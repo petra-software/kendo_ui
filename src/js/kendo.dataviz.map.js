@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1573,7 +1573,6 @@
         Layer = dataviz.map.layers.Layer,
 
         util = kendo.util,
-        objectKey = util.objectKey,
         round = util.round,
         renderSize = util.renderSize,
         limit = util.limitValue;
@@ -1596,6 +1595,12 @@
 
             this._view.destroy();
             this._view = null;
+        },
+
+        _beforeReset: function() {
+            var map = this.map;
+            var origin = map.locationToLayer(map.extent().nw).round();
+            this._view.viewOrigin(origin);
         },
 
         _reset: function() {
@@ -1682,6 +1687,10 @@
             this._extent = extent;
         },
 
+        viewOrigin: function(origin) {
+            this._viewOrigin = origin;
+        },
+
         zoom: function(zoom) {
             this._zoom = zoom;
         },
@@ -1739,7 +1748,6 @@
         reset: function() {
             this.pool.reset();
             this.subdomainIndex = 0;
-            this.basePoint = this._extent.nw;
             this.render();
         },
 
@@ -1775,8 +1783,8 @@
         tileOptions: function(currentIndex) {
             var index = this.wrapIndex(currentIndex),
                 point = this.indexToPoint(currentIndex),
-                base = this.basePoint,
-                offset = point.clone().translate(-base.x, -base.y);
+                origin = this._viewOrigin,
+                offset = point.clone().translate(-origin.x, -origin.y);
 
             return {
                 index: index,
@@ -1930,7 +1938,15 @@
             var items = this._items;
             var tile;
 
-            var id = util.hashKey(objectKey(options) + objectKey(options.currentIndex));
+            // Build an unique token for the image
+            // This normally would be the URL, but we don't care about subdomains
+            var id = util.hashKey(
+                options.point.toString() +
+                options.offset.toString() +
+                options.zoom +
+                options.urlTemplate
+            );
+
             for (var i = 0; i < items.length; i++) {
                 if (items[i].id === id) {
                     tile = items[i];
@@ -2068,7 +2084,7 @@
                 this._addAttribution();
 
                 if (this.element.css("display") !== "none") {
-                    this.reset();
+                    this._reset();
                 }
             }
         },
@@ -2106,7 +2122,6 @@
                 this.options.imagerySet = value;
                 this.map.attribution.clear();
                 this._fetchMetadata();
-                this._reset();
             } else {
                 return this.options.imagerySet;
             }

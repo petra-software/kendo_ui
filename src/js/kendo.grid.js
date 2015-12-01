@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -6366,8 +6366,9 @@
                 this.lockedHeader = table.prependTo(container);
                 this.thead.find(".k-group-cell").remove();
 
-                this._syncLockedHeaderHeight();
+                return true;
             }
+            return false;
         },
 
         _removeLockedContainers: function() {
@@ -6496,15 +6497,16 @@
 
             that._columnMenu();
 
-            if (this.options.scrollable && lockedColumns(this.columns).length) {
+            var syncHeight;
+            var hasLockedColumns = this.options.scrollable && lockedColumns(this.columns).length;
 
-                that._appendLockedColumnHeader(that.thead.closest(".k-grid-header"));
+            if (hasLockedColumns) {
+
+                syncHeight = that._appendLockedColumnHeader(that.thead.closest(".k-grid-header"));
 
                 that._appendLockedColumnContent();
 
                 that.lockedContent.bind("DOMMouseScroll" + NS + " mousewheel" + NS, proxy(that._wheelScroll, that));
-
-                that._applyLockedContainersWidth();
             }
 
             that._updateColumnCellIndex();
@@ -6518,6 +6520,14 @@
             that._reorderable();
 
             that._updateHeader(that._groups());
+
+            if (hasLockedColumns) {
+                if (syncHeight) {
+                    that._syncLockedHeaderHeight();
+                }
+
+                that._applyLockedContainersWidth();
+            }
 
             if (that.groupable) {
                 that._attachGroupable();

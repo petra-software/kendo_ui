@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -42,7 +42,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.3.1125".replace(/^\s+|\s+$/g, '');
+    kendo.version = "2015.3.1201".replace(/^\s+|\s+$/g, '');
 
     function Class() {}
 
@@ -15571,7 +15571,7 @@ function pad(number, digits, end) {
 
                 target._trigger(DRAGENTER, extend(e, { dropTarget: $(targetElement) }));
                 lastDropTarget = extend(target, { targetElement: targetElement });
-            });            
+            });
 
             this._trigger(DRAG, extend(e, { dropTarget: lastDropTarget, elementUnderCursor: cursorElement }));
         },
@@ -15794,7 +15794,7 @@ function pad(number, digits, end) {
 
         var parent = $(element)[0];
 
-        while (!kendo.isScrollable(parent) && parent !== document.body) {
+        while (parent && !kendo.isScrollable(parent) && parent !== document.body) {
             parent = parent.parentNode;
         }
 
@@ -51669,7 +51669,8 @@ function pad(number, digits, end) {
 
             if(dynamicSlope){
                 var firstSegment = segments[0],
-                    maxSegment = firstSegment;
+                    maxSegment = firstSegment,
+                    nextSegment, nextPercentage;
 
                 $.each(segments,function(idx,val){
                    if(val.percentage>maxSegment.percentage){
@@ -51677,29 +51678,33 @@ function pad(number, digits, end) {
                    }
                 });
 
-                lastUpperSide = (firstSegment.percentage/maxSegment.percentage)*width;
+                lastUpperSide = (firstSegment.percentage / maxSegment.percentage) * width;
                 previousOffset = (width - lastUpperSide) / 2;
 
                 for (i = 0; i < count; i++) {
                     percentage = segments[i].percentage;
-
-                    var nextSegment = segments[i+1],
-                        nextPercentage = (nextSegment ? nextSegment.percentage : percentage);
+                    nextSegment = segments[i + 1];
+                    nextPercentage = (nextSegment ? nextSegment.percentage : percentage);
 
                     points = segments[i].points = [];
                     height = (options.dynamicHeight)? (totalHeight * percentage): (totalHeight / count);
-                    offset = (width - lastUpperSide* (nextPercentage / percentage))/2;
+
+                    if (!percentage) {
+                        offset = nextPercentage ? 0 : width / 2;
+                    } else {
+                        offset = (width - lastUpperSide * (nextPercentage / percentage)) / 2;
+                    }
+
                     offset = limitValue(offset, 0, width);
 
                     points.push(new geom.Point(box.x1 + previousOffset, box.y1 + previousHeight));
-                    points.push(new geom.Point(box.x1+width - previousOffset, box.y1 + previousHeight));
-                    points.push(new geom.Point(box.x1+width - offset, box.y1 + height + previousHeight));
-                    points.push(new geom.Point(box.x1+ offset,box.y1 + height + previousHeight));
+                    points.push(new geom.Point(box.x1 + width - previousOffset, box.y1 + previousHeight));
+                    points.push(new geom.Point(box.x1 + width - offset, box.y1 + height + previousHeight));
+                    points.push(new geom.Point(box.x1 + offset, box.y1 + height + previousHeight));
 
                     previousOffset = offset;
                     previousHeight += height + segmentSpacing;
-                    lastUpperSide *= nextPercentage/percentage;
-                    lastUpperSide = limitValue(lastUpperSide, 0, width);
+                    lastUpperSide = limitValue(width - 2 * offset, 0, width);
                 }
             }
             else {
@@ -59471,7 +59476,6 @@ function pad(number, digits, end) {
         Layer = dataviz.map.layers.Layer,
 
         util = kendo.util,
-        objectKey = util.objectKey,
         round = util.round,
         renderSize = util.renderSize,
         limit = util.limitValue;
@@ -59494,6 +59498,12 @@ function pad(number, digits, end) {
 
             this._view.destroy();
             this._view = null;
+        },
+
+        _beforeReset: function() {
+            var map = this.map;
+            var origin = map.locationToLayer(map.extent().nw).round();
+            this._view.viewOrigin(origin);
         },
 
         _reset: function() {
@@ -59580,6 +59590,10 @@ function pad(number, digits, end) {
             this._extent = extent;
         },
 
+        viewOrigin: function(origin) {
+            this._viewOrigin = origin;
+        },
+
         zoom: function(zoom) {
             this._zoom = zoom;
         },
@@ -59637,7 +59651,6 @@ function pad(number, digits, end) {
         reset: function() {
             this.pool.reset();
             this.subdomainIndex = 0;
-            this.basePoint = this._extent.nw;
             this.render();
         },
 
@@ -59673,8 +59686,8 @@ function pad(number, digits, end) {
         tileOptions: function(currentIndex) {
             var index = this.wrapIndex(currentIndex),
                 point = this.indexToPoint(currentIndex),
-                base = this.basePoint,
-                offset = point.clone().translate(-base.x, -base.y);
+                origin = this._viewOrigin,
+                offset = point.clone().translate(-origin.x, -origin.y);
 
             return {
                 index: index,
@@ -59828,7 +59841,15 @@ function pad(number, digits, end) {
             var items = this._items;
             var tile;
 
-            var id = util.hashKey(objectKey(options) + objectKey(options.currentIndex));
+            // Build an unique token for the image
+            // This normally would be the URL, but we don't care about subdomains
+            var id = util.hashKey(
+                options.point.toString() +
+                options.offset.toString() +
+                options.zoom +
+                options.urlTemplate
+            );
+
             for (var i = 0; i < items.length; i++) {
                 if (items[i].id === id) {
                     tile = items[i];
@@ -59966,7 +59987,7 @@ function pad(number, digits, end) {
                 this._addAttribution();
 
                 if (this.element.css("display") !== "none") {
-                    this.reset();
+                    this._reset();
                 }
             }
         },
@@ -60004,7 +60025,6 @@ function pad(number, digits, end) {
                 this.options.imagerySet = value;
                 this.map.attribution.clear();
                 this._fetchMetadata();
-                this._reset();
             } else {
                 return this.options.imagerySet;
             }

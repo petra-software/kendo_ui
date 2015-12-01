@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -896,16 +896,44 @@
             }
             this.getState();
             this._clipboard.paste();
+            this._workbook.execute({
+                command: "AdjustRowHeightCommand",
+                options: {
+                    range: this._workbook.activeSheet().range(this._clipboard.pasteRef())
+                }
+            });
+        }
+    });
 
+    kendo.spreadsheet.AdjustRowHeightCommand = Command.extend({
+        init: function(options) {
+            Command.fn.init.call(this, options);
             var sheet = this._workbook.activeSheet();
-            var range = sheet.range(this._clipboard.pasteRef());
+            this._workingRange = options.range || sheet.range(options.rowIndex);
+        },
+        exec: function() {
+            var sheet = this._workbook.activeSheet();
+            var range = this._workingRange;
+            var state = range.getState();
+            var mergedCells = [];
+            for(var i=0; i < state.mergedCells.length; i++) {
+                mergedCells.push(sheet.range(state.mergedCells[i]));
+            }
             range.forEachRow(function(row) {
                 var maxHeight = row.sheet().rowHeight(row.topLeft().row);
-                row.forEachCell(function(row, col, cell) {
-                    var width = sheet.columnWidth(col);
+                row.forEachCell(function(rowIndex, colIndex, cell) {
+                    var cellRange = sheet.range(rowIndex, colIndex);
+                    var totalWidth = 0;
+                    for(var i = 0; i < mergedCells.length; i++) {
+                        if(cellRange._ref.intersects(mergedCells[i]._ref)) {
+                            totalWidth += cell.width;
+                            break;
+                        }
+                    }
+                    var width = Math.max(sheet.columnWidth(colIndex), totalWidth);
                     maxHeight = Math.max(maxHeight, kendo.spreadsheet.util.getTextHeight(cell.value, width, cell.fontSize, cell.wrap));
                 });
-                sheet.rowHeight(row.topLeft().row, maxHeight);
+                sheet.rowHeight(row.topLeft().row, Math.max(sheet.rowHeight(row.topLeft().row), maxHeight));
             });
         }
     });
@@ -914,7 +942,6 @@
         exec: function() {
             if(kendo.support.clipboard.paste) {
                 this._workbook._view.clipboard.focus().select();
-
                 //reason : focusclipbord
                 document.execCommand('paste');
             } else {
@@ -1045,7 +1072,7 @@
             if (this.options.sheet) {
                 this.expandRange().sort({ column: col, ascending: ascending });
             } else {
-                range.sort({ column: col, ascending: ascending });
+                range.sort({ column: this.options.column || 0, ascending: ascending });
             }
         },
         expandRange: function() {
@@ -4607,7 +4634,7 @@
             }
             var topLeft = new CellRef(Math.min.apply(null, rows), Math.min.apply(null, cols));
             var bottomRight = new CellRef(Math.max.apply(null, rows), Math.max.apply(null, cols));
-            return new RangeRef(topLeft, bottomRight, 0);
+            return new RangeRef(topLeft, bottomRight);
         },
 
         destroy: function() {
@@ -5540,7 +5567,8 @@
             "baselineMarkerSize" : 0,
             "width" : width + "px",
             "font-size" : (fontSize || 12) + "px",
-            "word-break" : (wrap === true) ? "break-all" : "normal"
+            "word-break" : (wrap === true) ? "break-all" : "normal",
+            "white-space" : (wrap === true) ? "normal" : "nowrap"
         };
 
         return kendo.util.measureText(text, styles, measureBox).height;
@@ -8393,6 +8421,8 @@
                                 };
                             })
                         };
+
+                        this._refreshFilter();
                     }
                 }
             });
@@ -13095,10 +13125,26 @@
             return new spreadsheet.UnionRef(name.split(/\s*,\s*/g).map(parseReference));
         }
         var m;
+        // Sheet!A1
         if ((m = /^(([A-Z0-9]+)!)?\$?([A-Z]+)\$?([0-9]+)$/i.exec(name))) {
             return new spreadsheet.CellRef(getrow(m[4]), getcol(m[3]), 0)
                 .setSheet(m[2], !!m[2]);
         }
+        // Sheet!R1C1
+        if ((m = /^(([A-Z0-9]+)!)?R([0-9]+)C([0-9]+)$/i.exec(name))) {
+            return new spreadsheet.CellRef(getrow(m[3]), getrow(m[4]))
+                .setSheet(m[2], !!m[2]);
+        }
+        // Sheet1!R1C1:Sheet2!R2C2
+        if ((m = /^(([A-Z0-9]+)!)?R([0-9]+)C([0-9]+):(([A-Z0-9]+)!)?R([0-9]+)C([0-9]+)$/i.exec(name))) {
+            return new spreadsheet.RangeRef(
+                new spreadsheet.CellRef(getrow(m[3]), getrow(m[4]))
+                    .setSheet(m[2], !!m[2]),
+                new spreadsheet.CellRef(getrow(m[7]), getrow(m[8]))
+                    .setSheet(m[6], !!m[6])
+            ).setSheet(m[2], !!m[2]);
+        }
+        // Sheet!A1:B2, Sheet!$A$1:$B$2, Sheet1!A1:Sheet2:B2 etc.
         if ((m = /^(([A-Z0-9]+)!)?\$?([A-Z]+)\$?([0-9]+):(([A-Z0-9]+)!)?\$?([A-Z]+)\$?([0-9]+)$/i.exec(name))) {
             return new spreadsheet.RangeRef(
                 new spreadsheet.CellRef(getrow(m[4]), getcol(m[3]), 0)
@@ -13107,6 +13153,7 @@
                     .setSheet(m[6], !!m[6])
             ).setSheet(m[2], !!m[2]);
         }
+        // Sheet1!A:Sheet2!B
         if ((m = /^(([A-Z0-9]+)!)?\$?([A-Z]+):(([A-Z0-9]+)!)?\$?([A-Z]+)$/i.exec(name))) {
             return new spreadsheet.RangeRef(
                 new spreadsheet.CellRef(-Infinity, getcol(m[3]), 0)
@@ -13115,6 +13162,7 @@
                     .setSheet(m[5], !!m[5])
             ).setSheet(m[2], !!m[2]);
         }
+        // Sheet1!5:Sheet2!6
         if ((m = /^(([A-Z0-9]+)!)?\$?([0-9]+):(([A-Z0-9]+)!)?\$?([0-9]+)$/i.exec(name))) {
             return new spreadsheet.RangeRef(
                 new spreadsheet.CellRef(getrow(m[3]), -Infinity, 0)
@@ -21565,12 +21613,13 @@
             validateCriteria: function(criteria) {
                 return criteria.filter(function(item) {
                     var type = item.operator.type;
+                    var value = item.value;
 
-                    if (type === "number") {
+                    if (value && type === "number") {
                         return !!kendo.parseFloat(item.value);
-                    } else if (type === "date") {
+                    } else if (value && type === "date") {
                         return !!kendo.parseDate(item.value);
-                    } else if (type === "string") {
+                    } else if (value && type === "string") {
                         return !!item.value.toString();
                     } else {
                         return false;
@@ -21595,6 +21644,7 @@
             },
             buildCustomFilter: function() {
                 var customFilter = this.customFilter.toJSON();
+
                 customFilter.criteria = this.validateCriteria(customFilter.criteria);
                 customFilter.criteria = this.normalizeCriteria(customFilter.criteria);
 
@@ -21728,7 +21778,9 @@
                     }
                 }
 
-                this.action({ command: "ApplyFilterCommand", options: options });
+                if (options.valueFilter || options.customFilter) {
+                    this.action({ command: "ApplyFilterCommand", options: options });
+                }
             },
 
             action: function(options) {
@@ -21878,7 +21930,8 @@
                         var options = {
                             asc: dir,
                             sheet: false,
-                            operatingRange: range
+                            operatingRange: range,
+                            column: this.options.column
                         };
 
                         if (range.isSortable()) {

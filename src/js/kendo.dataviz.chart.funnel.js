@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -291,7 +291,8 @@
 
             if(dynamicSlope){
                 var firstSegment = segments[0],
-                    maxSegment = firstSegment;
+                    maxSegment = firstSegment,
+                    nextSegment, nextPercentage;
 
                 $.each(segments,function(idx,val){
                    if(val.percentage>maxSegment.percentage){
@@ -299,29 +300,33 @@
                    }
                 });
 
-                lastUpperSide = (firstSegment.percentage/maxSegment.percentage)*width;
+                lastUpperSide = (firstSegment.percentage / maxSegment.percentage) * width;
                 previousOffset = (width - lastUpperSide) / 2;
 
                 for (i = 0; i < count; i++) {
                     percentage = segments[i].percentage;
-
-                    var nextSegment = segments[i+1],
-                        nextPercentage = (nextSegment ? nextSegment.percentage : percentage);
+                    nextSegment = segments[i + 1];
+                    nextPercentage = (nextSegment ? nextSegment.percentage : percentage);
 
                     points = segments[i].points = [];
                     height = (options.dynamicHeight)? (totalHeight * percentage): (totalHeight / count);
-                    offset = (width - lastUpperSide* (nextPercentage / percentage))/2;
+
+                    if (!percentage) {
+                        offset = nextPercentage ? 0 : width / 2;
+                    } else {
+                        offset = (width - lastUpperSide * (nextPercentage / percentage)) / 2;
+                    }
+
                     offset = limitValue(offset, 0, width);
 
                     points.push(new geom.Point(box.x1 + previousOffset, box.y1 + previousHeight));
-                    points.push(new geom.Point(box.x1+width - previousOffset, box.y1 + previousHeight));
-                    points.push(new geom.Point(box.x1+width - offset, box.y1 + height + previousHeight));
-                    points.push(new geom.Point(box.x1+ offset,box.y1 + height + previousHeight));
+                    points.push(new geom.Point(box.x1 + width - previousOffset, box.y1 + previousHeight));
+                    points.push(new geom.Point(box.x1 + width - offset, box.y1 + height + previousHeight));
+                    points.push(new geom.Point(box.x1 + offset, box.y1 + height + previousHeight));
 
                     previousOffset = offset;
                     previousHeight += height + segmentSpacing;
-                    lastUpperSide *= nextPercentage/percentage;
-                    lastUpperSide = limitValue(lastUpperSide, 0, width);
+                    lastUpperSide = limitValue(width - 2 * offset, 0, width);
                 }
             }
             else {

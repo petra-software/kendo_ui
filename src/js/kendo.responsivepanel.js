@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -37,7 +37,7 @@
             this.element
                 .addClass("k-rpanel k-rpanel-" + this.options.orientation + " " + this._guid);
 
-            this._resizeHandler = proxy(this.resize, this, false);
+            this._resizeHandler = proxy(this.resize, this, true);
             $(window).on("resize" + NS, this._resizeHandler);
         },
         _mediaQuery:
@@ -105,7 +105,9 @@
             CLOSE
         ],
         _resize: function() {
-            this.element.removeClass("k-rpanel-animate");
+            this.element.removeClass("k-rpanel-animate k-rpanel-expanded");
+
+            $(document.documentElement).off(ACTIVATE_EVENTS, this._closeHandler);
         },
         _toggleButtonClick: function(e) {
             e.preventDefault();

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1125 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -854,7 +854,7 @@
 
                 target._trigger(DRAGENTER, extend(e, { dropTarget: $(targetElement) }));
                 lastDropTarget = extend(target, { targetElement: targetElement });
-            });            
+            });
 
             this._trigger(DRAG, extend(e, { dropTarget: lastDropTarget, elementUnderCursor: cursorElement }));
         },
@@ -1077,7 +1077,7 @@
 
         var parent = $(element)[0];
 
-        while (!kendo.isScrollable(parent) && parent !== document.body) {
+        while (parent && !kendo.isScrollable(parent) && parent !== document.body) {
             parent = parent.parentNode;
         }
 
