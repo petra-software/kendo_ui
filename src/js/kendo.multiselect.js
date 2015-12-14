@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1214 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -116,20 +116,6 @@
             }
 
             kendo.notify(that);
-        },
-
-        _preselect: function(data, value) {
-            var that = this;
-
-            if (!isArray(data) && !(data instanceof kendo.data.ObservableArray)) {
-                data = [data];
-            }
-
-            if ($.isPlainObject(data[0]) || data[0] instanceof kendo.data.ObservableObject || !that.options.dataValueField) {
-                that.dataSource.data(data);
-                that.value(value || that._initialValues);
-                that._retrieveData = true;
-            }
         },
 
         options: {
@@ -583,6 +569,20 @@
             that._fetchData();
         },
 
+        _preselect: function(data, value) {
+            var that = this;
+
+            if (!isArray(data) && !(data instanceof kendo.data.ObservableArray)) {
+                data = [data];
+            }
+
+            if ($.isPlainObject(data[0]) || data[0] instanceof kendo.data.ObservableObject || !that.options.dataValueField) {
+                that.dataSource.data(data);
+                that.value(value || that._initialValues);
+                that._retrieveData = true;
+            }
+        },
+
         _setOption: function(value, selected) {
             var option = this.element[0].children[this._optionsMap[value]];
 
@@ -613,6 +613,10 @@
                     that._fetch = false;
                 });
             }
+        },
+
+        _isBound: function() {
+            return this.listView.isBound() && !this._retrieveData;
         },
 
         _dataSource: function() {

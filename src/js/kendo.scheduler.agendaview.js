@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1214 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -50,8 +50,6 @@
 
             this.title = options.title;
 
-            this.name = "agenda";
-
             this._eventTemplate = this._eventTmpl(options.eventTemplate, EVENT_WRAPPER_FORMAT);
             this._dateTemplate = kendo.template(options.eventDateTemplate);
             this._groupTemplate = kendo.template(options.eventGroupTemplate);
@@ -63,6 +61,8 @@
 
             this._renderLayout(options.date);
         },
+
+        name: "agenda",
 
         _mouseenter: function(e) {
             $(e.currentTarget).addClass("k-state-hover");

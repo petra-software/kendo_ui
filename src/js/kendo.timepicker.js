@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1214 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -127,11 +127,6 @@
 
             that.ul.off(ns);
             that.list.off(ns);
-
-            if (that._touchScroller) {
-                that._touchScroller.destroy();
-            }
-
             that.popup.destroy();
         },
 
@@ -262,23 +257,11 @@
                 itemOffsetHeight = item.offsetHeight,
                 ulScrollTop = ul.scrollTop,
                 ulOffsetHeight = ul.clientHeight,
-                bottomDistance = itemOffsetTop + itemOffsetHeight,
-                touchScroller = this._touchScroller,
-                elementHeight;
+                bottomDistance = itemOffsetTop + itemOffsetHeight;
 
-            if (touchScroller) {
-                elementHeight = this.list.height();
-
-                if (itemOffsetTop > elementHeight) {
-                    itemOffsetTop = itemOffsetTop - elementHeight + itemOffsetHeight;
-                }
-
-                touchScroller.scrollTo(0, -itemOffsetTop);
-            } else {
-                ul.scrollTop = ulScrollTop > itemOffsetTop ?
-                               itemOffsetTop : bottomDistance > (ulScrollTop + ulOffsetHeight) ?
-                               bottomDistance - ulOffsetHeight : ulScrollTop;
-            }
+            ul.scrollTop = ulScrollTop > itemOffsetTop ?
+                           itemOffsetTop : bottomDistance > (ulScrollTop + ulOffsetHeight) ?
+                           bottomDistance - ulOffsetHeight : ulScrollTop;
         },
 
         select: function(li) {
@@ -449,8 +432,6 @@
                 animation: options.animation,
                 isRtl: support.isRtl(options.anchor)
             }));
-
-            that._touchScroller = kendo.touchScroller(that.popup.element);
         },
 
         move: function(e) {

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1214 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -3827,32 +3827,39 @@
 
             wrapper.addClass(SCHEDULER_EXPORT);
 
-            this.resize(true);
-
             var scheduler = this;
             var promise = new $.Deferred();
+            var table = wrapper.find(".k-scheduler-content").find("table").css("table-layout", "auto");
 
-            this._drawPDFShadow({}, {
-                avoidLinks: this.options.pdf.avoidLinks
-            })
-            .done(function(group) {
-                var args = {
-                    page: group,
-                    pageNumber: 1,
-                    progress: 1,
-                    totalPages: 1
-                };
-
-                progress.notify(args);
-                promise.resolve(args.page);
-            })
-            .fail(function(err) {
-                promise.reject(err);
-            })
-            .always(function() {
-                wrapper[0].style.cssText = styles;
-                wrapper.removeClass(SCHEDULER_EXPORT);
+            setTimeout(function() {
+                table.css("table-layout", "fixed");
                 scheduler.resize(true);
+
+                scheduler._drawPDFShadow({}, {
+                    avoidLinks: scheduler.options.pdf.avoidLinks
+                })
+                .done(function(group) {
+                    var args = {
+                        page: group,
+                        pageNumber: 1,
+                        progress: 1,
+                        totalPages: 1
+                    };
+
+                    progress.notify(args);
+                    promise.resolve(args.page);
+                })
+                .fail(function(err) {
+                    promise.reject(err);
+                })
+                .always(function() {
+                    wrapper[0].style.cssText = styles;
+                    wrapper.removeClass(SCHEDULER_EXPORT);
+                    scheduler.resize(true);
+
+                    //Required because slot.offsetLeft is incorrect after first resize
+                    scheduler.resize(true);
+                });
             });
 
             return promise;

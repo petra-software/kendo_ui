@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1214 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -215,6 +215,13 @@ textarea.k-textbox:hover,
   color: #32364c;
   background-color: #ffffff;
   border-color: #e0e0e0;
+}
+.k-state-selected {
+  background-color: rgba(128, 222, 234, 0.25);
+}
+.k-state-focused {
+  -webkit-box-shadow: inset 0 0 0 1px #878787;
+          box-shadow: inset 0 0 0 1px #878787;
 }
 .k-state-hover,
 .k-state-hover:hover,
@@ -540,7 +547,7 @@ input.k-textbox:active {
   border-color: #f5f6f6;
 }
 .k-calendar .k-state-focused {
-  border-color: #ff4350;
+  border-color: #9da2a4;
 }
 .k-calendar .k-header .k-state-hover {
   background-color: #e43c48;
@@ -555,6 +562,12 @@ input.k-textbox:active {
   border-color: #ff4350;
   -webkit-box-shadow: none;
           box-shadow: none;
+}
+.k-calendar .k-state-selected.k-state-hover {
+  background-color: #e43c48;
+}
+.k-calendar .k-state-selected.k-state-focused {
+  border-color: #9a2830;
 }
 .k-calendar .k-footer {
   border-color: #e0e0e0;
@@ -936,6 +949,8 @@ input.k-textbox:active {
 .k-event,
 .k-task-complete {
   color: #ffffff;
+  background: #24c6db;
+  border-color: #24c6db;
 }
 .k-event.k-state-selected {
   -webkit-box-shadow: 0 0 0 2px #32364c;
@@ -982,9 +997,6 @@ input.k-textbox:active {
 .k-gantt-toolbar li:last-child,
 .k-gantt-toolbar li:last-child > .k-link {
   border-radius: 0;
-}
-.k-task-complete {
-  background: #24c6db;
 }
 .k-gantt .k-task-draghandle {
   border-color: #24c6db;

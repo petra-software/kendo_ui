@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1214 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -591,7 +591,7 @@
         var targetDepth = depth([target]);
 
         if (sourcesDepth > targetDepth) {
-            var groupCells = new Array(groups + 1).join('<th class="k-group-cell k-header">&nbsp;</th>');
+            var groupCells = new Array(groups + 1).join('<th class="k-group-cell k-header" scope="col">&nbsp;</th>');
             var rows = destination.children(":not(.k-filter-row)");
             $(new Array((sourcesDepth - targetDepth) + 1).join("<tr>" + groupCells + "</tr>")).insertAfter(rows.last());
         }
@@ -3886,10 +3886,16 @@
                 $(window).on("resize", this.minScreenResizeHandler);
             }
         },
+
         hideMinScreenCols: function() {
             var cols = this.columns,
-                any = false,
                 screenWidth = (window.innerWidth > 0) ? window.innerWidth : screen.width;
+
+            return this._iterateMinScreenCols(cols, screenWidth);
+        },
+
+        _iterateMinScreenCols: function (cols, screenWidth) {
+            var any = false;
 
             for (var i = 0; i < cols.length; i++) {
                 var col = cols[i];
@@ -3901,6 +3907,9 @@
                     } else {
                         this.showColumn(col);
                     }
+                }
+                if (!col.hidden && col.columns) {
+                    any = this._iterateMinScreenCols(col.columns, screenWidth) || any;
                 }
             }
             return any;
@@ -4984,6 +4993,11 @@
                 }
 
                 that._applyLockedContainersWidth();
+
+                // workaround IE does not show vertical scrollbar for elements without width
+                if (that.lockedHeader && that.table[0].clientWidth === 0) {
+                    that.table[0].style.width = "1px";
+                }
             }
         },
 
@@ -6159,7 +6173,7 @@
                         field = kendo.attr("field") + "='" + th.field + "' ";
                     }
 
-                    html += "<th role='columnheader' " + field;
+                    html += "<th scope='col' role='columnheader' " + field;
 
                     if (rowSpan && !columns[idx].colSpan) {
                         html += " rowspan='" + rowSpan + "'";
@@ -6190,7 +6204,7 @@
 
                     html += ">" + text + "</th>";
                 } else {
-                    html += "<th" + stringifyAttributes(th.headerAttributes);
+                    html += "<th scope='col'" + stringifyAttributes(th.headerAttributes);
 
                     if (rowSpan && !columns[idx].colSpan) {
                         html += " rowspan='" + rowSpan + "'";
@@ -6419,7 +6433,7 @@
                    for (idx = 0; idx < rows.length; idx++) {
                        html += "<tr>";
                        if (hasDetails) {
-                           html += '<th class="k-hierarchy-cell">&nbsp;</th>';
+                           html += '<th class="k-hierarchy-cell" scope="col">&nbsp;</th>';
                        }
                        html += that._createHeaderCells(rows[idx].cells, rows[idx].rowSpan);
                        html += "</tr>";
@@ -6433,7 +6447,7 @@
                 var filterRow = $("<tr/>");
                 filterRow.addClass("k-filter-row");
                 if (hasDetails || tr.find(".k-hierarchy-cell").length) { // handles server side detail template
-                    filterRow.prepend('<th class="k-hierarchy-cell">&nbsp;</th>');
+                    filterRow.prepend('<th class="k-hierarchy-cell" scope="col">&nbsp;</th>');
                 }
 
                 var existingFilterRow = (that.thead || thead).find(".k-filter-row");
@@ -6448,14 +6462,14 @@
             if (!tr.children().length) {
                 html = "";
                 if (hasDetails) {
-                    html += '<th class="k-hierarchy-cell">&nbsp;</th>';
+                    html += '<th class="k-hierarchy-cell" scope="col">&nbsp;</th>';
                 }
 
                 html += that._createHeaderCells(columns);
 
                 tr.html(html);
             } else if (hasDetails && !tr.find(".k-hierarchy-cell")[0]) {
-                tr.prepend('<th class="k-hierarchy-cell">&nbsp;</th>');
+                tr.prepend('<th class="k-hierarchy-cell" scope="col">&nbsp;</th>');
             }
 
             tr.attr("role", "row").find("th").addClass("k-header");
@@ -6853,7 +6867,7 @@
                 });
 
             if(groups > length) {
-                $(new Array(groups - length + 1).join('<th class="k-group-cell k-header">&nbsp;</th>')).prependTo(container.children("tr:not(.k-filter-row)"));
+                $(new Array(groups - length + 1).join('<th class="k-group-cell k-header" scope="col">&nbsp;</th>')).prependTo(container.children("tr:not(.k-filter-row)"));
                 if (that.element.is(":visible")) {
                     rows.find("th.k-group-cell").hide();
                 }
@@ -6864,7 +6878,7 @@
                 });
             }
             if(groups > filterCells) {
-                $(new Array(groups - filterCells + 1).join('<th class="k-group-cell k-header">&nbsp;</th>')).prependTo(container.find(".k-filter-row"));
+                $(new Array(groups - filterCells + 1).join('<th class="k-group-cell k-header" scope="col">&nbsp;</th>')).prependTo(container.find(".k-filter-row"));
             }
         },
 
@@ -7194,6 +7208,9 @@
         },
 
         _resize: function(size, force) {
+
+            this._syncLockedHeaderHeight();
+
             if (this.content) {
                 this._setContentWidth();
                 this._setContentHeight();
@@ -7725,12 +7742,16 @@
        }
    }
 
+   function isInputElement(element) {
+       return $(element).is(":button,a,:input,a>.k-icon,textarea,span.k-select,span.k-icon,span.k-link,.k-input,.k-multiselect-wrap,.k-tool-icon");
+   }
+
    function tableClick(e) {
        var currentTarget = $(e.currentTarget),
            isHeader = currentTarget.is("th"),
            table = this.table.add(this.lockedTable),
            headerTable = this.thead.parent().add($(">table", this.lockedHeader)),
-           isInput = $(e.target).is(":button,a,:input,a>.k-icon,textarea,span.k-select,span.k-icon,span.k-link,.k-input,.k-multiselect-wrap,.k-tool-icon"),
+           isInput = isInputElement(e.target),
            currentTable = currentTarget.closest("table")[0];
 
        if (kendo.support.touch) {
@@ -7758,8 +7779,11 @@
            setTimeout(function() {
                //Do not focus if widget, because in IE8 a DDL will be closed
                if (!(isIE8 && $(kendo._activeElement()).hasClass("k-widget"))) {
-                    //DOMElement.focus() only for header, because IE doesn't really focus the table
-                    focusTable(currentTable, true);
+                   //Only if input element is not selected yet
+                   if (!isInputElement(kendo._activeElement())) {
+                       //DOMElement.focus() only for header, because IE doesn't really focus the table
+                       focusTable(currentTable, true);
+                   }
                 }
            });
        }

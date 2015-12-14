@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1214 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1529,8 +1529,8 @@
 
             this.root.attr("role", "tree");
 
+            var elements = this.root.children(".k-item");
             for (var i = 0; i < items.length; i++) {
-                var elements = this.root.children(".k-item");
                 this.trigger("itemChange", {
                     item: elements.eq(i),
                     data: items[i],

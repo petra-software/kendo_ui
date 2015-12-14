@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1214 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -1386,7 +1386,7 @@
     });
 
     var Gantt = Widget.extend({
-        init: function(element, options) {
+        init: function(element, options, events) {
             if (isArray(options)) {
                 options = { dataSource: options };
             }
@@ -1407,9 +1407,17 @@
 
             Widget.fn.init.call(this, element, options);
 
+            if (events) {
+                this._events = events;
+            }
+
             this._wrapper();
 
             this._resources();
+
+            if (!this.options.views || !this.options.views.length) {
+                this.options.views = ["day", "week", "month"];
+            }
 
             this._timeline();
 
@@ -1601,6 +1609,46 @@
 
             this.toolbar = null;
             this.footer = null;
+        },
+
+        setOptions: function(options) {
+            var newOptions = kendo.deepExtend({}, this.options, options);
+
+            var events = this._events;
+
+            if (!options.views) {
+                var selectedView = this.view().name;
+
+                newOptions.views = $.map(this.options.views, function(view) {
+                    var isSettings = isPlainObject(view);
+                    var name = isSettings ? ((typeof view.type !== "string") ? view.title : view.type) : view;
+
+                    if (selectedView === name) {
+                        if (isSettings) {
+                            view.selected = true;
+                        } else {
+                            view = { type: name, selected: true };
+                        }
+                    } else if (isSettings) {
+                        view.selected = false;
+                    }
+
+                    return view;
+                });
+            }
+
+            if (!options.dataSource) { newOptions.dataSource = this.dataSource; }
+            if (!options.dependencies) { newOptions.dependencies = this.dependencies; }
+            if (!options.resources) { newOptions.resources = this.resources; }
+            if (!options.assignments) { newOptions.assignments = this.assignments; }
+
+            this.destroy();
+            this.element.empty();
+            this.options = null;
+
+            this.init(this.element, newOptions, events);
+
+            Widget.fn._setEvents.call(this, newOptions);
         },
 
         _attachEvents: function() {

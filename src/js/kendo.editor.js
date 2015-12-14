@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1214 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -3568,7 +3568,7 @@ var RangeUtils = {
             var index = dom.findNodeIndex(range.startContainer);
             var parent = range.startContainer.parentNode;
 
-            while (index > 0 && dom.insignificant(parent[index-1])) {
+            while (index > 0 && parent[index-1] && dom.insignificant(parent[index-1])) {
                 index--;
             }
 
@@ -3953,25 +3953,31 @@ var BackspaceHandler = Class.extend({
 
         return false;
     },
-    _handleBackspace: function(range) {
+    _cleanBomBefore: function(range) {
+        var offset = range.startOffset;
         var node = range.startContainer;
-        var li = dom.closestEditableOfType(node, ['li']);
-        var block = dom.closestEditableOfType(node, 'p,h1,h2,h3,h4,h5,h6'.split(','));
+        var text = node.nodeValue;
+        var count = 0;
+        while (offset-count >= 0 && text[offset-count-1] == "\ufeff") {
+            count++;
+        }
 
-        if (dom.isDataNode(node)) {
-            var offset = range.startOffset;
-            var text = node.nodeValue;
-            var count = 0;
-            while (offset-count >= 0 && text[offset-count-1] == "\ufeff") {
-                count++;
-            }
-
+        if (count > 0) {
             node.deleteData(offset-count, count);
 
             range.setStart(node, Math.max(0, offset-count));
             range.collapse(true);
 
             this.editor.selectRange(range);
+        }
+    },
+    _handleBackspace: function(range) {
+        var node = range.startContainer;
+        var li = dom.closestEditableOfType(node, ['li']);
+        var block = dom.closestEditableOfType(node, 'p,h1,h2,h3,h4,h5,h6'.split(','));
+
+        if (dom.isDataNode(node)) {
+            this._cleanBomBefore(range);
         }
 
         // unwrap block
@@ -3993,8 +3999,9 @@ var BackspaceHandler = Class.extend({
                 child = li.firstChild;
             }
 
-            var formatter = new editorNS.ListFormatter(li.parentNode.tagName, "p");
-            formatter.remove(li.childNodes);
+            var formatter = new editorNS.ListFormatter(dom.name(li.parentNode), "p");
+            range.selectNodeContents(li);
+            formatter.toggle(range);
 
             if (dom.insignificant(child)) {
                 range.setStartBefore(child);
@@ -4407,13 +4414,19 @@ var Clipboard = Class.extend({
             return;
         }
 
-        var clipboardData = e.clipboardData || e.originalEvent.clipboardData || window.clipboardData;
-        var items = clipboardData && (clipboardData.items || clipboardData.files);
-        var images = items && $.grep(items, function(item) {
-            return (/^image\//i).test(item.type);
-        });
+        var clipboardData = e.clipboardData || e.originalEvent.clipboardData ||
+                    window.clipboardData || {};
 
-        if (!images || !images.length) {
+        var items = clipboardData.items || clipboardData.files;
+
+        if (!items) {
+            return;
+        }
+
+        var images = $.grep(items, function(item) { return (/^image\//i).test(item.type); });
+        var html = $.grep(items, function(item) { return (/^text\/html/i).test(item.type); });
+
+        if (html.length || !images.length) {
             return;
         }
 

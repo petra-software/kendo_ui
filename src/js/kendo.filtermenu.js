@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1214 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -251,7 +251,7 @@
                 link = element.addClass("k-with-icon k-filterable").find(".k-grid-filter");
 
                 if (!link[0]) {
-                    link = element.prepend('<a class="k-grid-filter" href="#"><span class="k-icon k-filter"/></a>').find(".k-grid-filter");
+                    link = element.prepend('<a class="k-grid-filter" href="#"><span class="k-icon k-filter">' + options.messages.filter + '</span></a>').find(".k-grid-filter");
                 }
 
                 link.attr("tabindex", -1).on("click" + NS, proxy(that._click, that));

@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1214 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -484,18 +484,19 @@
         var setter = getter.assign;
         var updating = false;
 
-        var current = getter(scope);
-
-        widget.$angular_setLogicValue(current);
-
         var valueIsCollection = kendo.ui.MultiSelect && widget instanceof kendo.ui.MultiSelect;
 
-        if (valueIsCollection) {
-            var sourceItemCount = current.length;
-        }
+        var length = function(value) {
+            //length is irrelevant when value is not collection
+            return valueIsCollection ? value.length : 0;
+        };
+
+        var currentValueLength = length(getter(scope));
+
+        widget.$angular_setLogicValue(getter(scope));
 
         // keep in sync
-        var watchHandler = function(newValue) {
+        var watchHandler = function(newValue, oldValue) {
             if (newValue === undefined) {
                 // because widget's value() method usually checks if the new value is undefined,
                 // in which case it returns the current value rather than clearing the field.
@@ -503,28 +504,15 @@
                 newValue = null;
             }
 
-            if (valueIsCollection) {
-                if (newValue == current) {
-                    if (newValue.length == sourceItemCount) {
-                        return;
-                    }
-                }
-            } else {
-                if (newValue == current) {
-                    return;
-                }
-            }
-
-            if (updating) {
+            //compare values by reference if a collection
+            if (updating || (newValue == oldValue && length(newValue) == currentValueLength)) {
                 return;
             }
 
-            current = newValue;
-            if (valueIsCollection) {
-                sourceItemCount = current.length;
-            }
+            currentValueLength = length(newValue);
             widget.$angular_setLogicValue(newValue);
         };
+
         if (valueIsCollection) {
             scope.$watchCollection(kNgModel, watchHandler);
         } else {
@@ -540,6 +528,7 @@
 
             digest(scope, function(){
                 setter(scope, widget.$angular_getLogicValue());
+                currentValueLength = length(getter(scope));
             });
 
             updating = false;

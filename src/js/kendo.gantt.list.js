@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1214 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -53,6 +53,7 @@
         wrapper: "k-treelist k-grid k-widget",
         header: "k-header",
         alt: "k-alt",
+        rtl: "k-rtl",
         editCell: "k-edit-cell",
         group: "k-treelist-group",
         gridHeader: "k-grid-header",
@@ -794,6 +795,7 @@
             var dropAllowed = true;
             var dropTarget;
             var listStyles = GanttList.styles;
+            var isRtl = kendo.support.isRtl(this.element);
             var selector = 'tr[' + kendo.attr("level") + ' = 0]:last';
             var action = {};
             var clear = function() {
@@ -886,6 +888,10 @@
                         draggedTask = that._modelFromElement(e.currentTarget);
                         this.hint.children(DOT + listStyles.dragClueText)
                             .text(draggedTask.get("title"));
+
+                        if (isRtl) {
+                            this.hint.addClass(listStyles.rtl);
+                        }
                     },
                     "drag": function(e) {
                         if (dropAllowed) {

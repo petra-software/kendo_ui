@@ -1,5 +1,5 @@
 /*
-* Kendo UI v2015.3.1201 (http://www.telerik.com/kendo-ui)
+* Kendo UI v2015.3.1214 (http://www.telerik.com/kendo-ui)
 * Copyright 2015 Telerik AD. All rights reserved.
 *
 * Kendo UI commercial licenses may be obtained at
@@ -42,7 +42,7 @@
         slice = [].slice,
         globalize = window.Globalize;
 
-    kendo.version = "2015.3.1201".replace(/^\s+|\s+$/g, '');
+    kendo.version = "2015.3.1214".replace(/^\s+|\s+$/g, '');
 
     function Class() {}
 
@@ -4205,7 +4205,7 @@ function pad(number, digits, end) {
         }
 
         var fileSaver = document.createElement("a");
-        var downloadAttribute = "download" in fileSaver;
+        var downloadAttribute = "download" in fileSaver && !kendo.support.browser.edge;
 
         function saveAsBlob(dataURI, fileName) {
             var blob = dataURI; // could be a Blob object
@@ -13170,7 +13170,7 @@ function pad(number, digits, end) {
                             }
                         }
 
-                        if (options.autoBind === false && options.valuePrimitive !== true && !widget.listView.isBound()) {
+                        if (options.autoBind === false && options.valuePrimitive !== true && !widget._isBound()) {
                             widget._preselect(data, value);
                         } else {
                             widget.value(value);
@@ -14472,7 +14472,7 @@ function pad(number, digits, end) {
                 if (support.browser.version < 11) {
                     element.css("-ms-touch-action", "pinch-zoom double-tap-zoom");
                 } else {
-                    element.css("touch-action", "none");
+                    element.css("touch-action", "pan-y");
                 }
             }
 
@@ -17042,9 +17042,15 @@ function pad(number, digits, end) {
             }
 
             var flipPos = extend({}, location);
+            var elementHeight = element.outerHeight();
+            var wrapperHeight =  wrapper.outerHeight();
+
+            if (!wrapper.height() && elementHeight) {
+                wrapperHeight = wrapperHeight + elementHeight;
+            }
 
             if (collisions[0] === "flip") {
-                location.top += that._flip(offsets.top, element.outerHeight(), anchor.outerHeight(), viewportHeight / zoomLevel, origins[0], positions[0], wrapper.outerHeight());
+                location.top += that._flip(offsets.top, elementHeight, anchor.outerHeight(), viewportHeight / zoomLevel, origins[0], positions[0], wrapperHeight);
             }
 
             if (collisions[1] === "flip") {
@@ -19387,8 +19393,14 @@ function pad(number, digits, end) {
             return this;
         },
 
-        matrix: function() {
-            return this._matrix;
+        matrix: function(matrix) {
+            if (matrix) {
+                this._matrix = matrix;
+                this._optionsChange();
+                return this;
+            } else {
+                return this._matrix;
+            }
         }
     });
 
@@ -21539,6 +21551,8 @@ function pad(number, digits, end) {
         var matrix = transofrm.matrix();
         matrix.e += x;
         matrix.f += y;
+
+        transofrm.matrix(matrix);
         element.transform(transofrm);
     }
 
@@ -75543,18 +75557,23 @@ function pad(number, digits, end) {
         },
 
         _change: function(value) {
-            var that = this;
+            var that = this,
+            oldValue = that.element.val(),
+            dateChanged;
 
             value = that._update(value);
+            dateChanged = +that._old != +value;
 
-            if (+that._old != +value) {
+            var valueUpdated = dateChanged && !that._typing;
+            var textFormatted = oldValue !== that.element.val();
+
+            if (valueUpdated || textFormatted) {
+                that.element.trigger(CHANGE);
+            }
+
+            if (dateChanged) {
                 that._old = value;
                 that._oldText = that.element.val();
-
-                if (!that._typing) {
-                    // trigger the DOM change event so any subscriber gets notified
-                    that.element.trigger(CHANGE);
-                }
 
                 that.trigger(CHANGE);
             }
@@ -79780,15 +79799,22 @@ function pad(number, digits, end) {
 
                 options.autoBind = false;
 
-                parent.first("cascade", function(e) {
+                var cascadeHandler = function(e) {
                     that._userTriggered = e.userTriggered;
+
+                    if (parent.popup.visible()) {
+                        return;
+                    }
 
                     if (that.listView.isBound()) {
                         that._clearSelection(parent, true);
                     }
 
                     that._cascadeSelect(parent);
-                });
+                };
+
+                parent.first("cascade", cascadeHandler);
+                parent.popup.bind("deactivate", cascadeHandler);
 
                 //refresh was called
                 if (parent.listView.isBound()) {
@@ -80958,8 +80984,6 @@ function pad(number, digits, end) {
         dataItem: function(index) {
             var that = this;
             var dataItem = null;
-            var hasOptionLabel = !!that.optionLabel[0];
-            var optionLabel = that.options.optionLabel;
 
             if (index === undefined) {
                 dataItem = that.listView.selectedDataItems()[0];
@@ -80973,15 +80997,15 @@ function pad(number, digits, end) {
                     } else {
                         index = $(that.items()).index(index);
                     }
-                } else if (hasOptionLabel) {
+                } else if (!!that.optionLabel[0]) {
                     index -= 1;
                 }
 
                 dataItem = that.dataSource.flatView()[index];
             }
 
-            if (!dataItem && hasOptionLabel) {
-                dataItem = $.isPlainObject(optionLabel) ? new ObservableObject(optionLabel) : that._assignInstance(that._optionLabelText(), "");
+            if (!dataItem) {
+                dataItem = that._optionLabelDataItem();
             }
 
             return dataItem;
@@ -81109,6 +81133,17 @@ function pad(number, digits, end) {
         _optionLabelText: function() {
             var optionLabel = this.options.optionLabel;
             return (typeof optionLabel === "string") ? optionLabel : this._text(optionLabel);
+        },
+
+        _optionLabelDataItem: function() {
+            var that = this;
+            var optionLabel = that.options.optionLabel;
+
+            if (!!that.optionLabel[0]) {
+                return $.isPlainObject(optionLabel) ? new ObservableObject(optionLabel) : that._assignInstance(that._optionLabelText(), "");
+            }
+
+            return null;
         },
 
         _listBound: function() {
@@ -81350,10 +81385,12 @@ function pad(number, digits, end) {
             }
         },
 
-        _matchText: function(text, index) {
-            var that = this;
-            var ignoreCase = that.options.ignoreCase;
-            var found = false;
+        _matchText: function(text, word) {
+            var ignoreCase = this.options.ignoreCase;
+
+            if (text === undefined || text === null) {
+                return false;
+            }
 
             text = text + "";
 
@@ -81361,48 +81398,53 @@ function pad(number, digits, end) {
                 text = text.toLowerCase();
             }
 
-            if (text.indexOf(that._word) === 0) {
-                if (that.optionLabel[0]) {
-                    index += 1;
-                }
+            return text.indexOf(word) === 0;
+        },
 
-                that._select(index);
+        _shuffleData: function(data, splitIndex) {
+            var optionDataItem = this._optionLabelDataItem();
+
+            if (optionDataItem) {
+                data = [optionDataItem].concat(data);
+            }
+
+            return data.slice(splitIndex).concat(data.slice(0, splitIndex));
+        },
+
+        _selectNext: function() {
+            var that = this;
+            var data = that.dataSource.flatView().toJSON();
+            var dataLength = data.length + (!!this.optionLabel[0] ? 1 : 0);
+            var isInLoop = sameCharsOnly(that._word, that._last);
+            var startIndex = that.selectedIndex;
+            var text;
+
+            if (startIndex === -1) {
+                startIndex = 0;
+            } else {
+                startIndex += isInLoop ? 1 : 0;
+                startIndex = normalizeIndex(startIndex, dataLength);
+            }
+
+            data = that._shuffleData(data, startIndex);
+
+            for (var idx = 0; idx < dataLength; idx++) {
+                text = that._text(data[idx]);
+
+                if (isInLoop && that._matchText(text, that._last)) {
+                    break;
+                } else if (that._matchText(text, that._word)) {
+                    break;
+                }
+            }
+
+            if (idx !== dataLength) {
+                that._select(normalizeIndex(startIndex + idx, dataLength));
+
                 if (!that.popup.visible()) {
                     that._change();
                 }
-
-                found = true;
             }
-
-            return found;
-        },
-
-        _selectNext: function(index) {
-            var that = this;
-            var startIndex = index;
-            var data = that.dataSource.flatView();
-            var length = data.length;
-            var text;
-
-            for (; index < length; index++) {
-                text = that._text(data[index]);
-
-                if (text && that._matchText(text, index) && !(that._word.length === 1 && startIndex === that.selectedIndex)) {
-                    return true;
-                }
-            }
-
-            if (startIndex > 0 && startIndex < length) {
-                index = 0;
-                for (; index <= startIndex; index++) {
-                    text = that._text(data[index]);
-                    if (text && that._matchText(text, index)) {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
         },
 
         _keypress: function(e) {
@@ -81413,8 +81455,6 @@ function pad(number, digits, end) {
             }
 
             var character = String.fromCharCode(e.charCode || e.keyCode);
-            var index = that.selectedIndex;
-            var length = that._word.length;
 
             if (that.options.ignoreCase) {
                 character = character.toLowerCase();
@@ -81424,20 +81464,7 @@ function pad(number, digits, end) {
                 e.preventDefault();
             }
 
-            if (!length) {
-                that._word = character;
-            }
-
-            if (that._last === character && length <= 1 && index > -1) {
-                if (that._selectNext(index)) {
-                    return;
-                }
-            }
-
-            if (length) {
-                that._word += character;
-            }
-
+            that._word += character;
             that._last = character;
 
             that._search();
@@ -81502,16 +81529,7 @@ function pad(number, digits, end) {
                 }
 
                 that._select(function(dataItem) {
-                    var text = that._text(dataItem);
-
-                    if (text !== undefined) {
-                        text = (text + "");
-                        if (ignoreCase) {
-                            text = text.toLowerCase();
-                        }
-
-                        return text.indexOf(word) === 0;
-                    }
+                    return that._matchText(that._text(dataItem), word);
                 });
             }
         },
@@ -81519,7 +81537,6 @@ function pad(number, digits, end) {
         _search: function() {
             var that = this;
             var dataSource = that.dataSource;
-            var index = that.selectedIndex;
 
             clearTimeout(that._typingTimeout);
 
@@ -81539,20 +81556,14 @@ function pad(number, digits, end) {
                     that._word = "";
                 }, that.options.delay);
 
-                if (index === -1) {
-                    index = 0;
-                }
-
-                if (!that.ul[0].firstChild) {
+                if (!that.listView.isBound()) {
                     dataSource.fetch().done(function () {
-                        if (dataSource.data()[0] && index > -1) {
-                            that._selectNext(index);
-                        }
+                        that._selectNext();
                     });
                     return;
                 }
 
-                that._selectNext(index);
+                that._selectNext();
             }
         },
 
@@ -81765,6 +81776,7 @@ function pad(number, digits, end) {
 
                 this.filterInput = $('<input class="k-textbox"/>')
                                       .attr({
+                                          placeholder: this.element.attr("placeholder"),
                                           role: "listbox",
                                           "aria-haspopup": true,
                                           "aria-expanded": false
@@ -81924,6 +81936,22 @@ function pad(number, digits, end) {
         }
 
         instance[fields[lastIndex]] = value;
+    }
+
+    function normalizeIndex(index, length) {
+        if (index >= length) {
+            index -= length;
+        }
+        return index;
+    }
+
+    function sameCharsOnly(word, character) {
+        for (var idx = 0; idx < word.length; idx++) {
+            if (word.charAt(idx) !== character) {
+                return false;
+            }
+        }
+        return true;
     }
 
     ui.plugin(DropDownList);
@@ -88510,18 +88538,19 @@ function pad(number, digits, end) {
         var setter = getter.assign;
         var updating = false;
 
-        var current = getter(scope);
-
-        widget.$angular_setLogicValue(current);
-
         var valueIsCollection = kendo.ui.MultiSelect && widget instanceof kendo.ui.MultiSelect;
 
-        if (valueIsCollection) {
-            var sourceItemCount = current.length;
-        }
+        var length = function(value) {
+            //length is irrelevant when value is not collection
+            return valueIsCollection ? value.length : 0;
+        };
+
+        var currentValueLength = length(getter(scope));
+
+        widget.$angular_setLogicValue(getter(scope));
 
         // keep in sync
-        var watchHandler = function(newValue) {
+        var watchHandler = function(newValue, oldValue) {
             if (newValue === undefined) {
                 // because widget's value() method usually checks if the new value is undefined,
                 // in which case it returns the current value rather than clearing the field.
@@ -88529,28 +88558,15 @@ function pad(number, digits, end) {
                 newValue = null;
             }
 
-            if (valueIsCollection) {
-                if (newValue == current) {
-                    if (newValue.length == sourceItemCount) {
-                        return;
-                    }
-                }
-            } else {
-                if (newValue == current) {
-                    return;
-                }
-            }
-
-            if (updating) {
+            //compare values by reference if a collection
+            if (updating || (newValue == oldValue && length(newValue) == currentValueLength)) {
                 return;
             }
 
-            current = newValue;
-            if (valueIsCollection) {
-                sourceItemCount = current.length;
-            }
+            currentValueLength = length(newValue);
             widget.$angular_setLogicValue(newValue);
         };
+
         if (valueIsCollection) {
             scope.$watchCollection(kNgModel, watchHandler);
         } else {
@@ -88566,6 +88582,7 @@ function pad(number, digits, end) {
 
             digest(scope, function(){
                 setter(scope, widget.$angular_getLogicValue());
+                currentValueLength = length(getter(scope));
             });
 
             updating = false;
