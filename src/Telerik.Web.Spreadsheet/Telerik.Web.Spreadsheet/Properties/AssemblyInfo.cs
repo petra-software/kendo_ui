@@ -11,18 +11,18 @@ using System.Security;
 #endif
 
 #if NET40
-[assembly: AssemblyVersion("2015.3.1214.40")]
-[assembly: AssemblyFileVersion("2015.3.1214.40")]
+[assembly: AssemblyVersion("2016.1.112.40")]
+[assembly: AssemblyFileVersion("2016.1.112.40")]
 #elif NET45
-[assembly: AssemblyVersion("2015.3.1214.45")]
-[assembly: AssemblyFileVersion("2015.3.1214.45")]
+[assembly: AssemblyVersion("2016.1.112.45")]
+[assembly: AssemblyFileVersion("2016.1.112.45")]
 #endif
 
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Telerik AD")]
 [assembly: AssemblyProduct("Telerik.Web.Spreadsheet")]
-[assembly: AssemblyCopyright("Copyright © 2012-2015 Telerik AD")]
+[assembly: AssemblyCopyright("Copyright © 2012-2016 Telerik AD")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 [assembly: ComVisible(false)]

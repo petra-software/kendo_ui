@@ -309,5 +309,43 @@ namespace Kendo.Mvc.UI.Fluent
 
             return this;
         }
+
+        /// <summary>
+        /// Specifies the disabled dates in the Calendar widget.
+        /// </summary>
+        /// <example>
+        /// <code lang="CS">
+        ///  &lt;%= Html.Kendo().Calendar()
+        ///             .Name("calendar")
+        ///             .DisableDates(new string [] {"mo", "tu"})
+        /// %&gt;
+        /// </code>
+        /// </example>
+        public CalendarBuilder DisableDates(IEnumerable<string> disableDates)
+        {
+            Component.DisableDates = disableDates;
+
+            return this;
+        }
+
+        /// <summary>
+        /// Specifies the disabled dates in the Calendar widget using a function.
+        /// </summary>
+        /// <example>
+        /// <code lang="CS">
+        ///  &lt;%= Html.Kendo().Calendar()
+        ///             .Name("calendar")
+        ///             .DisableDates("disableDates")
+        /// %&gt;
+        /// </code>
+        /// </example>
+        public CalendarBuilder DisableDates(string handler)
+        {
+            var handlerDescription = new ClientHandlerDescriptor { HandlerName = handler };
+            
+            Component.DisableDatesHandler = handlerDescription;
+
+            return this;
+        }
     }
 }

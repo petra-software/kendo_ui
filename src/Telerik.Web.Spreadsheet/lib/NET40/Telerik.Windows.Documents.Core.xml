@@ -2746,33 +2746,6 @@
             </summary>
             <remarks>CCITT T.81, Annex B, section B.2.4.2 Huffman table-specification syntax (see Tc, Th, Li and Vi,j parameters in the Table B.5).</remarks>
         </member>
-        <member name="M:Telerik.Windows.Documents.Core.Imaging.Jpeg.Tables.QuantisationTable.Read(Telerik.Windows.Documents.Core.Imaging.Jpeg.Decoder.JpegReader)">
-            <summary>
-            Reads all quantization table parameters.
-            </summary>
-            <param name="reader">JPEG reader.</param>
-        </member>
-        <member name="M:Telerik.Windows.Documents.Core.Imaging.Jpeg.Tables.QuantisationTable.Write(Telerik.Windows.Documents.Core.Imaging.Jpeg.Encoder.JpegWriter)">
-            <summary>
-            Writes all quantization table parameters.
-            </summary>
-            <param name="writer"></param>
-        </member>
-        <member name="P:Telerik.Windows.Documents.Core.Imaging.Jpeg.Tables.QuantisationTable.Length">
-            <summary>
-            Gets a length of all quantization table parameters.
-            </summary>
-            <remarks>CCITT T.81, Annex B, section B.2.4.1 Quantization table-specification syntax (see Pq, Tq and Qr parameters in the Table B.4).</remarks>
-        </member>
-        <member name="P:Telerik.Windows.Documents.Core.Imaging.Jpeg.Tables.QuantisationTable.Precision">
-            <summary>
-            Gets Quantization table element precision.
-            </summary>
-            <remarks>CCITT T.81, Annex B, section B.2.4.1 Quantization table-specification syntax (see Pq parameter in the Table B.4).
-            Specifies the precision of the Qk values. Value 0 indicates 8-bit Qk values; value 1 indicates 16-bit Qk values. 
-            Pq shall be zero for 8 bit sample precision P (see B.2.2).
-            </remarks>
-        </member>
         <member name="M:Telerik.Windows.Documents.Core.Imaging.Jpeg.Tables.QuantizationTable.#ctor">
             <summary>
             Initializes a new instance of the QuantizationTable class.

@@ -20,6 +20,17 @@ namespace Kendo.Mvc.UI.Fluent
         //>> Fields
         
         /// <summary>
+        /// Defines the validation type. The acceptable options are reject or warning
+        /// </summary>
+        /// <param name="value">The value that configures the type.</param>
+        public SpreadsheetSheetRowCellValidationSettingsBuilder Type(string value)
+        {
+            container.Type = value;
+
+            return this;
+        }
+        
+        /// <summary>
         /// Defines the comparer type used to validate the cell value, e.g. "greaterThan", "between" and etc.
         /// </summary>
         /// <param name="value">The value that configures the comparertype.</param>
@@ -67,7 +78,7 @@ namespace Kendo.Mvc.UI.Fluent
         /// Specifies whether to allow nulls.
         /// </summary>
         /// <param name="value">The value that configures the allownulls.</param>
-        public SpreadsheetSheetRowCellValidationSettingsBuilder AllowNulls(string value)
+        public SpreadsheetSheetRowCellValidationSettingsBuilder AllowNulls(bool value)
         {
             container.AllowNulls = value;
 

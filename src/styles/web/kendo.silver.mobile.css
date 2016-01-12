@@ -1,10 +1,26 @@
-/*
-* Kendo UI v2015.3.1214 (http://www.telerik.com/kendo-ui)
-* Copyright 2015 Telerik AD. All rights reserved.
-*
-* Kendo UI commercial licenses may be obtained at
-* http://www.telerik.com/purchase/license-agreement/kendo-ui-complete
-* If you do not own a commercial license, this file shall be governed by the trial license terms.
+/** 
+ * Kendo UI v2016.1.112 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
+ *                                                                                                                                                                                                      
+ * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
+ * http://www.telerik.com/purchase/license-agreement/kendo-ui-complete                                                                                                                                  
+ * If you do not own a commercial license, this file shall be governed by the trial license terms.                                                                                                      
+                                                                                                                                                                                                       
+                                                                                                                                                                                                       
+                                                                                                                                                                                                       
+                                                                                                                                                                                                       
+                                                                                                                                                                                                       
+                                                                                                                                                                                                       
+                                                                                                                                                                                                       
+                                                                                                                                                                                                       
+                                                                                                                                                                                                       
+                                                                                                                                                                                                       
+                                                                                                                                                                                                       
+                                                                                                                                                                                                       
+                                                                                                                                                                                                       
+                                                                                                                                                                                                       
+                                                                                                                                                                                                       
+
 */
 /* Common Platform CSS */
 @-ms-viewport {
@@ -1490,6 +1506,17 @@ button.km-button {
   -webkit-transform: translateY(-50%);
   left: 0.25rem;
   border-radius: 50%;
+}
+/* Validation */
+.km-root .km-invalid-msg {
+  font-size: 1.2rem;
+  position: static;
+  display: inline-block;
+  border-width: 1px;
+  padding-top: 12px;
+  padding-bottom: 11px;
+  width: 100%;
+  text-align: center;
 }
 .km-root .km-icon-label.k-i-arrow-e:before {
   content: "\E000";
@@ -5350,7 +5377,7 @@ body:before {
 .km-content,
 .km-popover-root .km-content .km-widget {
   color: #515967;
-  background: #ffffff;
+  background: #fff;
 }
 .km-navbar {
   color: #535b6a;
@@ -5376,7 +5403,7 @@ body:before {
 .km-detail {
   color: #515967;
   border-color: rgba(81, 89, 103, 0.2);
-  background-color: #ffffff;
+  background-color: #fff;
 }
 .km-detail:active,
 .km-state-active .km-detail {
@@ -5397,7 +5424,7 @@ body:before {
   background-color: currentcolor;
 }
 .km-switch-handle {
-  background: #ffffff;
+  background: #fff;
 }
 .km-switch-off .km-switch-handle {
   -webkit-box-shadow: 0 1px 0 1px #bababa, 0 -1px 0 1px #bababa;
@@ -5434,7 +5461,7 @@ body:before {
   color: #9ea6b3;
 }
 .km-group-title {
-  background: #ffffff;
+  background: #fff;
   border-color: rgba(81, 89, 103, 0.2);
 }
 /* ScrollView */
@@ -5501,7 +5528,7 @@ body:before {
 .km-listview-label input[type=radio],
 .km-listview-label input[type=checkbox] {
   border-color: rgba(81, 89, 103, 0.2);
-  background: #ffffff;
+  background: #fff;
 }
 .km-listview-label input[type=checkbox]:checked:after {
   color: #eee;
@@ -5580,12 +5607,12 @@ html .km-state-active,
 li.km-state-active .km-listview-link,
 li.km-state-active .km-listview-label,
 .km-state-active .km-listview-link:after {
-  color: #ffffff;
+  color: #fff;
 }
 .km-loader > *:not(h1),
 .km-filter-wrap > input,
 .km-root .km-scroller-refresh span:not(.km-template) {
-  background-color: #ffffff;
+  background-color: #fff;
 }
 .km-switch-handle.km-state-active {
   background-color: #ffffff;

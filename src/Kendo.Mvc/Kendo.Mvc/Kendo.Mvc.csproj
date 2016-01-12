@@ -227,29 +227,29 @@
     </Reference>
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)|$(Platform)' == 'Debug-MVC5|AnyCPU' Or '$(Configuration)|$(Platform)' == 'Release-MVC5|AnyCPU' Or '$(Configuration)|$(Platform)' == 'Release-MVC5-Trial|AnyCPU'">
-    <Reference Include="System.Web.Http, Version=5.0.0.0, Culture=neutral, PublicKeyToken=31BF3856AD364E35, processorArchitecture=MSIL">
+    <Reference Include="System.Web.Http, Version=5.2.3.0, Culture=neutral, PublicKeyToken=31BF3856AD364E35, processorArchitecture=MSIL">
       <Private>True</Private>
-      <HintPath>..\packages\Microsoft.AspNet.WebApi.Core.5.0.0\lib\net45\System.Web.Http.dll</HintPath>
+      <HintPath>..\packages\Microsoft.AspNet.WebApi.Core.5.2.3\lib\net45\System.Web.Http.dll</HintPath>
     </Reference>
-    <Reference Include="System.Web.Mvc, Version=5.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+    <Reference Include="System.Web.Mvc, Version=5.2.3.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <Private>True</Private>
-      <HintPath>..\packages\Microsoft.AspNet.Mvc.5.0.0\lib\net45\System.Web.Mvc.dll</HintPath>
+      <HintPath>..\packages\Microsoft.AspNet.Mvc.5.2.3\lib\net45\System.Web.Mvc.dll</HintPath>
     </Reference>
     <Reference Include="System.Web.Razor, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <Private>True</Private>
-      <HintPath>..\packages\Microsoft.AspNet.Razor.3.0.0\lib\net45\System.Web.Razor.dll</HintPath>
+      <HintPath>..\packages\Microsoft.AspNet.Razor.3.2.3\lib\net45\System.Web.Razor.dll</HintPath>
     </Reference>
     <Reference Include="System.Web.WebPages, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <Private>True</Private>
-      <HintPath>..\packages\Microsoft.AspNet.WebPages.3.0.0\lib\net45\System.Web.WebPages.dll</HintPath>
+      <HintPath>..\packages\Microsoft.AspNet.WebPages.3.2.3\lib\net45\System.Web.WebPages.dll</HintPath>
     </Reference>
     <Reference Include="System.Web.WebPages.Razor, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <Private>True</Private>
-      <HintPath>..\packages\Microsoft.AspNet.WebPages.3.0.0\lib\net45\System.Web.WebPages.Razor.dll</HintPath>
+      <HintPath>..\packages\Microsoft.AspNet.WebPages.3.0.3\lib\net45\System.Web.WebPages.Razor.dll</HintPath>
     </Reference>
-    <Reference Include="System.Net.Http.Formatting, Version=5.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+    <Reference Include="System.Net.Http.Formatting, Version=5.2.3.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <Private>True</Private>
-      <HintPath>..\packages\Microsoft.AspNet.WebApi.Core.5.0.0\lib\net45\System.Web.Http.dll</HintPath>
+      <HintPath>..\packages\Microsoft.AspNet.WebApi.Client.5.2.3\lib\net45\System.Net.Http.Formatting.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -296,6 +296,7 @@
     <Compile Include="Infrastructure\IDependencyInjectionContainer.cs" />
     <Compile Include="Infrastructure\ICache.cs" />
     <Compile Include="Infrastructure\Implementation\Expressions\MemberAccess\DynamicPropertyAccessExpressionBuilder.cs" />
+    <Compile Include="Infrastructure\Implementation\Filtering\Parsing\NullNode.cs" />
     <Compile Include="Infrastructure\Implementation\JavaScriptInitializer.cs" />
     <Compile Include="Infrastructure\Implementation\NoCache.cs" />
     <Compile Include="Infrastructure\Implementation\ResourceBase.cs" />
@@ -1877,7 +1878,9 @@
     <Compile Include="UI\Upload\Upload.cs" />
     <Compile Include="UI\WidgetExtensions.cs" />
     <Compile Include="UI\WidgetFactory.cs" />
+    <Compile Include="UI\Window\Fluent\WindowContentBuilder.cs" />
     <Compile Include="UI\Window\Fluent\WindowPositionSettingsBuilder.cs" />
+    <Compile Include="UI\Window\Settings\WindowContentSettings.cs" />
     <Compile Include="UI\Window\Settings\WindowPositionSettings.cs" />
     <Compile Include="UI\Window\WindowButtons.cs" />
     <Compile Include="UI\Window\Fluent\WindowActionsBuilder.cs" />
@@ -2654,4 +2657,4 @@
     <Compile Include="UI\Spreadsheet\Settings\SpreadsheetSheetRowCellValidationSettings.cs" />
     <Compile Include="UI\Spreadsheet\Fluent\SpreadsheetSheetRowCellValidationSettingsBuilder.cs" />
   </ItemGroup>
-</Project>
+<ItemGroup><Compile Include="UI\Spreadsheet\Settings\SpreadsheetPdfSettings.cs" /><Compile Include="UI\Spreadsheet\Fluent\SpreadsheetPdfSettingsBuilder.cs" /><Compile Include="UI\Spreadsheet\Settings\SpreadsheetPdfMarginSettings.cs" /><Compile Include="UI\Spreadsheet\Fluent\SpreadsheetPdfMarginSettingsBuilder.cs" /></ItemGroup></Project>

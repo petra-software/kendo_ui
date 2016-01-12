@@ -60,8 +60,8 @@ namespace Kendo.Mvc.UI
             NoRecords = new GridNoRecordsSettings();
 
             Editable = new GridEditableSettings<T>(this)
-            { 
-                PopUp = new Window(viewContext, Initializer)
+            {
+                PopUp = new Window(viewContext, urlGenerator, Initializer)
                 {
                     Modal = true,
                     Draggable = true
@@ -778,7 +778,7 @@ namespace Kendo.Mvc.UI
                 options["columns"] = columns;
             }
             
-            if (Grouping.Enabled)
+            if (Grouping.ShouldSerialize())
             {
                 options["groupable"] = Grouping.ToJson();
             }

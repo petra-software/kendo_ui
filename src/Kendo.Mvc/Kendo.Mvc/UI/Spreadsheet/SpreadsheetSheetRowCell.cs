@@ -38,6 +38,8 @@ namespace Kendo.Mvc.UI
         
         public bool? Bold { get; set; }
         
+        public bool? Enable { get; set; }
+        
         public string Format { get; set; }
         
         public string Formula { get; set; }
@@ -102,6 +104,11 @@ namespace Kendo.Mvc.UI
             if (Bold.HasValue)
             {
                 json["bold"] = Bold;
+            }
+                
+            if (Enable.HasValue)
+            {
+                json["enable"] = Enable;
             }
                 
             if (Format.HasValue())

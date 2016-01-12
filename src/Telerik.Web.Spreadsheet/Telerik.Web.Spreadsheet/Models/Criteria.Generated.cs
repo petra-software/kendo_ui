@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Runtime.Serialization;
+using System.Linq;
 
 namespace Telerik.Web.Spreadsheet
 {
@@ -36,7 +37,27 @@ namespace Telerik.Web.Spreadsheet
         /// The value for the criteria operator.
         /// </summary>
         [DataMember(Name = "value", EmitDefaultValue = false)]
-        public string Value { get; set; }
+        public object Value { get; set; }
 
+
+        /// <summary>
+        /// Serialize current instance to Dictionary
+        /// </summary>
+        protected Dictionary<string, object> SerializeSettings()
+        {
+            var settings = new Dictionary<string, object>();
+
+            if (Operator != null)
+            {
+                settings["operator"] = Operator;
+            }
+
+            if (Value != null)
+            {
+                settings["value"] = Value;
+            }
+
+            return settings;
+        }
     }
 }

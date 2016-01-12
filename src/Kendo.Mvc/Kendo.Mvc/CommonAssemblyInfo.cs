@@ -5,7 +5,7 @@ using System.Security;
 
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Telerik AD")]
-[assembly: AssemblyCopyright("Copyright © 2012-2015 Telerik AD")]
+[assembly: AssemblyCopyright("Copyright © 2012-2016 Telerik AD")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 [assembly: ComVisible(false)]
@@ -16,14 +16,14 @@ using System.Security;
 [assembly: AssemblyTitle("Kendo.Mvc.Web")]
 #endif
 #if MVC3
-[assembly: AssemblyVersion("2015.3.1214.340")]
-[assembly: AssemblyFileVersion("2015.3.1214.340")]
+[assembly: AssemblyVersion("2016.1.112.340")]
+[assembly: AssemblyFileVersion("2016.1.112.340")]
 #elif MVC4
-[assembly: AssemblyVersion("2015.3.1214.440")]
-[assembly: AssemblyFileVersion("2015.3.1214.440")]
+[assembly: AssemblyVersion("2016.1.112.440")]
+[assembly: AssemblyFileVersion("2016.1.112.440")]
 #elif MVC5
-[assembly: AssemblyVersion("2015.3.1214.545")]
-[assembly: AssemblyFileVersion("2015.3.1214.545")]
+[assembly: AssemblyVersion("2016.1.112.545")]
+[assembly: AssemblyFileVersion("2016.1.112.545")]
 #endif
 [assembly: SecurityRules(SecurityRuleSet.Level1)]
 [assembly: AllowPartiallyTrustedCallers]

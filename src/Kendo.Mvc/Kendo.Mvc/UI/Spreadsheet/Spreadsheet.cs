@@ -21,6 +21,8 @@ namespace Kendo.Mvc.UI
         
             Excel = new SpreadsheetExcelSettings();
                 
+            Pdf = new SpreadsheetPdfSettings();
+                
             Sheets = new List<SpreadsheetSheet>();
                 
         //<< Initialization
@@ -44,6 +46,12 @@ namespace Kendo.Mvc.UI
             set;
         }
         
+        public SpreadsheetPdfSettings Pdf
+        {
+            get;
+            set;
+        }
+        
         public double? RowHeight { get; set; }
         
         public double? Rows { get; set; }
@@ -59,6 +67,8 @@ namespace Kendo.Mvc.UI
         public bool? Toolbar { get; set; }
         
         //<< Fields
+
+        internal Dictionary<string, object> DplSettings { get; set; }
 
         public override void WriteInitializationScript(TextWriter writer)
         {
@@ -96,6 +106,11 @@ namespace Kendo.Mvc.UI
             {
                 json["excel"] = excel;
             }
+            var pdf = Pdf.ToJson();
+            if (pdf.Any())
+            {
+                json["pdf"] = pdf;
+            }
             if (RowHeight.HasValue)
             {
                 json["rowHeight"] = RowHeight;
@@ -122,6 +137,11 @@ namespace Kendo.Mvc.UI
             }
                 
         //<< Serialization
+
+            if (DplSettings != null)
+            {
+                json.Merge(DplSettings);
+            }
 
             writer.Write(Initializer.Initialize(Selector, "Spreadsheet", json));
 

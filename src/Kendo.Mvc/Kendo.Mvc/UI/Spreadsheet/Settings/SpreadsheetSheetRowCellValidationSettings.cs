@@ -17,6 +17,8 @@ namespace Kendo.Mvc.UI
 
         //>> Fields
         
+        public string Type { get; set; }
+        
         public string ComparerType { get; set; }
         
         public string DataType { get; set; }
@@ -25,7 +27,7 @@ namespace Kendo.Mvc.UI
         
         public string To { get; set; }
         
-        public string AllowNulls { get; set; }
+        public bool? AllowNulls { get; set; }
         
         public string MessageTemplate { get; set; }
 
@@ -41,6 +43,11 @@ namespace Kendo.Mvc.UI
         {
             //>> Serialization
         
+            if (Type.HasValue())
+            {
+                json["type"] = Type;
+            }
+            
             if (ComparerType.HasValue())
             {
                 json["comparerType"] = ComparerType;
@@ -61,11 +68,11 @@ namespace Kendo.Mvc.UI
                 json["to"] = To;
             }
             
-            if (AllowNulls.HasValue())
+            if (AllowNulls.HasValue)
             {
                 json["allowNulls"] = AllowNulls;
             }
-            
+                
             if (!string.IsNullOrEmpty(MessageTemplateId))
             {
                 json["messageTemplate"] = new ClientHandlerDescriptor {

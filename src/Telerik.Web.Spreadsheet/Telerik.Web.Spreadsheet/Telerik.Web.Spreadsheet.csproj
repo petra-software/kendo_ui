@@ -46,7 +46,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <DocumentationFile>bin\Release\Telerik.Web.Spreadsheet.xml</DocumentationFile>
+    <DocumentationFile>bin\Release-Trial\Telerik.Web.Spreadsheet.xml</DocumentationFile>
     <Prefer32Bit>false</Prefer32Bit>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
   </PropertyGroup>
@@ -65,7 +65,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release-NET45|AnyCPU'">
     <OutputPath>bin\Release-NET45\</OutputPath>
     <DefineConstants>TRACE;NET45</DefineConstants>
-    <DocumentationFile>bin\Release\Telerik.Web.Spreadsheet.XML</DocumentationFile>
+    <DocumentationFile>bin\Release-NET45\Telerik.Web.Spreadsheet.xml</DocumentationFile>
     <Optimize>true</Optimize>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DebugType>pdbonly</DebugType>
@@ -78,7 +78,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release-NET45-Trial|AnyCPU'">
     <OutputPath>bin\Release-NET45-Trial\</OutputPath>
     <DefineConstants>TRACE;TRIAL;NET45</DefineConstants>
-    <DocumentationFile>bin\Release\Telerik.Web.Spreadsheet.XML</DocumentationFile>
+    <DocumentationFile>bin\Release-NET45-Trial\Telerik.Web.Spreadsheet.xml</DocumentationFile>
     <Optimize>true</Optimize>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DebugType>pdbonly</DebugType>
@@ -128,11 +128,11 @@
     <Reference Include="Telerik.Windows.Documents.Spreadsheet.FormatProviders.Pdf">
       <HintPath>..\lib\NET40\Telerik.Windows.Documents.Spreadsheet.FormatProviders.Pdf.dll</HintPath>
     </Reference>
-    <Reference Include="Telerik.Windows.Maths">
-      <HintPath>..\lib\NET40\Telerik.Windows.Maths.dll</HintPath>
-    </Reference>
     <Reference Include="Telerik.Windows.Zip">
       <HintPath>..\lib\NET40\Telerik.Windows.Zip.dll</HintPath>
+    </Reference>
+    <Reference Include="Telerik.Windows.Zip.Extensions">
+      <HintPath>..\lib\NET40\Telerik.Windows.Zip.Extensions.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)|$(Platform)' == 'Debug-NET45|AnyCPU' Or '$(Configuration)|$(Platform)' == 'Release-NET45|AnyCPU'">
@@ -157,11 +157,11 @@
     <Reference Include="Telerik.Windows.Documents.Spreadsheet.FormatProviders.Pdf">
       <HintPath>..\lib\NET45\Telerik.Windows.Documents.Spreadsheet.FormatProviders.Pdf.dll</HintPath>
     </Reference>
-    <Reference Include="Telerik.Windows.Maths">
-      <HintPath>..\lib\NET45\Telerik.Windows.Maths.dll</HintPath>
-    </Reference>
     <Reference Include="Telerik.Windows.Zip">
       <HintPath>..\lib\NET45\Telerik.Windows.Zip.dll</HintPath>
+    </Reference>
+    <Reference Include="Telerik.Windows.Zip.Extensions">
+      <HintPath>..\lib\NET45\Telerik.Windows.Zip.Extensions.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)|$(Platform)' == 'Release-Trial|AnyCPU'">
@@ -186,11 +186,11 @@
     <Reference Include="Telerik.Windows.Documents.Spreadsheet.FormatProviders.Pdf">
       <HintPath>..\lib\NET40-Trial\Telerik.Windows.Documents.Spreadsheet.FormatProviders.Pdf.dll</HintPath>
     </Reference>
-    <Reference Include="Telerik.Windows.Maths">
-      <HintPath>..\lib\NET40-Trial\Telerik.Windows.Maths.dll</HintPath>
-    </Reference>
     <Reference Include="Telerik.Windows.Zip">
       <HintPath>..\lib\NET40-Trial\Telerik.Windows.Zip.dll</HintPath>
+    </Reference>
+    <Reference Include="Telerik.Windows.Zip.Extensions">
+      <HintPath>..\lib\NET40-Trial\Telerik.Windows.Zip.Extensions.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)|$(Platform)' == 'Release-NET45-Trial|AnyCPU'">
@@ -215,11 +215,11 @@
     <Reference Include="Telerik.Windows.Documents.Spreadsheet.FormatProviders.Pdf">
       <HintPath>..\lib\NET45-Trial\Telerik.Windows.Documents.Spreadsheet.FormatProviders.Pdf.dll</HintPath>
     </Reference>
-    <Reference Include="Telerik.Windows.Maths">
-      <HintPath>..\lib\NET45-Trial\Telerik.Windows.Maths.dll</HintPath>
-    </Reference>
     <Reference Include="Telerik.Windows.Zip">
       <HintPath>..\lib\NET45-Trial\Telerik.Windows.Zip.dll</HintPath>
+    </Reference>
+    <Reference Include="Telerik.Windows.Zip.Extensions">
+      <HintPath>..\lib\NET45-Trial\Telerik.Windows.Zip.Extensions.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -227,8 +227,10 @@
     <Compile Include="Extensions\ColorExtensions.cs" />
     <Compile Include="Extensions\CellBorderExtensions.cs" />
     <Compile Include="Extensions\CommonExtensions.cs" />
+    <Compile Include="Extensions\FilterExtensions.cs" />
     <Compile Include="Extensions\RadVerticalAlignmentExtensions.cs" />
     <Compile Include="Extensions\DocumentWorksheetExtensions.cs" />
+    <Compile Include="Models\ValueFilterDate.cs" />
     <Compile Include="Models\Workbook.Json.cs" />
     <Compile Include="Provider\JsonSettings.cs" />
     <Compile Include="Provider\JsonImportSettings.cs" />

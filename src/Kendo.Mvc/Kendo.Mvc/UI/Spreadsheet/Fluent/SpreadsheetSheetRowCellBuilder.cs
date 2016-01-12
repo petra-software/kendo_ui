@@ -86,6 +86,17 @@ namespace Kendo.Mvc.UI.Fluent
         }
         
         /// <summary>
+        /// Disables the cell, if set to false.
+        /// </summary>
+        /// <param name="value">The value that configures the enable.</param>
+        public SpreadsheetSheetRowCellBuilder Enable(bool value)
+        {
+            container.Enable = value;
+
+            return this;
+        }
+        
+        /// <summary>
         /// The format of the cell text.See Create or delete a custom number format on MS Office.
         /// </summary>
         /// <param name="value">The value that configures the format.</param>

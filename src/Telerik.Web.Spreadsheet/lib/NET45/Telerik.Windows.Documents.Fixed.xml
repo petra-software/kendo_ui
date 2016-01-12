@@ -685,6 +685,21 @@
             Specify PDF/A-3u compliance level.
             </summary>
         </member>
+        <member name="T:Telerik.Windows.Documents.Fixed.FormatProviders.Pdf.Filters.ASCIIHexDecode">
+            <summary>
+            Implements the ASCIIHexDecode filter.
+            </summary>
+        </member>
+        <member name="M:Telerik.Windows.Documents.Fixed.FormatProviders.Pdf.Filters.ASCIIHexDecode.Encode(Telerik.Windows.Documents.Fixed.FormatProviders.Pdf.Filters.PdfObject,System.Byte[])">
+            <summary>
+            Encodes the specified data.
+            </summary>
+        </member>
+        <member name="M:Telerik.Windows.Documents.Fixed.FormatProviders.Pdf.Filters.ASCIIHexDecode.Decode(Telerik.Windows.Documents.Fixed.FormatProviders.Pdf.Filters.PdfObject,System.IO.Stream,Telerik.Windows.Documents.Fixed.FormatProviders.Pdf.Filters.DecodeParameters)">
+            <summary>
+            Decodes the specified data.
+            </summary>
+        </member>
         <member name="T:Telerik.Windows.Documents.Fixed.FormatProviders.Pdf.Import.PasswordNeededEventArgs">
             <summary>
             Represents password needed event args.
@@ -1414,6 +1429,12 @@
             </summary>
             <value>The type of the tiling.</value>
         </member>
+        <member name="M:Telerik.Windows.Documents.Fixed.Model.Common.PdfProperty`1.#ctor(System.Func{`0})">
+            <summary>
+            Initialize property with default value getter.
+            </summary>
+            <param name="getDefaultValue">Default value getter allowing to get the default value on demand only.</param>
+        </member>
         <member name="T:Telerik.Windows.Documents.Fixed.Model.Data.ImageFormat">
             <summary>
             Represents image format.
@@ -1684,6 +1705,17 @@
             Gets the element height.
             </summary>
             <value>The height.</value>
+        </member>
+        <member name="T:Telerik.Windows.Documents.Fixed.Model.Fonts.FontBase">
+            <summary>
+            Represents the base class for the font object.
+            </summary>
+        </member>
+        <member name="P:Telerik.Windows.Documents.Fixed.Model.Fonts.FontBase.Name">
+            <summary>
+            Gets the name of the font.
+            </summary>
+            <value>The name.</value>
         </member>
         <member name="T:Telerik.Windows.Documents.Fixed.Model.RadFixedDocumentInfo">
             <summary>
@@ -3471,17 +3503,6 @@
             </summary>
             <value>The stroke line cap.</value>
         </member>
-        <member name="T:Telerik.Windows.Documents.Fixed.Model.Fonts.FontBase">
-            <summary>
-            Represents the base class for the font object.
-            </summary>
-        </member>
-        <member name="P:Telerik.Windows.Documents.Fixed.Model.Fonts.FontBase.Name">
-            <summary>
-            Gets the name of the font.
-            </summary>
-            <value>The name.</value>
-        </member>
         <member name="T:Telerik.Windows.Documents.Fixed.Model.Navigation.BoundingRectangleFit">
             <summary>
             Represents bounding rectangle fit.
@@ -3829,6 +3850,21 @@
         <member name="F:Telerik.Windows.Documents.Fixed.FormatProviders.Pdf.Filters.ColorSpace.DeviceN">
             <summary>
             Represents DeviceN color space.
+            </summary>
+        </member>
+        <member name="F:Telerik.Windows.Documents.Fixed.FormatProviders.Pdf.Filters.ColorSpace.Lab">
+            <summary>
+            Represents Lab color space.
+            </summary>
+        </member>
+        <member name="F:Telerik.Windows.Documents.Fixed.FormatProviders.Pdf.Filters.ColorSpace.CalRgb">
+            <summary>
+            Represents CalRgb space.
+            </summary>
+        </member>
+        <member name="F:Telerik.Windows.Documents.Fixed.FormatProviders.Pdf.Filters.ColorSpace.CalGray">
+            <summary>
+            Represents CalGray space.
             </summary>
         </member>
         <member name="T:Telerik.Windows.Documents.Fixed.FormatProviders.Pdf.Filters.DecodeParameters">
@@ -4480,21 +4516,6 @@
             not implemented in base <see cref="T:System.ComponentModel.TypeConverter" />.
             </exception>
             <returns>The converted value.</returns>
-        </member>
-        <member name="T:Telerik.Windows.Documents.Fixed.FormatProviders.Old.Pdf.Filters.ASCIIHexDecode">
-            <summary>
-            Implements the ASCIIHexDecode filter.
-            </summary>
-        </member>
-        <member name="M:Telerik.Windows.Documents.Fixed.FormatProviders.Old.Pdf.Filters.ASCIIHexDecode.Encode(Telerik.Windows.Documents.Fixed.FormatProviders.Pdf.Filters.PdfObject,System.Byte[])">
-            <summary>
-            Encodes the specified data.
-            </summary>
-        </member>
-        <member name="M:Telerik.Windows.Documents.Fixed.FormatProviders.Old.Pdf.Filters.ASCIIHexDecode.Decode(Telerik.Windows.Documents.Fixed.FormatProviders.Pdf.Filters.PdfObject,System.IO.Stream,Telerik.Windows.Documents.Fixed.FormatProviders.Pdf.Filters.DecodeParameters)">
-            <summary>
-            Decodes the specified data.
-            </summary>
         </member>
         <member name="T:Telerik.Windows.Documents.Fixed.FormatProviders.Pdf.Filters.DctDecode">
             <summary>
@@ -11893,7 +11914,11 @@
         </member>
         <member name="P:Telerik.Windows.Documents.Fixed.FormatProviders.Pdf.Export.PdfExportSettings.ImageQuality">
             <summary>
-            Gets or sets the image quality when exporting images to PDF. The higher is the quality, the bigger is the document size. The default value is Medium.
+            Gets or sets the default image quality when exporting images to PDF. The default value is High.
+            <para>
+            The value of this property will be overriden when specifying the ImageQuality in ImageSource constructor or when creating ImageSource from EncodedImageData.
+            The higher the quality, the bigger the document size.
+            </para>
             </summary>
             <value>The image quality.</value>
         </member>
