@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.112 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.118 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -8333,6 +8333,7 @@
                     this._addButton(),
                     this._createSheetsWrapper([])
                 ]);
+                this._toggleScrollEvents(true);
                 this._createSortable();
                 this._sortable.bind('start', this._onSheetReorderStart.bind(this));
                 this._sortable.bind('end', this._onSheetReorderEnd.bind(this));
@@ -8372,53 +8373,63 @@
                 var that = this;
                 var wrapperOffsetWidth;
                 var sheetsGroupScrollWidth;
-                var scrollPrevButton;
-                var scrollNextButton;
-                var sheetsWrapper = that._sheetsWrapper();
-                var sheetsGroup = that._sheetsGroup();
                 var classNames = SheetsBar.classNames;
-                var addButtonWidth = $(DOT + classNames.sheetsBarAdd).outerWidth() + 11;
                 that._isRtl = kendo.support.isRtl(that.element);
                 that._sheets = sheets;
                 that._selectedIndex = selectedIndex;
+                that._renderHtml(isInEditMode, true);
                 if (!that._scrollableAllowed()) {
-                    that._renderHtml(isInEditMode, false);
                     return;
                 }
+                var sheetsWrapper = that._sheetsWrapper();
+                var scrollPrevButton = sheetsWrapper.children(DOT + classNames.sheetsBarPrev);
+                var scrollNextButton = sheetsWrapper.children(DOT + classNames.sheetsBarNext);
+                var gapWidth = 2;
+                var addButton = that.element.find(DOT + classNames.sheetsBarAdd);
+                var addButtonWidth = addButton.outerWidth() + addButton.position().left + gapWidth;
+                var scrollPrevButtonWidth = scrollPrevButton.outerWidth() + gapWidth;
+                var sheetsGroup = that._sheetsGroup();
+                scrollPrevButton.css({ left: addButtonWidth });
                 sheetsWrapper.addClass(classNames.sheetsBarScrollable + EMPTYCHAR + classNames.sheetsBarSheetsWrapper);
+                sheetsGroup.css({ marginLeft: addButtonWidth });
                 wrapperOffsetWidth = sheetsWrapper[0].offsetWidth;
-                sheetsGroupScrollWidth = sheetsGroup[0].scrollWidth + addButtonWidth + 11;
-                if (sheetsGroupScrollWidth > wrapperOffsetWidth) {
+                sheetsGroupScrollWidth = sheetsGroup[0].scrollWidth;
+                if (sheetsGroupScrollWidth + addButtonWidth > wrapperOffsetWidth) {
+                    var scrollNextButtonRight = Math.ceil(kendo.parseFloat(scrollNextButton.css('right')));
                     if (!that._scrollableModeActive) {
-                        var scrollPrevButtonWidth;
                         that._nowScrollingSheets = false;
-                        that._renderHtml(isInEditMode, true);
-                        scrollPrevButton = sheetsWrapper.children(DOT + classNames.sheetsBarPrev);
-                        scrollNextButton = sheetsWrapper.children(DOT + classNames.sheetsBarNext);
-                        scrollPrevButtonWidth = scrollPrevButton.outerWidth();
-                        scrollPrevButton.css({ marginLeft: scrollPrevButtonWidth + 4 });
-                        that._sheetsGroup().css({
-                            marginLeft: scrollPrevButtonWidth + addButtonWidth,
-                            marginRight: scrollNextButton.outerWidth() + 12
-                        });
                         that._scrollableModeActive = true;
-                        that._toggleScrollEvents(true);
-                        that._toggleScrollButtons();
-                    } else {
-                        that._toggleScrollButtons();
-                        that._renderHtml(isInEditMode, true);
                     }
-                } else if (that._scrollableModeActive && sheetsGroupScrollWidth <= wrapperOffsetWidth) {
-                    that._scrollableModeActive = false;
-                    that._toggleScrollEvents(false);
-                    that._renderHtml(isInEditMode, false);
-                    that._sheetsGroup().css({
-                        marginLeft: addButtonWidth,
-                        marginRight: ''
+                    sheetsGroup.css({
+                        marginLeft: scrollPrevButtonWidth + addButtonWidth,
+                        marginRight: scrollNextButton.outerWidth() + scrollNextButtonRight + gapWidth
                     });
                 } else {
-                    that._renderHtml(isInEditMode, false);
-                    that._sheetsGroup().css({ marginLeft: addButtonWidth });
+                    if (that._scrollableModeActive && sheetsGroupScrollWidth <= wrapperOffsetWidth) {
+                        that._scrollableModeActive = false;
+                        sheetsGroup.css({
+                            marginLeft: addButtonWidth,
+                            marginRight: ''
+                        });
+                    } else {
+                        sheetsGroup.css({ marginLeft: addButtonWidth });
+                    }
+                }
+                that._toggleScrollButtons();
+            },
+            _toggleScrollButtons: function (toggle) {
+                var that = this;
+                var ul = that._sheetsGroup();
+                var wrapper = that._sheetsWrapper();
+                var scrollLeft = ul.scrollLeft();
+                var prev = wrapper.find(DOT + SheetsBar.classNames.sheetsBarPrev);
+                var next = wrapper.find(DOT + SheetsBar.classNames.sheetsBarNext);
+                if (toggle === false) {
+                    prev.toggle(false);
+                    next.toggle(false);
+                } else {
+                    prev.toggle(that._isRtl ? scrollLeft < ul[0].scrollWidth - ul[0].offsetWidth - 1 : scrollLeft !== 0);
+                    next.toggle(that._isRtl ? scrollLeft !== 0 : scrollLeft < ul[0].scrollWidth - ul[0].offsetWidth - 1);
                 }
             },
             _toggleScrollEvents: function (toggle) {
@@ -8491,6 +8502,7 @@
                 var element = kendo.dom.element;
                 var classNames = SheetsBar.classNames;
                 var childrenElements = [element('ul', { className: classNames.sheetsBarKReset }, sheetElements)];
+                renderScrollButtons = true;
                 if (renderScrollButtons) {
                     var baseButtonClass = classNames.sheetsBarKButton + EMPTYCHAR + classNames.sheetsBarKButtonBare + EMPTYCHAR;
                     childrenElements.push(element('span', { className: baseButtonClass + classNames.sheetsBarPrev }, [element('span', { className: classNames.sheetsBarKIcon + EMPTYCHAR + classNames.sheetsBarKArrowW }, [])]));
@@ -8506,6 +8518,11 @@
                     axis: 'x',
                     animation: false,
                     ignore: 'input',
+                    end: function () {
+                        if (this.draggable.hint) {
+                            this.draggable.hint.remove();
+                        }
+                    },
                     hint: function (element) {
                         var hint = $(element).clone();
                         return hint.wrap('<div class=\'' + classNames.sheetsBarHintWrapper + '\'><ul class=\'' + classNames.sheetsBarKResetItems + '\'></ul></div>').closest('div');
@@ -8634,14 +8651,6 @@
                         that._toggleScrollButtons();
                     }
                 });
-            },
-            _toggleScrollButtons: function () {
-                var that = this;
-                var ul = that._sheetsGroup();
-                var wrapper = that._sheetsWrapper();
-                var scrollLeft = ul.scrollLeft();
-                wrapper.find(DOT + SheetsBar.classNames.sheetsBarPrev).toggle(that._isRtl ? scrollLeft < ul[0].scrollWidth - ul[0].offsetWidth - 1 : scrollLeft !== 0);
-                wrapper.find(DOT + SheetsBar.classNames.sheetsBarNext).toggle(that._isRtl ? scrollLeft !== 0 : scrollLeft < ul[0].scrollWidth - ul[0].offsetWidth - 1);
             }
         });
         kendo.spreadsheet.SheetsBar = SheetsBar;
@@ -11651,9 +11660,14 @@
                         var table = this.clipboardElement.find('table.kendo-clipboard-' + this.clipboard._uid).detach();
                         this.clipboardElement.empty();
                         setTimeout(function () {
+                            var html = this.clipboardElement.html();
+                            var plain = window.clipboardData.getData('Text').trim();
+                            if (!html && !plain) {
+                                return;
+                            }
                             this.clipboard.external({
-                                html: this.clipboardElement.html(),
-                                plain: window.clipboardData.getData('Text').trim()
+                                html: html,
+                                plain: plain
                             });
                             this.clipboardElement.empty().append(table);
                             this._execute({
@@ -11672,6 +11686,9 @@
                     } else {
                         this.clipboard.menuInvoked = true;
                     }
+                }
+                if (!html && !plain) {
+                    return;
                 }
                 this.clipboard.external({
                     html: html,

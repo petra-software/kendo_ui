@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.112 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.118 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -2101,6 +2101,9 @@ input.k-textbox:focus {
 .k-grid tr:hover,
 .k-gantt .k-treelist tr:hover {
   background-color: #f4f4f4;
+}
+.k-pivot-rowheaders .k-grid tr:hover {
+  background: none;
 }
 .k-grid tr.k-state-selected:hover,
 .k-grid td.k-state-selected:hover {

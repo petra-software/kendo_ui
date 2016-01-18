@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.112 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.118 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -278,7 +278,9 @@
                     value = domElement.innerHTML;
                 }
                 that.value(value || kendo.ui.editor.emptyElementContent);
-                $(document).on('mousedown', proxy(that._endTyping, that)).on('mouseup', proxy(that._mouseup, that));
+                that._endTypingHandler = proxy(that._endTyping, that);
+                that._mouseupHandler = proxy(that._mouseup, that);
+                $(document).on('mousedown', that._endTypingHandler).on('mouseup', that._mouseupHandler);
                 that.toolbar.resize();
                 kendo.notify(that);
             },
@@ -671,7 +673,8 @@
                 var that = this;
                 Widget.fn.destroy.call(that);
                 $(that.window).add(that.document).add(that.body).add(that.wrapper).add(that.element.closest('form')).off(NS);
-                $(document).off('mousedown', proxy(that._endTyping, that)).off('mouseup', proxy(that._mouseup, that));
+                $(document).off('mousedown', that._endTypingHandler).off('mouseup', that._mouseupHandler);
+                that._endTypingHandler = that._mouseupHandler = null;
                 clearTimeout(this._spellCorrectTimeout);
                 that._focusOutside();
                 that.toolbar.destroy();
