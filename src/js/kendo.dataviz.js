@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.118 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.120 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -33,7 +33,7 @@
     };
     (function ($, window, undefined) {
         var kendo = window.kendo = window.kendo || { cultures: {} }, extend = $.extend, each = $.each, isArray = $.isArray, proxy = $.proxy, noop = $.noop, math = Math, Template, JSON = window.JSON || {}, support = {}, percentRegExp = /%/, formatRegExp = /\{(\d+)(:[^\}]+)?\}/g, boxShadowRegExp = /(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+)?/i, numberRegExp = /^(\+|-?)\d+(\.?)\d*$/, FUNCTION = 'function', STRING = 'string', NUMBER = 'number', OBJECT = 'object', NULL = 'null', BOOLEAN = 'boolean', UNDEFINED = 'undefined', getterCache = {}, setterCache = {}, slice = [].slice;
-        kendo.version = '2016.1.118'.replace(/^\s+|\s+$/g, '');
+        kendo.version = '2016.1.120'.replace(/^\s+|\s+$/g, '');
         function Class() {
         }
         Class.extend = function (proto) {
@@ -64188,7 +64188,7 @@
             },
             _selectNext: function () {
                 var that = this;
-                var data = that.dataSource.flatView().toJSON();
+                var data = that.dataSource.flatView();
                 var dataLength = data.length + (that.hasOptionLabel() ? 1 : 0);
                 var isInLoop = sameCharsOnly(that._word, that._last);
                 var startIndex = that.selectedIndex;
@@ -64200,6 +64200,7 @@
                     startIndex += isInLoop ? 1 : 0;
                     startIndex = normalizeIndex(startIndex, dataLength);
                 }
+                data = data.toJSON ? data.toJSON() : data.slice();
                 data = that._shuffleData(data, startIndex);
                 for (var idx = 0; idx < dataLength; idx++) {
                     text = that._text(data[idx]);

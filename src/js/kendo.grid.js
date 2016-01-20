@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.118 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.120 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -5589,7 +5589,7 @@
                     }
                 }
                 level = group.find('.k-group-cell').length;
-                group.find('.k-icon').addClass('k-i-expand').removeClass('k-i-collapse');
+                group.find('.k-i-collapse').addClass('k-i-expand').removeClass('k-i-collapse');
                 group.find('td[aria-expanded=\'true\']:first').attr('aria-expanded', false);
                 group = group.nextAll('tr');
                 var toHide = [];
@@ -5623,7 +5623,7 @@
                     }
                 }
                 level = group.find('.k-group-cell').length;
-                group.find('.k-icon').addClass('k-i-collapse').removeClass('k-i-expand');
+                group.find('.k-i-expand').addClass('k-i-collapse').removeClass('k-i-expand');
                 group.find('td[aria-expanded=\'false\']:first').attr('aria-expanded', true);
                 group = group.nextAll('tr');
                 for (idx = 0, length = group.length; idx < length; idx++) {
