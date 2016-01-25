@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.120 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.125 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -441,7 +441,7 @@
                 var sortableInstance;
                 var cells = this.header.find('th[' + kendo.attr('field') + ']');
                 var handler = function (e) {
-                    if (that.editable && that.editable.trigger('validate')) {
+                    if (that.dataSource.total() === 0 || that.editable && that.editable.trigger('validate')) {
                         e.preventDefault();
                         e.stopImmediatePropagation();
                     }
@@ -455,7 +455,7 @@
                         if (sortableInstance) {
                             sortableInstance.destroy();
                         }
-                        cell.attr('data-' + kendo.ns + 'field', column.field).kendoColumnSorter({ dataSource: this.dataSource }).find(DOT + GanttList.link).on('click' + NS, handler);
+                        cell.attr('data-' + kendo.ns + 'field', column.field).kendoColumnSorter({ dataSource: this.dataSource }).find(DOT + GanttList.styles.link).on('click' + NS, handler);
                     }
                 }
                 cells = null;

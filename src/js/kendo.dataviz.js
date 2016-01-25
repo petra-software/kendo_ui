@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.120 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.125 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -33,7 +33,7 @@
     };
     (function ($, window, undefined) {
         var kendo = window.kendo = window.kendo || { cultures: {} }, extend = $.extend, each = $.each, isArray = $.isArray, proxy = $.proxy, noop = $.noop, math = Math, Template, JSON = window.JSON || {}, support = {}, percentRegExp = /%/, formatRegExp = /\{(\d+)(:[^\}]+)?\}/g, boxShadowRegExp = /(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+)?/i, numberRegExp = /^(\+|-?)\d+(\.?)\d*$/, FUNCTION = 'function', STRING = 'string', NUMBER = 'number', OBJECT = 'object', NULL = 'null', BOOLEAN = 'boolean', UNDEFINED = 'undefined', getterCache = {}, setterCache = {}, slice = [].slice;
-        kendo.version = '2016.1.120'.replace(/^\s+|\s+$/g, '');
+        kendo.version = '2016.1.125'.replace(/^\s+|\s+$/g, '');
         function Class() {
         }
         Class.extend = function (proto) {
@@ -3289,7 +3289,7 @@
         }());
         kendo.proxyModelSetters = function proxyModelSetters(data) {
             var observable = {};
-            Object.keys(data).forEach(function (property) {
+            Object.keys(data || {}).forEach(function (property) {
                 Object.defineProperty(observable, property, {
                     get: function () {
                         return data[property];
@@ -14462,6 +14462,13 @@
             }
         });
         var defaultMeasureBox = $('<div style=\'position: absolute !important; top: -4000px !important; width: auto !important; height: auto !important;' + 'padding: 0 !important; margin: 0 !important; border: 0 !important;' + 'line-height: normal !important; visibility: hidden !important; white-space: nowrap!important;\' />')[0];
+        function zeroSize() {
+            return {
+                width: 0,
+                height: 0,
+                baseline: 0
+            };
+        }
         var TextMetrics = Class.extend({
             init: function (options) {
                 this._cache = new LRUCache(1000);
@@ -14469,15 +14476,14 @@
             },
             options: { baselineMarkerSize: 1 },
             measure: function (text, style, box) {
+                if (!text) {
+                    return zeroSize();
+                }
                 var styleKey = util.objectKey(style), cacheKey = util.hashKey(text + styleKey), cachedResult = this._cache.get(cacheKey);
                 if (cachedResult) {
                     return cachedResult;
                 }
-                var size = {
-                    width: 0,
-                    height: 0,
-                    baseline: 0
-                };
+                var size = zeroSize();
                 var measureBox = box ? box : defaultMeasureBox;
                 var baselineMarker = this._baselineMarker().cloneNode(false);
                 for (var key in style) {
@@ -14508,8 +14514,24 @@
         function measureText(text, style, measureBox) {
             return TextMetrics.current.measure(text, style, measureBox);
         }
+        function loadFonts(fonts, callback) {
+            var promises = [];
+            if (fonts.length > 0 && document.fonts) {
+                try {
+                    promises = fonts.map(function (font) {
+                        return document.fonts.load(font);
+                    });
+                } catch (e) {
+                    kendo.logToConsole(e);
+                }
+                Promise.all(promises).then(callback, callback);
+            } else {
+                callback();
+            }
+        }
         kendo.util.TextMetrics = TextMetrics;
         kendo.util.LRUCache = LRUCache;
+        kendo.util.loadFonts = loadFonts;
         kendo.util.measureText = measureText;
     }(window.kendo.jQuery));
 }, typeof define == 'function' && define.amd ? define : function (a1, a2, a3) {
@@ -27923,11 +27945,12 @@
 }));
 (function (f, define) {
     define('kendo.dataviz.chart', [
+        'kendo.color',
         'kendo.data',
-        'kendo.userevents',
         'kendo.dataviz.core',
+        'kendo.dataviz.themes',
         'kendo.drawing',
-        'kendo.dataviz.themes'
+        'kendo.userevents'
     ], f);
 }(function () {
     var __meta__ = {
@@ -28023,7 +28046,9 @@
                 if (userOptions) {
                     userOptions.dataSource = dataSource;
                 }
-                chart._initDataSource(userOptions);
+                preloadFonts(userOptions, function () {
+                    chart._initDataSource(userOptions);
+                });
                 kendo.notify(chart, dataviz.ui);
             },
             _initTheme: function (options) {
@@ -28905,7 +28930,9 @@
             destroy: function () {
                 var chart = this, dataSource = chart.dataSource;
                 chart.element.off(NS);
-                dataSource.unbind(CHANGE, chart._dataChangeHandler);
+                if (dataSource) {
+                    dataSource.unbind(CHANGE, chart._dataChangeHandler);
+                }
                 $(document).off(MOUSEMOVE_TRACKING);
                 if (chart._userEvents) {
                     chart._userEvents.destroy();
@@ -35799,7 +35826,8 @@
             },
             updateAxisOptions: function (axis, options) {
                 var vertical = axis.options.vertical;
-                var index = indexOf(axis, [].concat(vertical ? this.axisY : this.axisX));
+                var axes = this.groupAxes(this.panes);
+                var index = indexOf(axis, vertical ? axes.y : axes.x);
                 var axisOptions = [].concat(vertical ? this.options.yAxis : this.options.xAxis)[index];
                 deepExtend(axisOptions, options);
             }
@@ -37573,6 +37601,27 @@
             var accept = key == 'none' && !(e.ctrlKey || e.shiftKey || e.altKey) || e[key + 'Key'];
             return accept;
         }
+        function preloadFonts(options, callback) {
+            var fonts = [];
+            fetchFonts(options, fonts);
+            kendo.util.loadFonts(fonts, callback);
+        }
+        function fetchFonts(options, fonts) {
+            if (!options) {
+                return;
+            }
+            Object.keys(options).forEach(function (key) {
+                var value = options[key];
+                if (key === 'dataSource' || !value) {
+                    return;
+                }
+                if (key === 'font') {
+                    fonts.push(value);
+                } else if (typeof value === 'object') {
+                    fetchFonts(value, fonts);
+                }
+            });
+        }
         dataviz.ui.plugin(Chart);
         PlotAreaFactory.current.register(CategoricalPlotArea, [
             BAR,
@@ -37829,6 +37878,7 @@
             WaterfallChart: WaterfallChart,
             WaterfallSegment: WaterfallSegment,
             XYPlotArea: XYPlotArea,
+            MousewheelZoom: MousewheelZoom,
             addDuration: addDuration,
             areNumbers: areNumbers,
             axisGroupBox: axisGroupBox,
@@ -62187,6 +62237,10 @@
                     e.preventDefault();
                 }
             },
+            _isFilterEnabled: function () {
+                var filter = this.options.filter;
+                return filter && filter !== 'none';
+            },
             _filterSource: function (filter, force) {
                 var that = this;
                 var options = that.options;
@@ -62315,7 +62369,7 @@
                 }
                 id = id ? id + ' ' + that.ul[0].id : that.ul[0].id;
                 element.attr('aria-owns', id);
-                that.ul.attr('aria-live', !options.filter || options.filter === 'none' ? 'off' : 'polite');
+                that.ul.attr('aria-live', !that._isFilterEnabled() ? 'off' : 'polite');
             },
             _blur: function () {
                 var that = this;
@@ -62605,19 +62659,18 @@
                 var length = word.length;
                 var options = that.options;
                 var ignoreCase = options.ignoreCase;
-                var filter = options.filter;
                 var field = options.dataTextField;
                 clearTimeout(that._typingTimeout);
                 if (!length || length >= options.minLength) {
                     that._state = 'filter';
-                    if (filter === 'none') {
+                    if (!that._isFilterEnabled()) {
                         that._filter(word);
                     } else {
                         that._open = true;
                         that._filterSource({
                             value: ignoreCase ? word.toLowerCase() : word,
                             field: field,
-                            operator: filter,
+                            operator: options.filter,
                             ignoreCase: ignoreCase
                         });
                     }
@@ -63934,7 +63987,7 @@
                     dataSource.one(CHANGE, that._valueSetter);
                     return;
                 }
-                if (listView.bound() && listView.isFiltered()) {
+                if (that._isFilterEnabled() && listView.bound() && listView.isFiltered()) {
                     listView.bound(false);
                     that._filterSource();
                 } else {
@@ -64291,7 +64344,7 @@
                 var that = this;
                 var dataSource = that.dataSource;
                 clearTimeout(that._typingTimeout);
-                if (that.options.filter !== 'none') {
+                if (that._isFilterEnabled()) {
                     that._typingTimeout = setTimeout(function () {
                         var value = that.filterInput.val();
                         if (that._prev !== value) {
@@ -64463,13 +64516,11 @@
             },
             _filterHeader: function () {
                 var icon;
-                var options = this.options;
-                var filterEnalbed = options.filter !== 'none';
                 if (this.filterInput) {
                     this.filterInput.off(ns).parent().remove();
                     this.filterInput = null;
                 }
-                if (filterEnalbed) {
+                if (this._isFilterEnabled()) {
                     icon = '<span unselectable="on" class="k-icon k-i-search">select</span>';
                     this.filterInput = $('<input class="k-textbox"/>').attr({
                         placeholder: this.element.attr('placeholder'),
@@ -70996,6 +71047,7 @@
     ], f);
 }(function () {
     'bundle all';
+    return window.kendo;
 }, typeof define == 'function' && define.amd ? define : function (a1, a2, a3) {
     (a3 || a2)();
 }));
