@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.125 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.208 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -934,7 +934,7 @@
                 if (filterValue || filterValue === 0) {
                     expressions = that.dataSource.filter() || {};
                     removeFiltersForField(expressions, valueField);
-                    filters = expressions.filters || [];
+                    filters = (expressions.filters || []).slice(0);
                     filters.push({
                         field: valueField,
                         operator: 'eq',

@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.125 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.208 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -1373,11 +1373,6 @@ html .km-pane-wrapper .km-widget,
 @media screen and (-ms-high-contrast: active) and (-ms-high-contrast: none) {
   div.km-pane-wrapper a {
     color: #787878;
-  }
-  .km-pane-wrapper .k-icon {
-    background-image: url('Metro/sprite_2x.png');
-    -webkit-background-size: 21.2em 21em;
-            background-size: 21.2em 21em;
   }
 }
 .km-pane-wrapper .k-mobile-list .k-item,

@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.125 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.208 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -954,7 +954,7 @@
                 }
             },
             _buttonClick: function (e) {
-                var that = this, popup, target, item, splitContainer, isSplitButtonArrow = e.target.closest('.' + SPLIT_BUTTON_ARROW).length, handler, eventData;
+                var that = this, popup, target, item, splitContainer, isSplitButtonArrow = e.target.closest('.' + SPLIT_BUTTON_ARROW).length, handler, eventData, urlTarget;
                 e.preventDefault();
                 if (isSplitButtonArrow) {
                     that._toggle(e);
@@ -998,7 +998,10 @@
                     that.trigger(CLICK, eventData);
                 }
                 if (item.options.url) {
-                    window.location.href = item.options.url;
+                    if (item.options.attributes && item.options.attributes.target) {
+                        urlTarget = item.options.attributes.target;
+                    }
+                    window.open(item.options.url, urlTarget || '_self');
                 }
                 if (target.hasClass(OVERFLOW_BUTTON)) {
                     that.popup.close();

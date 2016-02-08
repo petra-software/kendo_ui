@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.125 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.208 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -504,8 +504,10 @@
                 }).on('cut' + NS + ' copy' + NS + ' paste' + NS, function (e) {
                     editor.clipboard['on' + e.type](e);
                 }).on('focusin' + NS, function () {
-                    $(this).addClass('k-state-active');
-                    editor.toolbar.show();
+                    if (editor.body.hasAttribute('contenteditable')) {
+                        $(this).addClass('k-state-active');
+                        editor.toolbar.show();
+                    }
                 }).on('focusout' + NS, function () {
                     setTimeout(function () {
                         var active = kendo._activeElement();
@@ -984,7 +986,7 @@
                 }
             };
         }
-        var whitespace = /^\s+$/, rgb = /rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i, bom = /\ufeff/g, whitespaceOrBom = /^(\s+|\ufeff)$/, persistedScrollTop, cssAttributes = ('color,padding-left,padding-right,padding-top,padding-bottom,' + 'background-color,background-attachment,background-image,background-position,background-repeat,' + 'border-top-style,border-top-width,border-top-color,' + 'border-bottom-style,border-bottom-width,border-bottom-color,' + 'border-left-style,border-left-width,border-left-color,' + 'border-right-style,border-right-width,border-right-color,' + 'font-family,font-size,font-style,font-variant,font-weight,line-height').split(','), htmlRe = /[<>\&]/g, entityRe = /[\u00A0-\u2666<>\&]/g, entityTable = {
+        var whitespace = /^\s+$/, emptyspace = /^[\n\r\t]+$/, rgb = /rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i, bom = /\ufeff/g, whitespaceOrBom = /^(\s+|\ufeff)$/, persistedScrollTop, cssAttributes = ('color,padding-left,padding-right,padding-top,padding-bottom,' + 'background-color,background-attachment,background-image,background-position,background-repeat,' + 'border-top-style,border-top-width,border-top-color,' + 'border-bottom-style,border-bottom-width,border-bottom-color,' + 'border-left-style,border-left-width,border-left-color,' + 'border-right-style,border-right-width,border-right-color,' + 'font-family,font-size,font-style,font-variant,font-weight,line-height').split(','), htmlRe = /[<>\&]/g, entityRe = /[\u00A0-\u2666<>\&]/g, entityTable = {
                 34: 'quot',
                 38: 'amp',
                 39: 'apos',
@@ -1408,6 +1410,9 @@
             },
             isWhitespace: function (node) {
                 return whitespace.test(node.nodeValue);
+            },
+            isEmptyspace: function (node) {
+                return emptyspace.test(node.nodeValue);
             },
             isBlock: function (node) {
                 return block[Dom.name(node)];
@@ -2381,6 +2386,9 @@
                 ].join('');
             }
         });
+        W3CRange.fromNode = function (node) {
+            return new W3CRange(node.ownerDocument);
+        };
         function compareBoundaries(start, end, startOffset, endOffset) {
             if (start == end) {
                 return endOffset - startOffset;
@@ -2690,7 +2698,7 @@
                 this.enumerate = function () {
                     var nodes = [];
                     function visit(node) {
-                        if (dom.is(node, 'img') || node.nodeType == 3 && (!dom.isWhitespace(node) || node.nodeValue == '\uFEFF')) {
+                        if (dom.is(node, 'img') || node.nodeType == 3 && (!dom.isEmptyspace(node) || node.nodeValue == '\uFEFF')) {
                             nodes.push(node);
                         } else {
                             node = node.firstChild;
@@ -4695,7 +4703,7 @@
                 var format = this.format, suitable = [], i, len, candidate;
                 for (i = 0, len = nodes.length; i < len; i++) {
                     for (var f = format.length - 1; f >= 0; f--) {
-                        candidate = dom.ofType(nodes[i], format[f].tags) ? nodes[i] : dom.parentOfType(nodes[i], format[f].tags);
+                        candidate = dom.ofType(nodes[i], format[f].tags) ? nodes[i] : dom.closestEditableOfType(nodes[i], format[f].tags);
                         if (candidate) {
                             break;
                         }
@@ -6529,39 +6537,55 @@
         });
         var CleanFormatCommand = Command.extend({
             exec: function () {
-                var listFormatter = new Editor.ListFormatter('ul');
                 var range = this.lockRange(true);
-                var remove = this.options.remove || 'strong,em,span,sup,sub,del,b,i,u,font'.split(',');
+                this.tagsToClean = this.options.remove || 'strong,em,span,sup,sub,del,b,i,u,font'.split(',');
                 RangeUtils.wrapSelectedElements(range);
-                var iterator = new Editor.RangeIterator(range);
-                iterator.traverse(function clean(node) {
-                    if (!node || dom.isMarker(node)) {
-                        return;
-                    }
-                    var name = dom.name(node);
-                    if (name == 'ul' || name == 'ol') {
-                        var prev = node.previousSibling;
-                        var next = node.nextSibling;
-                        listFormatter.unwrap(node);
-                        for (; prev && prev != next; prev = prev.nextSibling) {
-                            clean(prev);
-                        }
-                    } else if (name == 'blockquote') {
-                        dom.changeTag(node, 'p');
-                    } else if (node.nodeType == 1 && !dom.insignificant(node)) {
-                        for (var i = node.childNodes.length - 1; i >= 0; i--) {
-                            clean(node.childNodes[i]);
-                        }
-                        node.removeAttribute('style');
-                        node.removeAttribute('class');
-                    }
-                    if ($.inArray(name, remove) > -1) {
-                        dom.unwrap(node);
-                    }
+                var nodes = RangeUtils.mapAll(range, function (node) {
+                    return node;
                 });
+                for (var c = nodes.length - 1; c >= 0; c--) {
+                    this.clean(nodes[c]);
+                }
                 this.releaseRange(range);
+            },
+            clean: function (node) {
+                if (!node || dom.isMarker(node)) {
+                    return;
+                }
+                var name = dom.name(node);
+                if (name == 'ul' || name == 'ol') {
+                    var listFormatter = new Editor.ListFormatter(name);
+                    var prev = node.previousSibling;
+                    var next = node.nextSibling;
+                    listFormatter.unwrap(node);
+                    for (; prev && prev != next; prev = prev.nextSibling) {
+                        this.clean(prev);
+                    }
+                } else if (name == 'blockquote') {
+                    dom.changeTag(node, 'p');
+                } else if (node.nodeType == 1 && !dom.insignificant(node)) {
+                    for (var i = node.childNodes.length - 1; i >= 0; i--) {
+                        this.clean(node.childNodes[i]);
+                    }
+                    node.removeAttribute('style');
+                    node.removeAttribute('class');
+                } else {
+                    unwrapListItem(node);
+                }
+                if ($.inArray(name, this.tagsToClean) > -1) {
+                    dom.unwrap(node);
+                }
             }
         });
+        function unwrapListItem(node) {
+            var li = dom.closestEditableOfType(node, ['li']);
+            if (li) {
+                var listFormatter = new Editor.ListFormatter(dom.name(li.parentNode));
+                var range = kendo.ui.editor.W3CRange.fromNode(node);
+                range.selectNode(li);
+                listFormatter.toggle(range);
+            }
+        }
         $.extend(Editor, {
             FormattingTool: FormattingTool,
             CleanFormatCommand: CleanFormatCommand
