@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.208 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.212 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -33,7 +33,7 @@
     };
     (function ($, window, undefined) {
         var kendo = window.kendo = window.kendo || { cultures: {} }, extend = $.extend, each = $.each, isArray = $.isArray, proxy = $.proxy, noop = $.noop, math = Math, Template, JSON = window.JSON || {}, support = {}, percentRegExp = /%/, formatRegExp = /\{(\d+)(:[^\}]+)?\}/g, boxShadowRegExp = /(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+)?/i, numberRegExp = /^(\+|-?)\d+(\.?)\d*$/, FUNCTION = 'function', STRING = 'string', NUMBER = 'number', OBJECT = 'object', NULL = 'null', BOOLEAN = 'boolean', UNDEFINED = 'undefined', getterCache = {}, setterCache = {}, slice = [].slice;
-        kendo.version = '2016.1.208'.replace(/^\s+|\s+$/g, '');
+        kendo.version = '2016.1.212'.replace(/^\s+|\s+$/g, '');
         function Class() {
         }
         Class.extend = function (proto) {
@@ -5723,7 +5723,7 @@
                 return composite;
             },
             set: function (field, value) {
-                var that = this, composite = field.indexOf('.') >= 0, current = kendo.getter(field, true)(that);
+                var that = this, isSetPrevented = false, composite = field.indexOf('.') >= 0, current = kendo.getter(field, true)(that);
                 if (current !== value) {
                     if (current instanceof Observable && this._handlers[field]) {
                         if (this._handlers[field].get) {
@@ -5731,10 +5731,11 @@
                         }
                         current.unbind(CHANGE, this._handlers[field].change);
                     }
-                    if (!that.trigger('set', {
-                            field: field,
-                            value: value
-                        })) {
+                    isSetPrevented = that.trigger('set', {
+                        field: field,
+                        value: value
+                    });
+                    if (!isSetPrevented) {
                         if (!composite) {
                             value = that.wrap(value, field, function () {
                                 return that;
@@ -5745,6 +5746,7 @@
                         }
                     }
                 }
+                return isSetPrevented;
             },
             parent: noop,
             wrap: function (object, field, parent) {
@@ -5890,11 +5892,14 @@
             },
             set: function (field, value, initiator) {
                 var that = this;
+                var dirty = that.dirty;
                 if (that.editable(field)) {
                     value = that._parse(field, value);
                     if (!equal(value, that.get(field))) {
                         that.dirty = true;
-                        ObservableObject.fn.set.call(that, field, value, initiator);
+                        if (ObservableObject.fn.set.call(that, field, value, initiator) && !dirty) {
+                            that.dirty = dirty;
+                        }
                     }
                 }
             },
@@ -20051,12 +20056,12 @@
                         next();
                     }
                     function next() {
-                        setTimeout(function () {
+                        whenImagesAreActuallyLoaded(pages, function () {
                             callback({
                                 pages: pages,
                                 container: container
                             });
-                        }, 10);
+                        });
                     }
                 }
                 function splitElement(element) {
@@ -20531,6 +20536,27 @@
                 }
             }
             return color;
+        }
+        function whenImagesAreActuallyLoaded(elements, callback) {
+            var pending = 0;
+            elements.forEach(function (el) {
+                var images = el.querySelectorAll('img');
+                for (var i = 0; i < images.length; ++i) {
+                    var img = images[i];
+                    if (!img.complete) {
+                        pending++;
+                        img.onload = img.onerror = next;
+                    }
+                }
+            });
+            if (!pending) {
+                next();
+            }
+            function next() {
+                if (--pending <= 0) {
+                    callback();
+                }
+            }
         }
         function cacheImages(element, callback) {
             var urls = [];
@@ -35189,11 +35215,13 @@
                 range.max = isNumber(categoryAxis.options.max) ? justified ? math.floor(range.max) + 1 : math.ceil(range.max) : currentSeries.data.length;
                 currentSeries = deepExtend({}, currentSeries);
                 if (outOfRangePoints) {
-                    if (range.min - 1 >= 0) {
-                        categoryIx = range.min - 1;
+                    var minCategory = range.min - 1;
+                    var srcCategories = categoryAxis.options.srcCategories || [];
+                    if (minCategory >= 0 && minCategory < currentSeries.data.length) {
+                        categoryIx = minCategory;
                         currentSeries._outOfRangeMinPoint = {
                             item: currentSeries.data[categoryIx],
-                            category: categoryAxis.options.srcCategories[categoryIx],
+                            category: srcCategories[categoryIx],
                             categoryIx: -1
                         };
                     }
@@ -35201,7 +35229,7 @@
                         categoryIx = range.max;
                         currentSeries._outOfRangeMaxPoint = {
                             item: currentSeries.data[categoryIx],
-                            category: categoryAxis.options.srcCategories[categoryIx],
+                            category: srcCategories[categoryIx],
                             categoryIx: range.max - range.min
                         };
                     }
@@ -37606,19 +37634,23 @@
             fetchFonts(options, fonts);
             kendo.util.loadFonts(fonts, callback);
         }
-        function fetchFonts(options, fonts) {
-            if (!options) {
+        function fetchFonts(options, fonts, state) {
+            var MAX_DEPTH = 5;
+            state = state || { depth: 0 };
+            if (!options || state.depth > MAX_DEPTH) {
                 return;
             }
             Object.keys(options).forEach(function (key) {
                 var value = options[key];
-                if (key === 'dataSource' || !value) {
+                if (key === 'dataSource' || key[0] === '$' || !value) {
                     return;
                 }
                 if (key === 'font') {
                     fonts.push(value);
                 } else if (typeof value === 'object') {
-                    fetchFonts(value, fonts);
+                    state.depth++;
+                    fetchFonts(value, fonts, state);
+                    state.depth--;
                 }
             });
         }

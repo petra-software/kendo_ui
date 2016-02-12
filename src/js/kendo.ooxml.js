@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.208 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.212 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -211,10 +211,14 @@
                 };
                 var columns = this.options.columns || [];
                 var column = columns[cellIndex];
-                if (column && column.autoWidth) {
-                    column.width = Math.max(column.width || 0, ('' + value).length);
-                }
                 var type = typeof value;
+                if (column && column.autoWidth) {
+                    var displayValue = value;
+                    if (type === 'number') {
+                        displayValue = kendo.toString(value, data.format);
+                    }
+                    column.width = Math.max(column.width || 0, (displayValue + '').length);
+                }
                 if (type === 'string') {
                     value = this._lookupString(value);
                     type = 's';

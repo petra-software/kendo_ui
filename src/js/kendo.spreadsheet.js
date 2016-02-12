@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.208 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.212 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -789,6 +789,11 @@
             if (f) {
                 f.call(object, thing, arg1, arg2);
             }
+        }
+        var tmp = [];
+        readChar(tmp);
+        if (tmp[0] != 65279) {
+            index = 0;
         }
         while (index < data.length) {
             skipWhitespace();
@@ -6639,14 +6644,22 @@
         FUNCS[alias] = orig;
     };
     exports.FUNCS = FUNCS;
+    var NUMBER_OR_ZERO = [
+        'or',
+        'number',
+        [
+            'null',
+            0
+        ]
+    ];
     var ARGS_NUMERIC = [
         [
             '*a',
-            'number'
+            NUMBER_OR_ZERO
         ],
         [
             '*b',
-            'number'
+            NUMBER_OR_ZERO
         ]
     ];
     var ARGS_ANYVALUE = [
@@ -6673,7 +6686,7 @@
     }).args([
         [
             '*a',
-            'number'
+            NUMBER_OR_ZERO
         ],
         [
             '*b',
@@ -6735,19 +6748,19 @@
         return a;
     }).args([[
             '*a',
-            'number'
+            NUMBER_OR_ZERO
         ]]);
     defineFunction('unary-', function (a) {
         return -a;
     }).args([[
             '*a',
-            'number'
+            NUMBER_OR_ZERO
         ]]);
     defineFunction('unary%', function (a) {
         return a / 100;
     }).args([[
             '*a',
-            'number'
+            NUMBER_OR_ZERO
         ]]);
     defineFunction('binary:', function (a, b) {
         return new RangeRef(a, b).setSheet(a.sheet || this.formula.sheet, a.hasSheet());
@@ -7196,7 +7209,6 @@
         var RangeRef = kendo.spreadsheet.RangeRef;
         var CellRef = kendo.spreadsheet.CellRef;
         var Range = kendo.spreadsheet.Range;
-        var Color = kendo.Color;
         var Selection = kendo.Class.extend({
             init: function (sheet) {
                 this._sheet = sheet;
@@ -7907,22 +7919,22 @@
                         cell.validation = cell.validation.toJSON();
                     }
                     if (cell.color) {
-                        cell.color = new Color(cell.color).toHex();
+                        cell.color = kendo.parseColor(cell.color).toCss();
                     }
                     if (cell.background) {
-                        cell.background = new Color(cell.background).toHex();
+                        cell.background = kendo.parseColor(cell.background).toCss();
                     }
                     if (cell.borderTop && cell.borderTop.color) {
-                        cell.borderTop.color = new Color(cell.borderTop.color).toHex();
+                        cell.borderTop.color = kendo.parseColor(cell.borderTop.color).toCss();
                     }
                     if (cell.borderBottom && cell.borderBottom.color) {
-                        cell.borderBottom.color = new Color(cell.borderBottom.color).toHex();
+                        cell.borderBottom.color = kendo.parseColor(cell.borderBottom.color).toCss();
                     }
                     if (cell.borderRight && cell.borderRight.color) {
-                        cell.borderRight.color = new Color(cell.borderRight.color).toHex();
+                        cell.borderRight.color = kendo.parseColor(cell.borderRight.color).toCss();
                     }
                     if (cell.borderLeft && cell.borderLeft.color) {
-                        cell.borderLeft.color = new Color(cell.borderLeft.color).toHex();
+                        cell.borderLeft.color = kendo.parseColor(cell.borderLeft.color).toCss();
                     }
                     row.cells.push(cell);
                 });
@@ -10043,6 +10055,7 @@
     function readSheet(zip, file, sheet, strings, styles) {
         var ref, type, value, formula, formulaRange;
         var nCols = sheet._columns._count;
+        var prevCellRef = null;
         parse(zip, 'xl/' + file, {
             enter: function (tag, attrs) {
                 if (this.is(SEL_CELL)) {
@@ -10050,6 +10063,12 @@
                     formula = null;
                     formulaRange = null;
                     ref = attrs.r;
+                    if (ref == null) {
+                        ref = parseReference(prevCellRef);
+                        ref.col++;
+                        ref = ref.toString();
+                    }
+                    prevCellRef = ref;
                     type = attrs.t;
                     var styleIndex = attrs.s;
                     if (styleIndex != null) {
@@ -15367,12 +15386,12 @@
                 'number'
             ]
         ]]);
-    defineFunction('sumproduct', function (a) {
+    defineFunction('sumproduct', function (first, rest) {
         var sum = 0;
-        a[0].each(function (p, row, col) {
+        first.each(function (p, row, col) {
             if (typeof p == 'number') {
-                for (var i = 1; i < a.length; ++i) {
-                    var v = a[i].get(row, col);
+                for (var i = 0; i < rest.length; ++i) {
+                    var v = rest[i].get(row, col);
                     if (typeof v != 'number') {
                         return;
                     }

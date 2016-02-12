@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.208 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.212 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -7862,11 +7862,13 @@
                 range.max = isNumber(categoryAxis.options.max) ? justified ? math.floor(range.max) + 1 : math.ceil(range.max) : currentSeries.data.length;
                 currentSeries = deepExtend({}, currentSeries);
                 if (outOfRangePoints) {
-                    if (range.min - 1 >= 0) {
-                        categoryIx = range.min - 1;
+                    var minCategory = range.min - 1;
+                    var srcCategories = categoryAxis.options.srcCategories || [];
+                    if (minCategory >= 0 && minCategory < currentSeries.data.length) {
+                        categoryIx = minCategory;
                         currentSeries._outOfRangeMinPoint = {
                             item: currentSeries.data[categoryIx],
-                            category: categoryAxis.options.srcCategories[categoryIx],
+                            category: srcCategories[categoryIx],
                             categoryIx: -1
                         };
                     }
@@ -7874,7 +7876,7 @@
                         categoryIx = range.max;
                         currentSeries._outOfRangeMaxPoint = {
                             item: currentSeries.data[categoryIx],
-                            category: categoryAxis.options.srcCategories[categoryIx],
+                            category: srcCategories[categoryIx],
                             categoryIx: range.max - range.min
                         };
                     }
@@ -10279,19 +10281,23 @@
             fetchFonts(options, fonts);
             kendo.util.loadFonts(fonts, callback);
         }
-        function fetchFonts(options, fonts) {
-            if (!options) {
+        function fetchFonts(options, fonts, state) {
+            var MAX_DEPTH = 5;
+            state = state || { depth: 0 };
+            if (!options || state.depth > MAX_DEPTH) {
                 return;
             }
             Object.keys(options).forEach(function (key) {
                 var value = options[key];
-                if (key === 'dataSource' || !value) {
+                if (key === 'dataSource' || key[0] === '$' || !value) {
                     return;
                 }
                 if (key === 'font') {
                     fonts.push(value);
                 } else if (typeof value === 'object') {
-                    fetchFonts(value, fonts);
+                    state.depth++;
+                    fetchFonts(value, fonts, state);
+                    state.depth--;
                 }
             });
         }

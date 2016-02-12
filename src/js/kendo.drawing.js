@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.208 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.212 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -6008,12 +6008,12 @@
                         next();
                     }
                     function next() {
-                        setTimeout(function () {
+                        whenImagesAreActuallyLoaded(pages, function () {
                             callback({
                                 pages: pages,
                                 container: container
                             });
-                        }, 10);
+                        });
                     }
                 }
                 function splitElement(element) {
@@ -6488,6 +6488,27 @@
                 }
             }
             return color;
+        }
+        function whenImagesAreActuallyLoaded(elements, callback) {
+            var pending = 0;
+            elements.forEach(function (el) {
+                var images = el.querySelectorAll('img');
+                for (var i = 0; i < images.length; ++i) {
+                    var img = images[i];
+                    if (!img.complete) {
+                        pending++;
+                        img.onload = img.onerror = next;
+                    }
+                }
+            });
+            if (!pending) {
+                next();
+            }
+            function next() {
+                if (--pending <= 0) {
+                    callback();
+                }
+            }
         }
         function cacheImages(element, callback) {
             var urls = [];
