@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.212 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.217 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -33,7 +33,7 @@
     };
     (function ($, window, undefined) {
         var kendo = window.kendo = window.kendo || { cultures: {} }, extend = $.extend, each = $.each, isArray = $.isArray, proxy = $.proxy, noop = $.noop, math = Math, Template, JSON = window.JSON || {}, support = {}, percentRegExp = /%/, formatRegExp = /\{(\d+)(:[^\}]+)?\}/g, boxShadowRegExp = /(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+)?/i, numberRegExp = /^(\+|-?)\d+(\.?)\d*$/, FUNCTION = 'function', STRING = 'string', NUMBER = 'number', OBJECT = 'object', NULL = 'null', BOOLEAN = 'boolean', UNDEFINED = 'undefined', getterCache = {}, setterCache = {}, slice = [].slice;
-        kendo.version = '2016.1.212'.replace(/^\s+|\s+$/g, '');
+        kendo.version = '2016.1.217'.replace(/^\s+|\s+$/g, '');
         function Class() {
         }
         Class.extend = function (proto) {
@@ -7843,7 +7843,7 @@
                     }
                     this.offlineData(state.concat(destroyed));
                     if (updatePristine) {
-                        this._pristineData = state;
+                        this._pristineData = this._readData(state);
                     }
                 }
             },
@@ -19981,6 +19981,8 @@
                     }
                     if (/^canvas$/i.test(el.tagName)) {
                         clone.getContext('2d').drawImage(el, 0, 0);
+                    } else if (/^input$/i.test(el.tagName)) {
+                        el.removeAttribute('name');
                     } else {
                         for (i = el.firstChild; i; i = i.nextSibling) {
                             clone.appendChild(cloneNodes(i));
@@ -21755,7 +21757,6 @@
             var el = doc.createElement(KENDO_PSEUDO_ELEMENT);
             var option;
             el.style.cssText = getCssText(getComputedStyle(element));
-            el.style.display = 'inline-block';
             if (tag == 'input') {
                 el.style.whiteSpace = 'pre';
             }

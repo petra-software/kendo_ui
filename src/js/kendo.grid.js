@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.212 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.217 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -5452,21 +5452,28 @@
                     that._attachGroupable();
                 }
             },
+            _retrieveFirstColumn: function (columns, rows) {
+                var result = $();
+                if (rows.length && columns[0]) {
+                    var column = columns[0];
+                    while (column.columns && column.columns.length) {
+                        column = column.columns[0];
+                        rows = rows.filter(':not(:first())');
+                    }
+                    result = result.add(rows);
+                }
+                return result;
+            },
             _updateFirstColumnClass: function () {
                 var that = this, columns = that.columns || [], hasDetails = that._hasDetails() && columns.length;
                 if (!hasDetails && !that._groups()) {
-                    var rows = $();
                     var tr = that.thead.find('>tr:not(.k-filter-row):not(:first)');
                     columns = nonLockedColumns(columns);
-                    if (tr.length && columns[0] && !columns[0].columns) {
-                        rows = rows.add(tr);
-                    }
+                    var rows = that._retrieveFirstColumn(columns, tr);
                     if (that._isLocked()) {
                         tr = that.lockedHeader.find('thead>tr:not(.k-filter-row):not(:first)');
                         columns = lockedColumns(that.columns);
-                        if (tr.length && columns[0] && !columns[0].columns) {
-                            rows = rows.add(tr);
-                        }
+                        rows = rows.add(that._retrieveFirstColumn(columns, tr));
                     }
                     rows.each(function () {
                         var ths = $(this).find('th');

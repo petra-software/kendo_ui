@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.212 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.217 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -323,7 +323,7 @@ $.extend(true, kendo.ui.Grid.prototype.options.messages,{
     "pdf": "PDF export",
     "save": "Uložit změny",
     "select": "Vybrat",
-    "update": "Odemknout"
+    "update": "Uložit"
   },
   "editable": {
     "confirmation": "Opravdu chcete smazat tento záznam?",

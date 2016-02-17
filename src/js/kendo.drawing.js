@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.212 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.217 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -5933,6 +5933,8 @@
                     }
                     if (/^canvas$/i.test(el.tagName)) {
                         clone.getContext('2d').drawImage(el, 0, 0);
+                    } else if (/^input$/i.test(el.tagName)) {
+                        el.removeAttribute('name');
                     } else {
                         for (i = el.firstChild; i; i = i.nextSibling) {
                             clone.appendChild(cloneNodes(i));
@@ -7707,7 +7709,6 @@
             var el = doc.createElement(KENDO_PSEUDO_ELEMENT);
             var option;
             el.style.cssText = getCssText(getComputedStyle(element));
-            el.style.display = 'inline-block';
             if (tag == 'input') {
                 el.style.whiteSpace = 'pre';
             }

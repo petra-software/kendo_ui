@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.212 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.217 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -498,7 +498,8 @@ textarea.k-textbox:hover,
 .k-dropdown-wrap.k-state-active .k-select {
   border-color: #ff4350;
 }
-.k-numeric-wrap .k-link.k-state-selected {
+.k-numeric-wrap .k-link.k-state-selected,
+.k-grid .k-numeric-wrap .k-link.k-state-selected {
   background-color: #ff4350;
 }
 .k-dropdown .k-state-active .k-input {
