@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.217 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.226 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -2856,7 +2856,7 @@
                     } else if (mode === 'incell') {
                         $(row).children(DATA_CELL).each(function () {
                             var cell = $(this);
-                            var column = leafColumns(that.columns)[cell.index()];
+                            var column = leafColumns(that.columns)[that.cellIndex(cell)];
                             model = that._modelForContainer(cell);
                             if (model && (!model.editable || model.editable(column.field)) && column.field) {
                                 that.editCell(cell);

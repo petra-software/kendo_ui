@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.217 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.226 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -719,9 +719,7 @@
                 if (userOptions) {
                     userOptions.dataSource = dataSource;
                 }
-                preloadFonts(userOptions, function () {
-                    chart._initDataSource(userOptions);
-                });
+                chart._initDataSource(userOptions);
                 kendo.notify(chart, dataviz.ui);
             },
             _initTheme: function (options) {
@@ -746,8 +744,10 @@
                 if (dataSource) {
                     chart._hasDataSource = true;
                 }
-                chart._redraw();
-                chart._attachEvents();
+                preloadFonts(userOptions, function () {
+                    chart._redraw();
+                    chart._attachEvents();
+                });
                 if (dataSource) {
                     if (chart.options.autoBind) {
                         chart.dataSource.fetch();
@@ -9356,8 +9356,9 @@
                 return value;
             },
             _slot: function (value) {
-                var that = this, categoryAxis = this.categoryAxis;
-                return categoryAxis.getSlot(that._index(value));
+                var categoryAxis = this.categoryAxis;
+                var index = this._index(value);
+                return categoryAxis.getSlot(index, index, true);
             },
             move: function (from, to) {
                 var that = this, options = that.options, offset = options.offset, padding = options.padding, border = options.selection.border, leftMaskWidth, rightMaskWidth, box, distance;
@@ -10103,7 +10104,9 @@
                             options[property] = valueOrDefault(propValue(context), defaults[property]);
                         }
                     } else if (typeof propValue === OBJECT) {
-                        state.defaults = defaults[property];
+                        if (!dryRun) {
+                            state.defaults = defaults[property];
+                        }
                         state.depth++;
                         needsEval = evalOptions(propValue, context, state, dryRun) || needsEval;
                         state.depth--;
@@ -10284,7 +10287,7 @@
         function fetchFonts(options, fonts, state) {
             var MAX_DEPTH = 5;
             state = state || { depth: 0 };
-            if (!options || state.depth > MAX_DEPTH) {
+            if (!options || state.depth > MAX_DEPTH || !document.fonts) {
                 return;
             }
             Object.keys(options).forEach(function (key) {

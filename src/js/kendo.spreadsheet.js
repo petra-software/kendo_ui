@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.217 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.226 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -4999,6 +4999,8 @@
                         var formula = null;
                         if (x.type == 'exp') {
                             formula = kendo.spreadsheet.calc.compile(x);
+                        } else if (x.format) {
+                            this.format(x.format);
                         } else if (x.type == 'date') {
                             this.format(toExcelFormat(kendo.culture().calendar.patterns.d));
                         } else if (x.type == 'percent') {
@@ -6065,7 +6067,9 @@
                         var thmatrix = self.asMatrix(th);
                         var elmatrix = self.asMatrix(el);
                         callback(comatrix.map(function (val, row, col) {
-                            if (self.bool(val)) {
+                            if (val instanceof CalcError) {
+                                return val;
+                            } else if (self.bool(val)) {
                                 return thmatrix ? thmatrix.get(row, col) : th;
                             } else {
                                 return elmatrix ? elmatrix.get(row, col) : el;
@@ -6074,7 +6078,10 @@
                     });
                 });
             } else {
-                if (self.bool(co)) {
+                co = this.force(co);
+                if (co instanceof CalcError) {
+                    callback(co);
+                } else if (self.bool(co)) {
                     th(callback);
                 } else {
                     el(callback);
@@ -6333,7 +6340,8 @@
                                 var xargs = [];
                                 for (var i = 0; i < args.length; ++i) {
                                     if (x.arrays[i]) {
-                                        xargs[i] = args[i].get(row, col);
+                                        var m = args[i];
+                                        xargs[i] = m.get(row % m.height, col % m.width);
                                     } else {
                                         xargs[i] = args[i];
                                     }
@@ -6378,7 +6386,8 @@
                                 var xargs = [];
                                 for (var i = 0; i < args.length; ++i) {
                                     if (x.arrays[i]) {
-                                        xargs[i] = args[i].get(row, col);
+                                        var m = args[i];
+                                        xargs[i] = m.get(row % m.height, col % m.width);
                                     } else {
                                         xargs[i] = args[i];
                                     }
@@ -6574,8 +6583,8 @@
         var d = unpackDate(serial), t = unpackTime(serial);
         return new Date(d.year, d.month, d.date, t.hours, t.minutes, t.seconds, t.milliseconds);
     }
-    function packTime(hours, minutes, seconds, ms) {
-        return (hours + minutes / 60 + seconds / 3600 + ms / 3600000) / 24;
+    function packTime(hh, mm, ss, ms) {
+        return (hh + (mm + (ss + ms / 1000) / 60) / 60) / 24;
     }
     function dateToSerial(date) {
         var time = packTime(date.getHours(), date.getMinutes(), date.getSeconds(), date.getMilliseconds());
@@ -6665,11 +6674,25 @@
     var ARGS_ANYVALUE = [
         [
             '*a',
-            'anyvalue'
+            [
+                'or',
+                'anyvalue',
+                [
+                    'null',
+                    0
+                ]
+            ]
         ],
         [
             '*b',
-            'anyvalue'
+            [
+                'or',
+                'anyvalue',
+                [
+                    'null',
+                    0
+                ]
+            ]
         ]
     ];
     defineFunction('binary+', function (a, b) {
@@ -6805,7 +6828,14 @@
         return !this.bool(a);
     }).args([[
             '*a',
-            'anyvalue'
+            [
+                'or',
+                'anyvalue',
+                [
+                    'null',
+                    0
+                ]
+            ]
         ]]);
     defineFunction('isblank', function (val) {
         if (val instanceof CellRef) {
@@ -9719,6 +9749,10 @@
             return rx.exec(input.substr(pos));
         }
     }
+    var FORMAT_PARSERS = [];
+    var registerFormatParser = exports.registerFormatParser = function (p) {
+        FORMAT_PARSERS.push(p);
+    };
     exports.parse = function (sheet, row, col, input) {
         if (input instanceof Date) {
             return {
@@ -9764,6 +9798,12 @@
                     type: 'string',
                     value: '=' + input
                 };
+            }
+        }
+        for (var i = 0; i < FORMAT_PARSERS.length; ++i) {
+            var result = FORMAT_PARSERS[i](input);
+            if (result) {
+                return result;
             }
         }
         if (input.toLowerCase() == 'true') {
@@ -9839,6 +9879,85 @@
     exports.InputStream = InputStream;
     exports.ParseError = ParseError;
     exports.tokenize = tokenize;
+    registerFormatParser(function (input) {
+        var m;
+        if (m = /^(\d+):(\d+)$/.exec(input)) {
+            var hh = parseInt(m[1], 10);
+            var mm = parseInt(m[2], 10);
+            return {
+                type: 'date',
+                format: 'hh:mm',
+                value: runtime.packTime(hh, mm, 0, 0)
+            };
+        }
+        if (m = /^(\d+):(\d+)(\.\d+)$/.exec(input)) {
+            var mm = parseInt(m[1], 10);
+            var ss = parseInt(m[2], 10);
+            var ms = parseFloat(m[3]) * 1000;
+            return {
+                type: 'date',
+                format: 'mm:ss.00',
+                value: runtime.packTime(0, mm, ss, ms)
+            };
+        }
+        if (m = /^(\d+):(\d+):(\d+)$/.exec(input)) {
+            var hh = parseInt(m[1], 10);
+            var mm = parseInt(m[2], 10);
+            var ss = parseInt(m[3], 10);
+            return {
+                type: 'date',
+                format: 'hh:mm:ss',
+                value: runtime.packTime(hh, mm, ss, 0)
+            };
+        }
+        if (m = /^(\d+):(\d+):(\d+)(\.\d+)$/.exec(input)) {
+            var hh = parseInt(m[1], 10);
+            var mm = parseInt(m[2], 10);
+            var ss = parseInt(m[3], 10);
+            var ms = parseFloat(m[4]) * 1000;
+            return {
+                type: 'date',
+                format: 'hh:mm:ss.00',
+                value: runtime.packTime(hh, mm, ss, ms)
+            };
+        }
+    });
+    registerFormatParser(function (input) {
+        var m;
+        var culture = kendo.culture();
+        var comma = culture.numberFormat[','];
+        var dot = culture.numberFormat['.'];
+        var currency = culture.numberFormat.currency.symbol;
+        var rx = new RegExp('^(\\' + currency + '\\s*)?(\\d+(\\' + comma + '\\d{3})*(\\' + dot + '\\d+)?)(\\s*\\' + currency + ')?$');
+        if (m = rx.exec(input)) {
+            var value = m[2].replace(new RegExp('\\' + comma, 'g'), '').replace(dot, '.');
+            var format = '#';
+            if (m[1] || m[3] || m[5]) {
+                format += ',#';
+            }
+            if (m[4]) {
+                format += '.' + repeat('0', m[1] || m[5] ? 2 : m[4].length - 1);
+            }
+            if (m[1]) {
+                format = '"' + m[1] + '"' + format;
+            }
+            if (m[5]) {
+                format = format + '"' + m[5] + '"';
+            }
+            return {
+                type: 'number',
+                format: format,
+                value: parseFloat(value)
+            };
+        }
+    });
+    function repeat(str, len) {
+        var out = '';
+        while (len-- > 0) {
+            out += str;
+        }
+        return out;
+    }
 }, typeof define == 'function' && define.amd ? define : function (a1, a2, a3) {
     (a3 || a2)();
 }));
@@ -14144,7 +14263,7 @@
     var RX_CONDITION = /^\[(<=|>=|<>|<|>|=)(-?[0-9.]+)\]/;
     function parse(input) {
         input = calc.InputStream(input);
-        var sections = [], haveTimePart = false, haveConditional = false, decimalPart;
+        var sections = [], haveConditional = false, decimalPart;
         while (!input.eof()) {
             var sec = readSection();
             sections.push(sec);
@@ -14212,12 +14331,35 @@
             }
         }
         function readFormat() {
-            var format = [], tok;
-            LOOP:
-                while (!input.eof() && (tok = readNext())) {
-                    format.push(tok);
+            var format = [], tok, prev = null;
+            while (!input.eof() && (tok = readNext())) {
+                if (tok.type == 'date') {
+                    if (prev && /^(el)?time$/.test(prev.type) && prev.part == 'h' && tok.part == 'm' && tok.format < 3) {
+                        tok.type = 'time';
+                    }
+                } else if (/^(el)?time$/.test(tok.type) && tok.part == 's') {
+                    if (prev && prev.type == 'date' && prev.part == 'm' && prev.format < 3) {
+                        prev.type = 'time';
+                    }
                 }
+                if (!/^(?:str|space|fill)$/.test(tok.type)) {
+                    prev = tok;
+                }
+                format.push(tok);
+            }
             return format;
+        }
+        function maybeFraction(tok) {
+            if (tok.type != 'date' || tok.part == 'm' && tok.format < 3) {
+                var m = input.skip(/^\.(0+)/);
+                if (m) {
+                    tok.fraction = m[1].length;
+                    if (tok.type == 'date') {
+                        tok.type = 'time';
+                    }
+                }
+            }
+            return tok;
         }
         function readNext() {
             var ch, m;
@@ -14245,34 +14387,28 @@
                 };
             }
             if (m = input.skip(/^(d{1,4}|m{1,5}|yyyy|yy)/i)) {
-                var type = 'date', m = m[1].toLowerCase();
-                if (haveTimePart && (m == 'm' || m == 'mm')) {
-                    type = 'time';
-                }
-                haveTimePart = false;
-                return {
-                    type: type,
+                m = m[1].toLowerCase();
+                return maybeFraction({
+                    type: 'date',
                     part: m.charAt(0),
                     format: m.length
-                };
+                });
             }
             if (m = input.skip(/^(hh?|ss?)/i)) {
-                haveTimePart = true;
                 m = m[1].toLowerCase();
-                return {
+                return maybeFraction({
                     type: 'time',
                     part: m.charAt(0),
                     format: m.length
-                };
+                });
             }
             if (m = input.skip(/^\[(hh?|mm?|ss?)\]/i)) {
-                haveTimePart = true;
                 m = m[1].toLowerCase();
-                return {
+                return maybeFraction({
                     type: 'eltime',
                     part: m.charAt(0),
                     format: m.length
-                };
+                });
             }
             if (m = input.skip(/^(am\/pm|a\/p)/i)) {
                 m = m[1].split('/');
@@ -14354,6 +14490,12 @@
             out += sec.body.map(printToken).join('');
             return out;
         }
+        function maybeFraction(fmt, tok) {
+            if (tok.fraction) {
+                fmt += '.' + padLeft('', tok.fraction, '0');
+            }
+            return fmt;
+        }
         function printToken(tok) {
             if (tok.type == 'digit') {
                 if (tok.sep) {
@@ -14364,7 +14506,9 @@
             } else if (tok.type == 'exp') {
                 return tok.ch + tok.sign;
             } else if (tok.type == 'date' || tok.type == 'time') {
-                return padLeft('', tok.format, tok.part);
+                return maybeFraction(padLeft('', tok.format, tok.part), tok);
+            } else if (tok.type == 'eltime') {
+                return maybeFraction('[' + padLeft('', tok.format, tok.part) + ']', tok);
             } else if (tok.type == 'ampm') {
                 return tok.am + '/' + tok.pm;
             } else if (tok.type == 'str') {
@@ -14520,7 +14664,7 @@
             code += 'var intPart = runtime.formatInt(culture, value, ' + JSON.stringify(intFormat) + ', ' + declen + ', ' + separeThousands + '); ';
         }
         if (decFormat.length) {
-            code += 'var decPart = runtime.formatDec(culture, value, ' + JSON.stringify(decFormat) + ', ' + declen + '); ';
+            code += 'var decPart = runtime.formatDec(value, ' + JSON.stringify(decFormat) + ', ' + declen + '); ';
         }
         if (intFormat.length || decFormat.length) {
             code += 'type = \'number\'; ';
@@ -14565,9 +14709,9 @@
             } else if (tok.type == 'date') {
                 code += 'output += runtime.date(culture, date, ' + JSON.stringify(tok.part) + ', ' + tok.format + '); ';
             } else if (tok.type == 'time') {
-                code += 'output += runtime.time(culture, time, ' + JSON.stringify(tok.part) + ', ' + tok.format + ', ' + hasAmpm + '); ';
+                code += 'output += runtime.time(time, ' + JSON.stringify(tok.part) + ', ' + tok.format + ', ' + hasAmpm + ', ' + tok.fraction + '); ';
             } else if (tok.type == 'eltime') {
-                code += 'output += runtime.eltime(culture, value, ' + JSON.stringify(tok.part) + ', ' + tok.format + '); ';
+                code += 'output += runtime.eltime(value, ' + JSON.stringify(tok.part) + ', ' + tok.format + ', ' + tok.fraction + '); ';
             } else if (tok.type == 'ampm') {
                 code += 'output += time.hours < 12 ? ' + JSON.stringify(tok.am) + ' : ' + JSON.stringify(tok.pm) + '; ';
             }
@@ -14633,56 +14777,54 @@
             }
             return '##';
         },
-        time: function (culture, t, part, length, ampm) {
+        time: function (t, part, length, ampm, fraclen) {
+            var ret, fraction;
             switch (part) {
             case 'h':
-                var h = ampm ? t.hours % 12 || 12 : t.hours;
-                switch (length) {
-                case 1:
-                    return h;
-                case 2:
-                    return padLeft(h, 2, '0');
+                ret = padLeft(ampm ? t.hours % 12 || 12 : t.hours, length, '0');
+                if (fraclen) {
+                    fraction = (t.minutes + (t.seconds + t.milliseconds / 1000) / 60) / 60;
                 }
                 break;
             case 'm':
-                switch (length) {
-                case 1:
-                    return t.minutes;
-                case 2:
-                    return padLeft(t.minutes, 2, '0');
+                ret = padLeft(t.minutes, length, '0');
+                if (fraclen) {
+                    fraction = (t.seconds + t.milliseconds / 1000) / 60;
                 }
                 break;
             case 's':
-                switch (length) {
-                case 1:
-                    return t.seconds;
-                case 2:
-                    return padLeft(t.seconds, 2, '0');
+                ret = padLeft(t.seconds, length, '0');
+                if (fraclen) {
+                    fraction = t.milliseconds / 1000;
                 }
                 break;
             }
-            return '##';
+            if (fraction) {
+                ret += fraction.toFixed(fraclen).replace(/^0+/, '');
+            }
+            return ret;
         },
-        eltime: function (culture, value, part, length) {
+        eltime: function (value, part, length, fraclen) {
+            var ret, fraction;
             switch (part) {
             case 'h':
-                value = value * 24;
+                ret = value * 24;
                 break;
             case 'm':
-                value = value * 24 * 60;
+                ret = value * 24 * 60;
                 break;
             case 's':
-                value = value * 24 * 60 * 60;
+                ret = value * 24 * 60 * 60;
                 break;
             }
-            value |= 0;
-            switch (length) {
-            case 1:
-                return value;
-            case 2:
-                return padLeft(value, 2, '0');
+            if (fraclen) {
+                fraction = ret - (ret | 0);
             }
-            return '##';
+            ret = padLeft(ret | 0, length, '0');
+            if (fraction) {
+                ret += fraction.toFixed(fraclen).replace(/^0+/, '');
+            }
+            return ret;
         },
         fill: function (ch) {
             return ch;
@@ -14730,7 +14872,7 @@
             }
             return result;
         },
-        formatDec: function (culture, value, parts, declen) {
+        formatDec: function (value, parts, declen) {
             value = value.toFixed(declen);
             var pos = value.indexOf('.');
             if (pos >= 0) {
@@ -23337,14 +23479,19 @@
             init: function (options, toolbar) {
                 this.toolbar = toolbar;
                 this.element = $('<div class=\'k-button k-upload-button k-button-icon\'>' + '<span class=\'k-icon k-font-icon k-i-folder-open\' />' + '</div>').data('instance', this);
-                $('<input type=\'file\' autocomplete=\'off\' accept=\'.xlsx\'/>').attr('title', options.attributes.title).bind('change', this._change.bind(this)).appendTo($('<form>').appendTo(this.element));
+                this._title = options.attributes.title;
+                this._reset();
+            },
+            _reset: function () {
+                this.element.remove('input');
+                $('<input type=\'file\' autocomplete=\'off\' accept=\'.xlsx\'/>').attr('title', this._title).one('change', this._change.bind(this)).appendTo(this.element);
             },
             _change: function (e) {
                 this.toolbar.action({
                     command: 'OpenCommand',
                     options: { file: e.target.files[0] }
                 });
-                e.target.parentNode.reset();
+                this._reset();
             }
         });
         kendo.toolbar.registerComponent('open', Open);
@@ -26559,6 +26706,10 @@
                 if (this._autoRefresh) {
                     this.refresh(e);
                 }
+                if (e.recalc && e.ref) {
+                    var range = new kendo.spreadsheet.Range(e.ref, this.activeSheet());
+                    this.trigger('change', { range: range });
+                }
             },
             activeSheet: function (sheet) {
                 return this._workbook.activeSheet(sheet);
@@ -26725,6 +26876,7 @@
                 'pdfExport',
                 'excelExport',
                 'excelImport',
+                'change',
                 'render'
             ]
         });

@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.217 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.226 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -10600,6 +10600,10 @@ div.k-navigator .k-navigator-w {
   font-weight: bold;
   font-style: italic;
   src: url("fonts/DejaVu/DejaVuSansMono-BoldOblique.ttf?v=1.1") format("truetype");
+}
+.kendo-pdf-hide-pseudo-elements:before,
+.kendo-pdf-hide-pseudo-elements:after {
+  display: none !important;
 }
 .k-checkbox:indeterminate + .k-checkbox-label:after {
   margin-left: 0;

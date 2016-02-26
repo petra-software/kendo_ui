@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.217 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.226 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -989,9 +989,6 @@ div.k-filebrowser-dropzone em {
 }
 .k-pivot-rowheaders .k-grid tr:hover {
   background: none;
-}
-.k-grid td.k-state-selected.k-state-focused {
-  background-color: #006edb;
 }
 .k-grid tr.k-state-selected:hover,
 .k-grid td.k-state-selected:hover {

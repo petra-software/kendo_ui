@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.217 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.226 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -10566,6 +10566,10 @@ div.k-navigator .k-navigator-w {
   font-style: italic;
   src: url("fonts/DejaVu/DejaVuSansMono-BoldOblique.ttf?v=1.1") format("truetype");
 }
+.kendo-pdf-hide-pseudo-elements:before,
+.kendo-pdf-hide-pseudo-elements:after {
+  display: none !important;
+}
 .k-widget.k-tabstrip {
   background-color: transparent;
   background-image: none;
@@ -10575,6 +10579,9 @@ div.k-navigator .k-navigator-w {
 }
 .k-tabstrip .k-tabstrip-items {
   padding: 0;
+}
+.k-tabstrip-items .k-link {
+  padding: .65em .92em;
 }
 .k-tabstrip > .k-content,
 .k-panelbar .k-tabstrip > .k-content {
@@ -10588,7 +10595,7 @@ div.k-navigator .k-navigator-w {
   margin-top: 10px;
 }
 .k-grid tr td {
-  border-width: 1px 0 0 1px;
+  border-width: 0 0 1px 1px;
   border-style: solid;
 }
 .k-slider-horizontal .k-slider-track,
@@ -10651,4 +10658,16 @@ div.k-navigator .k-navigator-w {
 }
 .k-spreadsheet-window .k-page-landscape {
   top: 27%;
+}
+.k-spreadsheet-sheets-bar .k-spreadsheet-sheets-remove {
+  margin: 0;
+}
+.k-button.k-spreadsheet-sheets-bar-add {
+  padding-top: 2px;
+  padding-bottom: 2px;
+  top: 2px;
+  bottom: 4px;
+}
+.k-spreadsheet .k-spreadsheet-sheets-bar {
+  padding-bottom: 4px;
 }

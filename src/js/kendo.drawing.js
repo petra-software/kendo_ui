@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.217 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.226 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -5914,6 +5914,9 @@
                         return function (data) {
                             var el = template(data);
                             if (el) {
+                                if (typeof el == 'string') {
+                                    el = el.replace(/^\s+|\s+$/g, '');
+                                }
                                 return $(el)[0];
                             }
                         };
@@ -6970,15 +6973,15 @@
                     psel.style.cssText = getCssText(style);
                     psel.textContent = evalPseudoElementContent(element, style.content);
                     element.insertBefore(psel, place);
-                    if (kind == ':before' && !/absolute|fixed/.test(getPropertyValue(psel.style, 'position'))) {
-                        psel.style.marginLeft = parseFloat(getPropertyValue(psel.style, 'margin-left')) - psel.offsetWidth + 'px';
-                    }
                     fake.push(psel);
                 }
             }
             pseudo(':before', element.firstChild);
             pseudo(':after', null);
+            var saveClass = element.className;
+            element.className += ' kendo-pdf-hide-pseudo-elements';
             _renderElement(element, group);
+            element.className = saveClass;
             fake.forEach(function (el) {
                 element.removeChild(el);
             });

@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.217 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.226 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -90,7 +90,7 @@
                     return a.index - b.index;
                 });
                 var filter = this.options.filter;
-                if (filter) {
+                if (filter && typeof filter.from === 'number' && typeof filter.to === 'number') {
                     filter = {
                         from: ref(filterRowIndex(this.options), filter.from),
                         to: ref(filterRowIndex(this.options), filter.to)

@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.217 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.226 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -1414,6 +1414,7 @@
                 plotArea.polarAxis = categoryAxis;
                 plotArea.categoryAxis = categoryAxis;
                 plotArea.appendAxis(categoryAxis);
+                plotArea.aggregateCategories();
             },
             valueAxisOptions: function (defaults) {
                 var plotArea = this;
@@ -1432,6 +1433,13 @@
                 return deepExtend(defaults, plotArea.options.valueAxis);
             },
             appendChart: CategoricalPlotArea.fn.appendChart,
+            aggregateSeries: CategoricalPlotArea.fn.aggregateSeries,
+            aggregateCategories: function () {
+                CategoricalPlotArea.fn.aggregateCategories.call(this, this.panes);
+            },
+            filterSeries: function (currentSeries) {
+                return currentSeries;
+            },
             createCharts: function () {
                 var plotArea = this, series = plotArea.filterVisibleSeries(plotArea.series), pane = plotArea.panes[0];
                 plotArea.createAreaChart(filterSeriesByType(series, [RADAR_AREA]), pane);

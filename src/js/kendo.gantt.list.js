@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.217 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.226 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -634,12 +634,6 @@
                     $('<span ' + kendo.attr('for') + '="' + column.field + '" class="k-invalid-msg"/>').hide().appendTo(cell);
                     cell.find('[name=' + column.field + ']').attr(kendo.attr('dateCompare-msg'), validation.message);
                 }
-                if (this.trigger('edit', {
-                        model: model,
-                        cell: cell
-                    })) {
-                    this._closeCell(true);
-                }
                 this.editable.bind('validate', function (e) {
                     var focusable = this.element.find(':kendoFocusable:first').focus();
                     if (oldIE) {
@@ -647,6 +641,12 @@
                     }
                     e.preventDefault();
                 });
+                if (this.trigger('edit', {
+                        model: model,
+                        cell: cell
+                    })) {
+                    this._closeCell(true);
+                }
             },
             _closeCell: function (cancelUpdate) {
                 var listStyles = GanttList.styles;
