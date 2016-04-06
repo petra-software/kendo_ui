@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.322 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.406 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -10470,8 +10470,6 @@
                 that.canvas.append(that.adornerLayer);
                 that._createHandlers();
                 that._initialize();
-                that._fetchFreshData();
-                that._createGlobalToolBar();
                 that._resizingAdorner = new ResizingAdorner(that, { editable: that.options.editable });
                 that._connectorsAdorner = new ConnectorsAdorner(that);
                 that._adorn(that._resizingAdorner, true);
@@ -10479,6 +10477,8 @@
                 that.selector = new Selector(that);
                 that._clipboard = [];
                 that.pauseMouseHandlers = false;
+                that._fetchFreshData();
+                that._createGlobalToolBar();
                 that._createOptionElements();
                 that.zoom(that.options.zoom);
                 that.canvas.draw();

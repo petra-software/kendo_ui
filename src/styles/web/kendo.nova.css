@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.322 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.406 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -521,6 +521,10 @@ input.k-textbox:active {
 }
 .k-popup .k-list .k-item {
   color: #00acc1;
+}
+.k-group-header + div > .k-list > .k-item.k-first {
+  -webkit-box-shadow: 0 -1px 0px 0px #ff4350;
+          box-shadow: 0 -1px 0px 0px #ff4350;
 }
 .k-popup .k-list .k-item > .k-group {
   background: #ff4350;
@@ -1677,7 +1681,7 @@ html .km-pane-wrapper .km-widget,
   .k-ff .k-grid .k-pager-numbers,
   .k-ie11 .k-grid .k-pager-numbers,
   .k-safari .k-grid .k-pager-numbers {
-    position: absolute;
+    position: relative;
     left: 5.6em;
     display: -moz-inline-flex;
     display: -webkit-inline-flex;

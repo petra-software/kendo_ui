@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.322 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.406 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -2142,9 +2142,17 @@
                 this._sync();
             },
             syncWith: function (formulaInput) {
+                var self = this;
                 var eventName = 'input' + ns;
-                this._editorToSync = formulaInput;
-                this.element.off(eventName).on(eventName, this._sync.bind(this));
+                var handler = self._sync.bind(self), iehandler;
+                if (kendo.support.browser.msie) {
+                    eventName = 'keydown' + ns;
+                    iehandler = function () {
+                        setTimeout(handler);
+                    };
+                }
+                self._editorToSync = formulaInput;
+                self.element.off(eventName).on(eventName, iehandler || handler);
             },
             scale: function () {
                 var element = this.element;
@@ -9027,8 +9035,8 @@
         }
     }
     function makePrinter(exp) {
-        return makeClosure('function(row, col){return(' + print(exp.ast, 0) + ')}');
-        function print(node, prec) {
+        return makeClosure('function(row, col){return(' + print(exp.ast, exp, 0) + ')}');
+        function print(node, parent, prec) {
             switch (node.type) {
             case 'num':
             case 'bool':
@@ -9038,40 +9046,41 @@
             case 'ref':
                 return 'this.refs[' + node.index + '].print(row, col)';
             case 'prefix':
-                return withParens(node.op, prec, function () {
-                    return JSON.stringify(node.op) + ' + ' + print(node.exp, OPERATORS[node.op]);
+                return withParens(function () {
+                    return JSON.stringify(node.op) + ' + ' + print(node.exp, node, OPERATORS[node.op]);
                 });
             case 'postfix':
-                return withParens(node.op, prec, function () {
-                    return print(node.exp, OPERATORS[node.op]) + ' + ' + JSON.stringify(node.op);
+                return withParens(function () {
+                    return print(node.exp, node, OPERATORS[node.op]) + ' + ' + JSON.stringify(node.op);
                 });
             case 'binary':
-                return withParens(node.op, prec, function () {
-                    var left = parenthesize(print(node.left, OPERATORS[node.op]), node.left instanceof NameRef && node.op == ':');
-                    var right = parenthesize(print(node.right, OPERATORS[node.op]), node.right instanceof NameRef && node.op == ':');
+                return withParens(function () {
+                    var left = parenthesize(print(node.left, node, OPERATORS[node.op]), node.left instanceof NameRef && node.op == ':');
+                    var right = parenthesize(print(node.right, node, OPERATORS[node.op]), node.right instanceof NameRef && node.op == ':');
                     return left + ' + ' + JSON.stringify(node.op) + ' + ' + right;
                 });
             case 'func':
                 return JSON.stringify(node.func + '(') + ' + ' + (node.args.length > 0 ? node.args.map(function (arg) {
-                    return print(arg, 0);
+                    return print(arg, node, 0);
                 }).join(' + \', \' + ') : '\'\'') + ' + \')\'';
             case 'matrix':
                 return '\'{ \' + ' + node.value.map(function (el) {
                     return el.map(function (el) {
-                        return print(el, 0);
+                        return print(el, node, 0);
                     }).join(' + \', \' + ');
                 }).join(' + \'; \' + ') + '+ \' }\'';
             case 'null':
                 return '\'\'';
             }
             throw new Error('Cannot make printer for node ' + node.type);
+            function withParens(f) {
+                var op = node.op;
+                var needParens = OPERATORS[op] < prec || !prec && op == ',' || parent.type == 'binary' && prec == OPERATORS[op] && node === parent.right;
+                return parenthesize(f(), needParens);
+            }
         }
         function parenthesize(code, cond) {
             return cond ? '\'(\' + ' + code + ' + \')\'' : code;
-        }
-        function withParens(op, prec, f) {
-            var needParens = OPERATORS[op] < prec || !prec && op == ',';
-            return parenthesize(f(), needParens);
         }
     }
     function toCPS(ast, k) {
@@ -12007,6 +12016,10 @@
                 this._workbook.activeSheet()._setFormulaSelections(this.editor.highlightedRefs());
             },
             onEditorBarFocus: function () {
+                var disabled = this._workbook.activeSheet().selection().enable() === false;
+                if (disabled) {
+                    return;
+                }
                 this.editor.activate({
                     range: this._workbook.activeSheet()._viewActiveCell(),
                     rect: this.view.activeCellRectangle(),
@@ -18587,7 +18600,7 @@
         function makeComparator(cmp, x) {
             if (typeof x == 'string') {
                 var num = parseFloat(x);
-                if (!isNaN(num)) {
+                if (!isNaN(num) && num == x) {
                     x = num;
                 }
             }

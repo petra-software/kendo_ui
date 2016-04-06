@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.322 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.406 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -33,7 +33,7 @@
     };
     (function ($, window, undefined) {
         var kendo = window.kendo = window.kendo || { cultures: {} }, extend = $.extend, each = $.each, isArray = $.isArray, proxy = $.proxy, noop = $.noop, math = Math, Template, JSON = window.JSON || {}, support = {}, percentRegExp = /%/, formatRegExp = /\{(\d+)(:[^\}]+)?\}/g, boxShadowRegExp = /(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+)?/i, numberRegExp = /^(\+|-?)\d+(\.?)\d*$/, FUNCTION = 'function', STRING = 'string', NUMBER = 'number', OBJECT = 'object', NULL = 'null', BOOLEAN = 'boolean', UNDEFINED = 'undefined', getterCache = {}, setterCache = {}, slice = [].slice;
-        kendo.version = '2016.1.322'.replace(/^\s+|\s+$/g, '');
+        kendo.version = '2016.1.406'.replace(/^\s+|\s+$/g, '');
         function Class() {
         }
         Class.extend = function (proto) {
@@ -30657,16 +30657,16 @@
             tooltipAnchor: function (tooltipWidth, tooltipHeight) {
                 var bar = this, options = bar.options, box = bar.box, vertical = options.vertical, aboveAxis = bar.aboveAxis, clipBox = bar.owner.pane.clipBox() || box, x, y;
                 if (vertical) {
-                    x = box.x2 + TOOLTIP_OFFSET;
+                    x = math.min(box.x2, clipBox.x2) + TOOLTIP_OFFSET;
                     y = aboveAxis ? math.max(box.y1, clipBox.y1) : math.min(box.y2, clipBox.y2) - tooltipHeight;
                 } else {
                     var x1 = math.max(box.x1, clipBox.x1), x2 = math.min(box.x2, clipBox.x2);
                     if (options.isStacked) {
                         x = aboveAxis ? x2 - tooltipWidth : x1;
-                        y = box.y1 - tooltipHeight - TOOLTIP_OFFSET;
+                        y = math.max(box.y1, clipBox.y1) - tooltipHeight - TOOLTIP_OFFSET;
                     } else {
                         x = aboveAxis ? x2 + TOOLTIP_OFFSET : x1 - tooltipWidth - TOOLTIP_OFFSET;
-                        y = box.y1;
+                        y = math.max(box.y1, clipBox.y1);
                     }
                 }
                 return new Point2D(x, y);
@@ -31651,23 +31651,7 @@
                     this.animation = draw.Animation.create(this.bodyVisual, this.options.animation);
                 }
             },
-            tooltipAnchor: function (tooltipWidth, tooltipHeight) {
-                var bar = this, options = bar.options, box = bar.box, vertical = options.vertical, aboveAxis = bar.aboveAxis, clipBox = bar.owner.pane.clipBox() || box, x, y;
-                if (vertical) {
-                    x = box.x2 + TOOLTIP_OFFSET;
-                    y = aboveAxis ? math.max(box.y1, clipBox.y1) : math.min(box.y2, clipBox.y2) - tooltipHeight;
-                } else {
-                    var x1 = math.max(box.x1, clipBox.x1), x2 = math.min(box.x2, clipBox.x2);
-                    if (options.isStacked) {
-                        x = aboveAxis ? x2 - tooltipWidth : x1;
-                        y = box.y1 - tooltipHeight - TOOLTIP_OFFSET;
-                    } else {
-                        x = aboveAxis ? x2 + TOOLTIP_OFFSET : x1 - tooltipWidth - TOOLTIP_OFFSET;
-                        y = box.y1;
-                    }
-                }
-                return new Point2D(x, y);
-            },
+            tooltipAnchor: Bar.fn.tooltipAnchor,
             createHighlight: function (style) {
                 return draw.Path.fromRect(this.box.toRect(), style);
             },
@@ -37373,7 +37357,7 @@
                 index = date.getMonth() - startDate.getMonth() + (date.getFullYear() - startDate.getFullYear()) * 12 + timeIndex(date, new Date(date.getFullYear(), date.getMonth()), DAYS) / new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
             } else if (baseUnit == YEARS) {
                 index = date.getFullYear() - startDate.getFullYear() + dateIndex(date, new Date(date.getFullYear(), 0), MONTHS, 1) / 12;
-            } else if (baseUnit == DAYS) {
+            } else if (baseUnit == DAYS || baseUnit == WEEKS) {
                 index = timeIndex(date, startDate, baseUnit);
             } else {
                 index = dateDiff(date, start) / TIME_PER_UNIT[baseUnit];
@@ -48166,6 +48150,7 @@
                 for (var i = 0; i < items.length; i++) {
                     if (items[i].id === id) {
                         tile = items[i];
+                        break;
                     }
                 }
                 if (tile) {
@@ -48182,7 +48167,7 @@
                 var index = -1;
                 for (var i = 0; i < items.length; i++) {
                     var dist = items[i].options.point.distanceTo(center);
-                    if (dist > maxDist) {
+                    if (dist > maxDist && !items[i].visible) {
                         index = i;
                         maxDist = dist;
                     }
@@ -58370,15 +58355,19 @@
             hide: function (candidate) {
                 var item = this._getItem(candidate);
                 if (item.toolbar) {
-                    item.toolbar.hide();
                     if (item.toolbar.options.type === 'button' && item.toolbar.options.isChild) {
+                        item.toolbar.hide();
                         item.toolbar.getParentGroup().refresh();
+                    } else if (!item.toolbar.options.hidden) {
+                        item.toolbar.hide();
                     }
                 }
                 if (item.overflow) {
-                    item.overflow.hide();
                     if (item.overflow.options.type === 'button' && item.overflow.options.isChild) {
+                        item.overflow.hide();
                         item.overflow.getParentGroup().refresh();
+                    } else if (!item.toolbar.options.hidden) {
+                        item.overflow.hide();
                     }
                 }
                 this.resize(true);
@@ -58386,15 +58375,19 @@
             show: function (candidate) {
                 var item = this._getItem(candidate);
                 if (item.toolbar) {
-                    item.toolbar.show();
                     if (item.toolbar.options.type === 'button' && item.toolbar.options.isChild) {
+                        item.toolbar.show();
                         item.toolbar.getParentGroup().refresh();
+                    } else if (item.toolbar.options.hidden) {
+                        item.toolbar.show();
                     }
                 }
                 if (item.overflow) {
-                    item.overflow.show();
                     if (item.overflow.options.type === 'button' && item.overflow.options.isChild) {
+                        item.toolbar.show();
                         item.overflow.getParentGroup().refresh();
+                    } else if (item.overflow.options.hidden) {
+                        item.overflow.show();
                     }
                 }
                 this.resize(true);
@@ -58604,7 +58597,7 @@
                             firstHasFocus = true;
                         }
                     }
-                    if (lastHasFocus && this.overflowAnchor.css('visibility') !== 'hidden') {
+                    if (lastHasFocus && this.overflowAnchor && this.overflowAnchor.css('visibility') !== 'hidden') {
                         e.preventDefault();
                         this.overflowAnchor.focus();
                     }
@@ -59805,6 +59798,10 @@
             },
             setOptions: function (options) {
                 var old = this.options;
+                var disableDates = options.disableDates;
+                if (disableDates) {
+                    options.disableDates = calendar.disabled(disableDates);
+                }
                 this.options = extend(old, options, {
                     change: old.change,
                     close: old.close,
@@ -66169,8 +66166,6 @@
                 that.canvas.append(that.adornerLayer);
                 that._createHandlers();
                 that._initialize();
-                that._fetchFreshData();
-                that._createGlobalToolBar();
                 that._resizingAdorner = new ResizingAdorner(that, { editable: that.options.editable });
                 that._connectorsAdorner = new ConnectorsAdorner(that);
                 that._adorn(that._resizingAdorner, true);
@@ -66178,6 +66173,8 @@
                 that.selector = new Selector(that);
                 that._clipboard = [];
                 that.pauseMouseHandlers = false;
+                that._fetchFreshData();
+                that._createGlobalToolBar();
                 that._createOptionElements();
                 that.zoom(that.options.zoom);
                 that.canvas.draw();
@@ -71256,6 +71253,7 @@
                 surface: null,
                 global: false,
                 fastTap: false,
+                filter: null,
                 multiTouch: false,
                 enableSwipe: false,
                 minXDelta: 30,

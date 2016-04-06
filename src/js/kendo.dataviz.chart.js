@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.322 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.406 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -3298,16 +3298,16 @@
             tooltipAnchor: function (tooltipWidth, tooltipHeight) {
                 var bar = this, options = bar.options, box = bar.box, vertical = options.vertical, aboveAxis = bar.aboveAxis, clipBox = bar.owner.pane.clipBox() || box, x, y;
                 if (vertical) {
-                    x = box.x2 + TOOLTIP_OFFSET;
+                    x = math.min(box.x2, clipBox.x2) + TOOLTIP_OFFSET;
                     y = aboveAxis ? math.max(box.y1, clipBox.y1) : math.min(box.y2, clipBox.y2) - tooltipHeight;
                 } else {
                     var x1 = math.max(box.x1, clipBox.x1), x2 = math.min(box.x2, clipBox.x2);
                     if (options.isStacked) {
                         x = aboveAxis ? x2 - tooltipWidth : x1;
-                        y = box.y1 - tooltipHeight - TOOLTIP_OFFSET;
+                        y = math.max(box.y1, clipBox.y1) - tooltipHeight - TOOLTIP_OFFSET;
                     } else {
                         x = aboveAxis ? x2 + TOOLTIP_OFFSET : x1 - tooltipWidth - TOOLTIP_OFFSET;
-                        y = box.y1;
+                        y = math.max(box.y1, clipBox.y1);
                     }
                 }
                 return new Point2D(x, y);
@@ -4292,23 +4292,7 @@
                     this.animation = draw.Animation.create(this.bodyVisual, this.options.animation);
                 }
             },
-            tooltipAnchor: function (tooltipWidth, tooltipHeight) {
-                var bar = this, options = bar.options, box = bar.box, vertical = options.vertical, aboveAxis = bar.aboveAxis, clipBox = bar.owner.pane.clipBox() || box, x, y;
-                if (vertical) {
-                    x = box.x2 + TOOLTIP_OFFSET;
-                    y = aboveAxis ? math.max(box.y1, clipBox.y1) : math.min(box.y2, clipBox.y2) - tooltipHeight;
-                } else {
-                    var x1 = math.max(box.x1, clipBox.x1), x2 = math.min(box.x2, clipBox.x2);
-                    if (options.isStacked) {
-                        x = aboveAxis ? x2 - tooltipWidth : x1;
-                        y = box.y1 - tooltipHeight - TOOLTIP_OFFSET;
-                    } else {
-                        x = aboveAxis ? x2 + TOOLTIP_OFFSET : x1 - tooltipWidth - TOOLTIP_OFFSET;
-                        y = box.y1;
-                    }
-                }
-                return new Point2D(x, y);
-            },
+            tooltipAnchor: Bar.fn.tooltipAnchor,
             createHighlight: function (style) {
                 return draw.Path.fromRect(this.box.toRect(), style);
             },
@@ -10014,7 +9998,7 @@
                 index = date.getMonth() - startDate.getMonth() + (date.getFullYear() - startDate.getFullYear()) * 12 + timeIndex(date, new Date(date.getFullYear(), date.getMonth()), DAYS) / new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
             } else if (baseUnit == YEARS) {
                 index = date.getFullYear() - startDate.getFullYear() + dateIndex(date, new Date(date.getFullYear(), 0), MONTHS, 1) / 12;
-            } else if (baseUnit == DAYS) {
+            } else if (baseUnit == DAYS || baseUnit == WEEKS) {
                 index = timeIndex(date, startDate, baseUnit);
             } else {
                 index = dateDiff(date, start) / TIME_PER_UNIT[baseUnit];
