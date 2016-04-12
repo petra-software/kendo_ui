@@ -11,11 +11,11 @@ using System.Security;
 #endif
 
 #if NET40
-[assembly: AssemblyVersion("2016.1.406.40")]
-[assembly: AssemblyFileVersion("2016.1.406.40")]
+[assembly: AssemblyVersion("2016.1.412.40")]
+[assembly: AssemblyFileVersion("2016.1.412.40")]
 #elif NET45
-[assembly: AssemblyVersion("2016.1.406.45")]
-[assembly: AssemblyFileVersion("2016.1.406.45")]
+[assembly: AssemblyVersion("2016.1.412.45")]
+[assembly: AssemblyFileVersion("2016.1.412.45")]
 #endif
 
 [assembly: AssemblyDescription("")]
