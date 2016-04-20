@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.412 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -538,7 +538,9 @@
                 if (this.model && this.model.fields) {
                     field = this.model.fields[this.field];
                     if (field) {
-                        if (field.parse) {
+                        if (field.type == 'number') {
+                            this._parse = parseFloat;
+                        } else if (field.parse) {
                             this._parse = proxy(field.parse, field);
                         }
                         this.type = field.type || 'string';

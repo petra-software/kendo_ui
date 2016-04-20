@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.412 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -2076,7 +2076,7 @@
                     if (th.hasClass('k-group-cell') || th.hasClass('k-hierarchy-cell')) {
                         return;
                     }
-                    var clientX = e.clientX, winScrollLeft = $(window).scrollLeft(), position = th.offset().left + (!isRtl ? this.offsetWidth : 0);
+                    var clientX = e.clientX / parseFloat(document.documentElement.style.zoom || document.body.style.zoom || 1), winScrollLeft = $(window).scrollLeft(), position = th.offset().left + (!isRtl ? this.offsetWidth : 0);
                     if (clientX + winScrollLeft > position - indicatorWidth && clientX + winScrollLeft < position + indicatorWidth) {
                         that._createResizeHandle(th.closest('div'), th);
                     } else if (that.resizeHandle) {

@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.412 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -33,7 +33,7 @@
     };
     (function ($, window, undefined) {
         var kendo = window.kendo = window.kendo || { cultures: {} }, extend = $.extend, each = $.each, isArray = $.isArray, proxy = $.proxy, noop = $.noop, math = Math, Template, JSON = window.JSON || {}, support = {}, percentRegExp = /%/, formatRegExp = /\{(\d+)(:[^\}]+)?\}/g, boxShadowRegExp = /(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+)?/i, numberRegExp = /^(\+|-?)\d+(\.?)\d*$/, FUNCTION = 'function', STRING = 'string', NUMBER = 'number', OBJECT = 'object', NULL = 'null', BOOLEAN = 'boolean', UNDEFINED = 'undefined', getterCache = {}, setterCache = {}, slice = [].slice;
-        kendo.version = '2016.1.412'.replace(/^\s+|\s+$/g, '');
+        kendo.version = '2016.1.420'.replace(/^\s+|\s+$/g, '');
         function Class() {
         }
         Class.extend = function (proto) {
@@ -62367,6 +62367,12 @@
                 var filter = this.options.filter;
                 return filter && filter !== 'none';
             },
+            _clearFilter: function () {
+                if (!this.options.virtual) {
+                    this.listView.bound(false);
+                }
+                this._filterSource();
+            },
             _filterSource: function (filter, force) {
                 var that = this;
                 var options = that.options;
@@ -64119,8 +64125,7 @@
                     return;
                 }
                 if (that._isFilterEnabled() && listView.bound() && listView.isFiltered()) {
-                    listView.bound(false);
-                    that._filterSource();
+                    that._clearFilter();
                 } else {
                     that._fetchData();
                 }
