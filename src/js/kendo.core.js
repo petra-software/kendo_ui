@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -33,7 +33,7 @@
     };
     (function ($, window, undefined) {
         var kendo = window.kendo = window.kendo || { cultures: {} }, extend = $.extend, each = $.each, isArray = $.isArray, proxy = $.proxy, noop = $.noop, math = Math, Template, JSON = window.JSON || {}, support = {}, percentRegExp = /%/, formatRegExp = /\{(\d+)(:[^\}]+)?\}/g, boxShadowRegExp = /(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+)?/i, numberRegExp = /^(\+|-?)\d+(\.?)\d*$/, FUNCTION = 'function', STRING = 'string', NUMBER = 'number', OBJECT = 'object', NULL = 'null', BOOLEAN = 'boolean', UNDEFINED = 'undefined', getterCache = {}, setterCache = {}, slice = [].slice;
-        kendo.version = '2016.1.420'.replace(/^\s+|\s+$/g, '');
+        kendo.version = '2016.3.914'.replace(/^\s+|\s+$/g, '');
         function Class() {
         }
         Class.extend = function (proto) {
@@ -746,7 +746,7 @@
                         }
                     }
                     if (hasGroup) {
-                        number = groupInteger(number, start, end, numberFormat);
+                        number = groupInteger(number, start + (negative ? 1 : 0), Math.max(end, integerLength + start), numberFormat);
                     }
                     if (end >= start) {
                         number += format.substring(end + 1);
@@ -805,7 +805,7 @@
                 value = Math.round(+(value[0] + 'e' + (value[1] ? +value[1] + precision : precision)));
                 value = value.toString().split('e');
                 value = +(value[0] + 'e' + (value[1] ? +value[1] - precision : -precision));
-                return value.toFixed(precision);
+                return value.toFixed(Math.min(precision, 20));
             };
             var toString = function (value, fmt, culture) {
                 if (fmt) {
@@ -841,16 +841,46 @@
             kendo.toString = toString;
         }());
         (function () {
-            var nonBreakingSpaceRegExp = /\u00A0/g, exponentRegExp = /[eE][\-+]?[0-9]+/, shortTimeZoneRegExp = /[+|\-]\d{1,2}/, longTimeZoneRegExp = /[+|\-]\d{1,2}:?\d{2}/, dateRegExp = /^\/Date\((.*?)\)\/$/, offsetRegExp = /[+-]\d*/, formatsSequence = [
-                    'G',
-                    'g',
-                    'd',
-                    'F',
-                    'D',
-                    'y',
-                    'm',
-                    'T',
-                    't'
+            var nonBreakingSpaceRegExp = /\u00A0/g, exponentRegExp = /[eE][\-+]?[0-9]+/, shortTimeZoneRegExp = /[+|\-]\d{1,2}/, longTimeZoneRegExp = /[+|\-]\d{1,2}:?\d{2}/, dateRegExp = /^\/Date\((.*?)\)\/$/, offsetRegExp = /[+-]\d*/, FORMATS_SEQUENCE = [
+                    [],
+                    [
+                        'G',
+                        'g',
+                        'F'
+                    ],
+                    [
+                        'D',
+                        'd',
+                        'y',
+                        'm',
+                        'T',
+                        't'
+                    ]
+                ], STANDARD_FORMATS = [
+                    [
+                        'yyyy-MM-ddTHH:mm:ss.fffffffzzz',
+                        'yyyy-MM-ddTHH:mm:ss.fffffff',
+                        'yyyy-MM-ddTHH:mm:ss.fffzzz',
+                        'yyyy-MM-ddTHH:mm:ss.fff',
+                        'ddd MMM dd yyyy HH:mm:ss',
+                        'yyyy-MM-ddTHH:mm:sszzz',
+                        'yyyy-MM-ddTHH:mmzzz',
+                        'yyyy-MM-ddTHH:mmzz',
+                        'yyyy-MM-ddTHH:mm:ss',
+                        'yyyy-MM-dd HH:mm:ss',
+                        'yyyy/MM/dd HH:mm:ss'
+                    ],
+                    [
+                        'yyyy-MM-ddTHH:mm',
+                        'yyyy-MM-dd HH:mm',
+                        'yyyy/MM/dd HH:mm'
+                    ],
+                    [
+                        'yyyy/MM/dd',
+                        'yyyy-MM-dd',
+                        'HH:mm:ss',
+                        'HH:mm'
+                    ]
                 ], numberRegExp = {
                     2: /^\d{1,2}/,
                     3: /^\d{1,3}/,
@@ -1118,13 +1148,27 @@
                 offset = parseInt(offset.substr(0, 2), 10) * 60 + parseInt(offset.substring(2), 10);
                 return sign * offset;
             }
+            function getDefaultFormats(culture) {
+                var length = math.max(FORMATS_SEQUENCE.length, STANDARD_FORMATS.length);
+                var patterns = culture.calendar.patterns;
+                var cultureFormats, formatIdx, idx;
+                var formats = [];
+                for (idx = 0; idx < length; idx++) {
+                    cultureFormats = FORMATS_SEQUENCE[idx];
+                    for (formatIdx = 0; formatIdx < cultureFormats.length; formatIdx++) {
+                        formats.push(patterns[cultureFormats[formatIdx]]);
+                    }
+                    formats = formats.concat(STANDARD_FORMATS[idx]);
+                }
+                return formats;
+            }
             kendo.parseDate = function (value, formats, culture) {
                 if (objectToString.call(value) === '[object Date]') {
                     return value;
                 }
                 var idx = 0;
                 var date = null;
-                var length, patterns;
+                var length;
                 var tzoffset;
                 if (value && value.indexOf('/D') === 0) {
                     date = dateRegExp.exec(value);
@@ -1142,33 +1186,7 @@
                 }
                 culture = kendo.getCulture(culture);
                 if (!formats) {
-                    formats = [];
-                    patterns = culture.calendar.patterns;
-                    length = formatsSequence.length;
-                    for (; idx < length; idx++) {
-                        formats[idx] = patterns[formatsSequence[idx]];
-                    }
-                    idx = 0;
-                    formats = [
-                        'yyyy/MM/dd HH:mm:ss',
-                        'yyyy/MM/dd HH:mm',
-                        'yyyy/MM/dd',
-                        'ddd MMM dd yyyy HH:mm:ss',
-                        'yyyy-MM-ddTHH:mm:ss.fffffffzzz',
-                        'yyyy-MM-ddTHH:mm:ss.fffzzz',
-                        'yyyy-MM-ddTHH:mm:sszzz',
-                        'yyyy-MM-ddTHH:mm:ss.fffffff',
-                        'yyyy-MM-ddTHH:mm:ss.fff',
-                        'yyyy-MM-ddTHH:mmzzz',
-                        'yyyy-MM-ddTHH:mmzz',
-                        'yyyy-MM-ddTHH:mm:ss',
-                        'yyyy-MM-ddTHH:mm',
-                        'yyyy-MM-dd HH:mm:ss',
-                        'yyyy-MM-dd HH:mm',
-                        'yyyy-MM-dd',
-                        'HH:mm:ss',
-                        'HH:mm'
-                    ].concat(formats);
+                    formats = getDefaultFormats(culture);
                 }
                 formats = isArray(formats) ? formats : [formats];
                 length = formats.length;
@@ -1593,9 +1611,12 @@
                     cut: document.queryCommandSupported ? document.queryCommandSupported('cut') : false,
                     paste: document.queryCommandSupported ? document.queryCommandSupported('paste') : false
                 };
-                if (support.browser.chrome && support.browser.version >= 43) {
-                    commands.copy = true;
-                    commands.cut = true;
+                if (support.browser.chrome) {
+                    commands.paste = false;
+                    if (support.browser.version >= 43) {
+                        commands.copy = true;
+                        commands.cut = true;
+                    }
                 }
                 return commands;
             };
@@ -1712,9 +1733,14 @@
                 type = 'offset';
             }
             var result = element[type]();
+            if (support.mobileOS.android) {
+                result.top -= window.scrollY;
+                result.left -= window.scrollX;
+            }
             if (support.browser.msie && (support.pointers || support.msPointers) && !positioned) {
-                result.top -= window.pageYOffset - document.documentElement.scrollTop;
-                result.left -= window.pageXOffset - document.documentElement.scrollLeft;
+                var sign = support.isRtl(element) ? 1 : -1;
+                result.top -= window.pageYOffset + sign * document.documentElement.scrollTop;
+                result.left -= window.pageXOffset + sign * document.documentElement.scrollLeft;
             }
             return result;
         }
@@ -2335,7 +2361,7 @@
                         leftRight = isRtl ? 'right' : 'left';
                         containerScrollLeft = container.scrollLeft();
                         webkitCorrection = browser.webkit ? !isRtl ? 0 : container[0].scrollWidth - container.width() - 2 * containerScrollLeft : 0;
-                        mask = $('<div class=\'k-loading-mask\'><span class=\'k-loading-text\'>Loading...</span><div class=\'k-loading-image\'/><div class=\'k-loading-color\'/></div>').width('100%').height('100%').css('top', container.scrollTop()).css(leftRight, Math.abs(containerScrollLeft) + webkitCorrection).prependTo(container);
+                        mask = $('<div class=\'k-loading-mask\'><span class=\'k-loading-text\'>' + kendo.ui.progress.messages.loading + '</span><div class=\'k-loading-image\'/><div class=\'k-loading-color\'/></div>').width('100%').height('100%').css('top', container.scrollTop()).css(leftRight, Math.abs(containerScrollLeft) + webkitCorrection).prependTo(container);
                     }
                 } else if (mask) {
                     mask.remove();
@@ -2390,6 +2416,7 @@
                 };
             }
         });
+        kendo.ui.progress.messages = { loading: 'Loading...' };
         var ContainerNullObject = {
             bind: function () {
                 return this;
@@ -3274,6 +3301,9 @@
                 var e = document.createEvent('MouseEvents');
                 e.initMouseEvent('click', true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
                 fileSaver.dispatchEvent(e);
+                setTimeout(function () {
+                    URL.revokeObjectURL(dataURI);
+                });
             }
             kendo.saveAs = function (options) {
                 var save = postToProxy;

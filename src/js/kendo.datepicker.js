@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -39,7 +39,7 @@
         ]
     };
     (function ($, undefined) {
-        var kendo = window.kendo, ui = kendo.ui, Widget = ui.Widget, parse = kendo.parseDate, keys = kendo.keys, template = kendo.template, activeElement = kendo._activeElement, DIV = '<div />', SPAN = '<span />', ns = '.kendoDatePicker', CLICK = 'click' + ns, OPEN = 'open', CLOSE = 'close', CHANGE = 'change', DISABLED = 'disabled', READONLY = 'readonly', DEFAULT = 'k-state-default', FOCUSED = 'k-state-focused', SELECTED = 'k-state-selected', STATEDISABLED = 'k-state-disabled', HOVER = 'k-state-hover', HOVEREVENTS = 'mouseenter' + ns + ' mouseleave' + ns, MOUSEDOWN = 'mousedown' + ns, ID = 'id', MIN = 'min', MAX = 'max', MONTH = 'month', ARIA_DISABLED = 'aria-disabled', ARIA_EXPANDED = 'aria-expanded', ARIA_HIDDEN = 'aria-hidden', ARIA_READONLY = 'aria-readonly', calendar = kendo.calendar, isInRange = calendar.isInRange, restrictValue = calendar.restrictValue, isEqualDatePart = calendar.isEqualDatePart, extend = $.extend, proxy = $.proxy, DATE = Date;
+        var kendo = window.kendo, ui = kendo.ui, Widget = ui.Widget, parse = kendo.parseDate, keys = kendo.keys, template = kendo.template, activeElement = kendo._activeElement, DIV = '<div />', SPAN = '<span />', ns = '.kendoDatePicker', CLICK = 'click' + ns, OPEN = 'open', CLOSE = 'close', CHANGE = 'change', DISABLED = 'disabled', READONLY = 'readonly', DEFAULT = 'k-state-default', FOCUSED = 'k-state-focused', SELECTED = 'k-state-selected', STATEDISABLED = 'k-state-disabled', HOVER = 'k-state-hover', HOVEREVENTS = 'mouseenter' + ns + ' mouseleave' + ns, MOUSEDOWN = 'mousedown' + ns, ID = 'id', MIN = 'min', MAX = 'max', MONTH = 'month', ARIA_DISABLED = 'aria-disabled', ARIA_EXPANDED = 'aria-expanded', ARIA_HIDDEN = 'aria-hidden', calendar = kendo.calendar, isInRange = calendar.isInRange, restrictValue = calendar.restrictValue, isEqualDatePart = calendar.isEqualDatePart, extend = $.extend, proxy = $.proxy, DATE = Date;
         function normalize(options) {
             var parseFormats = options.parseFormats, format = options.format;
             calendar.normalize(options);
@@ -297,13 +297,13 @@
                 var that = this, icon = that._dateIcon.off(ns), element = that.element.off(ns), wrapper = that._inputWrapper.off(ns), readonly = options.readonly, disable = options.disable;
                 if (!readonly && !disable) {
                     wrapper.addClass(DEFAULT).removeClass(STATEDISABLED).on(HOVEREVENTS, that._toggleHover);
-                    element.removeAttr(DISABLED).removeAttr(READONLY).attr(ARIA_DISABLED, false).attr(ARIA_READONLY, false).on('keydown' + ns, proxy(that._keydown, that)).on('focusout' + ns, proxy(that._blur, that)).on('focus' + ns, function () {
+                    element.removeAttr(DISABLED).removeAttr(READONLY).attr(ARIA_DISABLED, false).on('keydown' + ns, proxy(that._keydown, that)).on('focusout' + ns, proxy(that._blur, that)).on('focus' + ns, function () {
                         that._inputWrapper.addClass(FOCUSED);
                     });
                     icon.on(CLICK, proxy(that._click, that)).on(MOUSEDOWN, preventDefault);
                 } else {
                     wrapper.addClass(disable ? STATEDISABLED : DEFAULT).removeClass(disable ? DEFAULT : STATEDISABLED);
-                    element.attr(DISABLED, disable).attr(READONLY, readonly).attr(ARIA_DISABLED, disable).attr(ARIA_READONLY, readonly);
+                    element.attr(DISABLED, disable).attr(READONLY, readonly).attr(ARIA_DISABLED, disable);
                 }
             },
             readonly: function (readonly) {
@@ -373,7 +373,7 @@
             _change: function (value) {
                 var that = this, oldValue = that.element.val(), dateChanged;
                 value = that._update(value);
-                dateChanged = +that._old != +value;
+                dateChanged = !kendo.calendar.isEqualDate(that._old, value);
                 var valueUpdated = dateChanged && !that._typing;
                 var textFormatted = oldValue !== that.element.val();
                 if (valueUpdated || textFormatted) {
@@ -402,7 +402,7 @@
                 var that = this, element = that.element, icon;
                 icon = element.next('span.k-select');
                 if (!icon[0]) {
-                    icon = $('<span unselectable="on" class="k-select"><span unselectable="on" class="k-icon k-i-calendar">select</span></span>').insertAfter(element);
+                    icon = $('<span unselectable="on" class="k-select" aria-label="select"><span class="k-icon k-i-calendar"></span></span>').insertAfter(element);
                 }
                 that._dateIcon = icon.attr({
                     'role': 'button',
@@ -425,7 +425,7 @@
                 var that = this, options = that.options, min = options.min, max = options.max, current = that._value, date = parse(value, options.parseFormats, options.culture), isSameType = date === null && current === null || date instanceof Date && current instanceof Date, formattedValue;
                 if (options.disableDates(date)) {
                     date = null;
-                    if (!that._old) {
+                    if (!that._old && !that.element.val()) {
                         value = null;
                     }
                 }
@@ -443,7 +443,7 @@
                 }
                 that._value = date;
                 that.dateView.value(date);
-                that.element.val(date ? kendo.toString(date, options.format, options.culture) : value);
+                that.element.val(kendo.toString(date || value, options.format, options.culture));
                 that._updateARIA(date);
                 return date;
             },

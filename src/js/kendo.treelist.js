@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -164,7 +164,7 @@
             gridContentWrap: 'k-grid-content',
             gridFilter: 'k-grid-filter',
             footerTemplate: 'k-footer-template',
-            loading: 'k-loading',
+            loading: 'k-i-loading',
             refresh: 'k-i-refresh',
             retry: 'k-request-retry',
             selected: 'k-state-selected',
@@ -173,50 +173,50 @@
             withIcon: 'k-with-icon',
             filterable: 'k-filterable',
             icon: 'k-icon',
-            iconFilter: 'k-filter',
+            iconFilter: 'k-i-filter',
             iconCollapse: 'k-i-collapse',
             iconExpand: 'k-i-expand',
             iconHidden: 'k-i-none',
             iconPlaceHolder: 'k-icon k-i-none',
             input: 'k-input',
-            dropPositions: 'k-insert-top k-insert-bottom k-add k-insert-middle',
-            dropTop: 'k-insert-top',
-            dropBottom: 'k-insert-bottom',
-            dropAdd: 'k-add',
-            dropMiddle: 'k-insert-middle',
-            dropDenied: 'k-denied',
+            dropPositions: 'k-i-insert-top k-i-insert-bottom k-i-add k-i-insert-middle',
+            dropTop: 'k-i-insert-top',
+            dropBottom: 'k-i-insert-bottom',
+            dropAdd: 'k-i-add',
+            dropMiddle: 'k-i-insert-middle',
+            dropDenied: 'k-i-denied',
             dragStatus: 'k-drag-status',
             dragClue: 'k-drag-clue',
             dragClueText: 'k-clue-text'
         };
         var defaultCommands = {
             create: {
-                imageClass: 'k-add',
+                imageClass: 'k-i-add',
                 className: 'k-grid-add',
                 methodName: 'addRow'
             },
             createchild: {
-                imageClass: 'k-add',
+                imageClass: 'k-i-add',
                 className: 'k-grid-add',
                 methodName: 'addRow'
             },
             destroy: {
-                imageClass: 'k-delete',
+                imageClass: 'k-i-delete',
                 className: 'k-grid-delete',
                 methodName: 'removeRow'
             },
             edit: {
-                imageClass: 'k-edit',
+                imageClass: 'k-i-edit',
                 className: 'k-grid-edit',
                 methodName: 'editRow'
             },
             update: {
-                imageClass: 'k-update',
+                imageClass: 'k-i-update',
                 className: 'k-primary k-grid-update',
                 methodName: 'saveRow'
             },
             canceledit: {
-                imageClass: 'k-cancel',
+                imageClass: 'k-i-cancel',
                 className: 'k-grid-cancel',
                 methodName: '_cancelEdit'
             },
@@ -324,21 +324,28 @@
             _shouldWrap: function () {
                 return true;
             },
+            _push: function (result, operation) {
+                var data = DataSource.fn._readData.call(this, result);
+                if (!data) {
+                    data = result;
+                }
+                this[operation](data);
+            },
             _readData: function (newData) {
                 var data = this.data();
                 newData = DataSource.fn._readData.call(this, newData);
-                this._concat(newData, data);
+                this._replaceData(data.toJSON().concat(newData), data);
                 if (newData instanceof ObservableArray) {
                     return newData;
                 }
                 return data;
             },
-            _concat: function (source, target) {
-                var targetLength = target.length;
-                for (var i = 0; i < source.length; i++) {
-                    target[targetLength++] = source[i];
+            _replaceData: function (source, target) {
+                var sourceLength = source.length;
+                for (var i = 0; i < sourceLength; i++) {
+                    target[i] = source[i];
                 }
-                target.length = targetLength;
+                target.length = sourceLength;
             },
             _readAggregates: function (data) {
                 var result = extend(this._aggregateResult, this.reader.aggregates(data));
@@ -1084,7 +1091,7 @@
                     this._touchScroller.destroy();
                 }
                 this._autoExpandable = null;
-                this._refreshHandler = this._errorHandler = this._progressHandler = null;
+                this._refreshHandler = this._errorHandler = this._progressHandler = this._dataSourceFetchProxy = null;
                 this.thead = this.content = this.tbody = this.table = this.element = this.lockedHeader = this.lockedContent = null;
                 this._statusTree = this._headerTree = this._contentTree = this._lockedHeaderColsTree = this._lockedContentColsTree = this._lockedHeaderTree = this._lockedContentTree = null;
             },
@@ -1185,8 +1192,7 @@
             _attachEvents: function () {
                 var icons = DOT + classNames.iconCollapse + ', .' + classNames.iconExpand + ', .' + classNames.refresh;
                 var retryButton = DOT + classNames.retry;
-                var dataSource = this.dataSource;
-                this.element.on(MOUSEDOWN + NS, icons, proxy(this._toggleChildren, this)).on(CLICK + NS, retryButton, proxy(dataSource.fetch, dataSource)).on(CLICK + NS, '.k-button[data-command]', proxy(this._commandClick, this));
+                this.element.on(MOUSEDOWN + NS, icons, proxy(this._toggleChildren, this)).on(CLICK + NS, retryButton, this._dataSourceFetchProxy).on(CLICK + NS, '.k-button[data-command]', proxy(this._commandClick, this));
             },
             _commandByName: function (name) {
                 var columns = this.columns;
@@ -1402,8 +1408,9 @@
                 options = options || {};
                 var messages = this.options.messages;
                 var data = this.dataSource.rootNodes();
+                var uidAttr = kendo.attr('uid');
                 var selected = this.select().removeClass('k-state-selected').map(function (_, row) {
-                    return $(row).attr(kendo.attr('uid'));
+                    return $(row).attr(uidAttr);
                 });
                 this._absoluteIndex = 0;
                 this._angularItems('cleanup');
@@ -1448,6 +1455,9 @@
                     this._angularItems('compile');
                     this._angularFooters('compile');
                 });
+                this.items().filter(function () {
+                    return $.inArray($(this).attr(uidAttr), selected) >= 0;
+                }).addClass('k-state-selected');
                 this._adjustRowsHeight();
             },
             _adjustRowsHeight: function () {
@@ -1472,6 +1482,11 @@
                     }
                     if (rows[idx].style.height) {
                         rows[idx].style.height = lockedRows[idx].style.height = '';
+                    }
+                }
+                for (idx = 0; idx < length; idx++) {
+                    if (!lockedRows[idx]) {
+                        break;
                     }
                     var offsetHeight1 = rows[idx].offsetHeight;
                     var offsetHeight2 = lockedRows[idx].offsetHeight;
@@ -2152,6 +2167,9 @@
                 ds.bind(CHANGE, this._refreshHandler);
                 ds.bind(ERROR, this._errorHandler);
                 ds.bind(PROGRESS, this._progressHandler);
+                this._dataSourceFetchProxy = proxy(function () {
+                    this.dataSource.fetch();
+                }, this);
             },
             setDataSource: function (dataSource) {
                 this._dataSource(dataSource);
@@ -2381,7 +2399,7 @@
                             lineHeight: target.height() + 'px',
                             paddingTop: target.css('paddingTop'),
                             paddingBottom: target.css('paddingBottom')
-                        }).html(target.attr(kendo.attr('title')) || target.attr(kendo.attr('field')) || target.text()).prepend('<span class="k-icon k-drag-status k-denied" />');
+                        }).html(target.attr(kendo.attr('title')) || target.attr(kendo.attr('field')) || target.text()).prepend('<span class="k-icon k-drag-status k-i-denied" />');
                     }
                 });
                 this.reorderable = new ui.Reorderable(this.wrapper, {

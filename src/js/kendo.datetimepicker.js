@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -39,7 +39,7 @@
         ]
     };
     (function ($, undefined) {
-        var kendo = window.kendo, TimeView = kendo.TimeView, parse = kendo.parseDate, activeElement = kendo._activeElement, extractFormat = kendo._extractFormat, calendar = kendo.calendar, isInRange = calendar.isInRange, restrictValue = calendar.restrictValue, isEqualDatePart = calendar.isEqualDatePart, getMilliseconds = TimeView.getMilliseconds, ui = kendo.ui, Widget = ui.Widget, OPEN = 'open', CLOSE = 'close', CHANGE = 'change', ns = '.kendoDateTimePicker', CLICK = 'click' + ns, DISABLED = 'disabled', READONLY = 'readonly', DEFAULT = 'k-state-default', FOCUSED = 'k-state-focused', HOVER = 'k-state-hover', STATEDISABLED = 'k-state-disabled', HOVEREVENTS = 'mouseenter' + ns + ' mouseleave' + ns, MOUSEDOWN = 'mousedown' + ns, MONTH = 'month', SPAN = '<span/>', ARIA_ACTIVEDESCENDANT = 'aria-activedescendant', ARIA_EXPANDED = 'aria-expanded', ARIA_HIDDEN = 'aria-hidden', ARIA_OWNS = 'aria-owns', ARIA_DISABLED = 'aria-disabled', ARIA_READONLY = 'aria-readonly', DATE = Date, MIN = new DATE(1800, 0, 1), MAX = new DATE(2099, 11, 31), dateViewParams = { view: 'date' }, timeViewParams = { view: 'time' }, extend = $.extend;
+        var kendo = window.kendo, TimeView = kendo.TimeView, parse = kendo.parseDate, activeElement = kendo._activeElement, extractFormat = kendo._extractFormat, calendar = kendo.calendar, isInRange = calendar.isInRange, restrictValue = calendar.restrictValue, isEqualDatePart = calendar.isEqualDatePart, getMilliseconds = TimeView.getMilliseconds, ui = kendo.ui, Widget = ui.Widget, OPEN = 'open', CLOSE = 'close', CHANGE = 'change', ns = '.kendoDateTimePicker', CLICK = 'click' + ns, DISABLED = 'disabled', READONLY = 'readonly', DEFAULT = 'k-state-default', FOCUSED = 'k-state-focused', HOVER = 'k-state-hover', STATEDISABLED = 'k-state-disabled', HOVEREVENTS = 'mouseenter' + ns + ' mouseleave' + ns, MOUSEDOWN = 'mousedown' + ns, MONTH = 'month', SPAN = '<span/>', ARIA_ACTIVEDESCENDANT = 'aria-activedescendant', ARIA_EXPANDED = 'aria-expanded', ARIA_HIDDEN = 'aria-hidden', ARIA_OWNS = 'aria-owns', ARIA_DISABLED = 'aria-disabled', DATE = Date, MIN = new DATE(1800, 0, 1), MAX = new DATE(2099, 11, 31), dateViewParams = { view: 'date' }, timeViewParams = { view: 'time' }, extend = $.extend;
         var DateTimePicker = Widget.extend({
             init: function (element, options) {
                 var that = this, disabled;
@@ -93,7 +93,9 @@
                 depth: MONTH,
                 animation: {},
                 month: {},
-                ARIATemplate: 'Current focused date is #=kendo.toString(data.current, "d")#'
+                ARIATemplate: 'Current focused date is #=kendo.toString(data.current, "d")#',
+                dateButtonText: 'Open the date view',
+                timeButtonText: 'Open the time view'
             },
             events: [
                 OPEN,
@@ -130,7 +132,7 @@
                 var that = this, element = that.element.off(ns), dateIcon = that._dateIcon.off(ns), timeIcon = that._timeIcon.off(ns), wrapper = that._inputWrapper.off(ns), readonly = options.readonly, disable = options.disable;
                 if (!readonly && !disable) {
                     wrapper.addClass(DEFAULT).removeClass(STATEDISABLED).on(HOVEREVENTS, that._toggleHover);
-                    element.removeAttr(DISABLED).removeAttr(READONLY).attr(ARIA_DISABLED, false).attr(ARIA_READONLY, false).on('keydown' + ns, $.proxy(that._keydown, that)).on('focus' + ns, function () {
+                    element.removeAttr(DISABLED).removeAttr(READONLY).attr(ARIA_DISABLED, false).on('keydown' + ns, $.proxy(that._keydown, that)).on('focus' + ns, function () {
                         that._inputWrapper.addClass(FOCUSED);
                     }).on('focusout' + ns, function () {
                         that._inputWrapper.removeClass(FOCUSED);
@@ -154,7 +156,7 @@
                     });
                 } else {
                     wrapper.addClass(disable ? STATEDISABLED : DEFAULT).removeClass(disable ? DEFAULT : STATEDISABLED);
-                    element.attr(DISABLED, disable).attr(READONLY, readonly).attr(ARIA_DISABLED, disable).attr(ARIA_READONLY, readonly);
+                    element.attr(DISABLED, disable).attr(READONLY, readonly).attr(ARIA_DISABLED, disable);
                 }
             },
             readonly: function (readonly) {
@@ -288,7 +290,7 @@
                 var that = this, options = that.options, min = options.min, max = options.max, dates = options.dates, timeView = that.timeView, current = that._value, date = parse(value, options.parseFormats, options.culture), isSameType = date === null && current === null || date instanceof Date && current instanceof Date, rebind, timeViewOptions, old, skip, formattedValue;
                 if (options.disableDates && options.disableDates(date)) {
                     date = null;
-                    if (!that._old) {
+                    if (!that._old && !that.element.val()) {
                         value = null;
                     }
                 }
@@ -349,7 +351,7 @@
                         timeView.bind();
                     }
                 }
-                that.element.val(date ? kendo.toString(date, options.format, options.culture) : value);
+                that.element.val(kendo.toString(date || value, options.format, options.culture));
                 that._updateARIA(date);
                 return date;
             },
@@ -485,20 +487,18 @@
                 ul = timeView.ul;
             },
             _icons: function () {
-                var that = this, element = that.element, icons;
+                var that = this;
+                var element = that.element;
+                var options = that.options;
+                var icons;
                 icons = element.next('span.k-select');
                 if (!icons[0]) {
-                    icons = $('<span unselectable="on" class="k-select"><span unselectable="on" class="k-icon k-i-calendar">select</span><span unselectable="on" class="k-icon k-i-clock">select</span></span>').insertAfter(element);
+                    icons = $('<span unselectable="on" class="k-select">' + '<span class="k-link k-link-date" aria-label="' + options.dateButtonText + '"><span unselectable="on" class="k-icon k-i-calendar"></span></span>' + '<span class="k-link k-link-time" aria-label="' + options.timeButtonText + '"><span unselectable="on" class="k-icon k-i-clock"></span></span>' + '</span>').insertAfter(element);
                 }
                 icons = icons.children();
-                that._dateIcon = icons.eq(0).attr({
-                    'role': 'button',
-                    'aria-controls': that.dateView._dateViewID
-                });
-                that._timeIcon = icons.eq(1).attr({
-                    'role': 'button',
-                    'aria-controls': that.timeView._timeViewID
-                });
+                icons = icons.children();
+                that._dateIcon = icons.eq(0).attr('aria-controls', that.dateView._dateViewID);
+                that._timeIcon = icons.eq(1).attr('aria-controls', that.timeView._timeViewID);
             },
             _wrapper: function () {
                 var that = this, element = that.element, wrapper;

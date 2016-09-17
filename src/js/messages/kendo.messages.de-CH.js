@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -42,11 +42,15 @@ $.extend(true, kendo.ui.FilterCell.prototype.options.operators,{
     "gte": "Ist nach oder gleich",
     "lt": "Ist vor",
     "lte": "Ist vor oder gleich",
-    "neq": "Ist nicht gleich"
+    "neq": "Ist nicht gleich",
+    "isnull": "Ist Null",
+    "isnotnull": "Ist nicht Null"
   },
   "enums": {
     "eq": "Ist gleich",
-    "neq": "Ist nicht gleich"
+    "neq": "Ist nicht gleich",
+    "isnull": "Ist Null",
+    "isnotnull": "Ist nicht Null"
   },
   "number": {
     "eq": "Ist gleich",
@@ -54,7 +58,9 @@ $.extend(true, kendo.ui.FilterCell.prototype.options.operators,{
     "gte": "Ist größer als oder gleich",
     "lt": "Ist kleiner",
     "lte": "Ist kleiner als oder gleich",
-    "neq": "Ist nicht gleich"
+    "neq": "Ist nicht gleich",
+    "isnull": "Ist Null",
+    "isnotnull": "Ist nicht Null"
   },
   "string": {
     "contains": "Beinhaltet",
@@ -62,7 +68,11 @@ $.extend(true, kendo.ui.FilterCell.prototype.options.operators,{
     "endswith": "Endet mit",
     "eq": "Ist gleich",
     "neq": "Ist nicht gleich",
-    "startswith": "Beginnt mit"
+    "startswith": "Beginnt mit",
+    "isnull": "Ist Null",
+    "isnotnull": "Ist nicht Null",
+    "isempty": "Ist leer",
+    "isnotempty": "Ist nicht leer"
   }
 });
 }
@@ -78,11 +88,16 @@ $.extend(true, kendo.ui.FilterMenu.prototype.options.operators,{
     "gte": "Ist nach oder gleich",
     "lt": "Ist vor",
     "lte": "Ist vor oder gleich",
-    "neq": "Ist nicht gleich"
+    "neq": "Ist nicht gleich",
+    "isnull": "Ist Null",
+    "isnotnull": "Ist nicht Null"
+
   },
   "enums": {
     "eq": "Ist gleich",
-    "neq": "Ist nicht gleich"
+    "neq": "Ist nicht gleich",
+    "isnull": "Ist Null",
+    "isnotnull": "Ist nicht Null"
   },
   "number": {
     "eq": "Ist gleich",
@@ -90,7 +105,9 @@ $.extend(true, kendo.ui.FilterMenu.prototype.options.operators,{
     "gte": "Ist größer als oder gleich",
     "lt": "Ist kleiner",
     "lte": "Ist kleiner als oder gleich",
-    "neq": "Ist nicht gleich"
+    "neq": "Ist nicht gleich",
+    "isnull": "Ist Null",
+    "isnotnull": "Ist nicht Null"
   },
   "string": {
     "contains": "Beinhaltet",
@@ -98,7 +115,11 @@ $.extend(true, kendo.ui.FilterMenu.prototype.options.operators,{
     "endswith": "Endet mit",
     "eq": "Ist gleich",
     "neq": "Ist nicht gleich",
-    "startswith": "Beginnt mit"
+    "startswith": "Beginnt mit",
+    "isnull": "Ist Null",
+    "isnotnull": "Ist nicht Null",
+    "isempty": "Ist leer",
+    "isnotempty": "Ist nicht leer"
   }
 });
 }
@@ -373,6 +394,28 @@ $.extend(true, kendo.ui.Pager.prototype.options.messages,{
 });
 }
 
+/* TreeList messages */
+
+if (kendo.ui.TreeList) {
+    kendo.ui.TreeList.prototype.options.messages =
+    $.extend(true, kendo.ui.TreeList.prototype.options.messages, {
+        noRows: "Es sind keine Daten vorhanden",
+        loading: "Lade Daten...",
+        requestFailed: "Laden fehlgeschlagen",
+        retry: "Neu laden",
+        commands: {
+            edit: "Bearbeiten",
+            update: "Aktualisiere",
+            canceledit: "Abbrechen",
+            create: "Neuen Datensatz hinzufügen",
+            createchild: "Kind-Datensatz hinzufügen",
+            destroy: "Löschen",
+            excel: "Als Excel exportieren",
+            pdf: "Als PDF exportieren"
+        }
+    });
+}
+
 /* Upload messages */
 
 if (kendo.ui.Upload) {
@@ -471,5 +514,43 @@ $.extend(true, kendo.ui.Validator.prototype.options.messages,{
   "date": "{0} ist kein gültiges Datum"
 });
 }
+
+/* Dialog */
+
+if (kendo.ui.Dialog) {
+kendo.ui.Dialog.prototype.options.messages =
+$.extend(true, kendo.ui.Dialog.prototype.options.localization, {
+  "close": "Schließen"
+});
+}
+
+/* Alert */
+
+if (kendo.ui.Alert) {
+kendo.ui.Alert.prototype.options.messages =
+$.extend(true, kendo.ui.Alert.prototype.options.localization, {
+  "okText": "OK"
+});
+}
+
+/* Confirm */
+
+if (kendo.ui.Confirm) {
+kendo.ui.Confirm.prototype.options.messages =
+$.extend(true, kendo.ui.Confirm.prototype.options.localization, {
+  "okText": "OK",
+  "cancel": "Abbrechen"
+});
+}
+
+/* Prompt */
+if (kendo.ui.Prompt) {
+kendo.ui.Prompt.prototype.options.messages =
+$.extend(true, kendo.ui.Prompt.prototype.options.localization, {
+  "okText": "OK",
+  "cancel": "Abbrechen"
+});
+}
+
 })(window.kendo.jQuery);
 }));

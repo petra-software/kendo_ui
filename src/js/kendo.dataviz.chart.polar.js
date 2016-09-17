@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -317,6 +317,39 @@
                 return output;
             }).join('');
         }
+        function mergeSort(a, cmp) {
+            if (a.length < 2) {
+                return a.slice();
+            }
+            function merge(a, b) {
+                var r = [], ai = 0, bi = 0, i = 0;
+                while (ai < a.length && bi < b.length) {
+                    if (cmp(a[ai], b[bi]) <= 0) {
+                        r[i++] = a[ai++];
+                    } else {
+                        r[i++] = b[bi++];
+                    }
+                }
+                if (ai < a.length) {
+                    r.push.apply(r, a.slice(ai));
+                }
+                if (bi < b.length) {
+                    r.push.apply(r, b.slice(bi));
+                }
+                return r;
+            }
+            return function sort(a) {
+                if (a.length <= 1) {
+                    return a;
+                }
+                var m = Math.floor(a.length / 2);
+                var left = a.slice(0, m);
+                var right = a.slice(m);
+                left = sort(left);
+                right = sort(right);
+                return merge(left, right);
+            }(a);
+        }
         deepExtend(kendo, {
             util: {
                 MAX_NUM: MAX_NUM,
@@ -352,7 +385,8 @@
                 arabicToRoman: arabicToRoman,
                 memoize: memoize,
                 ucs2encode: ucs2encode,
-                ucs2decode: ucs2decode
+                ucs2decode: ucs2decode,
+                mergeSort: mergeSort
             }
         });
         kendo.drawing.util = kendo.util;
@@ -589,10 +623,12 @@
                 return this;
             },
             optionsChange: function (e) {
+                e = e || {};
+                e.element = this;
                 this.trigger('optionsChange', e);
             },
-            geometryChange: function (e) {
-                this.trigger('geometryChange', e);
+            geometryChange: function () {
+                this.trigger('geometryChange', { element: this });
             },
             suspend: function () {
                 this._suspended = (this._suspended || 0) + 1;
@@ -630,8 +666,8 @@
         hidden: true
     };
     (function ($, undefined) {
-        var math = Math, kendo = window.kendo, deepExtend = kendo.deepExtend, util = kendo.util, append = util.append, draw = kendo.drawing, geom = kendo.geometry, dataviz = kendo.dataviz, AreaSegment = dataviz.AreaSegment, Axis = dataviz.Axis, AxisGroupRangeTracker = dataviz.AxisGroupRangeTracker, BarChart = dataviz.BarChart, Box2D = dataviz.Box2D, CategoryAxis = dataviz.CategoryAxis, CategoricalChart = dataviz.CategoricalChart, CategoricalPlotArea = dataviz.CategoricalPlotArea, ChartElement = dataviz.ChartElement, CurveProcessor = dataviz.CurveProcessor, DonutSegment = dataviz.DonutSegment, LineChart = dataviz.LineChart, LineSegment = dataviz.LineSegment, LogarithmicAxis = dataviz.LogarithmicAxis, NumericAxis = dataviz.NumericAxis, PlotAreaBase = dataviz.PlotAreaBase, PlotAreaFactory = dataviz.PlotAreaFactory, Point2D = dataviz.Point2D, Ring = dataviz.Ring, ScatterChart = dataviz.ScatterChart, ScatterLineChart = dataviz.ScatterLineChart, SeriesBinder = dataviz.SeriesBinder, ShapeBuilder = dataviz.ShapeBuilder, SplineSegment = dataviz.SplineSegment, SplineAreaSegment = dataviz.SplineAreaSegment, getSpacing = dataviz.getSpacing, filterSeriesByType = dataviz.filterSeriesByType, limitValue = util.limitValue, round = dataviz.round;
-        var ARC = 'arc', BLACK = '#000', COORD_PRECISION = dataviz.COORD_PRECISION, DEFAULT_PADDING = 0.15, DEG_TO_RAD = math.PI / 180, GAP = 'gap', INTERPOLATE = 'interpolate', LOGARITHMIC = 'log', PLOT_AREA_CLICK = 'plotAreaClick', POLAR_AREA = 'polarArea', POLAR_LINE = 'polarLine', POLAR_SCATTER = 'polarScatter', RADAR_AREA = 'radarArea', RADAR_COLUMN = 'radarColumn', RADAR_LINE = 'radarLine', SMOOTH = 'smooth', X = 'x', Y = 'y', ZERO = 'zero', POLAR_CHARTS = [
+        var math = Math, kendo = window.kendo, deepExtend = kendo.deepExtend, util = kendo.util, append = util.append, draw = kendo.drawing, geom = kendo.geometry, dataviz = kendo.dataviz, AreaSegment = dataviz.AreaSegment, Axis = dataviz.Axis, AxisGroupRangeTracker = dataviz.AxisGroupRangeTracker, BarChart = dataviz.BarChart, Box2D = dataviz.Box2D, CategoryAxis = dataviz.CategoryAxis, CategoricalChart = dataviz.CategoricalChart, CategoricalPlotArea = dataviz.CategoricalPlotArea, ChartElement = dataviz.ChartElement, CurveProcessor = dataviz.CurveProcessor, DonutSegment = dataviz.DonutSegment, LineChart = dataviz.LineChart, LineSegment = dataviz.LineSegment, LogarithmicAxis = dataviz.LogarithmicAxis, NumericAxis = dataviz.NumericAxis, PlotAreaBase = dataviz.PlotAreaBase, PlotAreaEventsMixin = dataviz.PlotAreaEventsMixin, PlotAreaFactory = dataviz.PlotAreaFactory, Point2D = dataviz.Point2D, Ring = dataviz.Ring, ScatterChart = dataviz.ScatterChart, ScatterLineChart = dataviz.ScatterLineChart, SeriesBinder = dataviz.SeriesBinder, ShapeBuilder = dataviz.ShapeBuilder, SplineSegment = dataviz.SplineSegment, SplineAreaSegment = dataviz.SplineAreaSegment, eventTargetElement = dataviz.eventTargetElement, getSpacing = dataviz.getSpacing, filterSeriesByType = dataviz.filterSeriesByType, limitValue = util.limitValue, round = dataviz.round;
+        var ARC = 'arc', BLACK = '#000', COORD_PRECISION = dataviz.COORD_PRECISION, DEFAULT_PADDING = 0.15, DEG_TO_RAD = math.PI / 180, GAP = 'gap', INTERPOLATE = 'interpolate', LOGARITHMIC = 'log', POLAR_AREA = 'polarArea', POLAR_LINE = 'polarLine', POLAR_SCATTER = 'polarScatter', RADAR_AREA = 'radarArea', RADAR_COLUMN = 'radarColumn', RADAR_LINE = 'radarLine', SMOOTH = 'smooth', X = 'x', Y = 'y', ZERO = 'zero', POLAR_CHARTS = [
                 POLAR_AREA,
                 POLAR_LINE,
                 POLAR_SCATTER
@@ -1122,6 +1158,12 @@
                 }
                 return (theta + start + 360) % 360;
             },
+            valueRange: function () {
+                return {
+                    min: 0,
+                    max: math.PI * 2
+                };
+            },
             range: NumericAxis.fn.range,
             labelsCount: NumericAxis.fn.labelsCount,
             createAxisLabel: NumericAxis.fn.createAxisLabel
@@ -1489,13 +1531,13 @@
             seriesCategoryAxis: function () {
                 return this.categoryAxis;
             },
-            click: function (chart, e) {
+            _dispatchEvent: function (chart, e, eventType) {
                 var plotArea = this, coords = chart._eventCoordinates(e), point = new Point2D(coords.x, coords.y), category, value;
                 category = plotArea.categoryAxis.getCategory(point);
                 value = plotArea.valueAxis.getValue(point);
                 if (category !== null && value !== null) {
-                    chart.trigger(PLOT_AREA_CLICK, {
-                        element: $(e.target),
+                    chart.trigger(eventType, {
+                        element: eventTargetElement(e),
                         category: category,
                         value: value
                     });
@@ -1503,6 +1545,7 @@
             },
             createCrosshairs: $.noop
         });
+        deepExtend(RadarPlotArea.fn, PlotAreaEventsMixin);
         var PolarPlotArea = PolarPlotAreaBase.extend({
             options: {
                 xAxis: {},
@@ -1559,13 +1602,13 @@
                 var plotArea = this, areaChart = new PolarAreaChart(plotArea, { series: series });
                 plotArea.appendChart(areaChart, pane);
             },
-            click: function (chart, e) {
+            _dispatchEvent: function (chart, e, eventType) {
                 var plotArea = this, coords = chart._eventCoordinates(e), point = new Point2D(coords.x, coords.y), xValue, yValue;
                 xValue = plotArea.axisX.getValue(point);
                 yValue = plotArea.axisY.getValue(point);
                 if (xValue !== null && yValue !== null) {
-                    chart.trigger(PLOT_AREA_CLICK, {
-                        element: $(e.target),
+                    chart.trigger(eventType, {
+                        element: eventTargetElement(e),
                         x: xValue,
                         y: yValue
                     });
@@ -1573,6 +1616,7 @@
             },
             createCrosshairs: $.noop
         });
+        deepExtend(PolarPlotArea.fn, PlotAreaEventsMixin);
         function xComparer(a, b) {
             return a.value.x - b.value.x;
         }

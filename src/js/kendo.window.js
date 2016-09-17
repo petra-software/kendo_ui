@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -33,7 +33,7 @@
         depends: ['draganddrop']
     };
     (function ($, undefined) {
-        var kendo = window.kendo, Widget = kendo.ui.Widget, Draggable = kendo.ui.Draggable, isPlainObject = $.isPlainObject, activeElement = kendo._activeElement, proxy = $.proxy, extend = $.extend, each = $.each, template = kendo.template, BODY = 'body', templates, NS = '.kendoWindow', KWINDOW = '.k-window', KWINDOWTITLE = '.k-window-title', KWINDOWTITLEBAR = KWINDOWTITLE + 'bar', KWINDOWCONTENT = '.k-window-content', KWINDOWRESIZEHANDLES = '.k-resize-handle', KOVERLAY = '.k-overlay', KCONTENTFRAME = 'k-content-frame', LOADING = 'k-loading', KHOVERSTATE = 'k-state-hover', KFOCUSEDSTATE = 'k-state-focused', MAXIMIZEDSTATE = 'k-window-maximized', VISIBLE = ':visible', HIDDEN = 'hidden', CURSOR = 'cursor', OPEN = 'open', ACTIVATE = 'activate', DEACTIVATE = 'deactivate', CLOSE = 'close', REFRESH = 'refresh', MINIMIZE = 'minimize', MAXIMIZE = 'maximize', RESIZE = 'resize', RESIZEEND = 'resizeEnd', DRAGSTART = 'dragstart', DRAGEND = 'dragend', ERROR = 'error', OVERFLOW = 'overflow', ZINDEX = 'zIndex', MINIMIZE_MAXIMIZE = '.k-window-actions .k-i-minimize,.k-window-actions .k-i-maximize', KPIN = '.k-i-pin', KUNPIN = '.k-i-unpin', PIN_UNPIN = KPIN + ',' + KUNPIN, TITLEBAR_BUTTONS = '.k-window-titlebar .k-window-action', REFRESHICON = '.k-window-titlebar .k-i-refresh', isLocalUrl = kendo.isLocalUrl;
+        var kendo = window.kendo, Widget = kendo.ui.Widget, Draggable = kendo.ui.Draggable, isPlainObject = $.isPlainObject, activeElement = kendo._activeElement, proxy = $.proxy, extend = $.extend, each = $.each, template = kendo.template, BODY = 'body', templates, NS = '.kendoWindow', KWINDOW = '.k-window', KWINDOWTITLE = '.k-window-title', KWINDOWTITLEBAR = KWINDOWTITLE + 'bar', KWINDOWCONTENT = '.k-window-content', KWINDOWRESIZEHANDLES = '.k-resize-handle', KOVERLAY = '.k-overlay', KCONTENTFRAME = 'k-content-frame', LOADING = 'k-i-loading', KHOVERSTATE = 'k-state-hover', KFOCUSEDSTATE = 'k-state-focused', MAXIMIZEDSTATE = 'k-window-maximized', VISIBLE = ':visible', HIDDEN = 'hidden', CURSOR = 'cursor', OPEN = 'open', ACTIVATE = 'activate', DEACTIVATE = 'deactivate', CLOSE = 'close', REFRESH = 'refresh', MINIMIZE = 'minimize', MAXIMIZE = 'maximize', RESIZE = 'resize', RESIZEEND = 'resizeEnd', DRAGSTART = 'dragstart', DRAGEND = 'dragend', ERROR = 'error', OVERFLOW = 'overflow', ZINDEX = 'zIndex', MINIMIZE_MAXIMIZE = '.k-window-actions .k-i-minimize,.k-window-actions .k-i-maximize', KPIN = '.k-i-pin', KUNPIN = '.k-i-unpin', PIN_UNPIN = KPIN + ',' + KUNPIN, TITLEBAR_BUTTONS = '.k-window-titlebar .k-window-action', REFRESHICON = '.k-window-titlebar .k-i-refresh', isLocalUrl = kendo.isLocalUrl;
         function defined(x) {
             return typeof x != 'undefined';
         }
@@ -158,12 +158,12 @@
                 ];
                 this.title(options.title);
                 for (var i = 0; i < dimensions.length; i++) {
-                    var value = options[dimensions[i]];
-                    if (value && value != Infinity) {
+                    var value = options[dimensions[i]] || '';
+                    if (value != Infinity) {
                         wrapper.css(dimensions[i], value);
                     }
                 }
-                if (maxHeight && maxHeight != Infinity) {
+                if (maxHeight != Infinity) {
                     this.element.css('maxHeight', maxHeight);
                 }
                 if (width) {
@@ -172,6 +172,8 @@
                     } else {
                         wrapper.width(constrain(width, options.minWidth, options.maxWidth));
                     }
+                } else {
+                    wrapper.width('');
                 }
                 if (height) {
                     if (height.toString().indexOf('%') > 0) {
@@ -179,6 +181,8 @@
                     } else {
                         wrapper.height(constrain(height, options.minHeight, options.maxHeight));
                     }
+                } else {
+                    wrapper.height('');
                 }
                 if (!options.visible) {
                     wrapper.hide();
@@ -498,7 +502,7 @@
                 return this;
             },
             open: function () {
-                var that = this, wrapper = that.wrapper, options = that.options, showOptions = this._animationOptions('open'), contentElement = wrapper.children(KWINDOWCONTENT), overlay, doc = $(document);
+                var that = this, wrapper = that.wrapper, options = that.options, showOptions = this._animationOptions('open'), contentElement = wrapper.children(KWINDOWCONTENT), overlay, otherModalsVisible, doc = $(document);
                 if (!that.trigger(OPEN)) {
                     if (that._closing) {
                         wrapper.kendoStop(true, true);
@@ -510,9 +514,10 @@
                     }
                     options.visible = true;
                     if (options.modal) {
-                        overlay = that._overlay(false);
+                        otherModalsVisible = !!that._modals().length;
+                        overlay = that._overlay(otherModalsVisible);
                         overlay.kendoStop(true, true);
-                        if (showOptions.duration && kendo.effects.Fade) {
+                        if (showOptions.duration && kendo.effects.Fade && !otherModalsVisible) {
                             var overlayFx = kendo.fx(overlay).fadeIn();
                             overlayFx.duration(showOptions.duration || 0);
                             overlayFx.endValue(0.5);
@@ -544,6 +549,7 @@
                     this.element.focus();
                 }
                 this.element.css(OVERFLOW, scrollable ? '' : 'hidden');
+                kendo.resize(this.element.children());
                 this.trigger(ACTIVATE);
             },
             _removeOverlay: function (suppressAnimation) {
@@ -719,6 +725,7 @@
                     that.options.isMaximized = true;
                     that._onDocumentResize();
                 });
+                return this;
             },
             minimize: function () {
                 this._sizingAction('minimize', function () {
@@ -730,6 +737,7 @@
                     that.element.hide();
                     that.options.isMinimized = true;
                 });
+                return this;
             },
             pin: function (force) {
                 var that = this, win = $(window), wrapper = that.wrapper, top = parseInt(wrapper.css('top'), 10), left = parseInt(wrapper.css('left'), 10);
@@ -863,7 +871,7 @@
             _createWindow: function () {
                 var contentHtml = this.element, options = this.options, iframeSrcAttributes, wrapper, isRtl = kendo.support.isRtl(contentHtml);
                 if (options.scrollable === false) {
-                    contentHtml.attr('style', 'overflow:hidden;');
+                    contentHtml.css('overflow', 'hidden');
                 }
                 wrapper = $(templates.wrapper(options));
                 iframeSrcAttributes = contentHtml.find('iframe:not(.k-content)').map(function () {
@@ -887,7 +895,7 @@
         });
         templates = {
             wrapper: template('<div class=\'k-widget k-window\' />'),
-            action: template('<a role=\'button\' href=\'\\#\' class=\'k-window-action k-link\'>' + '<span role=\'presentation\' class=\'k-icon k-i-#= name.toLowerCase() #\'>#= name #</span>' + '</a>'),
+            action: template('<a role=\'button\' href=\'\\#\' class=\'k-window-action k-link\' aria-label=\'#= name #\'>' + '<span class=\'k-icon k-i-#= name.toLowerCase() #\'></span>' + '</a>'),
             titlebar: template('<div class=\'k-window-titlebar k-header\'>&nbsp;' + '<span class=\'k-window-title\'>#= title #</span>' + '<div class=\'k-window-actions\' />' + '</div>'),
             overlay: '<div class=\'k-overlay\' />',
             contentFrame: template('<iframe frameborder=\'0\' title=\'#= title #\' class=\'' + KCONTENTFRAME + '\' ' + 'src=\'#= content.url #\'>' + 'This page requires frames in order to show content' + '</iframe>'),
@@ -929,12 +937,12 @@
                 $(BODY).css(CURSOR, e.currentTarget.css(CURSOR));
             },
             drag: function (e) {
-                var that = this, wnd = that.owner, wrapper = wnd.wrapper, options = wnd.options, direction = that.resizeDirection, containerOffset = that.containerOffset, initialPosition = that.initialPosition, initialSize = that.initialSize, newWidth, newHeight, windowBottom, windowRight, x = Math.max(e.x.location, containerOffset.left), y = Math.max(e.y.location, containerOffset.top);
+                var that = this, wnd = that.owner, wrapper = wnd.wrapper, options = wnd.options, direction = that.resizeDirection, containerOffset = that.containerOffset, initialPosition = that.initialPosition, initialSize = that.initialSize, newWidth, newHeight, windowBottom, windowRight, x = Math.max(e.x.location, 0), y = Math.max(e.y.location, 0);
                 if (direction.indexOf('e') >= 0) {
-                    newWidth = x - initialPosition.left;
+                    newWidth = x - initialPosition.left - containerOffset.left;
                     wrapper.width(constrain(newWidth, options.minWidth, options.maxWidth));
                 } else if (direction.indexOf('w') >= 0) {
-                    windowRight = initialPosition.left + initialSize.width;
+                    windowRight = initialPosition.left + initialSize.width + containerOffset.left;
                     newWidth = constrain(windowRight - x, options.minWidth, options.maxWidth);
                     wrapper.css({
                         left: windowRight - newWidth - containerOffset.left,
@@ -942,10 +950,10 @@
                     });
                 }
                 if (direction.indexOf('s') >= 0) {
-                    newHeight = y - initialPosition.top - that.elementPadding;
+                    newHeight = y - initialPosition.top - that.elementPadding - containerOffset.top;
                     wrapper.height(constrain(newHeight, options.minHeight, options.maxHeight));
                 } else if (direction.indexOf('n') >= 0) {
-                    windowBottom = initialPosition.top + initialSize.height;
+                    windowBottom = initialPosition.top + initialSize.height + containerOffset.top;
                     newHeight = constrain(windowBottom - y, options.minHeight, options.maxHeight);
                     wrapper.css({
                         top: windowBottom - newHeight - containerOffset.top,
@@ -998,6 +1006,10 @@
                 var wnd = this.owner, element = wnd.element, actions = element.find('.k-window-actions'), containerOffset = kendo.getOffset(wnd.appendTo);
                 wnd.trigger(DRAGSTART);
                 wnd.initialWindowPosition = kendo.getOffset(wnd.wrapper, 'position');
+                wnd.initialPointerPosition = {
+                    left: e.x.client,
+                    top: e.y.client
+                };
                 wnd.startPosition = {
                     left: e.x.client - wnd.initialWindowPosition.left,
                     top: e.y.client - wnd.initialWindowPosition.top
@@ -1013,13 +1025,15 @@
                 $(BODY).css(CURSOR, e.currentTarget.css(CURSOR));
             },
             drag: function (e) {
-                var wnd = this.owner, position = wnd.options.position, newTop = Math.max(e.y.client - wnd.startPosition.top, wnd.minTopPosition), newLeft = Math.max(e.x.client - wnd.startPosition.left, wnd.minLeftPosition), coordinates = {
-                        left: newLeft,
-                        top: newTop
-                    };
-                $(wnd.wrapper).css(coordinates);
-                position.top = newTop;
-                position.left = newLeft;
+                var wnd = this.owner;
+                var position = wnd.options.position;
+                position.top = Math.max(e.y.client - wnd.startPosition.top, wnd.minTopPosition);
+                position.left = Math.max(e.x.client - wnd.startPosition.left, wnd.minLeftPosition);
+                if (kendo.support.transforms) {
+                    $(wnd.wrapper).css('transform', 'translate(' + (e.x.client - wnd.initialPointerPosition.left) + 'px, ' + (e.y.client - wnd.initialPointerPosition.top) + 'px)');
+                } else {
+                    $(wnd.wrapper).css(position);
+                }
             },
             _finishDrag: function () {
                 var wnd = this.owner;
@@ -1031,6 +1045,7 @@
                 e.currentTarget.closest(KWINDOW).css(this.owner.initialWindowPosition);
             },
             dragend: function () {
+                $(this.owner.wrapper).css(this.owner.options.position).css('transform', '');
                 this._finishDrag();
                 this.owner.trigger(DRAGEND);
                 return false;

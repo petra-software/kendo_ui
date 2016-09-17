@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -317,6 +317,39 @@
                 return output;
             }).join('');
         }
+        function mergeSort(a, cmp) {
+            if (a.length < 2) {
+                return a.slice();
+            }
+            function merge(a, b) {
+                var r = [], ai = 0, bi = 0, i = 0;
+                while (ai < a.length && bi < b.length) {
+                    if (cmp(a[ai], b[bi]) <= 0) {
+                        r[i++] = a[ai++];
+                    } else {
+                        r[i++] = b[bi++];
+                    }
+                }
+                if (ai < a.length) {
+                    r.push.apply(r, a.slice(ai));
+                }
+                if (bi < b.length) {
+                    r.push.apply(r, b.slice(bi));
+                }
+                return r;
+            }
+            return function sort(a) {
+                if (a.length <= 1) {
+                    return a;
+                }
+                var m = Math.floor(a.length / 2);
+                var left = a.slice(0, m);
+                var right = a.slice(m);
+                left = sort(left);
+                right = sort(right);
+                return merge(left, right);
+            }(a);
+        }
         deepExtend(kendo, {
             util: {
                 MAX_NUM: MAX_NUM,
@@ -352,7 +385,8 @@
                 arabicToRoman: arabicToRoman,
                 memoize: memoize,
                 ucs2encode: ucs2encode,
-                ucs2decode: ucs2decode
+                ucs2decode: ucs2decode,
+                mergeSort: mergeSort
             }
         });
         kendo.drawing.util = kendo.util;
@@ -589,10 +623,12 @@
                 return this;
             },
             optionsChange: function (e) {
+                e = e || {};
+                e.element = this;
                 this.trigger('optionsChange', e);
             },
-            geometryChange: function (e) {
-                this.trigger('geometryChange', e);
+            geometryChange: function () {
+                this.trigger('geometryChange', { element: this });
             },
             suspend: function () {
                 this._suspended = (this._suspended || 0) + 1;
@@ -651,10 +687,12 @@
                 if (themeOptions) {
                     themeOptions = deepExtend({}, themeOptions, stockDefaults);
                 }
-                if (!chart._navigator) {
-                    Navigator.setup(options, themeOptions);
-                }
+                Navigator.setup(options, themeOptions);
                 Chart.fn._applyDefaults.call(chart, options, themeOptions);
+            },
+            setOptions: function (options) {
+                this._destroyNavigator();
+                Chart.fn.setOptions.call(this, options);
             },
             _initDataSource: function (userOptions) {
                 var options = userOptions || {}, dataSource = options.dataSource, hasServerFiltering = dataSource && dataSource.serverFiltering, mainAxis = [].concat(options.categoryAxis)[0], naviOptions = options.navigator || {}, select = naviOptions.select, hasSelect = select && select.from && select.to, filter, dummyAxis;
@@ -727,7 +765,7 @@
             _fullRedraw: function () {
                 var chart = this, navigator = chart._navigator;
                 if (!navigator) {
-                    navigator = chart._navigator = new Navigator(chart);
+                    navigator = chart._navigator = chart.navigator = new Navigator(chart);
                 }
                 navigator._setRange();
                 Chart.fn._redraw.call(chart);
@@ -758,10 +796,13 @@
                     Chart.fn._trackSharedTooltip.call(chart, coords);
                 }
             },
+            _destroyNavigator: function () {
+                this._navigator.destroy();
+                this._navigator = null;
+            },
             destroy: function () {
-                var chart = this;
-                chart._navigator.destroy();
-                Chart.fn.destroy.call(chart);
+                this._destroyNavigator();
+                Chart.fn.destroy.call(this);
             }
         });
         var Navigator = Observable.extend({
@@ -813,7 +854,7 @@
                 }
                 if (chart._model) {
                     navi.redraw();
-                    navi.filterAxes();
+                    navi._setRange();
                     if (!chart.options.dataSource || chart.options.dataSource && chart._dataBound) {
                         navi.redrawSlaves();
                     }
@@ -845,12 +886,13 @@
                 selection = navi.selection = new Selection(chart, axisClone, {
                     min: min,
                     max: max,
-                    from: from,
-                    to: to,
+                    from: from || min,
+                    to: to || max,
                     selectStart: $.proxy(navi._selectStart, navi),
                     select: $.proxy(navi._select, navi),
                     selectEnd: $.proxy(navi._selectEnd, navi),
-                    mousewheel: { zoom: 'left' }
+                    mousewheel: util.valueOrDefault(select.mousewheel, { zoom: 'left' }),
+                    visible: options.visible
                 });
                 if (options.hint.visible) {
                     navi.hint = new NavigatorHint(chart.element, {
@@ -864,10 +906,9 @@
             _setRange: function () {
                 var plotArea = this.chart._createPlotArea(true);
                 var axis = plotArea.namedCategoryAxes[NAVIGATOR_AXIS];
-                var axisOpt = axis.options;
-                var range = axis.range();
+                var range = axis.datesRange();
                 var min = range.min;
-                var max = addDuration(range.max, axisOpt.baseUnitStep, axisOpt.baseUnit);
+                var max = range.max;
                 var select = this.options.select || {};
                 var from = toDate(select.from) || min;
                 if (from < min) {
@@ -877,10 +918,10 @@
                 if (to > max) {
                     to = max;
                 }
-                this.options.select = {
+                this.options.select = deepExtend({}, select, {
                     from: from,
                     to: to
-                };
+                });
                 this.filterAxes();
             },
             _redrawSelf: function (silent) {
@@ -1016,11 +1057,30 @@
                 if (plotArea) {
                     return plotArea.namedCategoryAxes[NAVIGATOR_AXIS];
                 }
+            },
+            select: function (from, to) {
+                var select = this.options.select;
+                if (from && to) {
+                    select.from = toDate(from);
+                    select.to = toDate(to);
+                    this.filterAxes();
+                    this.filterDataSource();
+                    this.redrawSlaves();
+                    this.selection.set(from, to);
+                }
+                return {
+                    from: select.from,
+                    to: select.to
+                };
             }
         });
         Navigator.setup = function (options, themeOptions) {
             options = options || {};
             themeOptions = themeOptions || {};
+            if (options.__navi) {
+                return;
+            }
+            options.__navi = true;
             var naviOptions = deepExtend({}, themeOptions.navigator, options.navigator), panes = options.panes = [].concat(options.panes), paneOptions = deepExtend({}, naviOptions.pane, { name: NAVIGATOR_PANE });
             if (!naviOptions.visible) {
                 paneOptions.visible = false;
@@ -1060,11 +1120,12 @@
                     months: [1],
                     years: [1]
                 },
-                _overlap: false
+                _overlap: true
             });
             var user = naviOptions.categoryAxis;
             categoryAxes.push(deepExtend({}, base, { maxDateGroups: 200 }, user, {
                 name: NAVIGATOR_AXIS,
+                title: null,
                 baseUnit: 'fit',
                 baseUnitStep: 'auto',
                 labels: { visible: false },
@@ -1080,6 +1141,7 @@
                 maxDateGroups: 200,
                 majorTicks: { width: 0.5 },
                 plotBands: [],
+                title: null,
                 labels: {
                     visible: false,
                     mirror: true

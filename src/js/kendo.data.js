@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -286,6 +286,9 @@
                 this.splice(0, this.length);
             }
         });
+        if (typeof Symbol !== 'undefined' && Symbol.iterator && !ObservableArray.prototype[Symbol.iterator]) {
+            ObservableArray.prototype[Symbol.iterator] = [][Symbol.iterator];
+        }
         var LazyObservableArray = ObservableArray.extend({
             init: function (data, type) {
                 Observable.fn.init.call(this);
@@ -2186,7 +2189,7 @@
                     that._eachItem(that._data, function (items) {
                         for (var idx = 0; idx < items.length; idx++) {
                             var item = items.at(idx);
-                            if (item.__state__ == 'update') {
+                            if (item.__state__ == 'update' || item.__state__ == 'create') {
                                 item.dirty = true;
                             }
                         }
@@ -2403,6 +2406,7 @@
                             that.transport.read({
                                 data: params,
                                 success: function (data) {
+                                    that._ranges = [];
                                     that.success(data, params);
                                     deferred.resolve();
                                 },
@@ -2443,6 +2447,7 @@
                         that._aggregateResult = that._readAggregates(data);
                     }
                     data = that._readData(data);
+                    that._destroyed = [];
                 } else {
                     data = that._readData(data);
                     var items = [];

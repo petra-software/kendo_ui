@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -317,6 +317,39 @@
                 return output;
             }).join('');
         }
+        function mergeSort(a, cmp) {
+            if (a.length < 2) {
+                return a.slice();
+            }
+            function merge(a, b) {
+                var r = [], ai = 0, bi = 0, i = 0;
+                while (ai < a.length && bi < b.length) {
+                    if (cmp(a[ai], b[bi]) <= 0) {
+                        r[i++] = a[ai++];
+                    } else {
+                        r[i++] = b[bi++];
+                    }
+                }
+                if (ai < a.length) {
+                    r.push.apply(r, a.slice(ai));
+                }
+                if (bi < b.length) {
+                    r.push.apply(r, b.slice(bi));
+                }
+                return r;
+            }
+            return function sort(a) {
+                if (a.length <= 1) {
+                    return a;
+                }
+                var m = Math.floor(a.length / 2);
+                var left = a.slice(0, m);
+                var right = a.slice(m);
+                left = sort(left);
+                right = sort(right);
+                return merge(left, right);
+            }(a);
+        }
         deepExtend(kendo, {
             util: {
                 MAX_NUM: MAX_NUM,
@@ -352,7 +385,8 @@
                 arabicToRoman: arabicToRoman,
                 memoize: memoize,
                 ucs2encode: ucs2encode,
-                ucs2decode: ucs2decode
+                ucs2decode: ucs2decode,
+                mergeSort: mergeSort
             }
         });
         kendo.drawing.util = kendo.util;
@@ -3529,10 +3563,12 @@
                 return this;
             },
             optionsChange: function (e) {
+                e = e || {};
+                e.element = this;
                 this.trigger('optionsChange', e);
             },
-            geometryChange: function (e) {
-                this.trigger('geometryChange', e);
+            geometryChange: function () {
+                this.trigger('geometryChange', { element: this });
             },
             suspend: function () {
                 this._suspended = (this._suspended || 0) + 1;
@@ -3873,25 +3909,28 @@
                         y: fill.end().y
                     };
                 }
+                var stops = fill.stops.elements().map(function (stop) {
+                    var offset = stop.offset();
+                    if (/%$/.test(offset)) {
+                        offset = parseFloat(offset) / 100;
+                    } else {
+                        offset = parseFloat(offset);
+                    }
+                    var color = parseColor(stop.color());
+                    color.a *= stop.opacity();
+                    return {
+                        offset: offset,
+                        color: color
+                    };
+                });
+                stops.unshift(stops[0]);
+                stops.push(stops[stops.length - 1]);
                 var gradient = {
+                    userSpace: fill.userSpace(),
                     type: isRadial ? 'radial' : 'linear',
                     start: start,
                     end: end,
-                    userSpace: fill.userSpace(),
-                    stops: fill.stops.elements().map(function (stop) {
-                        var offset = stop.offset();
-                        if (/%$/.test(offset)) {
-                            offset = parseFloat(offset) / 100;
-                        } else {
-                            offset = parseFloat(offset);
-                        }
-                        var color = parseColor(stop.color());
-                        color.a *= stop.opacity();
-                        return {
-                            offset: offset,
-                            color: color
-                        };
-                    })
+                    stops: stops
                 };
                 var box = element.rawBBox();
                 var tl = box.topLeft(), size = box.getSize();
@@ -4034,6 +4073,9 @@
         function exportPDF(group, options) {
             var defer = $.Deferred();
             for (var i in options) {
+                if (i == 'margin' && group.options.pdf && group.options.pdf._ignoreMargin) {
+                    continue;
+                }
                 group.options.set('pdf.' + i, options[i]);
             }
             drawing.pdf.toDataURL(group, defer.resolve);
@@ -4238,7 +4280,7 @@
                     return;
                 }
                 var options = this.options.pdf;
-                options.multiPage = options.allPages;
+                options.multiPage = options.multiPage || options.allPages;
                 this._drawPDF(progress).then(function (root) {
                     return kendo.drawing.exportPDF(root, options);
                 }).done(function (dataURI) {

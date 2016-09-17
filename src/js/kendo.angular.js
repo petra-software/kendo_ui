@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -56,6 +56,8 @@
                 TreeList: 'TreeListDataSource',
                 TreeView: 'HierarchicalDataSource',
                 Scheduler: 'SchedulerDataSource',
+                PivotGrid: 'PivotDataSource',
+                PivotConfigurator: 'PivotDataSource',
                 PanelBar: '$PLAIN',
                 Menu: '$PLAIN',
                 ContextMenu: '$PLAIN'
@@ -373,6 +375,7 @@
                 };
             };
             widget.first('change', onChange(false));
+            widget.first('spin', onChange(false));
             if (!(kendo.ui.AutoComplete && widget instanceof kendo.ui.AutoComplete)) {
                 widget.first('dataBound', onChange(true));
             }
@@ -392,13 +395,13 @@
                 return;
             }
             var form = $(widget.element).parents('form');
-            var ngForm = scope[form.attr('name')];
+            var ngForm = kendo.getter(form.attr('name'))(scope);
             var getter = $parse(kNgModel);
             var setter = getter.assign;
             var updating = false;
             var valueIsCollection = kendo.ui.MultiSelect && widget instanceof kendo.ui.MultiSelect;
             var length = function (value) {
-                return valueIsCollection ? value.length : 0;
+                return value && valueIsCollection ? value.length : 0;
             };
             var currentValueLength = length(getter(scope));
             widget.$angular_setLogicValue(getter(scope));
@@ -417,7 +420,7 @@
             } else {
                 scope.$watch(kNgModel, watchHandler);
             }
-            widget.first('change', function () {
+            var changeHandler = function () {
                 updating = true;
                 if (ngForm && ngForm.$pristine) {
                     ngForm.$setDirty();
@@ -427,7 +430,9 @@
                     currentValueLength = length(getter(scope));
                 });
                 updating = false;
-            });
+            };
+            widget.first('change', changeHandler);
+            widget.first('spin', changeHandler);
         }
         function destroyWidgetOnScopeDestroy(scope, widget) {
             var deregister = scope.$on('$destroy', function () {
@@ -900,7 +905,7 @@
             var options = this.self.options;
             var values = this.self.value().split(options.separator);
             var valuePrimitive = options.valuePrimitive;
-            var data = this.self.dataSource.data();
+            var data = this.self.listView.selectedDataItems();
             var dataItems = [];
             for (var idx = 0, length = data.length; idx < length; idx++) {
                 var item = data[idx];

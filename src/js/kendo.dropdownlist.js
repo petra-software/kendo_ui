@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -50,7 +50,7 @@
         ]
     };
     (function ($, undefined) {
-        var kendo = window.kendo, ui = kendo.ui, List = ui.List, Select = ui.Select, support = kendo.support, activeElement = kendo._activeElement, ObservableObject = kendo.data.ObservableObject, keys = kendo.keys, ns = '.kendoDropDownList', DISABLED = 'disabled', READONLY = 'readonly', CHANGE = 'change', FOCUSED = 'k-state-focused', DEFAULT = 'k-state-default', STATEDISABLED = 'k-state-disabled', ARIA_DISABLED = 'aria-disabled', ARIA_READONLY = 'aria-readonly', HOVEREVENTS = 'mouseenter' + ns + ' mouseleave' + ns, TABINDEX = 'tabindex', STATE_FILTER = 'filter', STATE_ACCEPT = 'accept', MSG_INVALID_OPTION_LABEL = 'The `optionLabel` option is not valid due to missing fields. Define a custom optionLabel as shown here http://docs.telerik.com/kendo-ui/api/javascript/ui/dropdownlist#configuration-optionLabel', proxy = $.proxy;
+        var kendo = window.kendo, ui = kendo.ui, List = ui.List, Select = ui.Select, support = kendo.support, activeElement = kendo._activeElement, ObservableObject = kendo.data.ObservableObject, keys = kendo.keys, ns = '.kendoDropDownList', DISABLED = 'disabled', READONLY = 'readonly', CHANGE = 'change', FOCUSED = 'k-state-focused', DEFAULT = 'k-state-default', STATEDISABLED = 'k-state-disabled', ARIA_DISABLED = 'aria-disabled', HOVEREVENTS = 'mouseenter' + ns + ' mouseleave' + ns, TABINDEX = 'tabindex', STATE_FILTER = 'filter', STATE_ACCEPT = 'accept', MSG_INVALID_OPTION_LABEL = 'The `optionLabel` option is not valid due to missing fields. Define a custom optionLabel as shown here http://docs.telerik.com/kendo-ui/api/javascript/ui/dropdownlist#configuration-optionLabel', proxy = $.proxy;
         var DropDownList = Select.extend({
             init: function (element, options) {
                 var that = this;
@@ -84,6 +84,7 @@
                     options.index = index;
                 }
                 that._initialIndex = options.index;
+                that.requireValueMapper(that.options);
                 that._initList();
                 that._cascade();
                 if (options.autoBind) {
@@ -127,6 +128,7 @@
                 animation: {},
                 filter: 'none',
                 minLength: 1,
+                enforceMinLength: false,
                 virtual: false,
                 template: null,
                 valueTemplate: null,
@@ -180,18 +182,35 @@
                         that.filterInput.val('');
                         that._prev = '';
                     }
-                    that._filterSource();
+                    if (that.filterInput && that.options.minLength !== 1) {
+                        that.refresh();
+                        that.popup.one('activate', that._focusInputHandler);
+                        that.popup.open();
+                        if (that.filterInput) {
+                            that._resizeFilterInput();
+                        }
+                    } else {
+                        that._filterSource();
+                    }
                 } else if (that._allowOpening()) {
                     that.popup.one('activate', that._focusInputHandler);
                     that.popup.open();
+                    if (that.filterInput) {
+                        that._resizeFilterInput();
+                    }
                     that._focusItem();
                 }
             },
             _focusInput: function () {
                 this._focusElement(this.filterInput);
             },
+            _resizeFilterInput: function () {
+                this.filterInput.css('display', 'none');
+                this.filterInput.css('width', this.popup.element.css('width'));
+                this.filterInput.css('display', 'inline-block');
+            },
             _allowOpening: function () {
-                return this.hasOptionLabel() || this.filterInput || this.dataSource.view().length;
+                return this.hasOptionLabel() || this.filterInput || Select.fn._allowOpening.call(this);
             },
             toggle: function (toggle) {
                 this._toggle(toggle, true);
@@ -263,6 +282,10 @@
                     return that._textAccessor();
                 }
             },
+            _clearFilter: function () {
+                $(this.filterInput).val('');
+                Select.fn._clearFilter.call(this);
+            },
             value: function (value) {
                 var that = this;
                 var listView = that.listView;
@@ -271,6 +294,7 @@
                     value = that._accessor() || that.listView.value()[0];
                     return value === undefined || value === null ? '' : value;
                 }
+                that.requireValueMapper(that.options, value);
                 if (value || !that.hasOptionLabel()) {
                     that._initialIndex = null;
                 }
@@ -355,11 +379,15 @@
                 }
                 var value = that.listView.value()[0];
                 var optionLabel = that._optionLabelDataItem();
+                var optionLabelValue = optionLabel && that._value(optionLabel);
                 if (value === undefined || value === null) {
                     value = '';
                 }
                 if (optionLabel) {
-                    optionLabel = '<option value="' + that._value(optionLabel) + '">' + that._text(optionLabel) + '</option>';
+                    if (optionLabelValue === undefined || optionLabelValue === null) {
+                        optionLabelValue = '';
+                    }
+                    optionLabel = '<option value="' + optionLabelValue + '">' + that._text(optionLabel) + '</option>';
                 }
                 that._options(data, optionLabel, value);
                 if (value !== List.unifyType(that._accessor(), typeof value)) {
@@ -373,8 +401,10 @@
                 var filtered = that._state === STATE_FILTER;
                 var data = that.dataSource.flatView();
                 var dataItem;
-                that._angularItems('compile');
                 that._presetValue = false;
+                that._renderFooter();
+                that._renderNoData();
+                that._toggleNoData(!data.length);
                 that._resizePopup(true);
                 that.popup.position();
                 that._buildOptions(data);
@@ -410,6 +440,9 @@
                     this._oldIndex = this.selectedIndex;
                 }
             },
+            _filterPaste: function () {
+                this._search();
+            },
             _focusHandler: function () {
                 this.wrapper.focus();
             },
@@ -422,9 +455,13 @@
                 var filtered = that._state === STATE_FILTER;
                 var isIFrame = window.self !== window.top;
                 var focusedItem = that._focus();
+                var dataItem = that._getElementDataItem(focusedItem);
                 if (!that._prevent) {
                     clearTimeout(that._typingTimeout);
-                    if (filtered && focusedItem && !that.trigger('select', { item: focusedItem })) {
+                    if (!filtered && focusedItem && !that.trigger('select', {
+                            dataItem: dataItem,
+                            item: focusedItem
+                        })) {
                         that._select(focusedItem, !that.dataSource.view().length);
                     }
                     if (support.mobileOS.ios && isIFrame) {
@@ -457,7 +494,7 @@
                 if (!readonly && !disable) {
                     element.removeAttr(DISABLED).removeAttr(READONLY);
                     dropDownWrapper.addClass(DEFAULT).removeClass(STATEDISABLED).on(HOVEREVENTS, that._toggleHover);
-                    wrapper.attr(TABINDEX, wrapper.data(TABINDEX)).attr(ARIA_DISABLED, false).attr(ARIA_READONLY, false).on('keydown' + ns, proxy(that._keydown, that)).on('focusin' + ns, proxy(that._focusinHandler, that)).on('focusout' + ns, proxy(that._focusoutHandler, that)).on('mousedown' + ns, proxy(that._wrapperMousedown, that));
+                    wrapper.attr(TABINDEX, wrapper.data(TABINDEX)).attr(ARIA_DISABLED, false).on('keydown' + ns, proxy(that._keydown, that)).on('focusin' + ns, proxy(that._focusinHandler, that)).on('focusout' + ns, proxy(that._focusoutHandler, that)).on('mousedown' + ns, proxy(that._wrapperMousedown, that)).on('paste' + ns, proxy(that._filterPaste, that));
                     that.wrapper.on('click' + ns, proxy(that._wrapperClick, that));
                     if (!that.filterInput) {
                         wrapper.on('keypress' + ns, proxy(that._keypress, that));
@@ -470,7 +507,7 @@
                     wrapper.on('focusin' + ns, proxy(that._focusinHandler, that)).on('focusout' + ns, proxy(that._focusoutHandler, that));
                 }
                 element.attr(DISABLED, disable).attr(READONLY, readonly);
-                wrapper.attr(ARIA_DISABLED, disable).attr(ARIA_READONLY, readonly);
+                wrapper.attr(ARIA_DISABLED, disable);
             },
             _keydown: function (e) {
                 var that = this;
@@ -496,6 +533,9 @@
                 if (altKey && key === keys.UP || key === keys.ESC) {
                     that._focusElement(that.wrapper);
                 }
+                if (that._state === STATE_FILTER && key === keys.ESC) {
+                    that._clearFilter();
+                }
                 if (key === keys.ENTER && that._typingTimeout && that.filterInput && isPopupVisible) {
                     e.preventDefault();
                     return;
@@ -505,6 +545,7 @@
                     return;
                 }
                 if (!isPopupVisible || !that.filterInput) {
+                    var current = that._focus();
                     if (key === keys.HOME) {
                         handled = true;
                         that._firstItem();
@@ -513,8 +554,17 @@
                         that._lastItem();
                     }
                     if (handled) {
-                        that._select(that._focus());
-                        e.preventDefault();
+                        if (that.trigger('select', {
+                                dataItem: that._getElementDataItem(that._focus()),
+                                item: that._focus()
+                            })) {
+                            that._focus(current);
+                            return;
+                        }
+                        that._select(that._focus(), true);
+                        if (!isPopupVisible) {
+                            that._blur();
+                        }
                     }
                 }
                 if (!altKey && !handled && that.filterInput) {
@@ -566,7 +616,10 @@
                 if (idx !== dataLength) {
                     oldFocusedItem = that._focus();
                     that._select(normalizeIndex(startIndex + idx, dataLength));
-                    if (that.trigger('select', { item: that._focus() })) {
+                    if (that.trigger('select', {
+                            dataItem: that._getElementDataItem(that._focus()),
+                            item: that._focus()
+                        })) {
                         that._select(oldFocusedItem);
                     }
                     if (!that.popup.visible()) {
@@ -602,10 +655,22 @@
                 Select.fn._popup.call(this);
                 this.popup.one('open', proxy(this._popupOpen, this));
             },
+            _getElementDataItem: function (element) {
+                if (!element || !element[0]) {
+                    return null;
+                }
+                if (element[0] === this.optionLabel[0]) {
+                    return this._optionLabelDataItem();
+                }
+                return this.listView.dataItemByIndex(this.listView.getElementIndex(element));
+            },
             _click: function (e) {
                 var item = e.item || $(e.currentTarget);
                 e.preventDefault();
-                if (this.trigger('select', { item: item })) {
+                if (this.trigger('select', {
+                        dataItem: this._getElementDataItem(item),
+                        item: item
+                    })) {
                     this.close();
                     return;
                 }
@@ -628,7 +693,7 @@
                     this._focused = element.focus();
                 }
             },
-            _filter: function (word) {
+            _searchByWord: function (word) {
                 if (word) {
                     var that = this;
                     var ignoreCase = that.options.ignoreCase;
@@ -640,6 +705,9 @@
                     });
                 }
             },
+            _inputValue: function () {
+                return this.text();
+            },
             _search: function () {
                 var that = this;
                 var dataSource = that.dataSource;
@@ -650,6 +718,7 @@
                         if (that._prev !== value) {
                             that._prev = value;
                             that.search(value);
+                            that._resizeFilterInput();
                         }
                         that._typingTimeout = null;
                     }, that.options.delay);
@@ -821,9 +890,10 @@
                     this.filterInput = null;
                 }
                 if (this._isFilterEnabled()) {
-                    icon = '<span unselectable="on" class="k-icon k-i-search">select</span>';
+                    icon = '<span class="k-icon k-i-search"></span>';
                     this.filterInput = $('<input class="k-textbox"/>').attr({
                         placeholder: this.element.attr('placeholder'),
+                        title: this.element.attr('title'),
                         role: 'listbox',
                         'aria-haspopup': true,
                         'aria-expanded': false
@@ -835,7 +905,7 @@
                 var that = this, wrapper = that.wrapper, SELECTOR = 'span.k-input', span;
                 span = wrapper.find(SELECTOR);
                 if (!span[0]) {
-                    wrapper.append('<span unselectable="on" class="k-dropdown-wrap k-state-default"><span unselectable="on" class="k-input">&nbsp;</span><span unselectable="on" class="k-select"><span unselectable="on" class="k-icon k-i-arrow-s">select</span></span></span>').append(that.element);
+                    wrapper.append('<span unselectable="on" class="k-dropdown-wrap k-state-default"><span unselectable="on" class="k-input">&nbsp;</span><span unselectable="on" class="k-select" aria-label="select"><span class="k-icon k-i-arrow-s"></span></span></span>').append(that.element);
                     span = wrapper.find(SELECTOR);
                 }
                 that.span = span;
@@ -850,7 +920,6 @@
                     wrapper[0].style.cssText = DOMelement.style.cssText;
                     wrapper[0].title = DOMelement.title;
                 }
-                element.hide();
                 that._focused = that.wrapper = wrapper.addClass('k-widget k-dropdown k-header').addClass(DOMelement.className).css('display', '').attr({
                     accesskey: element.attr('accesskey'),
                     unselectable: 'on',
@@ -858,6 +927,7 @@
                     'aria-haspopup': true,
                     'aria-expanded': false
                 });
+                element.hide().removeAttr('accesskey');
             },
             _clearSelection: function (parent) {
                 this.select(parent.value() ? 0 : -1);
@@ -881,35 +951,40 @@
             _textAccessor: function (text) {
                 var dataItem = null;
                 var template = this.valueTemplate;
-                var options = this.options;
-                var optionLabel = options.optionLabel;
+                var optionLabelText = this._optionLabelText();
                 var span = this.span;
-                if (text !== undefined) {
-                    if ($.isPlainObject(text) || text instanceof ObservableObject) {
-                        dataItem = text;
-                    } else if (optionLabel && this._optionLabelText() === text) {
-                        dataItem = optionLabel;
-                        template = this.optionLabelTemplate;
-                    }
-                    if (!dataItem) {
-                        dataItem = this._assignInstance(text, this._accessor());
-                    }
-                    var getElements = function () {
-                        return {
-                            elements: span.get(),
-                            data: [{ dataItem: dataItem }]
-                        };
-                    };
-                    this.angular('cleanup', getElements);
-                    try {
-                        span.html(template(dataItem));
-                    } catch (e) {
-                        span.html('');
-                    }
-                    this.angular('compile', getElements);
-                } else {
+                if (text === undefined) {
                     return span.text();
                 }
+                if ($.isPlainObject(text) || text instanceof ObservableObject) {
+                    dataItem = text;
+                } else if (optionLabelText && optionLabelText === text) {
+                    dataItem = this.options.optionLabel;
+                }
+                if (!dataItem) {
+                    dataItem = this._assignInstance(text, this._accessor());
+                }
+                if (this.hasOptionLabel()) {
+                    if (dataItem === optionLabelText || this._text(dataItem) === optionLabelText) {
+                        template = this.optionLabelTemplate;
+                        if (typeof this.options.optionLabel === 'string' && !this.options.optionLabelTemplate) {
+                            dataItem = optionLabelText;
+                        }
+                    }
+                }
+                var getElements = function () {
+                    return {
+                        elements: span.get(),
+                        data: [{ dataItem: dataItem }]
+                    };
+                };
+                this.angular('cleanup', getElements);
+                try {
+                    span.html(template(dataItem));
+                } catch (e) {
+                    span.html('');
+                }
+                this.angular('compile', getElements);
             },
             _preselect: function (value, text) {
                 if (!value && !text) {

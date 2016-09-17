@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -332,7 +332,7 @@
                 }
                 that._hueSlider = element.find('.k-hue-slider').kendoSlider({
                     min: 0,
-                    max: 359,
+                    max: 360,
                     tickPlacement: 'none',
                     showButtons: false,
                     slide: hueChange,
@@ -569,13 +569,13 @@
                 Widget.fn.destroy.call(this);
             },
             enable: function (enable) {
-                var that = this, wrapper = that.wrapper, innerWrapper = wrapper.children('.k-picker-wrap'), icon = innerWrapper.find('.k-select');
+                var that = this, wrapper = that.wrapper, innerWrapper = wrapper.children('.k-picker-wrap'), arrow = innerWrapper.find('.k-select');
                 if (arguments.length === 0) {
                     enable = true;
                 }
                 that.element.attr('disabled', !enable);
                 wrapper.attr('aria-disabled', !enable);
-                icon.off(NS).on('mousedown' + NS, preventDefault);
+                arrow.off(NS).on('mousedown' + NS, preventDefault);
                 wrapper.addClass('k-state-disabled').removeAttr('tabIndex').add('*', wrapper).off(NS);
                 if (enable) {
                     wrapper.removeClass('k-state-disabled').attr('tabIndex', that._tabIndex).on('mouseenter' + NS, function () {
@@ -589,9 +589,11 @@
                     }).on(KEYDOWN_NS, bind(that._keydown, that)).on(CLICK_NS, '.k-select', bind(that.toggle, that)).on(CLICK_NS, that.options.toolIcon ? '.k-tool-icon' : '.k-selected-color', function () {
                         that.trigger('activate');
                     });
+                } else {
+                    that.close();
                 }
             },
-            _template: kendo.template('<span role="textbox" aria-haspopup="true" class="k-widget k-colorpicker k-header">' + '<span class="k-picker-wrap k-state-default">' + '# if (toolIcon) { #' + '<span class="k-tool-icon #= toolIcon #">' + '<span class="k-selected-color"></span>' + '</span>' + '# } else { #' + '<span class="k-selected-color"></span>' + '# } #' + '<span class="k-select" unselectable="on">' + '<span class="k-icon k-i-arrow-s" unselectable="on"></span>' + '</span>' + '</span>' + '</span>'),
+            _template: kendo.template('<span role="textbox" aria-haspopup="true" class="k-widget k-colorpicker k-header">' + '<span class="k-picker-wrap k-state-default">' + '# if (toolIcon) { #' + '<span class="k-tool-icon #= toolIcon #">' + '<span class="k-selected-color"></span>' + '</span>' + '# } else { #' + '<span class="k-selected-color"></span>' + '# } #' + '<span class="k-select" unselectable="on" aria-label="select">' + '<span class="k-icon k-i-arrow-s"></span>' + '</span>' + '</span>' + '</span>'),
             options: {
                 name: 'ColorPicker',
                 palette: null,
@@ -612,13 +614,17 @@
                 'close'
             ],
             open: function () {
-                this._getPopup().open();
+                if (!this.element.prop('disabled')) {
+                    this._getPopup().open();
+                }
             },
             close: function () {
                 this._getPopup().close();
             },
             toggle: function () {
-                this._getPopup().toggle();
+                if (!this.element.prop('disabled')) {
+                    this._getPopup().toggle();
+                }
             },
             color: ColorSelector.fn.color,
             value: ColorSelector.fn.value,
@@ -704,7 +710,11 @@
                             that.wrapper.children('.k-picker-wrap').removeClass('k-state-focused');
                             var color = selector._selectOnHide();
                             if (!color) {
-                                that.wrapper.focus();
+                                setTimeout(function () {
+                                    if (that.wrapper) {
+                                        that.wrapper.focus();
+                                    }
+                                });
                                 that._updateUI(that.color());
                             } else {
                                 that._select(color);

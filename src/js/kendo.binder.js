@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -446,7 +446,9 @@
                 for (idx = 0; idx < items.length; idx++) {
                     var child = element.children[index];
                     unbindElementTree(child, true);
-                    element.removeChild(child);
+                    if (child.parentNode == element) {
+                        element.removeChild(child);
+                    }
                 }
             },
             render: function () {
@@ -620,7 +622,11 @@
                             } else {
                                 value = option.text;
                             }
-                            values.push(this._parseValue(value, this.dataType()));
+                            if (field) {
+                                values.push(value);
+                            } else {
+                                values.push(this._parseValue(value, this.dataType()));
+                            }
                         }
                     }
                     if (field) {
@@ -630,7 +636,7 @@
                         }
                         for (valueIndex = 0; valueIndex < values.length; valueIndex++) {
                             for (idx = 0, length = source.length; idx < length; idx++) {
-                                var sourceValue = this._parseValue(source[idx].get(field), this.dataType());
+                                var sourceValue = source[idx].get(field);
                                 var match = String(sourceValue) === values[valueIndex];
                                 if (match) {
                                     values[valueIndex] = source[idx];
@@ -1243,7 +1249,7 @@
             return result;
         }
         function bindElement(element, source, roles, parents) {
-            var role = element.getAttribute('data-' + kendo.ns + 'role'), idx, bind = element.getAttribute('data-' + kendo.ns + 'bind'), children = element.children, childrenCopy = [], deep = true, bindings, options = {}, target;
+            var role = element.getAttribute('data-' + kendo.ns + 'role'), idx, bind = element.getAttribute('data-' + kendo.ns + 'bind'), childrenCopy = [], deep = true, bindings, options = {}, target;
             parents = parents || [source];
             if (role || bind) {
                 unbindElement(element, false);
@@ -1296,6 +1302,7 @@
             if (target) {
                 element.kendoBindingTarget = target;
             }
+            var children = element.children;
             if (deep && children) {
                 for (idx = 0; idx < children.length; idx++) {
                     childrenCopy[idx] = children[idx];

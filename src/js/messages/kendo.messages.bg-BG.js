@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -394,6 +394,20 @@ kendo.ui.NumericTextBox.prototype.options =
 $.extend(true, kendo.ui.NumericTextBox.prototype.options,{
   "upArrowText": "Увеличи стойността",
   "downArrowText": "Намали стойността"
+});
+}
+
+/* MediaPlayer messages */
+
+if (kendo.ui.MediaPlayer) {
+kendo.ui.MediaPlayer.prototype.options.messages =
+$.extend(true, kendo.ui.MediaPlayer.prototype.options.messages,{
+  "pause": "Пауза",
+  "play": "Възпроизвеждане",
+  "mute": "Заглушаване на звука",
+  "unmute": "Включване на звука",
+  "quality": "Промяна на качеството",
+  "fullscreen": "Цял екран"
 });
 }
 
@@ -881,5 +895,52 @@ $.extend(true, kendo.ui.Scheduler.prototype.options.messages,{
   "showWorkDay": "Покажи работни часове"
 });
 }
+
+/* Dialog */
+
+if (kendo.ui.Dialog) {
+kendo.ui.Dialog.prototype.options.messages =
+$.extend(true, kendo.ui.Dialog.prototype.options.localization,{
+  "close": "Затвори"
+});
+}
+
+/* Alert */
+
+if (kendo.ui.Alert) {
+kendo.ui.Alert.prototype.options.messages =
+$.extend(true, kendo.ui.Alert.prototype.options.localization,{
+  "okText": "OK"
+});
+}
+
+/* Confirm */
+
+if (kendo.ui.Confirm) {
+kendo.ui.Confirm.prototype.options.messages =
+$.extend(true, kendo.ui.Confirm.prototype.options.localization,{
+  "okText": "OK",
+  "cancel": "Отказ"
+});
+}
+
+/* Prompt */
+
+if (kendo.ui.Prompt) {
+kendo.ui.Prompt.prototype.options.messages =
+$.extend(true, kendo.ui.Prompt.prototype.options.localization,{
+  "okText": "OK",
+  "cancel": "Отказ"
+});
+}
+
+/* kendo.ui.progress method */
+if (kendo.ui.progress) {
+kendo.ui.progress.messages =
+$.extend(true, kendo.ui.progress.messages, {
+    loading: "Зареждане..."
+});
+}
+
 })(window.kendo.jQuery);
 }));

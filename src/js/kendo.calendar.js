@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -117,9 +117,6 @@
             setOptions: function (options) {
                 var that = this;
                 normalize(options);
-                if (!options.dates[0]) {
-                    options.dates = that.options.dates;
-                }
                 options.disableDates = getDisabledExpr(options.disableDates);
                 Widget.fn.setOptions.call(that, options);
                 that._templates();
@@ -256,7 +253,7 @@
                         value = null;
                     }
                 }
-                if (!that.options.disableDates(value)) {
+                if (value === null || !that.options.disableDates(value)) {
                     that._value = value;
                 } else if (that._value === undefined) {
                     that._value = null;
@@ -931,7 +928,7 @@
             if (depth === undefined || depth > start) {
                 options.depth = MONTH;
             }
-            if (!options.dates) {
+            if (options.dates === null) {
                 options.dates = [];
             }
         }
@@ -1010,6 +1007,7 @@
             return oldValue === newValue;
         }
         calendar.isEqualDatePart = isEqualDatePart;
+        calendar.isEqualDate = isEqualDate;
         calendar.makeUnselectable = makeUnselectable;
         calendar.restrictValue = restrictValue;
         calendar.isInRange = isInRange;

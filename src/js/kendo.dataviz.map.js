@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -317,6 +317,39 @@
                 return output;
             }).join('');
         }
+        function mergeSort(a, cmp) {
+            if (a.length < 2) {
+                return a.slice();
+            }
+            function merge(a, b) {
+                var r = [], ai = 0, bi = 0, i = 0;
+                while (ai < a.length && bi < b.length) {
+                    if (cmp(a[ai], b[bi]) <= 0) {
+                        r[i++] = a[ai++];
+                    } else {
+                        r[i++] = b[bi++];
+                    }
+                }
+                if (ai < a.length) {
+                    r.push.apply(r, a.slice(ai));
+                }
+                if (bi < b.length) {
+                    r.push.apply(r, b.slice(bi));
+                }
+                return r;
+            }
+            return function sort(a) {
+                if (a.length <= 1) {
+                    return a;
+                }
+                var m = Math.floor(a.length / 2);
+                var left = a.slice(0, m);
+                var right = a.slice(m);
+                left = sort(left);
+                right = sort(right);
+                return merge(left, right);
+            }(a);
+        }
         deepExtend(kendo, {
             util: {
                 MAX_NUM: MAX_NUM,
@@ -352,7 +385,8 @@
                 arabicToRoman: arabicToRoman,
                 memoize: memoize,
                 ucs2encode: ucs2encode,
-                ucs2decode: ucs2decode
+                ucs2decode: ucs2decode,
+                mergeSort: mergeSort
             }
         });
         kendo.drawing.util = kendo.util;
@@ -589,10 +623,12 @@
                 return this;
             },
             optionsChange: function (e) {
+                e = e || {};
+                e.element = this;
                 this.trigger('optionsChange', e);
             },
-            geometryChange: function (e) {
-                this.trigger('geometryChange', e);
+            geometryChange: function () {
+                this.trigger('geometryChange', { element: this });
             },
             suspend: function () {
                 this._suspended = (this._suspended || 0) + 1;
@@ -1310,6 +1346,7 @@
         var proxy = $.proxy, kendo = window.kendo, Class = kendo.Class, DataSource = kendo.data.DataSource, dataviz = kendo.dataviz, deepExtend = kendo.deepExtend, last = kendo.util.last, defined = kendo.util.defined, g = kendo.geometry, d = kendo.drawing, Group = d.Group, map = dataviz.map, Location = map.Location, Layer = map.layers.Layer;
         var ShapeLayer = Layer.extend({
             init: function (map, options) {
+                this._pan = proxy(this._pan, this);
                 Layer.fn.init.call(this, map, options);
                 this.surface = d.Surface.create(this.element, {
                     width: map.scrollElement.width(),
@@ -1401,6 +1438,10 @@
                 }
                 return cancelled;
             },
+            featureCreated: function (e) {
+                e.layer = this;
+                this.map.trigger('shapeFeatureCreated', e);
+            },
             _createMarker: function (shape) {
                 var marker = this.map.markers.bind({ location: shape.location }, shape.dataItem);
                 if (marker) {
@@ -1414,9 +1455,17 @@
                 }
                 this._markers = [];
             },
+            _pan: function () {
+                if (!this._panning) {
+                    this._panning = true;
+                    this.surface.suspendTracking();
+                }
+            },
             _panEnd: function (e) {
                 Layer.fn._panEnd.call(this, e);
                 this._translateSurface();
+                this.surface.resumeTracking();
+                this._panning = false;
             },
             _translateSurface: function () {
                 var map = this.map;
@@ -1441,6 +1490,14 @@
                         layer.map.trigger(event, args);
                     }
                 };
+            },
+            _activate: function () {
+                Layer.fn._activate.call(this);
+                this.map.bind('pan', this._pan);
+            },
+            _deactivate: function () {
+                Layer.fn._deactivate.call(this);
+                this.map.unbind('pan', this._pan);
             }
         });
         var GeoJSONLoader = Class.extend({
@@ -1451,12 +1508,15 @@
             },
             parse: function (item) {
                 var root = new Group();
+                var unwrap = true;
                 if (item.type === 'Feature') {
+                    unwrap = false;
                     this._loadGeometryTo(root, item.geometry, item);
+                    this._featureCreated(root, item);
                 } else {
                     this._loadGeometryTo(root, item, item);
                 }
-                if (root.children.length < 2) {
+                if (unwrap && root.children.length < 2) {
                     root = root.children[0];
                 }
                 return root;
@@ -1467,6 +1527,15 @@
                     cancelled = this.observer.shapeCreated(shape);
                 }
                 return cancelled;
+            },
+            _featureCreated: function (group, dataItem) {
+                if (this.observer && this.observer.featureCreated) {
+                    this.observer.featureCreated({
+                        group: group,
+                        dataItem: dataItem,
+                        properties: dataItem.properties
+                    });
+                }
             },
             _loadGeometryTo: function (container, geometry, dataItem) {
                 var coords = geometry.coordinates;
@@ -2035,14 +2104,12 @@
         var kendo = window.kendo, dataviz = kendo.dataviz, deepExtend = kendo.deepExtend, defined = kendo.util.defined, Extent = dataviz.map.Extent, Location = dataviz.map.Location, TileLayer = dataviz.map.layers.TileLayer, TileView = dataviz.map.layers.TileView;
         var BingLayer = TileLayer.extend({
             init: function (map, options) {
+                this.options.baseUrl = this._scheme() + '://dev.virtualearth.net/REST/v1/Imagery/Metadata/';
                 TileLayer.fn.init.call(this, map, options);
                 this._onMetadata = $.proxy(this._onMetadata, this);
                 this._fetchMetadata();
             },
-            options: {
-                baseUrl: '//dev.virtualearth.net/REST/v1/Imagery/Metadata/',
-                imagerySet: 'road'
-            },
+            options: { imagerySet: 'road' },
             _fetchMetadata: function () {
                 var options = this.options;
                 if (!options.key) {
@@ -2054,7 +2121,7 @@
                         output: 'json',
                         include: 'ImageryProviders',
                         key: options.key,
-                        uriScheme: this._scheme(window.location.protocol)
+                        uriScheme: this._scheme()
                     },
                     type: 'get',
                     dataType: 'jsonp',
@@ -2063,6 +2130,7 @@
                 });
             },
             _scheme: function (proto) {
+                proto = proto || window.location.protocol;
                 return proto.replace(':', '') === 'https' ? 'https' : 'http';
             },
             _onMetadata: function (data) {
@@ -2461,18 +2529,19 @@
             events: [
                 'beforeReset',
                 'click',
-                'reset',
-                'pan',
-                'panEnd',
                 'markerActivate',
                 'markerClick',
                 'markerCreated',
+                'pan',
+                'panEnd',
+                'reset',
                 'shapeClick',
                 'shapeCreated',
+                'shapeFeatureCreated',
                 'shapeMouseEnter',
                 'shapeMouseLeave',
-                'zoomStart',
-                'zoomEnd'
+                'zoomEnd',
+                'zoomStart'
             ],
             destroy: function () {
                 this.scroller.destroy();
@@ -2880,7 +2949,7 @@
         'kendo.tooltip',
         'kendo.mobile.scroller',
         'kendo.draganddrop',
-        'kendo.drawing',
+        'kendo.dataviz.core',
         'dataviz/map/location',
         'dataviz/map/attribution',
         'dataviz/map/navigator',
