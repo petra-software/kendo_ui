@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.1007 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -281,10 +281,7 @@
                 for (var i = arguments.length; --i >= 0;) {
                     id += ':' + arguments[i];
                 }
-                if (id in cache) {
-                    return cache[id];
-                }
-                return f.apply(this, arguments);
+                return id in cache ? cache[id] : cache[id] = f.apply(this, arguments);
             };
         }
         function ucs2decode(string) {
@@ -3535,7 +3532,7 @@
                 return segments;
             },
             removeDuplicates: function (idx, points) {
-                while (points[idx].equals(points[idx + 1]) || points[idx + 1].equals(points[idx + 2])) {
+                while (points[idx + 1] && (points[idx].equals(points[idx + 1]) || points[idx + 1].equals(points[idx + 2]))) {
                     points.splice(idx + 1, 1);
                 }
             },

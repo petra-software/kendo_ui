@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.1007 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -215,14 +215,22 @@
                     that._state = STATE_REBIND;
                     if (that.options.minLength !== 1) {
                         that.refresh();
-                        that.popup.open();
+                        that._openPopup();
                     } else {
                         that._filterSource();
                     }
                 } else if (that._allowOpening()) {
-                    that.popup.open();
+                    that._openPopup();
                     that._focusItem();
                 }
+            },
+            _scrollToFocusedItem: function () {
+                var listView = this.listView;
+                listView.scrollToIndex(listView.getElementIndex(listView.focus()));
+            },
+            _openPopup: function () {
+                this.popup.one('activate', proxy(this._scrollToFocusedItem, this));
+                this.popup.open();
             },
             _updateSelectionState: function () {
                 var that = this;

@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.1007 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -417,7 +417,7 @@
         }
         function borderSideTemplate(name, style) {
             var result = '';
-            if (style && style.size) {
+            if (style) {
                 result += '<' + name + ' style="' + borderStyle(style.size) + '">';
                 if (style.color) {
                     result += '<color rgb="' + convertColor(style.color) + '"/>';

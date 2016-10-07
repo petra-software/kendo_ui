@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.1.420 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.1007 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -609,7 +609,7 @@
                         value = input.attr('checked') === 'checked';
                     }
                 }
-                return !(value === '' || !value);
+                return !(value === '' || !value || value.length === 0);
             },
             number: function (input) {
                 return input.val() === '' || input.val() == null || kendo.parseFloat(input.val()) !== null;

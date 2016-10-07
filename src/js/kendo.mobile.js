@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.1007 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -33,7 +33,7 @@
     };
     (function ($, window, undefined) {
         var kendo = window.kendo = window.kendo || { cultures: {} }, extend = $.extend, each = $.each, isArray = $.isArray, proxy = $.proxy, noop = $.noop, math = Math, Template, JSON = window.JSON || {}, support = {}, percentRegExp = /%/, formatRegExp = /\{(\d+)(:[^\}]+)?\}/g, boxShadowRegExp = /(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+)?/i, numberRegExp = /^(\+|-?)\d+(\.?)\d*$/, FUNCTION = 'function', STRING = 'string', NUMBER = 'number', OBJECT = 'object', NULL = 'null', BOOLEAN = 'boolean', UNDEFINED = 'undefined', getterCache = {}, setterCache = {}, slice = [].slice;
-        kendo.version = '2016.3.914'.replace(/^\s+|\s+$/g, '');
+        kendo.version = '2016.3.1007'.replace(/^\s+|\s+$/g, '');
         function Class() {
         }
         Class.extend = function (proto) {
@@ -10359,7 +10359,7 @@
                 rules: {
                     required: function (input) {
                         var checkbox = input.filter('[type=checkbox]').length && !input.is(':checked'), value = input.val();
-                        return !(hasAttribute(input, 'required') && (value === '' || !value || checkbox));
+                        return !(hasAttribute(input, 'required') && (!value || value === '' || value.length === 0 || checkbox));
                     },
                     pattern: function (input) {
                         if (input.filter('[type=text],[type=email],[type=url],[type=tel],[type=search],[type=password]').filter('[pattern]').length && input.val() !== '') {
@@ -18669,7 +18669,7 @@
                     return widget.value();
                 };
             }
-            ngModel.$render = function () {
+            var viewRender = function () {
                 var val = ngModel.$viewValue;
                 if (val === undefined) {
                     val = ngModel.$modelValue;
@@ -18695,6 +18695,13 @@
                     }
                 }, 0);
             };
+            ngModel.$render = viewRender;
+            setTimeout(function () {
+                if (ngModel.$render !== viewRender) {
+                    ngModel.$render = viewRender;
+                    ngModel.$render();
+                }
+            });
             if (isForm(element)) {
                 element.on('change', function () {
                     haveChangeOnElement = true;
@@ -18740,7 +18747,7 @@
                 return;
             }
             var form = $(widget.element).parents('form');
-            var ngForm = kendo.getter(form.attr('name'))(scope);
+            var ngForm = kendo.getter(form.attr('name'), true)(scope);
             var getter = $parse(kNgModel);
             var setter = getter.assign;
             var updating = false;

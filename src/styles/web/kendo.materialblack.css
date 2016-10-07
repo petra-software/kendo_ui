@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.1007 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -3458,7 +3458,8 @@ div.k-scheduler-marquee:after {
   background-color: #363636;
 }
 .k-spreadsheet-active-cell.k-single {
-  background-color: #fff;
+  color: #d5d5d5;
+  background-color: #363636;
 }
 .k-spreadsheet .k-spreadsheet-action-bar {
   background-color: #363636;

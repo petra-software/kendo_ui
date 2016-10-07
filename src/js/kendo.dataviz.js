@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.1007 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -33,7 +33,7 @@
     };
     (function ($, window, undefined) {
         var kendo = window.kendo = window.kendo || { cultures: {} }, extend = $.extend, each = $.each, isArray = $.isArray, proxy = $.proxy, noop = $.noop, math = Math, Template, JSON = window.JSON || {}, support = {}, percentRegExp = /%/, formatRegExp = /\{(\d+)(:[^\}]+)?\}/g, boxShadowRegExp = /(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+)?/i, numberRegExp = /^(\+|-?)\d+(\.?)\d*$/, FUNCTION = 'function', STRING = 'string', NUMBER = 'number', OBJECT = 'object', NULL = 'null', BOOLEAN = 'boolean', UNDEFINED = 'undefined', getterCache = {}, setterCache = {}, slice = [].slice;
-        kendo.version = '2016.3.914'.replace(/^\s+|\s+$/g, '');
+        kendo.version = '2016.3.1007'.replace(/^\s+|\s+$/g, '');
         function Class() {
         }
         Class.extend = function (proto) {
@@ -14403,10 +14403,7 @@
                 for (var i = arguments.length; --i >= 0;) {
                     id += ':' + arguments[i];
                 }
-                if (id in cache) {
-                    return cache[id];
-                }
-                return f.apply(this, arguments);
+                return id in cache ? cache[id] : cache[id] = f.apply(this, arguments);
             };
         }
         function ucs2decode(string) {
@@ -21672,8 +21669,7 @@
                 return cache[cacheKey] = ret;
             };
         }();
-        var getFontURL = function () {
-            var cache = {};
+        var getFontURL = function (cache) {
             return function (el) {
                 var url = cache[el];
                 if (!url) {
@@ -21686,7 +21682,16 @@
                 }
                 return url;
             };
-        }();
+        }(Object.create(null));
+        var getFontHeight = function (cache) {
+            return function (font) {
+                var height = cache[font];
+                if (height == null) {
+                    height = cache[font] = kendo.util.measureText('Mapq', { font: font }).height;
+                }
+                return height;
+            };
+        }(Object.create(null));
         function getFontFaces(doc) {
             if (doc == null) {
                 doc = document;
@@ -23291,14 +23296,14 @@
             }
             function drawText(str, box) {
                 if (browser.msie && !isNaN(lineHeight)) {
-                    var size = kendo.util.measureText(str, { font: font });
-                    var top = (box.top + box.bottom - size.height) / 2;
+                    var height = getFontHeight(font);
+                    var top = (box.top + box.bottom - height) / 2;
                     box = {
                         top: top,
                         right: box.right,
-                        bottom: top + size.height,
+                        bottom: top + height,
                         left: box.left,
-                        height: size.height,
+                        height: height,
                         width: box.right - box.left
                     };
                 }
@@ -26456,7 +26461,7 @@
                 return segments;
             },
             removeDuplicates: function (idx, points) {
-                while (points[idx].equals(points[idx + 1]) || points[idx + 1].equals(points[idx + 2])) {
+                while (points[idx + 1] && (points[idx].equals(points[idx + 1]) || points[idx + 1].equals(points[idx + 2]))) {
                     points.splice(idx + 1, 1);
                 }
             },
@@ -40263,8 +40268,10 @@
                         dashType: options.dashType
                     }
                 };
+                var skip = options.skip || 0;
+                var step = options.step || 1;
                 var container = this.gridLinesVisual();
-                for (tickIx = 0; tickIx < ticks.length; tickIx++) {
+                for (tickIx = skip; tickIx < ticks.length; tickIx += step) {
                     tickRadius = center.y - ticks[tickIx];
                     if (tickRadius > 0) {
                         var circle = new geom.Circle([
@@ -50140,7 +50147,7 @@
                 this.element = $('<img style=\'position: absolute; display: block;\' />').css({
                     width: this.options.size,
                     height: this.options.size
-                }).error(proxy(function (e) {
+                }).on('error', proxy(function (e) {
                     if (this.errorUrl()) {
                         e.target.setAttribute('src', this.errorUrl());
                     } else {
@@ -59763,7 +59770,9 @@
                 var element = this.element, icon = this.options.icon, spriteCssClass = this.options.spriteCssClass, imageUrl = this.options.imageUrl, isEmpty, span, img;
                 if (spriteCssClass || imageUrl || icon) {
                     isEmpty = true;
-                    element.contents().not('span.k-sprite,span.' + ICON + ',img.k-image').each(function (idx, el) {
+                    element.contents().filter(function () {
+                        return !$(this).hasClass('k-sprite') && !$(this).hasClass(ICON) && !$(this).hasClass('k-image');
+                    }).each(function (idx, el) {
                         if (el.nodeType == 1 || el.nodeType == 3 && $.trim(el.nodeValue).length > 0) {
                             isEmpty = false;
                         }
@@ -62553,9 +62562,10 @@
                 } catch (e) {
                     element.type = 'text';
                 }
+                that._initialTitle = element.title;
+                text[0].title = element.title;
                 text[0].tabIndex = element.tabIndex;
                 text[0].style.cssText = element.style.cssText;
-                text[0].title = element.title;
                 text.prop('placeholder', options.placeholder);
                 if (accessKey) {
                     text.attr('accesskey', accessKey);
@@ -62722,8 +62732,8 @@
                 if (!placeholderSupported && !value) {
                     input.val(this.options.placeholder);
                 }
-                input.attr('title', input.attr('title') || input.val());
-                input.attr('aria-title', input.attr('title') || input.val());
+                input.attr('title', this._initialTitle || input.val());
+                input.attr('aria-title', this._initialTitle || input.val());
             },
             _wrapper: function () {
                 var that = this, element = that.element, DOMElement = element[0], wrapper;
@@ -62876,7 +62886,7 @@
                 rules: {
                     required: function (input) {
                         var checkbox = input.filter('[type=checkbox]').length && !input.is(':checked'), value = input.val();
-                        return !(hasAttribute(input, 'required') && (value === '' || !value || checkbox));
+                        return !(hasAttribute(input, 'required') && (!value || value === '' || value.length === 0 || checkbox));
                     },
                     pattern: function (input) {
                         if (input.filter('[type=text],[type=email],[type=url],[type=tel],[type=search],[type=password]').filter('[pattern]').length && input.val() !== '') {
@@ -63949,7 +63959,7 @@
                 if (that._shouldFocus(target)) {
                     that.element.focus();
                     var scrollTop = $(window).scrollTop(), windowTop = parseInt(wrapper.position().top, 10);
-                    if (windowTop > 0 && windowTop < scrollTop) {
+                    if (!that.options.pinned && windowTop > 0 && windowTop < scrollTop) {
                         if (scrollTop > 0) {
                             $(window).scrollTop(windowTop);
                         } else {
@@ -64255,12 +64265,16 @@
                         width: newWidth
                     });
                 }
+                var newWindowTop = y;
+                if (wnd.options.pinned) {
+                    newWindowTop -= $(window).scrollTop();
+                }
                 if (direction.indexOf('s') >= 0) {
-                    newHeight = y - initialPosition.top - that.elementPadding - containerOffset.top;
+                    newHeight = newWindowTop - initialPosition.top - that.elementPadding - containerOffset.top;
                     wrapper.height(constrain(newHeight, options.minHeight, options.maxHeight));
                 } else if (direction.indexOf('n') >= 0) {
                     windowBottom = initialPosition.top + initialSize.height + containerOffset.top;
-                    newHeight = constrain(windowBottom - y, options.minHeight, options.maxHeight);
+                    newHeight = constrain(windowBottom - newWindowTop, options.minHeight, options.maxHeight);
                     wrapper.css({
                         top: windowBottom - newHeight - containerOffset.top,
                         height: newHeight
@@ -64386,7 +64400,7 @@
         hidden: true
     };
     (function ($, undefined) {
-        var kendo = window.kendo, ui = kendo.ui, Widget = ui.Widget, keys = kendo.keys, support = kendo.support, htmlEncode = kendo.htmlEncode, activeElement = kendo._activeElement, ObservableArray = kendo.data.ObservableArray, ID = 'id', CHANGE = 'change', FOCUSED = 'k-state-focused', HOVER = 'k-state-hover', LOADING = 'k-i-loading', HIDDENCLASS = 'k-loading-hidden', OPEN = 'open', CLOSE = 'close', CASCADE = 'cascade', SELECT = 'select', SELECTED = 'selected', REQUESTSTART = 'requestStart', REQUESTEND = 'requestEnd', WIDTH = 'width', extend = $.extend, proxy = $.proxy, isArray = $.isArray, browser = support.browser, isIE8 = browser.msie && browser.version < 9, quotRegExp = /"/g, alternativeNames = {
+        var kendo = window.kendo, ui = kendo.ui, Widget = ui.Widget, keys = kendo.keys, support = kendo.support, htmlEncode = kendo.htmlEncode, activeElement = kendo._activeElement, ObservableArray = kendo.data.ObservableArray, ID = 'id', CHANGE = 'change', FOCUSED = 'k-state-focused', HOVER = 'k-state-hover', LOADING = 'k-i-loading', HIDDENCLASS = 'k-loading-hidden', OPEN = 'open', CLOSE = 'close', CASCADE = 'cascade', SELECT = 'select', SELECTED = 'selected', REQUESTSTART = 'requestStart', REQUESTEND = 'requestEnd', WIDTH = 'width', extend = $.extend, proxy = $.proxy, isArray = $.isArray, browser = support.browser, isIE = browser.msie, isIE8 = isIE && browser.version < 9, quotRegExp = /"/g, alternativeNames = {
                 'ComboBox': 'DropDownList',
                 'DropDownList': 'ComboBox'
             };
@@ -64894,15 +64908,14 @@
             },
             _focusItem: function () {
                 var listView = this.listView;
-                var focusedItem = listView.focus();
-                var index = listView.select();
-                index = index[index.length - 1];
-                if (index === undefined && this.options.highlightFirst && !focusedItem) {
+                var noFocusedItem = !listView.focus();
+                var index = last(listView.select());
+                if (index === undefined && this.options.highlightFirst && noFocusedItem) {
                     index = 0;
                 }
                 if (index !== undefined) {
                     listView.focus(index);
-                } else {
+                } else if (noFocusedItem) {
                     listView.scrollToIndex(0);
                 }
             },
@@ -65367,11 +65380,12 @@
             _toggleCascadeOnFocus: function () {
                 var that = this;
                 var parent = that._parentWidget();
+                var focusout = isIE ? 'blur' : 'focusout';
                 parent._focused.add(parent.filterInput).bind('focus', function () {
                     parent.unbind(CASCADE, that._cascadeHandlerProxy);
                     parent.first(CHANGE, that._cascadeHandlerProxy);
                 });
-                parent._focused.add(parent.filterInput).bind('focusout', function () {
+                parent._focused.add(parent.filterInput).bind(focusout, function () {
                     parent.unbind(CHANGE, that._cascadeHandlerProxy);
                     parent.first(CASCADE, that._cascadeHandlerProxy);
                 });
@@ -65588,7 +65602,7 @@
                 this.focus(this.element[0].children[0]);
             },
             focusLast: function () {
-                this.focus(this.element[0].children[this.element[0].children.length - 1]);
+                this.focus(last(this.element[0].children));
             },
             focus: function (candidate) {
                 var that = this;
@@ -65597,8 +65611,7 @@
                 if (candidate === undefined) {
                     return that._current;
                 }
-                candidate = that._get(candidate);
-                candidate = candidate[candidate.length - 1];
+                candidate = last(that._get(candidate));
                 candidate = $(this.element[0].children[candidate]);
                 if (that._current) {
                     that._current.removeClass(FOCUSED).removeAttr('aria-selected').removeAttr(ID);
@@ -65638,7 +65651,7 @@
                 if (filtered && !singleSelection && that._deselectFiltered(indices)) {
                     return;
                 }
-                if (singleSelection && !filtered && $.inArray(indices[indices.length - 1], selectedIndices) !== -1) {
+                if (singleSelection && !filtered && $.inArray(last(indices), selectedIndices) !== -1) {
                     if (that._dataItems.length && that._view.length) {
                         that._dataItems = [that._view[selectedIndices[0]].item];
                     }
@@ -65649,7 +65662,7 @@
                 indices = result.indices;
                 if (indices.length) {
                     if (singleSelection) {
-                        indices = [indices[indices.length - 1]];
+                        indices = [last(indices)];
                     }
                     added = that._select(indices);
                 }
@@ -65818,7 +65831,7 @@
                 var dataItem, index;
                 var added = [];
                 var idx = 0;
-                if (indices[indices.length - 1] !== -1) {
+                if (last(indices) !== -1) {
                     that.focus(indices);
                 }
                 for (; idx < indices.length; idx++) {
@@ -66068,6 +66081,9 @@
             }
         });
         ui.plugin(StaticList);
+        function last(list) {
+            return list[list.length - 1];
+        }
         function getSelectedOption(select) {
             var index = select.selectedIndex;
             return index > -1 ? select.options[index] : {};
@@ -66292,18 +66308,14 @@
                         that.refresh();
                         that.popup.one('activate', that._focusInputHandler);
                         that.popup.open();
-                        if (that.filterInput) {
-                            that._resizeFilterInput();
-                        }
+                        that._resizeFilterInput();
                     } else {
                         that._filterSource();
                     }
                 } else if (that._allowOpening()) {
                     that.popup.one('activate', that._focusInputHandler);
                     that.popup.open();
-                    if (that.filterInput) {
-                        that._resizeFilterInput();
-                    }
+                    that._resizeFilterInput();
                     that._focusItem();
                 }
             },
@@ -66311,9 +66323,20 @@
                 this._focusElement(this.filterInput);
             },
             _resizeFilterInput: function () {
-                this.filterInput.css('display', 'none');
-                this.filterInput.css('width', this.popup.element.css('width'));
-                this.filterInput.css('display', 'inline-block');
+                var filterInput = this.filterInput;
+                var originalPrevent = this._prevent;
+                if (!filterInput) {
+                    return;
+                }
+                var isInputActive = this.filterInput[0] === activeElement();
+                var caret = kendo.caret(this.filterInput[0])[0];
+                this._prevent = true;
+                filterInput.css('display', 'none').css('width', this.popup.element.css('width')).css('display', 'inline-block');
+                if (isInputActive) {
+                    filterInput.focus();
+                    kendo.caret(filterInput[0], caret);
+                }
+                this._prevent = originalPrevent;
             },
             _allowOpening: function () {
                 return this.hasOptionLabel() || this.filterInput || Select.fn._allowOpening.call(this);
@@ -66562,9 +66585,11 @@
                 var isIFrame = window.self !== window.top;
                 var focusedItem = that._focus();
                 var dataItem = that._getElementDataItem(focusedItem);
+                var shouldTrigger;
                 if (!that._prevent) {
                     clearTimeout(that._typingTimeout);
-                    if (!filtered && focusedItem && !that.trigger('select', {
+                    shouldTrigger = !filtered && focusedItem && that._value(dataItem) !== that.value();
+                    if (shouldTrigger && !that.trigger('select', {
                             dataItem: dataItem,
                             item: focusedItem
                         })) {
@@ -72388,7 +72413,7 @@
                     return widget.value();
                 };
             }
-            ngModel.$render = function () {
+            var viewRender = function () {
                 var val = ngModel.$viewValue;
                 if (val === undefined) {
                     val = ngModel.$modelValue;
@@ -72414,6 +72439,13 @@
                     }
                 }, 0);
             };
+            ngModel.$render = viewRender;
+            setTimeout(function () {
+                if (ngModel.$render !== viewRender) {
+                    ngModel.$render = viewRender;
+                    ngModel.$render();
+                }
+            });
             if (isForm(element)) {
                 element.on('change', function () {
                     haveChangeOnElement = true;
@@ -72459,7 +72491,7 @@
                 return;
             }
             var form = $(widget.element).parents('form');
-            var ngForm = kendo.getter(form.attr('name'))(scope);
+            var ngForm = kendo.getter(form.attr('name'), true)(scope);
             var getter = $parse(kNgModel);
             var setter = getter.assign;
             var updating = false;

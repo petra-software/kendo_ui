@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.914 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2016.3.1007 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -281,10 +281,7 @@
                 for (var i = arguments.length; --i >= 0;) {
                     id += ':' + arguments[i];
                 }
-                if (id in cache) {
-                    return cache[id];
-                }
-                return f.apply(this, arguments);
+                return id in cache ? cache[id] : cache[id] = f.apply(this, arguments);
             };
         }
         function ucs2decode(string) {
@@ -7550,8 +7547,7 @@
                 return cache[cacheKey] = ret;
             };
         }();
-        var getFontURL = function () {
-            var cache = {};
+        var getFontURL = function (cache) {
             return function (el) {
                 var url = cache[el];
                 if (!url) {
@@ -7564,7 +7560,16 @@
                 }
                 return url;
             };
-        }();
+        }(Object.create(null));
+        var getFontHeight = function (cache) {
+            return function (font) {
+                var height = cache[font];
+                if (height == null) {
+                    height = cache[font] = kendo.util.measureText('Mapq', { font: font }).height;
+                }
+                return height;
+            };
+        }(Object.create(null));
         function getFontFaces(doc) {
             if (doc == null) {
                 doc = document;
@@ -9169,14 +9174,14 @@
             }
             function drawText(str, box) {
                 if (browser.msie && !isNaN(lineHeight)) {
-                    var size = kendo.util.measureText(str, { font: font });
-                    var top = (box.top + box.bottom - size.height) / 2;
+                    var height = getFontHeight(font);
+                    var top = (box.top + box.bottom - height) / 2;
                     box = {
                         top: top,
                         right: box.right,
-                        bottom: top + size.height,
+                        bottom: top + height,
                         left: box.left,
-                        height: size.height,
+                        height: height,
                         width: box.right - box.left
                     };
                 }
