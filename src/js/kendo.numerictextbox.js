@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1007 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2016.3.1028 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -491,7 +491,7 @@
         });
         function buttonHtml(direction, text) {
             var className = 'k-i-arrow-' + (direction === 'increase' ? 'n' : 's');
-            return '<span unselectable="on" class="k-link k-link-' + direction + '" aria-label="' + text + '"><span unselectable="on" class="k-icon ' + className + '"></span></span>';
+            return '<span unselectable="on" class="k-link k-link-' + direction + '" aria-label="' + text + '" title="' + text + '">' + '<span unselectable="on" class="k-icon ' + className + '"></span>' + '</span>';
         }
         function truncate(value, precision) {
             var parts = parseFloat(value, 10).toString().split(POINT);

@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1007 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2016.3.1028 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -1532,6 +1532,20 @@
             inlineElements: inlineElements,
             empty: empty,
             fillAttrs: fillAttrs,
+            nodeTypes: {
+                ELEMENT_NODE: 1,
+                ATTRIBUTE_NODE: 2,
+                TEXT_NODE: 3,
+                CDATA_SECTION_NODE: 4,
+                ENTITY_REFERENCE_NODE: 5,
+                ENTITY_NODE: 6,
+                PROCESSING_INSTRUCTION_NODE: 7,
+                COMMENT_NODE: 8,
+                DOCUMENT_NODE: 9,
+                DOCUMENT_TYPE_NODE: 10,
+                DOCUMENT_FRAGMENT_NODE: 11,
+                NOTATION_NODE: 12
+            },
             toHex: function (color) {
                 var matches = rgb.exec(color);
                 if (!matches) {
@@ -3556,6 +3570,8 @@
 }(function () {
     (function ($) {
         var kendo = window.kendo, Class = kendo.Class, editorNS = kendo.ui.editor, EditorUtils = editorNS.EditorUtils, RangeUtils = editorNS.RangeUtils, registerTool = EditorUtils.registerTool, dom = editorNS.Dom, Tool = editorNS.Tool, ToolTemplate = editorNS.ToolTemplate, RestorePoint = editorNS.RestorePoint, Marker = editorNS.Marker, browser = kendo.support.browser, br = '<br class="k-br">', extend = $.extend;
+        var nodeTypes = dom.nodeTypes;
+        var PREVIOUS_SIBLING = 'previousSibling';
         function finishUpdate(editor, startRestorePoint) {
             var endRestorePoint = editor.selectionRestorePoint = new RestorePoint(editor.getRange(), editor.body);
             var command = new GenericCommand(startRestorePoint, endRestorePoint);
@@ -3565,6 +3581,13 @@
         }
         function selected(node, range) {
             return range.startContainer === node && range.endContainer === node && range.startOffset === 0 && range.endOffset == node.childNodes.length;
+        }
+        function getSibling(node, direction, condition) {
+            var sibling = node ? node[direction] : null;
+            while (sibling && !condition(sibling)) {
+                sibling = sibling[direction];
+            }
+            return sibling;
         }
         var Command = Class.extend({
             init: function (options) {
@@ -3832,13 +3855,21 @@
                 var node = range.startContainer;
                 var li = dom.closestEditableOfType(node, ['li']);
                 var block = dom.closestEditableOfType(node, 'p,h1,h2,h3,h4,h5,h6'.split(','));
+                var previousSibling;
                 if (dom.isDataNode(node)) {
                     this._cleanBomBefore(range);
                 }
-                if (block && block.previousSibling && editorNS.RangeUtils.isStartOf(range, block)) {
-                    var prev = block.previousSibling;
+                previousSibling = getSibling(block, PREVIOUS_SIBLING, function (sibling) {
+                    return !dom.htmlIndentSpace(sibling);
+                });
+                if (range.collapsed && range.startOffset !== range.endOffset && range.startOffset < 0) {
+                    range.startOffset = 0;
+                    range.endOffset = 0;
+                    this.editor.selectRange(range);
+                }
+                if (block && previousSibling && editorNS.RangeUtils.isStartOf(range, block)) {
                     var caret = this._addCaret(block);
-                    this._merge(prev, block);
+                    this._merge(previousSibling, block);
                     this._restoreCaret(caret);
                     return true;
                 }
@@ -3866,8 +3897,11 @@
                 var table = dom.closest(ancestor, 'table');
                 var emptyParagraphContent = editorNS.emptyElementContent;
                 var editor = this.editor;
-                if (/t(able|body)/i.test(dom.name(ancestor))) {
-                    range.selectNode(table);
+                if (inTable(range)) {
+                    var removeTableContent = new RemoveTableContent(editor);
+                    removeTableContent.remove(range);
+                    editor.selectRange(range);
+                    return true;
                 }
                 var marker = new Marker();
                 marker.add(range, false);
@@ -3932,15 +3966,31 @@
             },
             _merge: function (dest, src) {
                 dom.removeTrailingBreak(dest);
-                while (src.firstChild) {
+                while (dest && src.firstChild) {
                     if (dest.nodeType == 1) {
                         dest = dom.list(dest) ? dest.children[dest.children.length - 1] : dest;
-                        dest.appendChild(src.firstChild);
+                        if (dest) {
+                            dest.appendChild(src.firstChild);
+                        }
+                    } else if (dest.nodeType === nodeTypes.TEXT_NODE) {
+                        this._mergeWithTextNode(dest, src.firstChild);
                     } else {
                         dest.parentNode.appendChild(src.firstChild);
                     }
                 }
                 dom.remove(src);
+            },
+            _mergeWithTextNode: function (textNode, appendedNode) {
+                if (textNode && textNode.nodeType === nodeTypes.TEXT_NODE) {
+                    if (textNode.nextSibling && this._isCaret(textNode.nextSibling)) {
+                        dom.insertAfter(appendedNode, textNode.nextSibling);
+                    } else {
+                        dom.insertAfter(appendedNode, textNode);
+                    }
+                }
+            },
+            _isCaret: function (element) {
+                return $(element).is('a');
             },
             keydown: function (e) {
                 var method, startRestorePoint;
@@ -8199,7 +8249,7 @@
                 return result;
             },
             focused: function () {
-                return this.element.find('.k-state-focused').length > 0 || this.preventPopupHide;
+                return this.element.find('.k-state-focused').length > 0 || this.preventPopupHide || this.overflowPopup && this.overflowPopup.visible();
             },
             toolById: function (name) {
                 var id, tools = this.tools;
@@ -11826,6 +11876,7 @@
             }
         ]
     };
+    return window.kendo;
 }, typeof define == 'function' && define.amd ? define : function (a1, a2, a3) {
     (a3 || a2)();
 }));

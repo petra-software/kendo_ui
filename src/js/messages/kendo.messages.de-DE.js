@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1007 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2016.3.1028 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -345,6 +345,46 @@ $.extend(true, kendo.ui.FilterMultiCheck.prototype.options.messages,{
   "clear": "Löschen",
   "filter": "Filtern",
   "search": "Suchen"
+});
+}
+  
+  /* Gantt messages */
+
+if (kendo.ui.Gantt) {
+kendo.ui.Gantt.prototype.options.messages =
+$.extend(true, kendo.ui.Gantt.prototype.options.messages,{
+  "actions": {
+    "addChild": "Unteraufgabe hinzufügen",
+    "append": "Aufgabe hinzufügen",
+    "insertAfter": "Unter einfügen",
+    "insertBefore": "Über einfügen",
+    "pdf": "Exportieren als PDF"
+  },
+  "cancel": "Abbrechen",
+  "deleteDependencyWindowTitle": "Beziehung löschen",
+  "deleteTaskWindowTitle": "Aufgabe löschen",
+  "destroy": "Löschen",
+  "editor": {
+    "assingButton": "Zuweisen",
+    "editorTitle": "Aufgabe",
+    "end": "Ende",
+    "percentComplete": "abgeschlossen",
+    "resources": "Ressourcen",
+    "resourcesEditorTitle": "Ressourcen",
+    "resourcesHeader": "Ressourcen",
+    "start": "Start",
+    "title": "Titel",
+    "unitsHeader": "Einheiten"
+  },
+  "save": "Speichern",
+  "views": {
+    "day": "Tag",
+    "end": "Ende",
+    "month": "Monat",
+    "start": "Start",
+    "week": "Woche",
+    "year": "Jahr"
+  }
 });
 }
 

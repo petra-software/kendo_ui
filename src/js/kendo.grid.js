@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1007 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2016.3.1028 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -5339,6 +5339,7 @@
                             field = kendo.attr('field') + '=\'' + th.field + '\' ';
                         }
                         html += '<th scope=\'col\' role=\'columnheader\' ' + field;
+                        html += ' aria-haspopup=\'true\'';
                         if (rowSpan && !columns[idx].colSpan) {
                             html += ' rowspan=\'' + rowSpan + '\'';
                         }

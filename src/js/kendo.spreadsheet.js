@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1007 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2016.3.1028 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -2093,38 +2093,42 @@
             },
             _move: function (key) {
                 var list = this.list;
-                var pressed = false;
                 var popup = this.popup;
-                if (key === keys.DOWN) {
-                    list.focusNext();
-                    if (!list.focus()) {
-                        list.focusFirst();
+                if (popup.visible()) {
+                    if (key === keys.DOWN) {
+                        list.focusNext();
+                        if (!list.focus()) {
+                            list.focusFirst();
+                        }
+                        return true;
                     }
-                    pressed = true;
-                } else if (key === keys.UP) {
-                    list.focusPrev();
-                    if (!list.focus()) {
-                        list.focusLast();
+                    if (key === keys.UP) {
+                        list.focusPrev();
+                        if (!list.focus()) {
+                            list.focusLast();
+                        }
+                        return true;
                     }
-                    pressed = true;
-                } else if (key === keys.ENTER) {
-                    if (popup.visible()) {
+                    if (key === keys.ENTER) {
                         list.select(list.focus());
+                        popup.close();
+                        return true;
                     }
-                    popup.close();
-                    pressed = true;
-                } else if (key === keys.TAB) {
-                    list.select(list.focus());
-                    popup.close();
-                    pressed = true;
-                } else if (key === keys.PAGEUP) {
-                    list.focusFirst();
-                    pressed = true;
-                } else if (key === keys.PAGEDOWN) {
-                    list.focusLast();
-                    pressed = true;
+                    if (key === keys.TAB) {
+                        list.select(list.focus());
+                        popup.close();
+                        return true;
+                    }
+                    if (key === keys.PAGEUP) {
+                        list.focusFirst();
+                        return true;
+                    }
+                    if (key === keys.PAGEDOWN) {
+                        list.focusLast();
+                        return true;
+                    }
                 }
-                return pressed;
+                return false;
             },
             _tokenContext: function () {
                 var point = this.getPos();
@@ -2560,9 +2564,13 @@
             }
             return false;
         };
-        var keyName = function (keyCode) {
+        var keyName = function (event) {
+            var keyCode = event.keyCode;
             var name = KEY_NAMES[keyCode];
             if (!name && isAlphaNum(keyCode)) {
+                name = ':alphanum';
+            }
+            if (!name && event.key && event.key.length == 1) {
                 name = ':alphanum';
             }
             return name;
@@ -2586,7 +2594,7 @@
                 }
             },
             keyDown: function (e) {
-                this.handleEvent(e, keyName(e.keyCode));
+                this.handleEvent(e, keyName(e.originalEvent));
             },
             mouse: function (e) {
                 var rightClick;
@@ -6601,6 +6609,7 @@
             } else if (name == '+') {
                 arrayArgs += 'while (i < args.length) { ';
                 resolve += 'while (i < args.length) { ';
+                code += 'if (i >= args.length) return new CalcError(\'N/A\'); ';
                 code += 'xargs.push(tmp = []); stack.push(xargs); xargs = tmp; ';
                 code += 'do { ';
                 code += x.slice(1).map(comp).join('');
@@ -6740,7 +6749,7 @@
                 return '(' + forceNum() + ' && (($' + name + ' |= 0) > 0 ? true : ((err = \'NUM\'), false)))';
             }
             if (type == 'string') {
-                return '((typeof ' + force() + ' == \'string\' || typeof $' + name + ' == \'boolean\' || typeof $' + name + ' == \'number\') ? ($' + name + ' += \'\', true) : false)';
+                return '((typeof ' + force() + ' == \'string\' || typeof $' + name + ' == \'boolean\' || typeof $' + name + ' == \'number\') ? ($' + name + ' += \'\', true) : ($' + name + ' === undefined ? (($' + name + ' = \'\'), true) : false))';
             }
             if (type == 'boolean') {
                 return '(typeof ' + force() + ' == \'boolean\')';
@@ -8739,7 +8748,7 @@
                 var suspended = this.suspendChanges();
                 this.suspendChanges(true);
                 callback.call(this);
-                return this.suspendChanges(suspended).triggerChange(reason);
+                return this.suspendChanges(suspended).triggerChange(reason || { recalc: true });
             },
             _sortBy: function (ref, columns) {
                 var indices = null;
@@ -9472,7 +9481,7 @@
                 exp = {
                     type: 'prefix',
                     op: input.next().value,
-                    exp: parseExpression(commas)
+                    exp: parseAtom(commas)
                 };
             } else if (!input.peek()) {
                 input.croak('Incomplete expression');
@@ -17124,18 +17133,7 @@
         [
             [
                 'm2',
-                [
-                    'and',
-                    'matrix',
-                    [
-                        'assert',
-                        '$m1.width == $m2.width'
-                    ],
-                    [
-                        'assert',
-                        '$m1.height == $m2.height'
-                    ]
-                ]
+                'matrix'
             ],
             [
                 'c2',
@@ -19492,10 +19490,10 @@
         ]]);
     defineAlias('unichar', 'char');
     defineAlias('unicode', 'code');
-    defineFunction('concatenate', function () {
+    defineFunction('concatenate', function (args) {
         var out = '';
-        for (var i = 0; i < arguments.length; ++i) {
-            out += arguments[i];
+        for (var i = 0; i < args.length; ++i) {
+            out += args[i];
         }
         return out;
     }).args([[
@@ -19888,8 +19886,21 @@
             };
         }
         function lc(a) {
+            var num, str;
             if (typeof a == 'string') {
-                return a.toLowerCase();
+                a = a.toLowerCase();
+            }
+            if (/^[0-9.]+%$/.test(a)) {
+                str = a.substr(0, a.length - 1);
+                num = parseFloat(str);
+                if (!isNaN(num) && num == str) {
+                    a = num / 100;
+                }
+            } else if (/^[0-9.]+$/.test(a)) {
+                num = parseFloat(a);
+                if (!isNaN(num) && num == a) {
+                    a = num;
+                }
             }
             return a;
         }
@@ -19906,11 +19917,15 @@
             return lc(a) >= lc(b);
         }
         function compNE(a, b) {
-            return lc(a) != lc(b);
+            return !compEQ(a, b);
         }
         function compEQ(a, b) {
             if (b instanceof RegExp) {
                 return b.test(a);
+            }
+            if (typeof a == 'string' || typeof b == 'string') {
+                a = String(a);
+                b = String(b);
             }
             return lc(a) == lc(b);
         }
@@ -24184,7 +24199,7 @@
         var PopupTool = kendo.toolbar.Item.extend({
             init: function (options, toolbar) {
                 this.element = $('<a href=\'#\' class=\'k-button k-button-icon\'>' + '<span class=\'' + options.spriteCssClass + '\'>' + '</span><span class=\'k-icon k-i-arrow-s\'></span>' + '</a>');
-                this.element.on('click', this.open.bind(this)).attr('data-command', options.command);
+                this.element.on('click touchend', this.open.bind(this)).attr('data-command', options.command);
                 this.options = options;
                 this.toolbar = toolbar;
                 this.attributes();
@@ -24208,7 +24223,7 @@
             init: function (options, toolbar) {
                 kendo.toolbar.ToolBarButton.fn.init.call(this, options, toolbar);
                 this._dialogName = options.dialogName;
-                this.element.bind('click', this.open.bind(this)).data('instance', this);
+                this.element.bind('click touchend', this.open.bind(this)).data('instance', this);
             },
             open: function () {
                 this.toolbar.dialog({ name: this._dialogName });
@@ -24228,7 +24243,7 @@
         var OverflowDialogButton = kendo.toolbar.OverflowButton.extend({
             init: function (options, toolbar) {
                 kendo.toolbar.OverflowButton.fn.init.call(this, options, toolbar);
-                this.element.on('click', this._click.bind(this));
+                this.element.on('click touchend', this._click.bind(this));
                 this.message = this.options.text;
                 var instance = this.element.data('button');
                 this.element.data(this.options.type, instance);
@@ -26168,12 +26183,14 @@
                     apply: this.apply.bind(this),
                     close: this.close.bind(this)
                 });
+                var dialog = this.dialog();
                 this.viewModel.bind('change', function (e) {
                     if (e.field === 'extension') {
                         this.set('showPdfOptions', this.extension === '.pdf' ? true : false);
+                        dialog.center();
                     }
                 });
-                kendo.bind(this.dialog().element, this.viewModel);
+                kendo.bind(dialog.element, this.viewModel);
             },
             options: {
                 name: 'Workbook',
@@ -28028,14 +28045,17 @@
         var rect_width = cell.width - 4;
         var rect_height = cell.height - 4;
         var font = makeFontDef(cell);
-        var style = { font: font };
+        var style = {
+            font: font,
+            whiteSpace: 'pre'
+        };
         var props = {
             font: font,
             fill: { color: color }
         };
         var lines = [], text_height = 0, top = rect_top;
         if (cell.wrap) {
-            lineBreak(text, style, rect_width).forEach(function (line) {
+            paraBreak(text, style, rect_width).forEach(function (line) {
                 var tmp = new drawing.Text(line.text, [
                     rect_left,
                     top
@@ -28078,12 +28098,13 @@
         lines.forEach(function (line) {
             cont.append(line.el);
             var htrans = 0;
+            var text_width = line.box.width;
             switch (cell.textAlign) {
             case 'center':
-                htrans = rect_width - line.box.width >> 1;
+                htrans = (rect_width - text_width) / 2;
                 break;
             case 'right':
-                htrans = rect_width - line.box.width;
+                htrans = rect_width - text_width;
                 break;
             }
             if (htrans < 0) {
@@ -28092,16 +28113,28 @@
             if (htrans || vtrans) {
                 line.el.transform(geo.Matrix.translate(htrans, vtrans));
             }
+            if (cell.underline) {
+                var height = cell.fontSize || 12;
+                var width = height / 12;
+                var path = new drawing.Path({
+                    stroke: {
+                        width: width,
+                        color: color
+                    }
+                });
+                var pos = line.el.position();
+                var bottom = pos.y + height + vtrans + 2 * width;
+                path.moveTo(pos.x + htrans, bottom).lineTo(pos.x + htrans + text_width, bottom);
+                cont.append(path);
+            }
         });
     }
-    function lineBreak(text, style, width) {
-        var lines = [];
+    function lineBreak(text, style, width, lines) {
         var len = text.length;
         var start = 0;
         while (start < len) {
             split(start, len, len);
         }
-        return lines;
         function split(min, eol, max) {
             var sub = text.substring(start, eol).trim();
             var box = kendo.util.measureText(sub, style);
@@ -28119,6 +28152,14 @@
                 split(min, min + eol >> 1, eol);
             }
         }
+    }
+    function paraBreak(text, style, width) {
+        var a = text.split(/\r?\n/);
+        var lines = [];
+        a.forEach(function (text) {
+            lineBreak(text, style, width, lines);
+        });
+        return lines;
     }
     function makeFontDef(cell) {
         var font = [];
