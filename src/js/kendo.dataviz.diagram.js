@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1028 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2016.3.1103 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -5081,6 +5081,9 @@
                     toolService._connectionManipulation(connection, connector._c.shape, true);
                     toolService._removeHover();
                     toolService.selectSingle(toolService.activeConnection, meta);
+                    if (meta.type == 'touchmove') {
+                        diagram._cachedTouchTarget = connector.visual;
+                    }
                 } else {
                     connection.source(null);
                     toolService.end(p);
@@ -5098,7 +5101,7 @@
                 return true;
             },
             end: function (p) {
-                var toolService = this.toolService, d = toolService.diagram, connection = toolService.activeConnection, hoveredItem = toolService.hoveredItem, connector = toolService._hoveredConnector, target;
+                var toolService = this.toolService, d = toolService.diagram, connection = toolService.activeConnection, hoveredItem = toolService.hoveredItem, connector = toolService._hoveredConnector, target, cachedTouchTarget = d._cachedTouchTarget;
                 if (!connection) {
                     return;
                 }
@@ -5122,6 +5125,10 @@
                     d.undoRedoService.pop();
                 }
                 toolService._connectionManipulation();
+                if (cachedTouchTarget) {
+                    d._connectorsAdorner.visual.remove(cachedTouchTarget);
+                    d._cachedTouchTarget = null;
+                }
             },
             getCursor: function () {
                 return Cursors.arrow;
@@ -5799,7 +5806,7 @@
                 that.diagram.bind(ITEMBOUNDSCHANGE, that._refreshHandler);
                 len = shape.connectors.length;
                 that.connectors = [];
-                that.visual.clear();
+                that._clearVisual();
                 for (i = 0; i < len; i++) {
                     ctr = new ConnectorVisual(shape.connectors[i]);
                     that.connectors.push(ctr);
@@ -5807,6 +5814,25 @@
                 }
                 that.visual.visible(true);
                 that.refresh();
+            },
+            _clearVisual: function () {
+                var that = this;
+                if (that.diagram._cachedTouchTarget) {
+                    that._keepCachedTouchTarget();
+                } else {
+                    that.visual.clear();
+                }
+            },
+            _keepCachedTouchTarget: function () {
+                var that = this, visualChildren = that.visual.children;
+                var childrenCount = visualChildren.length;
+                var index = inArray(that.diagram._cachedTouchTarget, visualChildren);
+                for (var i = childrenCount - 1; i >= 0; i--) {
+                    if (i == index) {
+                        continue;
+                    }
+                    that.visual.remove(visualChildren[i]);
+                }
             },
             destroy: function () {
                 var that = this;
@@ -10895,7 +10921,8 @@
                     ctrlKey: e.ctrlKey,
                     metaKey: e.metaKey,
                     altKey: e.altKey,
-                    shiftKey: e.shiftKey
+                    shiftKey: e.shiftKey,
+                    type: e.type
                 };
             },
             _eventPositions: function (e, start) {

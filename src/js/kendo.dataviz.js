@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1028 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2016.3.1103 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -33,7 +33,7 @@
     };
     (function ($, window, undefined) {
         var kendo = window.kendo = window.kendo || { cultures: {} }, extend = $.extend, each = $.each, isArray = $.isArray, proxy = $.proxy, noop = $.noop, math = Math, Template, JSON = window.JSON || {}, support = {}, percentRegExp = /%/, formatRegExp = /\{(\d+)(:[^\}]+)?\}/g, boxShadowRegExp = /(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+)?/i, numberRegExp = /^(\+|-?)\d+(\.?)\d*$/, FUNCTION = 'function', STRING = 'string', NUMBER = 'number', OBJECT = 'object', NULL = 'null', BOOLEAN = 'boolean', UNDEFINED = 'undefined', getterCache = {}, setterCache = {}, slice = [].slice;
-        kendo.version = '2016.3.1028'.replace(/^\s+|\s+$/g, '');
+        kendo.version = '2016.3.1103'.replace(/^\s+|\s+$/g, '');
         function Class() {
         }
         Class.extend = function (proto) {
@@ -30156,6 +30156,10 @@
                     }
                     chart._propagateClick(element, e);
                 }
+                chart._supressMouseleave = true;
+                setTimeout(function () {
+                    chart._supressMouseleave = false;
+                }, 0);
             },
             _click: function (e) {
                 var chart = this, element = chart._getChartElement(e);
@@ -30184,12 +30188,13 @@
                         tooltip.show(point);
                     }
                     highlight.show(point);
-                    return point.tooltipTracking;
+                    return point;
                 }
             },
             _mouseover: function (e) {
                 var chart = this;
-                if (chart._startHover(e.element, e.originalEvent)) {
+                var point = chart._startHover(e.element, e.originalEvent);
+                if (point && point.tooltipTracking) {
                     $(document).on(MOUSEMOVE_TRACKING, proxy(chart._mouseMoveTracking, chart));
                 }
             },
@@ -30259,7 +30264,7 @@
             },
             _mouseleave: function (e) {
                 var chart = this, plotArea = chart._plotArea, tooltip = chart._tooltip, highlight = chart._highlight, target = e.relatedTarget;
-                if (!(target && $(target).closest(tooltip.element).length)) {
+                if (!(target && $(target).closest(tooltip.element).length) && !chart._supressMouseleave) {
                     chart._mousemove.cancel();
                     plotArea.hideCrosshairs();
                     highlight.hide();
@@ -55600,6 +55605,9 @@
                     toolService._connectionManipulation(connection, connector._c.shape, true);
                     toolService._removeHover();
                     toolService.selectSingle(toolService.activeConnection, meta);
+                    if (meta.type == 'touchmove') {
+                        diagram._cachedTouchTarget = connector.visual;
+                    }
                 } else {
                     connection.source(null);
                     toolService.end(p);
@@ -55617,7 +55625,7 @@
                 return true;
             },
             end: function (p) {
-                var toolService = this.toolService, d = toolService.diagram, connection = toolService.activeConnection, hoveredItem = toolService.hoveredItem, connector = toolService._hoveredConnector, target;
+                var toolService = this.toolService, d = toolService.diagram, connection = toolService.activeConnection, hoveredItem = toolService.hoveredItem, connector = toolService._hoveredConnector, target, cachedTouchTarget = d._cachedTouchTarget;
                 if (!connection) {
                     return;
                 }
@@ -55641,6 +55649,10 @@
                     d.undoRedoService.pop();
                 }
                 toolService._connectionManipulation();
+                if (cachedTouchTarget) {
+                    d._connectorsAdorner.visual.remove(cachedTouchTarget);
+                    d._cachedTouchTarget = null;
+                }
             },
             getCursor: function () {
                 return Cursors.arrow;
@@ -56318,7 +56330,7 @@
                 that.diagram.bind(ITEMBOUNDSCHANGE, that._refreshHandler);
                 len = shape.connectors.length;
                 that.connectors = [];
-                that.visual.clear();
+                that._clearVisual();
                 for (i = 0; i < len; i++) {
                     ctr = new ConnectorVisual(shape.connectors[i]);
                     that.connectors.push(ctr);
@@ -56326,6 +56338,25 @@
                 }
                 that.visual.visible(true);
                 that.refresh();
+            },
+            _clearVisual: function () {
+                var that = this;
+                if (that.diagram._cachedTouchTarget) {
+                    that._keepCachedTouchTarget();
+                } else {
+                    that.visual.clear();
+                }
+            },
+            _keepCachedTouchTarget: function () {
+                var that = this, visualChildren = that.visual.children;
+                var childrenCount = visualChildren.length;
+                var index = inArray(that.diagram._cachedTouchTarget, visualChildren);
+                for (var i = childrenCount - 1; i >= 0; i--) {
+                    if (i == index) {
+                        continue;
+                    }
+                    that.visual.remove(visualChildren[i]);
+                }
             },
             destroy: function () {
                 var that = this;
@@ -64603,7 +64634,7 @@
                 var options = that.options;
                 var dataSource = that.dataSource;
                 var expression = extend({}, dataSource.filter() || {});
-                var clearFilter = expression.filters && expression.filters.length && !filter;
+                var resetPageSettings = filter || expression.filters && expression.filters.length && !filter;
                 var removed = removeFiltersForField(expression, options.dataTextField);
                 if ((filter || removed) && that.trigger('filtering', { filter: filter })) {
                     return;
@@ -64619,8 +64650,8 @@
                     this.listView.setDSFilter(expression);
                 }
                 var dataSourceState = extend({}, {
-                    page: dataSource.page(),
-                    pageSize: clearFilter ? dataSource.options.pageSize : dataSource.pageSize(),
+                    page: resetPageSettings ? 1 : dataSource.page(),
+                    pageSize: resetPageSettings ? dataSource.options.pageSize : dataSource.pageSize(),
                     sort: dataSource.sort(),
                     filter: dataSource.filter(),
                     group: dataSource.group(),
@@ -69013,7 +69044,8 @@
                     ctrlKey: e.ctrlKey,
                     metaKey: e.metaKey,
                     altKey: e.altKey,
-                    shiftKey: e.shiftKey
+                    shiftKey: e.shiftKey,
+                    type: e.type
                 };
             },
             _eventPositions: function (e, start) {

@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1028 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2016.3.1103 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -1488,6 +1488,10 @@
                     }
                     chart._propagateClick(element, e);
                 }
+                chart._supressMouseleave = true;
+                setTimeout(function () {
+                    chart._supressMouseleave = false;
+                }, 0);
             },
             _click: function (e) {
                 var chart = this, element = chart._getChartElement(e);
@@ -1516,12 +1520,13 @@
                         tooltip.show(point);
                     }
                     highlight.show(point);
-                    return point.tooltipTracking;
+                    return point;
                 }
             },
             _mouseover: function (e) {
                 var chart = this;
-                if (chart._startHover(e.element, e.originalEvent)) {
+                var point = chart._startHover(e.element, e.originalEvent);
+                if (point && point.tooltipTracking) {
                     $(document).on(MOUSEMOVE_TRACKING, proxy(chart._mouseMoveTracking, chart));
                 }
             },
@@ -1591,7 +1596,7 @@
             },
             _mouseleave: function (e) {
                 var chart = this, plotArea = chart._plotArea, tooltip = chart._tooltip, highlight = chart._highlight, target = e.relatedTarget;
-                if (!(target && $(target).closest(tooltip.element).length)) {
+                if (!(target && $(target).closest(tooltip.element).length) && !chart._supressMouseleave) {
                     chart._mousemove.cancel();
                     plotArea.hideCrosshairs();
                     highlight.hide();

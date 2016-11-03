@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1028 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2016.3.1103 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -2128,7 +2128,7 @@
                         return true;
                     }
                 }
-                return false;
+                return key === keys.ENTER;
             },
             _tokenContext: function () {
                 var point = this.getPos();
@@ -5009,7 +5009,7 @@
                     doc.close();
                     var table = $(doc).find('table:first');
                     if (table.length) {
-                        state = parseHTML(table.find('tbody:first'));
+                        state = parseHTML(table);
                     } else if (!data.plain) {
                         var element = $(doc.body).find(':not(style)');
                         setStateData(state, 0, 0, cellState(element.text()));
@@ -5113,10 +5113,10 @@
             }
             return state;
         }
-        function parseHTML(tbody) {
+        function parseHTML(table) {
             var state = newState();
-            tbody.find('tr').each(function (rowIndex, tr) {
-                $(tr).find('td').each(function (colIndex, td) {
+            table.find('>tr, >tbody>tr').each(function (rowIndex, tr) {
+                $(tr).find('>td, >th').each(function (colIndex, td) {
                     var rowspan = parseInt($(td).attr('rowspan'), 10) - 1 || 0;
                     var colspan = parseInt($(td).attr('colspan'), 10) - 1 || 0;
                     var blankCell = '<td/>';
@@ -5124,7 +5124,7 @@
                     if (rowspan) {
                         var endRow = rowIndex + rowspan;
                         for (var ri = rowIndex; ri <= endRow; ri++) {
-                            var row = tbody.find('tr').eq(ri);
+                            var row = table.find('tr').eq(ri);
                             if (ri > rowIndex) {
                                 blankCell = '<td class=\'rowspan\'></td>';
                                 if (colIndex === 0) {
@@ -5151,8 +5151,8 @@
                     }
                 });
             });
-            tbody.find('tr').each(function (rowIndex, tr) {
-                $(tr).find('td').each(function (colIndex, td) {
+            table.find('>tr, >tbody>tr').each(function (rowIndex, tr) {
+                $(tr).find('>td, >th').each(function (colIndex, td) {
                     var rowspan = parseInt($(td).attr('rowspan'), 10) - 1 || 0;
                     var colspan = parseInt($(td).attr('colspan'), 10) - 1 || 0;
                     setStateData(state, rowIndex, colIndex, cellState($(td)));
@@ -10566,9 +10566,13 @@
             format += '.' + repeat('0', n[3].length - 1);
         }
         var value = n[0].replace(new RegExp('\\' + comma, 'g'), '').replace(new RegExp('\\' + dot, 'g'), '.');
+        format += suffix;
+        if (has_currency) {
+            format += ';-' + format;
+        }
         return {
             type: 'number',
-            format: format + suffix,
+            format: format,
             value: sign * parseFloat(value)
         };
     });
@@ -14414,19 +14418,21 @@
         };
         kendo.spreadsheet.Sheet.prototype.activeCellCustomEditor = function () {
             var cell = this.activeCell().first();
-            var val = this.validation(cell);
-            var key = this._properties.get('editor', this._grid.cellRefIndex(cell));
-            var editor;
-            if (key != null) {
-                editor = EDITORS[key];
-            } else if (val && val.showButton) {
-                key = '_validation_' + val.dataType;
-                editor = EDITORS[key];
+            if (this.range(cell).enable()) {
+                var val = this.validation(cell);
+                var key = this._properties.get('editor', this._grid.cellRefIndex(cell));
+                var editor;
+                if (key != null) {
+                    editor = EDITORS[key];
+                } else if (val && val.showButton) {
+                    key = '_validation_' + val.dataType;
+                    editor = EDITORS[key];
+                }
+                if (typeof editor == 'function') {
+                    editor = EDITORS[key] = editor();
+                }
+                return editor;
             }
-            if (typeof editor == 'function') {
-                editor = EDITORS[key] = editor();
-            }
-            return editor;
         };
         registerEditor('_validation_date', function () {
             var context, calendar, popup;
