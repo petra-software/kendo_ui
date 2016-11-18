@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1103 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2016.3.1118 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -9172,7 +9172,7 @@
     ], f);
 }(function () {
     (function ($, undefined) {
-        var dataviz = kendo.dataviz, draw = kendo.drawing, geom = kendo.geometry, diagram = dataviz.diagram, Widget = kendo.ui.Widget, Class = kendo.Class, proxy = $.proxy, deepExtend = kendo.deepExtend, extend = $.extend, HierarchicalDataSource = kendo.data.HierarchicalDataSource, Canvas = diagram.Canvas, Group = diagram.Group, Rectangle = diagram.Rectangle, Circle = diagram.Circle, CompositeTransform = diagram.CompositeTransform, Rect = diagram.Rect, Path = diagram.Path, DeleteShapeUnit = diagram.DeleteShapeUnit, DeleteConnectionUnit = diagram.DeleteConnectionUnit, TextBlock = diagram.TextBlock, Image = diagram.Image, Point = diagram.Point, Intersect = diagram.Intersect, ConnectionEditAdorner = diagram.ConnectionEditAdorner, UndoRedoService = diagram.UndoRedoService, ToolService = diagram.ToolService, Selector = diagram.Selector, ResizingAdorner = diagram.ResizingAdorner, ConnectorsAdorner = diagram.ConnectorsAdorner, Cursors = diagram.Cursors, Utils = diagram.Utils, Observable = kendo.Observable, ToBackUnit = diagram.ToBackUnit, ToFrontUnit = diagram.ToFrontUnit, PolylineRouter = diagram.PolylineRouter, CascadingRouter = diagram.CascadingRouter, isUndefined = Utils.isUndefined, isDefined = Utils.isDefined, defined = kendo.util.defined, isArray = $.isArray, isFunction = kendo.isFunction, isString = Utils.isString, isPlainObject = $.isPlainObject, math = Math;
+        var dataviz = kendo.dataviz, draw = kendo.drawing, geom = kendo.geometry, diagram = dataviz.diagram, Widget = kendo.ui.Widget, Class = kendo.Class, proxy = $.proxy, deepExtend = kendo.deepExtend, outerWidth = kendo._outerWidth, outerHeight = kendo._outerHeight, extend = $.extend, HierarchicalDataSource = kendo.data.HierarchicalDataSource, Canvas = diagram.Canvas, Group = diagram.Group, Rectangle = diagram.Rectangle, Circle = diagram.Circle, CompositeTransform = diagram.CompositeTransform, Rect = diagram.Rect, Path = diagram.Path, DeleteShapeUnit = diagram.DeleteShapeUnit, DeleteConnectionUnit = diagram.DeleteConnectionUnit, TextBlock = diagram.TextBlock, Image = diagram.Image, Point = diagram.Point, Intersect = diagram.Intersect, ConnectionEditAdorner = diagram.ConnectionEditAdorner, UndoRedoService = diagram.UndoRedoService, ToolService = diagram.ToolService, Selector = diagram.Selector, ResizingAdorner = diagram.ResizingAdorner, ConnectorsAdorner = diagram.ConnectorsAdorner, Cursors = diagram.Cursors, Utils = diagram.Utils, Observable = kendo.Observable, ToBackUnit = diagram.ToBackUnit, ToFrontUnit = diagram.ToFrontUnit, PolylineRouter = diagram.PolylineRouter, CascadingRouter = diagram.CascadingRouter, isUndefined = Utils.isUndefined, isDefined = Utils.isDefined, defined = kendo.util.defined, isArray = $.isArray, isFunction = kendo.isFunction, isString = Utils.isString, isPlainObject = $.isPlainObject, math = Math;
         var NS = '.kendoDiagram', CASCADING = 'cascading', ITEMBOUNDSCHANGE = 'itemBoundsChange', CHANGE = 'change', CLICK = 'click', DRAG = 'drag', DRAG_END = 'dragEnd', DRAG_START = 'dragStart', MOUSE_ENTER = 'mouseEnter', MOUSE_LEAVE = 'mouseLeave', ERROR = 'error', AUTO = 'Auto', TOP = 'Top', RIGHT = 'Right', LEFT = 'Left', BOTTOM = 'Bottom', MAXINT = 9007199254740992, SELECT = 'select', ITEMROTATE = 'itemRotate', PAN = 'pan', ZOOM_START = 'zoomStart', ZOOM_END = 'zoomEnd', NONE = 'none', DEFAULT_CANVAS_WIDTH = 600, DEFAULT_CANVAS_HEIGHT = 600, DEFAULT_SHAPE_TYPE = 'rectangle', DEFAULT_SHAPE_WIDTH = 100, DEFAULT_SHAPE_HEIGHT = 100, DEFAULT_SHAPE_MINWIDTH = 20, DEFAULT_SHAPE_MINHEIGHT = 20, DEFAULT_SHAPE_POSITION = 0, DEFAULT_CONNECTION_BACKGROUND = 'Yellow', MAX_VALUE = Number.MAX_VALUE, MIN_VALUE = -Number.MAX_VALUE, ABSOLUTE = 'absolute', TRANSFORMED = 'transformed', ROTATED = 'rotated', TRANSPARENT = 'transparent', WIDTH = 'width', HEIGHT = 'height', X = 'x', Y = 'y', MOUSEWHEEL_NS = 'DOMMouseScroll' + NS + ' mousewheel' + NS, MOBILE_ZOOM_RATE = 0.05, MOBILE_PAN_DISTANCE = 5, BUTTON_TEMPLATE = '<a class="k-button k-button-icontext #=className#" href="\\#"><span class="#=iconClass# #=imageClass#"></span>#=text#</a>', CONNECTION_CONTENT_OFFSET = 5;
         diagram.DefaultConnectors = [
             { name: TOP },
@@ -11529,7 +11529,7 @@
                 var width = element.width();
                 var height = element.height();
                 if (this.toolBar) {
-                    height -= this.toolBar.element.outerHeight();
+                    height -= outerHeight(this.toolBar.element);
                 }
                 return new Rect(0, 0, width, height);
             },
@@ -11634,7 +11634,7 @@
             _containerOffset: function () {
                 var containerOffset = this.element.offset();
                 if (this.toolBar) {
-                    containerOffset.top += this.toolBar.element.outerHeight();
+                    containerOffset.top += outerHeight(this.toolBar.element);
                 }
                 return containerOffset;
             },
@@ -12074,8 +12074,8 @@
                                 click: proxy(this._toolBarClick, this),
                                 modal: true
                             });
-                            var popupWidth = this.singleToolBar._popup.element.outerWidth();
-                            var popupHeight = this.singleToolBar._popup.element.outerHeight();
+                            var popupWidth = outerWidth(this.singleToolBar._popup.element);
+                            var popupHeight = outerHeight(this.singleToolBar._popup.element);
                             if (element instanceof Shape) {
                                 var shapeBounds = this.modelToView(element.bounds(ROTATED));
                                 point = Point(shapeBounds.x, shapeBounds.y).minus(Point((popupWidth - shapeBounds.width) / 2, popupHeight + padding));
@@ -13314,6 +13314,7 @@
             }
         ]
     };
+    return window.kendo;
 }, typeof define == 'function' && define.amd ? define : function (a1, a2, a3) {
     (a3 || a2)();
 }));

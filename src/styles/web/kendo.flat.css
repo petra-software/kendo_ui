@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1103 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2016.3.1118 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -2190,8 +2190,10 @@ html .km-pane-wrapper .km-widget,
 }
 .k-chart .k-selection {
   border-color: #c7c7c7;
-  -webkit-transition: -webkit-box-shadow 0.2s linear, border-color 0.2s linear;
-          transition: box-shadow 0.2s linear, border-color 0.2s linear;
+  -webkit-transition: border-color 0.2s linear, -webkit-box-shadow 0.2s linear;
+  transition: border-color 0.2s linear, -webkit-box-shadow 0.2s linear;
+  transition: box-shadow 0.2s linear, border-color 0.2s linear;
+  transition: box-shadow 0.2s linear, border-color 0.2s linear, -webkit-box-shadow 0.2s linear;
 }
 .k-chart .k-selection:hover {
   border-color: #2eb3a6;
