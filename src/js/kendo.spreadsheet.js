@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1118 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2016.3.1202 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -1357,15 +1357,17 @@
         kendo.spreadsheet.PasteCommand = Command.extend({
             init: function (options) {
                 Command.fn.init.call(this, options);
-                this._clipboard = this._workbook.clipboard();
+                this._clipboard = options.workbook.clipboard();
+                this._event = options.event;
             },
             getState: function () {
                 this._range = this._workbook.activeSheet().range(this._clipboard.pasteRef());
                 this._state = this._range.getState();
             },
             exec: function () {
+                this.getState();
+                this._clipboard.parse();
                 var status = this._clipboard.canPaste();
-                this._clipboard.menuInvoked = true;
                 if (!status.canPaste) {
                     if (status.menuInvoked) {
                         return {
@@ -1385,12 +1387,23 @@
                             type: 'overflow'
                         };
                     }
+                    if (status.pasteOnDisabled) {
+                        this._event.preventDefault();
+                        return {
+                            reason: 'error',
+                            type: 'cannotModifyDisabled'
+                        };
+                    }
                     return { reason: 'error' };
                 }
-                this.getState();
-                this._clipboard.paste();
-                var range = this._workbook.activeSheet().range(this._clipboard.pasteRef());
-                range._adjustRowHeight();
+                var range = this._workbook.activeSheet().selection();
+                var preventDefault = this._workbook.trigger('paste', { range: range });
+                if (preventDefault) {
+                    this._event.preventDefault();
+                } else {
+                    this._clipboard.paste();
+                    range._adjustRowHeight();
+                }
             }
         });
         kendo.spreadsheet.AdjustRowHeightCommand = Command.extend({
@@ -1418,6 +1431,7 @@
             init: function (options) {
                 Command.fn.init.call(this, options);
                 this._clipboard = options.workbook.clipboard();
+                this._event = options.event;
             },
             undo: $.noop,
             exec: function () {
@@ -1437,7 +1451,13 @@
                     }
                     return;
                 }
-                this._clipboard.copy();
+                var range = this._workbook.activeSheet().selection();
+                var preventDefault = this._workbook.trigger('copy', { range: range });
+                if (preventDefault) {
+                    this._event.preventDefault();
+                } else {
+                    this._clipboard.copy();
+                }
             }
         });
         function copyToClipboard(html) {
@@ -1469,12 +1489,24 @@
             init: function (options) {
                 Command.fn.init.call(this, options);
                 this._clipboard = options.workbook.clipboard();
+                this._event = options.event;
             },
             exec: function () {
-                if (this.range().enable() && this._clipboard.canCopy()) {
-                    this.getState();
-                    this._clipboard.cut();
+                if (!(this.range().enable() && this._clipboard.canCopy())) {
+                    this._event.preventDefault();
+                    return {
+                        reason: 'error',
+                        type: 'cannotModifyDisabled'
+                    };
                 }
+                this.getState();
+                var range = this._workbook.activeSheet().selection();
+                var preventDefault = this._workbook.trigger('cut', { range: range });
+                if (preventDefault) {
+                    this._event.preventDefault();
+                    return;
+                }
+                this._clipboard.cut();
             }
         });
         kendo.spreadsheet.AutoFillCommand = Command.extend({
@@ -4908,14 +4940,19 @@
         var CellRef = kendo.spreadsheet.CellRef;
         var Clipboard = kendo.Class.extend({
             init: function (workbook) {
+                this._content = {};
+                this._externalContent = {};
+                this._internalContent = {};
                 this.workbook = workbook;
                 this.origin = kendo.spreadsheet.NULLREF;
                 this.iframe = document.createElement('iframe');
                 this.iframe.className = 'k-spreadsheet-clipboard-paste';
                 this.menuInvoked = true;
-                this._external = {};
                 this._uid = kendo.guid();
                 document.body.appendChild(this.iframe);
+            },
+            destroy: function () {
+                document.body.removeChild(this.iframe);
             },
             canCopy: function () {
                 var status = { canCopy: true };
@@ -4936,12 +4973,15 @@
             canPaste: function () {
                 var sheet = this.workbook.activeSheet();
                 var ref = this.pasteRef();
-                var status = { canPaste: true };
-                if (ref === kendo.spreadsheet.NULLREF) {
-                    var external = this.isExternal();
-                    status.pasteOnMerged = this.intersectsMerged();
-                    status.canPaste = status.pasteOnMerged ? false : external;
-                    return status;
+                var range = sheet.range(ref);
+                var status = {
+                    canPaste: true,
+                    pasteOnMerged: false,
+                    pasteOnDisabled: false
+                };
+                if (!range.enable()) {
+                    status.canPaste = false;
+                    status.pasteOnDisabled = true;
                 }
                 if (!ref.eq(sheet.unionWithMerged(ref))) {
                     status.canPaste = false;
@@ -4959,17 +4999,17 @@
             },
             intersectsMerged: function () {
                 var sheet = this.workbook.activeSheet();
-                var state = this.parse(this._external);
-                this.origin = getSourceRef(state);
+                this.parse();
+                this.origin = this._content.origRef;
                 var ref = this.pasteRef();
                 return !ref.eq(sheet.unionWithMerged(ref));
             },
             copy: function () {
                 var sheet = this.workbook.activeSheet();
                 this.origin = sheet.select();
-                this.contents = sheet.selection().getState();
-                delete this._external.html;
-                delete this._external.plain;
+                this._internalContent = sheet.selection().getState();
+                delete this._externalContent.html;
+                delete this._externalContent.plain;
             },
             cut: function () {
                 var sheet = this.workbook.activeSheet();
@@ -4984,20 +5024,10 @@
                 var colDelta = originActiveCell.col - destination.col;
                 return this.origin.relative(rowDelta, colDelta, 3);
             },
-            destroy: function () {
-                document.body.removeChild(this.iframe);
-            },
             paste: function () {
-                var state = {};
                 var sheet = this.workbook.activeSheet();
-                if (this._isInternal()) {
-                    state = this.contents;
-                } else {
-                    state = this.parse(this._external);
-                    this.origin = getSourceRef(state);
-                }
                 var pasteRef = this.pasteRef();
-                sheet.range(pasteRef).setState(state, this);
+                sheet.range(pasteRef).setState(this._content, this);
                 sheet.triggerChange({
                     recalc: true,
                     ref: pasteRef
@@ -5005,45 +5035,45 @@
             },
             external: function (data) {
                 if (data && (data.html || data.plain)) {
-                    this._external = data;
+                    this._externalContent = data;
                 } else {
-                    return this._external;
+                    return this._externalContent;
                 }
             },
             isExternal: function () {
                 return !this._isInternal();
             },
-            parse: function (data) {
+            parse: function () {
                 var state = newState();
-                if (data.html) {
-                    var doc = this.iframe.contentWindow.document;
-                    doc.open();
-                    doc.write(data.html);
-                    doc.close();
-                    var table = $(doc).find('table:first');
-                    if (table.length) {
-                        state = parseHTML(table);
-                    } else if (!data.plain) {
-                        var element = $(doc.body).find(':not(style)');
-                        setStateData(state, 0, 0, cellState(element.text()));
+                if (this._isInternal()) {
+                    state = this._internalContent;
+                } else {
+                    var data = this._externalContent;
+                    if (data.html) {
+                        var doc = this.iframe.contentWindow.document;
+                        doc.open();
+                        doc.write(data.html);
+                        doc.close();
+                        var table = $(doc).find('table:first');
+                        if (table.length) {
+                            state = parseHTML(table);
+                        } else {
+                            state = parseTSV(data.plain);
+                        }
                     } else {
                         state = parseTSV(data.plain);
                     }
-                } else {
-                    state = parseTSV(data.plain);
+                    this.origin = state.origRef;
                 }
-                return state;
+                this._content = state;
             },
             _isInternal: function () {
-                if (this._external.html === undefined) {
+                if (this._externalContent.html === undefined) {
                     return true;
                 }
-                var internalHTML = $('<div/>').html(this._external.html).find('table.kendo-clipboard-' + this._uid).length ? true : false;
-                var internalPlain = $('<div/>').html(this._external.plain).find('table.kendo-clipboard-' + this._uid).length ? true : false;
-                if (internalHTML || internalPlain) {
-                    return true;
-                }
-                return false;
+                var internalHTML = $('<div/>').html(this._externalContent.html).find('table.kendo-clipboard-' + this._uid).length ? true : false;
+                var internalPlain = $('<div/>').html(this._externalContent.plain).find('table.kendo-clipboard-' + this._uid).length ? true : false;
+                return internalHTML || internalPlain;
             }
         });
         kendo.spreadsheet.Clipboard = Clipboard;
@@ -5066,9 +5096,6 @@
             var br = state.origRef.bottomRight;
             br.row = Math.max(br.row, row);
             br.col = Math.max(br.col, col);
-        }
-        function getSourceRef(state) {
-            return state.origRef;
         }
         function stripStyle(style) {
             return style.replace(/^-(?:ms|moz|webkit)-/, '');
@@ -8425,8 +8452,9 @@
                     var colState = 'partial';
                     ref = ref.toRangeRef();
                     var bottomRight = ref.bottomRight;
-                    var rowSelection = bottomRight.col >= maxCol;
-                    var colSelection = bottomRight.row >= maxRow;
+                    var topLeft = ref.topLeft;
+                    var rowSelection = topLeft.col <= 0 && bottomRight.col >= maxCol;
+                    var colSelection = topLeft.row <= 0 && bottomRight.row >= maxRow;
                     if (colSelection) {
                         allRows = true;
                         colState = 'full';
@@ -8436,14 +8464,14 @@
                         rowState = 'full';
                     }
                     if (!colSelection) {
-                        for (i = ref.topLeft.row; i <= bottomRight.row; i++) {
+                        for (i = topLeft.row; i <= bottomRight.row; i++) {
                             if (rows[i] !== 'full') {
                                 rows[i] = rowState;
                             }
                         }
                     }
                     if (!rowSelection) {
-                        for (i = ref.topLeft.col; i <= bottomRight.col; i++) {
+                        for (i = topLeft.col; i <= bottomRight.col; i++) {
                             if (cols[i] !== 'full') {
                                 cols[i] = colState;
                             }
@@ -11494,6 +11522,9 @@
                 }
             },
             events: [
+                'cut',
+                'copy',
+                'paste',
                 'change',
                 'excelImport',
                 'excelExport'
@@ -12691,7 +12722,10 @@
                 }
                 this._execute({
                     command: 'CutCommand',
-                    options: { workbook: this.view._workbook }
+                    options: {
+                        workbook: this.view._workbook,
+                        event: e.originalEvent || e
+                    }
                 });
             },
             clipBoardValue: function () {
@@ -12735,7 +12769,10 @@
                             this.clipboardElement.empty().append(table);
                             this._execute({
                                 command: 'PasteCommand',
-                                options: { workbook: this.view._workbook }
+                                options: {
+                                    workbook: this.view._workbook,
+                                    event: e.originalEvent || e
+                                }
                             });
                             this.clipboard.menuInvoked = true;
                         }.bind(this));
@@ -12759,14 +12796,20 @@
                 });
                 this._execute({
                     command: 'PasteCommand',
-                    options: { workbook: this.view._workbook }
+                    options: {
+                        workbook: this.view._workbook,
+                        event: e.originalEvent || e
+                    }
                 });
             },
             onCopy: function (e) {
                 this.clipboard.menuInvoked = e === undefined;
                 this._execute({
                     command: 'CopyCommand',
-                    options: { workbook: this.view._workbook }
+                    options: {
+                        workbook: this.view._workbook,
+                        event: e.originalEvent || e
+                    }
                 });
             },
             scrollTop: function () {
@@ -13110,7 +13153,8 @@
                 shiftingNonblankCells: 'Cannot insert cells due to data loss possibility. Select another insert location or delete the data from the end of your worksheet.',
                 filterRangeContainingMerges: 'Cannot create a filter within a range containing merges',
                 sortRangeContainingMerges: 'Cannot sort a range containing merges',
-                validationError: 'The value that you entered violates the validation rules set on the cell.'
+                validationError: 'The value that you entered violates the validation rules set on the cell.',
+                cannotModifyDisabled: 'Cannot modify disabled cells.'
             },
             tabs: {
                 home: 'Home',
@@ -14824,6 +14868,7 @@
                     this.values.value(start, start + delta - 1, this._value);
                     this._hidden.value(start, start + delta - 1, 0);
                 }
+                this._refresh();
             },
             toJSON: function (field, positions) {
                 var values = [];
@@ -28416,6 +28461,15 @@
                     this.trigger('change', { range: range });
                 }
             },
+            _workbookCut: function (e) {
+                this.trigger('cut', e);
+            },
+            _workbookCopy: function (e) {
+                this.trigger('copy', e);
+            },
+            _workbookPaste: function (e) {
+                this.trigger('paste', e);
+            },
             activeSheet: function (sheet) {
                 return this._workbook.activeSheet(sheet);
             },
@@ -28534,6 +28588,9 @@
                 }
             },
             _bindWorkbookEvents: function () {
+                this._workbook.bind('cut', this._workbookCut.bind(this));
+                this._workbook.bind('copy', this._workbookCopy.bind(this));
+                this._workbook.bind('paste', this._workbookPaste.bind(this));
                 this._workbook.bind('change', this._workbookChange.bind(this));
                 this._workbook.bind('excelExport', this._workbookExcelExport.bind(this));
                 this._workbook.bind('excelImport', this._workbookExcelImport.bind(this));
@@ -28591,6 +28648,9 @@
                 return this._workbook.forEachName(func);
             },
             events: [
+                'cut',
+                'copy',
+                'paste',
                 'pdfExport',
                 'excelExport',
                 'excelImport',

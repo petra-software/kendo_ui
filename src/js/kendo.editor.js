@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1118 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2016.3.1202 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -4119,17 +4119,21 @@
                 return keyCode >= 48 && keyCode <= 90 || keyCode >= 96 && keyCode <= 111 || keyCode >= 186 && keyCode <= 192 || keyCode >= 219 && keyCode <= 222 || keyCode == 229;
             },
             toolFromShortcut: function (tools, e) {
-                var key = String.fromCharCode(e.keyCode), toolName, toolOptions;
+                var key = String.fromCharCode(e.keyCode), toolName, toolOptions, modifier = this._getShortcutModifier(e, navigator.platform);
                 for (toolName in tools) {
                     toolOptions = $.extend({
                         ctrl: false,
                         alt: false,
                         shift: false
                     }, tools[toolName].options);
-                    if ((toolOptions.key == key || toolOptions.key == e.keyCode) && toolOptions.ctrl == e.ctrlKey && toolOptions.alt == e.altKey && toolOptions.shift == e.shiftKey) {
+                    if ((toolOptions.key == key || toolOptions.key == e.keyCode) && toolOptions.ctrl == modifier && toolOptions.alt == e.altKey && toolOptions.shift == e.shiftKey) {
                         return toolName;
                     }
                 }
+            },
+            _getShortcutModifier: function (e, platform) {
+                var mac = platform.toUpperCase().indexOf('MAC') >= 0;
+                return mac ? e.metaKey : e.ctrlKey;
             },
             toolsFromShortcut: function (tools, e) {
                 var key = String.fromCharCode(e.keyCode), toolName, o, matchesKey, found = [];
