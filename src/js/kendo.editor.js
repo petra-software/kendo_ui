@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1202 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2016.3.1216 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -8334,7 +8334,7 @@
                 }
             },
             show: function () {
-                var that = this, window = that.window, editorOptions = that.options.editor, wrapper, editorElement, editorOffset;
+                var that = this, window = that.window, editorOptions = that.options.editor, wrapper, editorElement, editorOffset, browser = kendo.support.browser;
                 if (window) {
                     wrapper = window.wrapper;
                     editorElement = editorOptions.element;
@@ -8349,9 +8349,19 @@
                                 left: Math.max(0, parseInt(editorOffset.left, 10))
                             });
                         }
-                        window.open();
+                        if ((browser.msie || browser.edge) && that._overlaps(editorElement)) {
+                            setTimeout(function () {
+                                window.open();
+                            }, 0);
+                        } else {
+                            window.open();
+                        }
                     }
                 }
+            },
+            _overlaps: function (box) {
+                var toolbarWrapper = this.window.wrapper, toolbarWrapperOffset = toolbarWrapper.offset(), toolbarWrapperLeft = toolbarWrapperOffset.left, toolbarWrapperTop = toolbarWrapperOffset.top, boxOffset = box.offset(), boxOffsetLeft = boxOffset.left, boxOffsetTop = boxOffset.top;
+                return !(boxOffsetLeft + box.width() < toolbarWrapperLeft || boxOffsetLeft > toolbarWrapperLeft + toolbarWrapper.width() || boxOffsetTop + box.height() < toolbarWrapperTop || boxOffsetTop > toolbarWrapperTop + toolbarWrapper.height());
             },
             hide: function () {
                 if (this.window) {

@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1202 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2016.3.1216 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -2659,6 +2659,12 @@ html .km-pane-wrapper .km-widget,
 }
 .k-dialog .k-dialog-buttongroup.k-dialog-button-layout-normal .k-button:first-child {
   margin-left: 0;
+}
+.k-rtl .k-grid-header .k-header:first-child,
+.k-rtl .k-filter-row th:first-child,
+.k-rtl .k-grid tbody td:first-child,
+.k-rtl .k-grid tfoot td:first-child {
+  border-left-width: 0;
 }
 .k-rtl .k-dialog .k-window-titlebar .k-dialog-title {
   padding-right: 1em;

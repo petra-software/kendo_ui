@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1202 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2016.3.1216 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -1048,6 +1048,9 @@
                 var that = this;
                 that.element.attr('tabindex', 0).focus(function () {
                     var element = $(this).find(':kendoFocusable:first');
+                    if (element.length === 0) {
+                        return;
+                    }
                     if (element.is('.' + OVERFLOW_ANCHOR)) {
                         element = findFocusableSibling(element, 'next');
                     }
