@@ -1,6 +1,6 @@
 /** 
- * Kendo UI v2016.3.1216 (http://www.telerik.com/kendo-ui)                                                                                                                                              
- * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
+ * Kendo UI v2016.3.1306 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
  * http://www.telerik.com/purchase/license-agreement/kendo-ui-complete                                                                                                                                  
@@ -906,7 +906,8 @@ div.k-filebrowser-dropzone em {
 .k-file-progress .k-progress {
   background-color: #0099cc;
 }
-.k-file-success {
+.k-file-success .k-file-name,
+.k-file-success .k-upload-pct {
   color: #2db245;
 }
 .k-file-success .k-progress {

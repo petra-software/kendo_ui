@@ -1,6 +1,6 @@
 /** 
- * Kendo UI v2016.3.1216 (http://www.telerik.com/kendo-ui)                                                                                                                                              
- * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
+ * Kendo UI v2016.3.1306 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
  * http://www.telerik.com/purchase/license-agreement/kendo-ui-complete                                                                                                                                  
@@ -11912,6 +11912,16 @@
                 name: 'Resize handle',
                 description: 'Support for resizing the content area via a resize handle',
                 depends: ['resizable']
+            },
+            {
+                id: 'editor-tablewizard',
+                name: 'Table wizard dialog',
+                description: 'Support for table properties configuration',
+                depends: [
+                    'tabstrip',
+                    'button',
+                    'numerictextbox'
+                ]
             },
             {
                 id: 'editor-pdf-export',

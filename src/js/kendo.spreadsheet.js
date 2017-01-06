@@ -1,6 +1,6 @@
 /** 
- * Kendo UI v2016.3.1216 (http://www.telerik.com/kendo-ui)                                                                                                                                              
- * Copyright 2016 Telerik AD. All rights reserved.                                                                                                                                                      
+ * Kendo UI v2016.3.1306 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
  * http://www.telerik.com/purchase/license-agreement/kendo-ui-complete                                                                                                                                  
@@ -5330,6 +5330,7 @@
                     sheet.triggerChange({
                         recalc: name == 'formula' || name == 'value' || name == 'validation',
                         value: value,
+                        range: self,
                         ref: self._ref
                     });
                 }
@@ -13864,6 +13865,7 @@
                         self._executeCommand({
                             command: 'EditCommand',
                             options: {
+                                operatingRange: range,
                                 property: parse ? 'input' : 'value',
                                 value: value
                             }
@@ -14546,6 +14548,8 @@
                 var date = context.range.value();
                 if (date != null) {
                     calendar.value(kendo.spreadsheet.numberToDate(date));
+                } else {
+                    calendar.value(null);
                 }
                 var val = context.validation;
                 if (val) {
@@ -28468,7 +28472,7 @@
                     this.refresh(e);
                 }
                 if (e.recalc && e.ref) {
-                    var range = new kendo.spreadsheet.Range(e.ref, this.activeSheet());
+                    var range = e.range || new kendo.spreadsheet.Range(e.ref, this.activeSheet());
                     this.trigger('change', { range: range });
                 }
             },
