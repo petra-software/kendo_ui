@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1306 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2016.3.1317 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -918,7 +918,7 @@
                 this._loading = $('<span class="k-icon k-i-loading ' + HIDDENCLASS + '"></span>').insertAfter(this.input);
             },
             _clearButton: function () {
-                this._clear = $('<span deselectable="on" class="k-icon k-i-close" title="clear"></span>').attr({
+                this._clear = $('<span deselectable="on" class="k-icon k-clear-value k-i-close" title="clear"></span>').attr({
                     'role': 'button',
                     'tabIndex': -1
                 });

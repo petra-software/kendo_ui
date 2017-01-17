@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1306 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2016.3.1317 (http://www.telerik.com/kendo-ui)                                                                                                                                              
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -5989,11 +5989,11 @@
         function looksLikeANumber(str) {
             return !/^=/.test(str) && /number|percent/.test(kendo.spreadsheet.calc.parse(null, 0, 0, str).type);
         }
-        var measureBox = $('<div style="position: absolute !important; top: -4000px !important; height: auto !important;' + 'padding: 1px !important; margin: 0 !important; border: 1px solid black !important;' + 'line-height: normal !important; visibility: hidden !important;' + 'white-space: pre-wrap !important; word-break: break-all !important;" />')[0];
+        var measureBox = $('<div style="position: absolute !important; top: -4000px !important; height: auto !important;' + 'padding: 1px !important; margin: 0 !important; border: 1px solid black !important;' + 'line-height: normal !important; visibility: hidden !important;' + 'white-space: pre-wrap; word-break: break-all;" />')[0];
         function getTextHeight(text, width, fontSize, wrap) {
             var styles = {
                 'baselineMarkerSize': 0,
-                'width': width + 'px',
+                'width': wrap === true ? width + 'px' : 'auto',
                 'font-size': (fontSize || 12) + 'px',
                 'word-break': wrap === true ? 'break-all' : 'normal',
                 'white-space': wrap === true ? 'pre-wrap' : 'pre'
@@ -6505,6 +6505,7 @@
                     this.onReady.push(callback);
                 }
                 var ctx = new Context(this.resolve, this, ss, parentContext);
+                var level = 0;
                 while (parentContext) {
                     if (parentContext.formula === this) {
                         this.pending = false;
@@ -6512,17 +6513,25 @@
                         return;
                     }
                     parentContext = parentContext.parent;
+                    ++level;
                 }
                 if (this.pending) {
                     return;
                 }
                 this.pending = true;
-                if (!this.absrefs) {
-                    this.absrefs = this.refs.map(function (ref) {
-                        return ref.absolute(this.row, this.col);
-                    }, this);
+                var next = function () {
+                    if (!this.absrefs) {
+                        this.absrefs = this.refs.map(function (ref) {
+                            return ref.absolute(this.row, this.col);
+                        }, this);
+                    }
+                    this.handler.call(ctx);
+                }.bind(this);
+                if (level < 20) {
+                    next();
+                } else {
+                    setTimeout(next, 0);
                 }
-                this.handler.call(ctx);
             }
         },
         reset: function () {
@@ -9672,7 +9681,7 @@
             throw new Error('Cannot make printer for node ' + node.type);
             function withParens(f) {
                 var op = node.op;
-                var needParens = OPERATORS[op] < prec || !prec && op == ',' || parent.type == 'binary' && prec == OPERATORS[op] && node === parent.right;
+                var needParens = OPERATORS[op] < prec || !prec && op == ',' || parent.type == 'prefix' && prec == OPERATORS[op] && parent.op == '-' || parent.type == 'binary' && prec == OPERATORS[op] && node === parent.right;
                 return parenthesize(f(), needParens);
             }
         }
@@ -12611,11 +12620,7 @@
                 this.colHeaderContextMenu.close();
                 this.rowHeaderContextMenu.close();
                 var menu;
-                var location = {
-                    pageX: event.pageX,
-                    pageY: event.pageY
-                };
-                var object = this.objectAt(location);
+                var object = this.objectAt(event);
                 if (object.type === 'columnresizehandle' || object.type === 'rowresizehandle') {
                     return;
                 }
@@ -12653,8 +12658,8 @@
                     return;
                 }
                 var location = {
-                    pageX: event.pageX,
-                    pageY: event.pageY
+                    clientX: event.clientX,
+                    clientY: event.clientY
                 };
                 var object = this.objectAt(location);
                 var sheet = this._workbook.activeSheet();
@@ -12841,12 +12846,8 @@
                 this.scroller.scrollLeft += right;
             },
             objectAt: function (location) {
-                var offset = this.container.offset();
-                var coordinates = {
-                    left: location.pageX - offset.left,
-                    top: location.pageY - offset.top
-                };
-                return this.view.objectAt(coordinates.left, coordinates.top);
+                var box = this.container[0].getBoundingClientRect();
+                return this.view.objectAt(location.clientX - box.left, location.clientY - box.top);
             },
             selectToLocation: function (cellLocation) {
                 var object = this.objectAt(cellLocation);
@@ -14595,8 +14596,8 @@
             var context, list, popup;
             function create() {
                 if (!list) {
-                    list = $('<div/>').kendoStaticList({
-                        template: '<div>#:value#</div>',
+                    list = $('<ul class=\'k-list k-reset\'/>').kendoStaticList({
+                        template: '#:value#',
                         selectable: true,
                         autoBind: false
                     });
