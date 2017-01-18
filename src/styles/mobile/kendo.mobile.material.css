@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1317 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2017.1.118 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -1965,8 +1965,8 @@ div.km-split-horizontal > .km-content > .km-pane {
 .km-list .km-inline-field {
   display: inline-block;
   position: relative;
-  width: -webkit-calc(48.39%);
-  width: calc(48.39%);
+  width: -webkit-calc((100% - 3.22em)/2);
+  width: calc((100% - 3.22em)/2);
   overflow: hidden;
   white-space: nowrap;
 }
@@ -6896,8 +6896,8 @@ html .km-material .k-overflow-container.km-actionsheet > li {
 .km-material .km-inline-field {
   display: inline-block;
   position: relative;
-  width: -webkit-calc(48.39%);
-  width: calc(48.39%);
+  width: -webkit-calc((100% - 3.22em)/2);
+  width: calc((100% - 3.22em)/2);
   overflow: hidden;
   white-space: nowrap;
 }

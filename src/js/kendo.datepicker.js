@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1317 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2017.1.118 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -98,6 +98,7 @@
                     max: options.max,
                     min: options.min,
                     month: options.month,
+                    weekNumber: options.weekNumber,
                     start: options.start,
                     disableDates: options.disableDates
                 });

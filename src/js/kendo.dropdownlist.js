@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1317 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2017.1.118 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -908,7 +908,7 @@
                     this.filterInput = null;
                 }
                 if (this._isFilterEnabled()) {
-                    icon = '<span class="k-icon k-i-search"></span>';
+                    icon = '<span class="k-icon k-i-zoom"></span>';
                     this.filterInput = $('<input class="k-textbox"/>').attr({
                         placeholder: this.element.attr('placeholder'),
                         title: this.element.attr('title'),
@@ -923,7 +923,7 @@
                 var that = this, wrapper = that.wrapper, SELECTOR = 'span.k-input', span;
                 span = wrapper.find(SELECTOR);
                 if (!span[0]) {
-                    wrapper.append('<span unselectable="on" class="k-dropdown-wrap k-state-default"><span unselectable="on" class="k-input">&nbsp;</span><span unselectable="on" class="k-select" aria-label="select"><span class="k-icon k-i-arrow-s"></span></span></span>').append(that.element);
+                    wrapper.append('<span unselectable="on" class="k-dropdown-wrap k-state-default"><span unselectable="on" class="k-input">&nbsp;</span><span unselectable="on" class="k-select" aria-label="select"><span class="k-icon k-i-arrow-60-down"></span></span></span>').append(that.element);
                     span = wrapper.find(SELECTOR);
                 }
                 that.span = span;

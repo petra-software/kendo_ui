@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1317 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2017.1.118 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -23,43 +23,59 @@
 
 */
 (function (f, define) {
-    define('util/main', ['kendo.core'], f);
+    define('util/text-metrics', ['kendo.core'], f);
 }(function () {
-    (function () {
-        var math = Math, kendo = window.kendo, deepExtend = kendo.deepExtend;
-        var DEG_TO_RAD = math.PI / 180, MAX_NUM = Number.MAX_VALUE, MIN_NUM = -Number.MAX_VALUE, UNDEFINED = 'undefined';
-        function defined(value) {
-            return typeof value !== UNDEFINED;
-        }
-        function round(value, precision) {
-            var power = pow(precision);
-            return math.round(value * power) / power;
-        }
-        function pow(p) {
-            if (p) {
-                return math.pow(10, p);
-            } else {
-                return 1;
+    (function ($) {
+        window.kendo.util = window.kendo.util || {};
+        var LRUCache = kendo.Class.extend({
+            init: function (size) {
+                this._size = size;
+                this._length = 0;
+                this._map = {};
+            },
+            put: function (key, value) {
+                var map = this._map;
+                var entry = {
+                    key: key,
+                    value: value
+                };
+                map[key] = entry;
+                if (!this._head) {
+                    this._head = this._tail = entry;
+                } else {
+                    this._tail.newer = entry;
+                    entry.older = this._tail;
+                    this._tail = entry;
+                }
+                if (this._length >= this._size) {
+                    map[this._head.key] = null;
+                    this._head = this._head.newer;
+                    this._head.older = null;
+                } else {
+                    this._length++;
+                }
+            },
+            get: function (key) {
+                var entry = this._map[key];
+                if (entry) {
+                    if (entry === this._head && entry !== this._tail) {
+                        this._head = entry.newer;
+                        this._head.older = null;
+                    }
+                    if (entry !== this._tail) {
+                        if (entry.older) {
+                            entry.older.newer = entry.newer;
+                            entry.newer.older = entry.older;
+                        }
+                        entry.older = this._tail;
+                        entry.newer = null;
+                        this._tail.newer = entry;
+                        this._tail = entry;
+                    }
+                    return entry.value;
+                }
             }
-        }
-        function limitValue(value, min, max) {
-            return math.max(math.min(value, max), min);
-        }
-        function rad(degrees) {
-            return degrees * DEG_TO_RAD;
-        }
-        function deg(radians) {
-            return radians / DEG_TO_RAD;
-        }
-        function isNumber(val) {
-            return typeof val === 'number' && !isNaN(val);
-        }
-        function valueOrDefault(value, defaultValue) {
-            return defined(value) ? value : defaultValue;
-        }
-        function sqr(value) {
-            return value * value;
-        }
+        });
         function objectKey(object) {
             var parts = [];
             for (var key in object) {
@@ -75,341 +91,93 @@
             }
             return hash >>> 0;
         }
-        function hashObject(object) {
-            return hashKey(objectKey(object));
-        }
-        var now = Date.now;
-        if (!now) {
-            now = function () {
-                return new Date().getTime();
-            };
-        }
-        function arrayLimits(arr) {
-            var length = arr.length, i, min = MAX_NUM, max = MIN_NUM;
-            for (i = 0; i < length; i++) {
-                max = math.max(max, arr[i]);
-                min = math.min(min, arr[i]);
-            }
+        function zeroSize() {
             return {
-                min: min,
-                max: max
+                width: 0,
+                height: 0,
+                baseline: 0
             };
         }
-        function arrayMin(arr) {
-            return arrayLimits(arr).min;
+        var DEFAULT_OPTIONS = { baselineMarkerSize: 1 };
+        var defaultMeasureBox;
+        if (typeof document !== 'undefined') {
+            defaultMeasureBox = document.createElement('div');
+            defaultMeasureBox.style.cssText = 'position: absolute !important; top: -4000px !important; width: auto !important; height: auto !important;' + 'padding: 0 !important; margin: 0 !important; border: 0 !important;' + 'line-height: normal !important; visibility: hidden !important; white-space: nowrap!important;';
         }
-        function arrayMax(arr) {
-            return arrayLimits(arr).max;
-        }
-        function sparseArrayMin(arr) {
-            return sparseArrayLimits(arr).min;
-        }
-        function sparseArrayMax(arr) {
-            return sparseArrayLimits(arr).max;
-        }
-        function sparseArrayLimits(arr) {
-            var min = MAX_NUM, max = MIN_NUM;
-            for (var i = 0, length = arr.length; i < length; i++) {
-                var n = arr[i];
-                if (n !== null && isFinite(n)) {
-                    min = math.min(min, n);
-                    max = math.max(max, n);
+        var TextMetrics = kendo.Class.extend({
+            init: function (options) {
+                this._cache = new LRUCache(1000);
+                this.options = $.extend({}, DEFAULT_OPTIONS, options);
+            },
+            measure: function (text, style, box) {
+                if (!text) {
+                    return zeroSize();
                 }
-            }
-            return {
-                min: min === MAX_NUM ? undefined : min,
-                max: max === MIN_NUM ? undefined : max
-            };
-        }
-        function last(array) {
-            if (array) {
-                return array[array.length - 1];
-            }
-        }
-        function append(first, second) {
-            first.push.apply(first, second);
-            return first;
-        }
-        function renderTemplate(text) {
-            return kendo.template(text, {
-                useWithBlock: false,
-                paramName: 'd'
-            });
-        }
-        function renderAttr(name, value) {
-            return defined(value) && value !== null ? ' ' + name + '=\'' + value + '\' ' : '';
-        }
-        function renderAllAttr(attrs) {
-            var output = '';
-            for (var i = 0; i < attrs.length; i++) {
-                output += renderAttr(attrs[i][0], attrs[i][1]);
-            }
-            return output;
-        }
-        function renderStyle(attrs) {
-            var output = '';
-            for (var i = 0; i < attrs.length; i++) {
-                var value = attrs[i][1];
-                if (defined(value)) {
-                    output += attrs[i][0] + ':' + value + ';';
+                var styleKey = objectKey(style);
+                var cacheKey = hashKey(text + styleKey);
+                var cachedResult = this._cache.get(cacheKey);
+                if (cachedResult) {
+                    return cachedResult;
                 }
-            }
-            if (output !== '') {
-                return output;
-            }
-        }
-        function renderSize(size) {
-            if (typeof size !== 'string') {
-                size += 'px';
-            }
-            return size;
-        }
-        function renderPos(pos) {
-            var result = [];
-            if (pos) {
-                var parts = kendo.toHyphens(pos).split('-');
-                for (var i = 0; i < parts.length; i++) {
-                    result.push('k-pos-' + parts[i]);
-                }
-            }
-            return result.join(' ');
-        }
-        function isTransparent(color) {
-            return color === '' || color === null || color === 'none' || color === 'transparent' || !defined(color);
-        }
-        function arabicToRoman(n) {
-            var literals = {
-                1: 'i',
-                10: 'x',
-                100: 'c',
-                2: 'ii',
-                20: 'xx',
-                200: 'cc',
-                3: 'iii',
-                30: 'xxx',
-                300: 'ccc',
-                4: 'iv',
-                40: 'xl',
-                400: 'cd',
-                5: 'v',
-                50: 'l',
-                500: 'd',
-                6: 'vi',
-                60: 'lx',
-                600: 'dc',
-                7: 'vii',
-                70: 'lxx',
-                700: 'dcc',
-                8: 'viii',
-                80: 'lxxx',
-                800: 'dccc',
-                9: 'ix',
-                90: 'xc',
-                900: 'cm',
-                1000: 'm'
-            };
-            var values = [
-                1000,
-                900,
-                800,
-                700,
-                600,
-                500,
-                400,
-                300,
-                200,
-                100,
-                90,
-                80,
-                70,
-                60,
-                50,
-                40,
-                30,
-                20,
-                10,
-                9,
-                8,
-                7,
-                6,
-                5,
-                4,
-                3,
-                2,
-                1
-            ];
-            var roman = '';
-            while (n > 0) {
-                if (n < values[0]) {
-                    values.shift();
-                } else {
-                    roman += literals[values[0]];
-                    n -= values[0];
-                }
-            }
-            return roman;
-        }
-        function romanToArabic(r) {
-            r = r.toLowerCase();
-            var digits = {
-                i: 1,
-                v: 5,
-                x: 10,
-                l: 50,
-                c: 100,
-                d: 500,
-                m: 1000
-            };
-            var value = 0, prev = 0;
-            for (var i = 0; i < r.length; ++i) {
-                var v = digits[r.charAt(i)];
-                if (!v) {
-                    return null;
-                }
-                value += v;
-                if (v > prev) {
-                    value -= 2 * prev;
-                }
-                prev = v;
-            }
-            return value;
-        }
-        function memoize(f) {
-            var cache = Object.create(null);
-            return function () {
-                var id = '';
-                for (var i = arguments.length; --i >= 0;) {
-                    id += ':' + arguments[i];
-                }
-                return id in cache ? cache[id] : cache[id] = f.apply(this, arguments);
-            };
-        }
-        function ucs2decode(string) {
-            var output = [], counter = 0, length = string.length, value, extra;
-            while (counter < length) {
-                value = string.charCodeAt(counter++);
-                if (value >= 55296 && value <= 56319 && counter < length) {
-                    extra = string.charCodeAt(counter++);
-                    if ((extra & 64512) == 56320) {
-                        output.push(((value & 1023) << 10) + (extra & 1023) + 65536);
-                    } else {
-                        output.push(value);
-                        counter--;
-                    }
-                } else {
-                    output.push(value);
-                }
-            }
-            return output;
-        }
-        function ucs2encode(array) {
-            return array.map(function (value) {
-                var output = '';
-                if (value > 65535) {
-                    value -= 65536;
-                    output += String.fromCharCode(value >>> 10 & 1023 | 55296);
-                    value = 56320 | value & 1023;
-                }
-                output += String.fromCharCode(value);
-                return output;
-            }).join('');
-        }
-        function mergeSort(a, cmp) {
-            if (a.length < 2) {
-                return a.slice();
-            }
-            function merge(a, b) {
-                var r = [], ai = 0, bi = 0, i = 0;
-                while (ai < a.length && bi < b.length) {
-                    if (cmp(a[ai], b[bi]) <= 0) {
-                        r[i++] = a[ai++];
-                    } else {
-                        r[i++] = b[bi++];
+                var size = zeroSize();
+                var measureBox = box || defaultMeasureBox;
+                var baselineMarker = this._baselineMarker().cloneNode(false);
+                for (var key in style) {
+                    var value = style[key];
+                    if (typeof value !== 'undefined') {
+                        measureBox.style[key] = value;
                     }
                 }
-                if (ai < a.length) {
-                    r.push.apply(r, a.slice(ai));
+                measureBox.textContent = text;
+                measureBox.appendChild(baselineMarker);
+                document.body.appendChild(measureBox);
+                if (String(text).length) {
+                    size.width = measureBox.offsetWidth - this.options.baselineMarkerSize;
+                    size.height = measureBox.offsetHeight;
+                    size.baseline = baselineMarker.offsetTop + this.options.baselineMarkerSize;
                 }
-                if (bi < b.length) {
-                    r.push.apply(r, b.slice(bi));
+                if (size.width > 0 && size.height > 0) {
+                    this._cache.put(cacheKey, size);
                 }
-                return r;
-            }
-            return function sort(a) {
-                if (a.length <= 1) {
-                    return a;
-                }
-                var m = Math.floor(a.length / 2);
-                var left = a.slice(0, m);
-                var right = a.slice(m);
-                left = sort(left);
-                right = sort(right);
-                return merge(left, right);
-            }(a);
-        }
-        function isUnicodeLetter(ch) {
-            return RX_UNICODE_LETTER.test(ch);
-        }
-        deepExtend(kendo, {
-            util: {
-                MAX_NUM: MAX_NUM,
-                MIN_NUM: MIN_NUM,
-                append: append,
-                arrayLimits: arrayLimits,
-                arrayMin: arrayMin,
-                arrayMax: arrayMax,
-                defined: defined,
-                deg: deg,
-                hashKey: hashKey,
-                hashObject: hashObject,
-                isNumber: isNumber,
-                isTransparent: isTransparent,
-                last: last,
-                limitValue: limitValue,
-                now: now,
-                objectKey: objectKey,
-                round: round,
-                rad: rad,
-                renderAttr: renderAttr,
-                renderAllAttr: renderAllAttr,
-                renderPos: renderPos,
-                renderSize: renderSize,
-                renderStyle: renderStyle,
-                renderTemplate: renderTemplate,
-                sparseArrayLimits: sparseArrayLimits,
-                sparseArrayMin: sparseArrayMin,
-                sparseArrayMax: sparseArrayMax,
-                sqr: sqr,
-                valueOrDefault: valueOrDefault,
-                romanToArabic: romanToArabic,
-                arabicToRoman: arabicToRoman,
-                memoize: memoize,
-                ucs2encode: ucs2encode,
-                ucs2decode: ucs2decode,
-                mergeSort: mergeSort,
-                isUnicodeLetter: isUnicodeLetter
+                measureBox.parentNode.removeChild(measureBox);
+                return size;
+            },
+            _baselineMarker: function () {
+                var marker = document.createElement('div');
+                marker.style.cssText = 'display: inline-block; vertical-align: baseline;width: ' + this.options.baselineMarkerSize + 'px; height: ' + this.options.baselineMarkerSize + 'px;overflow: hidden;';
+                return marker;
             }
         });
-        kendo.drawing.util = kendo.util;
-        kendo.dataviz.util = kendo.util;
-        var RX_UNICODE_LETTER = new RegExp('[\\u0041-\\u005A\\u0061-\\u007A\\u00AA\\u00B5\\u00BA\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02C1\\u02C6-\\u02D1\\u02E0-\\u02E4\\u02EC\\u02EE\\u0370-\\u0374\\u0376\\u0377\\u037A-\\u037D\\u037F\\u0386\\u0388-\\u038A\\u038C\\u038E-\\u03A1\\u03A3-\\u03F5\\u03F7-\\u0481\\u048A-\\u052F\\u0531-\\u0556\\u0559\\u0561-\\u0587\\u05D0-\\u05EA\\u05F0-\\u05F2\\u0620-\\u064A\\u066E\\u066F\\u0671-\\u06D3\\u06D5\\u06E5\\u06E6\\u06EE\\u06EF\\u06FA-\\u06FC\\u06FF\\u0710\\u0712-\\u072F\\u074D-\\u07A5\\u07B1\\u07CA-\\u07EA\\u07F4\\u07F5\\u07FA\\u0800-\\u0815\\u081A\\u0824\\u0828\\u0840-\\u0858\\u08A0-\\u08B2\\u0904-\\u0939\\u093D\\u0950\\u0958-\\u0961\\u0971-\\u0980\\u0985-\\u098C\\u098F\\u0990\\u0993-\\u09A8\\u09AA-\\u09B0\\u09B2\\u09B6-\\u09B9\\u09BD\\u09CE\\u09DC\\u09DD\\u09DF-\\u09E1\\u09F0\\u09F1\\u0A05-\\u0A0A\\u0A0F\\u0A10\\u0A13-\\u0A28\\u0A2A-\\u0A30\\u0A32\\u0A33\\u0A35\\u0A36\\u0A38\\u0A39\\u0A59-\\u0A5C\\u0A5E\\u0A72-\\u0A74\\u0A85-\\u0A8D\\u0A8F-\\u0A91\\u0A93-\\u0AA8\\u0AAA-\\u0AB0\\u0AB2\\u0AB3\\u0AB5-\\u0AB9\\u0ABD\\u0AD0\\u0AE0\\u0AE1\\u0B05-\\u0B0C\\u0B0F\\u0B10\\u0B13-\\u0B28\\u0B2A-\\u0B30\\u0B32\\u0B33\\u0B35-\\u0B39\\u0B3D\\u0B5C\\u0B5D\\u0B5F-\\u0B61\\u0B71\\u0B83\\u0B85-\\u0B8A\\u0B8E-\\u0B90\\u0B92-\\u0B95\\u0B99\\u0B9A\\u0B9C\\u0B9E\\u0B9F\\u0BA3\\u0BA4\\u0BA8-\\u0BAA\\u0BAE-\\u0BB9\\u0BD0\\u0C05-\\u0C0C\\u0C0E-\\u0C10\\u0C12-\\u0C28\\u0C2A-\\u0C39\\u0C3D\\u0C58\\u0C59\\u0C60\\u0C61\\u0C85-\\u0C8C\\u0C8E-\\u0C90\\u0C92-\\u0CA8\\u0CAA-\\u0CB3\\u0CB5-\\u0CB9\\u0CBD\\u0CDE\\u0CE0\\u0CE1\\u0CF1\\u0CF2\\u0D05-\\u0D0C\\u0D0E-\\u0D10\\u0D12-\\u0D3A\\u0D3D\\u0D4E\\u0D60\\u0D61\\u0D7A-\\u0D7F\\u0D85-\\u0D96\\u0D9A-\\u0DB1\\u0DB3-\\u0DBB\\u0DBD\\u0DC0-\\u0DC6\\u0E01-\\u0E30\\u0E32\\u0E33\\u0E40-\\u0E46\\u0E81\\u0E82\\u0E84\\u0E87\\u0E88\\u0E8A\\u0E8D\\u0E94-\\u0E97\\u0E99-\\u0E9F\\u0EA1-\\u0EA3\\u0EA5\\u0EA7\\u0EAA\\u0EAB\\u0EAD-\\u0EB0\\u0EB2\\u0EB3\\u0EBD\\u0EC0-\\u0EC4\\u0EC6\\u0EDC-\\u0EDF\\u0F00\\u0F40-\\u0F47\\u0F49-\\u0F6C\\u0F88-\\u0F8C\\u1000-\\u102A\\u103F\\u1050-\\u1055\\u105A-\\u105D\\u1061\\u1065\\u1066\\u106E-\\u1070\\u1075-\\u1081\\u108E\\u10A0-\\u10C5\\u10C7\\u10CD\\u10D0-\\u10FA\\u10FC-\\u1248\\u124A-\\u124D\\u1250-\\u1256\\u1258\\u125A-\\u125D\\u1260-\\u1288\\u128A-\\u128D\\u1290-\\u12B0\\u12B2-\\u12B5\\u12B8-\\u12BE\\u12C0\\u12C2-\\u12C5\\u12C8-\\u12D6\\u12D8-\\u1310\\u1312-\\u1315\\u1318-\\u135A\\u1380-\\u138F\\u13A0-\\u13F4\\u1401-\\u166C\\u166F-\\u167F\\u1681-\\u169A\\u16A0-\\u16EA\\u16EE-\\u16F8\\u1700-\\u170C\\u170E-\\u1711\\u1720-\\u1731\\u1740-\\u1751\\u1760-\\u176C\\u176E-\\u1770\\u1780-\\u17B3\\u17D7\\u17DC\\u1820-\\u1877\\u1880-\\u18A8\\u18AA\\u18B0-\\u18F5\\u1900-\\u191E\\u1950-\\u196D\\u1970-\\u1974\\u1980-\\u19AB\\u19C1-\\u19C7\\u1A00-\\u1A16\\u1A20-\\u1A54\\u1AA7\\u1B05-\\u1B33\\u1B45-\\u1B4B\\u1B83-\\u1BA0\\u1BAE\\u1BAF\\u1BBA-\\u1BE5\\u1C00-\\u1C23\\u1C4D-\\u1C4F\\u1C5A-\\u1C7D\\u1CE9-\\u1CEC\\u1CEE-\\u1CF1\\u1CF5\\u1CF6\\u1D00-\\u1DBF\\u1E00-\\u1F15\\u1F18-\\u1F1D\\u1F20-\\u1F45\\u1F48-\\u1F4D\\u1F50-\\u1F57\\u1F59\\u1F5B\\u1F5D\\u1F5F-\\u1F7D\\u1F80-\\u1FB4\\u1FB6-\\u1FBC\\u1FBE\\u1FC2-\\u1FC4\\u1FC6-\\u1FCC\\u1FD0-\\u1FD3\\u1FD6-\\u1FDB\\u1FE0-\\u1FEC\\u1FF2-\\u1FF4\\u1FF6-\\u1FFC\\u2071\\u207F\\u2090-\\u209C\\u2102\\u2107\\u210A-\\u2113\\u2115\\u2119-\\u211D\\u2124\\u2126\\u2128\\u212A-\\u212D\\u212F-\\u2139\\u213C-\\u213F\\u2145-\\u2149\\u214E\\u2160-\\u2188\\u2C00-\\u2C2E\\u2C30-\\u2C5E\\u2C60-\\u2CE4\\u2CEB-\\u2CEE\\u2CF2\\u2CF3\\u2D00-\\u2D25\\u2D27\\u2D2D\\u2D30-\\u2D67\\u2D6F\\u2D80-\\u2D96\\u2DA0-\\u2DA6\\u2DA8-\\u2DAE\\u2DB0-\\u2DB6\\u2DB8-\\u2DBE\\u2DC0-\\u2DC6\\u2DC8-\\u2DCE\\u2DD0-\\u2DD6\\u2DD8-\\u2DDE\\u2E2F\\u3005-\\u3007\\u3021-\\u3029\\u3031-\\u3035\\u3038-\\u303C\\u3041-\\u3096\\u309D-\\u309F\\u30A1-\\u30FA\\u30FC-\\u30FF\\u3105-\\u312D\\u3131-\\u318E\\u31A0-\\u31BA\\u31F0-\\u31FF\\u3400-\\u4DB5\\u4E00-\\u9FCC\\uA000-\\uA48C\\uA4D0-\\uA4FD\\uA500-\\uA60C\\uA610-\\uA61F\\uA62A\\uA62B\\uA640-\\uA66E\\uA67F-\\uA69D\\uA6A0-\\uA6EF\\uA717-\\uA71F\\uA722-\\uA788\\uA78B-\\uA78E\\uA790-\\uA7AD\\uA7B0\\uA7B1\\uA7F7-\\uA801\\uA803-\\uA805\\uA807-\\uA80A\\uA80C-\\uA822\\uA840-\\uA873\\uA882-\\uA8B3\\uA8F2-\\uA8F7\\uA8FB\\uA90A-\\uA925\\uA930-\\uA946\\uA960-\\uA97C\\uA984-\\uA9B2\\uA9CF\\uA9E0-\\uA9E4\\uA9E6-\\uA9EF\\uA9FA-\\uA9FE\\uAA00-\\uAA28\\uAA40-\\uAA42\\uAA44-\\uAA4B\\uAA60-\\uAA76\\uAA7A\\uAA7E-\\uAAAF\\uAAB1\\uAAB5\\uAAB6\\uAAB9-\\uAABD\\uAAC0\\uAAC2\\uAADB-\\uAADD\\uAAE0-\\uAAEA\\uAAF2-\\uAAF4\\uAB01-\\uAB06\\uAB09-\\uAB0E\\uAB11-\\uAB16\\uAB20-\\uAB26\\uAB28-\\uAB2E\\uAB30-\\uAB5A\\uAB5C-\\uAB5F\\uAB64\\uAB65\\uABC0-\\uABE2\\uAC00-\\uD7A3\\uD7B0-\\uD7C6\\uD7CB-\\uD7FB\\uF900-\\uFA6D\\uFA70-\\uFAD9\\uFB00-\\uFB06\\uFB13-\\uFB17\\uFB1D\\uFB1F-\\uFB28\\uFB2A-\\uFB36\\uFB38-\\uFB3C\\uFB3E\\uFB40\\uFB41\\uFB43\\uFB44\\uFB46-\\uFBB1\\uFBD3-\\uFD3D\\uFD50-\\uFD8F\\uFD92-\\uFDC7\\uFDF0-\\uFDFB\\uFE70-\\uFE74\\uFE76-\\uFEFC\\uFF21-\\uFF3A\\uFF41-\\uFF5A\\uFF66-\\uFFBE\\uFFC2-\\uFFC7\\uFFCA-\\uFFCF\\uFFD2-\\uFFD7\\uFFDA-\\uFFDC]');
-    }());
-    return window.kendo;
+        TextMetrics.current = new TextMetrics();
+        function measureText(text, style, measureBox) {
+            return TextMetrics.current.measure(text, style, measureBox);
+        }
+        kendo.deepExtend(kendo.util, {
+            LRUCache: LRUCache,
+            TextMetrics: TextMetrics,
+            measureText: measureText,
+            objectKey: objectKey,
+            hashKey: hashKey
+        });
+    }(window.kendo.jQuery));
 }, typeof define == 'function' && define.amd ? define : function (a1, a2, a3) {
     (a3 || a2)();
 }));
 (function (f, define) {
     define('pdf/core', [
         'kendo.core',
-        'util/main'
+        'kendo.color',
+        'kendo.drawing'
     ], f);
 }(function () {
-    (function (window, parseFloat, undefined) {
-        'use strict';
-        var kendo = window.kendo;
-        var HAS_TYPED_ARRAYS = !!window.Uint8Array;
-        var NL = '\n';
-        var RESOURCE_COUNTER = 0;
+    (function (kendo) {
+        window.kendo.pdf = window.kendo.pdf || {};
+        var support = kendo.support;
+        var supportBrowser = support.browser;
+        var drawing = kendo.drawing;
+        var util = drawing.util;
+        var kendoGeometry = kendo.geometry;
+        var HAS_TYPED_ARRAYS$1 = typeof Uint8Array !== 'undefined';
         var BASE64 = function () {
             var keyStr = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
             return {
@@ -455,6 +223,1170 @@
                 }
             };
         }();
+        function BinaryStream(data) {
+            var offset = 0, length = 0;
+            if (data == null) {
+                data = HAS_TYPED_ARRAYS$1 ? new Uint8Array(256) : [];
+            } else {
+                length = data.length;
+            }
+            var ensure = HAS_TYPED_ARRAYS$1 ? function (len) {
+                if (len >= data.length) {
+                    var tmp = new Uint8Array(Math.max(len + 256, data.length * 2));
+                    tmp.set(data, 0);
+                    data = tmp;
+                }
+            } : function () {
+            };
+            var get = HAS_TYPED_ARRAYS$1 ? function () {
+                return new Uint8Array(data.buffer, 0, length);
+            } : function () {
+                return data;
+            };
+            var write = HAS_TYPED_ARRAYS$1 ? function (bytes) {
+                if (typeof bytes == 'string') {
+                    return writeString(bytes);
+                }
+                var len = bytes.length;
+                ensure(offset + len);
+                data.set(bytes, offset);
+                offset += len;
+                if (offset > length) {
+                    length = offset;
+                }
+            } : function (bytes) {
+                if (typeof bytes == 'string') {
+                    return writeString(bytes);
+                }
+                for (var i = 0; i < bytes.length; ++i) {
+                    writeByte(bytes[i]);
+                }
+            };
+            var slice = HAS_TYPED_ARRAYS$1 ? function (start, length) {
+                if (data.buffer.slice) {
+                    return new Uint8Array(data.buffer.slice(start, start + length));
+                } else {
+                    var x = new Uint8Array(length);
+                    x.set(new Uint8Array(data.buffer, start, length));
+                    return x;
+                }
+            } : function (start, length) {
+                return data.slice(start, start + length);
+            };
+            function eof() {
+                return offset >= length;
+            }
+            function readByte() {
+                return offset < length ? data[offset++] : 0;
+            }
+            function writeByte(b) {
+                ensure(offset);
+                data[offset++] = b & 255;
+                if (offset > length) {
+                    length = offset;
+                }
+            }
+            function readShort() {
+                return readByte() << 8 | readByte();
+            }
+            function writeShort(w) {
+                writeByte(w >> 8);
+                writeByte(w);
+            }
+            function readShort_() {
+                var w = readShort();
+                return w >= 32768 ? w - 65536 : w;
+            }
+            function writeShort_(w) {
+                writeShort(w < 0 ? w + 65536 : w);
+            }
+            function readLong() {
+                return readShort() * 65536 + readShort();
+            }
+            function writeLong(w) {
+                writeShort(w >>> 16 & 65535);
+                writeShort(w & 65535);
+            }
+            function readLong_() {
+                var w = readLong();
+                return w >= 2147483648 ? w - 4294967296 : w;
+            }
+            function writeLong_(w) {
+                writeLong(w < 0 ? w + 4294967296 : w);
+            }
+            function readFixed() {
+                return readLong() / 65536;
+            }
+            function writeFixed(f) {
+                writeLong(Math.round(f * 65536));
+            }
+            function readFixed_() {
+                return readLong_() / 65536;
+            }
+            function writeFixed_(f) {
+                writeLong_(Math.round(f * 65536));
+            }
+            function read(len) {
+                return times(len, readByte);
+            }
+            function readString(len) {
+                return String.fromCharCode.apply(String, read(len));
+            }
+            function writeString(str) {
+                for (var i = 0; i < str.length; ++i) {
+                    writeByte(str.charCodeAt(i));
+                }
+            }
+            function times(n, reader) {
+                for (var ret = new Array(n), i = 0; i < n; ++i) {
+                    ret[i] = reader();
+                }
+                return ret;
+            }
+            var stream = {
+                eof: eof,
+                readByte: readByte,
+                writeByte: writeByte,
+                readShort: readShort,
+                writeShort: writeShort,
+                readLong: readLong,
+                writeLong: writeLong,
+                readFixed: readFixed,
+                writeFixed: writeFixed,
+                readShort_: readShort_,
+                writeShort_: writeShort_,
+                readLong_: readLong_,
+                writeLong_: writeLong_,
+                readFixed_: readFixed_,
+                writeFixed_: writeFixed_,
+                read: read,
+                write: write,
+                readString: readString,
+                writeString: writeString,
+                times: times,
+                get: get,
+                slice: slice,
+                offset: function (pos) {
+                    if (pos != null) {
+                        offset = pos;
+                        return stream;
+                    }
+                    return offset;
+                },
+                skip: function (nbytes) {
+                    offset += nbytes;
+                },
+                toString: function () {
+                    throw new Error('FIX CALLER.  BinaryStream is no longer convertible to string!');
+                },
+                length: function () {
+                    return length;
+                },
+                saveExcursion: function (f) {
+                    var pos = offset;
+                    try {
+                        return f();
+                    } finally {
+                        offset = pos;
+                    }
+                },
+                writeBase64: function (base64) {
+                    if (window.atob) {
+                        writeString(window.atob(base64));
+                    } else {
+                        write(BASE64.decode(base64));
+                    }
+                },
+                base64: function () {
+                    return BASE64.encode(get());
+                }
+            };
+            return stream;
+        }
+        function ucs2decode(string) {
+            var output = [], counter = 0, length = string.length, value, extra;
+            while (counter < length) {
+                value = string.charCodeAt(counter++);
+                if (value >= 55296 && value <= 56319 && counter < length) {
+                    extra = string.charCodeAt(counter++);
+                    if ((extra & 64512) == 56320) {
+                        output.push(((value & 1023) << 10) + (extra & 1023) + 65536);
+                    } else {
+                        output.push(value);
+                        counter--;
+                    }
+                } else {
+                    output.push(value);
+                }
+            }
+            return output;
+        }
+        function ucs2encode(array) {
+            return array.map(function (value) {
+                var output = '';
+                if (value > 65535) {
+                    value -= 65536;
+                    output += String.fromCharCode(value >>> 10 & 1023 | 55296);
+                    value = 56320 | value & 1023;
+                }
+                output += String.fromCharCode(value);
+                return output;
+            }).join('');
+        }
+        function hasOwnProperty$1(obj, key) {
+            return Object.prototype.hasOwnProperty.call(obj, key);
+        }
+        function sortedKeys(obj) {
+            return Object.keys(obj).sort(function (a, b) {
+                return a - b;
+            }).map(parseFloat);
+        }
+        function Directory(data) {
+            this.raw = data;
+            this.scalerType = data.readLong();
+            this.tableCount = data.readShort();
+            this.searchRange = data.readShort();
+            this.entrySelector = data.readShort();
+            this.rangeShift = data.readShort();
+            var tables = this.tables = {};
+            for (var i = 0; i < this.tableCount; ++i) {
+                var entry = {
+                    tag: data.readString(4),
+                    checksum: data.readLong(),
+                    offset: data.readLong(),
+                    length: data.readLong()
+                };
+                tables[entry.tag] = entry;
+            }
+        }
+        Directory.prototype = {
+            readTable: function (name, Ctor) {
+                var def = this.tables[name];
+                if (!def) {
+                    throw new Error('Table ' + name + ' not found in directory');
+                }
+                return this[name] = def.table = new Ctor(this, def);
+            },
+            render: function (tables) {
+                var this$1 = this;
+                var tableCount = Object.keys(tables).length;
+                var maxpow2 = Math.pow(2, Math.floor(Math.log(tableCount) / Math.LN2));
+                var searchRange = maxpow2 * 16;
+                var entrySelector = Math.floor(Math.log(maxpow2) / Math.LN2);
+                var rangeShift = tableCount * 16 - searchRange;
+                var out = BinaryStream();
+                out.writeLong(this.scalerType);
+                out.writeShort(tableCount);
+                out.writeShort(searchRange);
+                out.writeShort(entrySelector);
+                out.writeShort(rangeShift);
+                var directoryLength = tableCount * 16;
+                var offset = out.offset() + directoryLength;
+                var headOffset = null;
+                var tableData = BinaryStream();
+                for (var tag in tables) {
+                    if (hasOwnProperty$1(tables, tag)) {
+                        var table = tables[tag];
+                        out.writeString(tag);
+                        out.writeLong(this$1.checksum(table));
+                        out.writeLong(offset);
+                        out.writeLong(table.length);
+                        tableData.write(table);
+                        if (tag == 'head') {
+                            headOffset = offset;
+                        }
+                        offset += table.length;
+                        while (offset % 4) {
+                            tableData.writeByte(0);
+                            offset++;
+                        }
+                    }
+                }
+                out.write(tableData.get());
+                var sum = this.checksum(out.get());
+                var adjustment = 2981146554 - sum;
+                out.offset(headOffset + 8);
+                out.writeLong(adjustment);
+                return out.get();
+            },
+            checksum: function (data) {
+                data = BinaryStream(data);
+                var sum = 0;
+                while (!data.eof()) {
+                    sum += data.readLong();
+                }
+                return sum & 4294967295;
+            }
+        };
+        function deftable(methods) {
+            function Ctor(file, def) {
+                this.definition = def;
+                this.length = def.length;
+                this.offset = def.offset;
+                this.file = file;
+                this.rawData = file.raw;
+                this.parse(file.raw);
+            }
+            Ctor.prototype.raw = function () {
+                return this.rawData.slice(this.offset, this.length);
+            };
+            for (var i in methods) {
+                if (hasOwnProperty$1(methods, i)) {
+                    Ctor[i] = Ctor.prototype[i] = methods[i];
+                }
+            }
+            return Ctor;
+        }
+        var HeadTable = deftable({
+            parse: function (data) {
+                data.offset(this.offset);
+                this.version = data.readLong();
+                this.revision = data.readLong();
+                this.checkSumAdjustment = data.readLong();
+                this.magicNumber = data.readLong();
+                this.flags = data.readShort();
+                this.unitsPerEm = data.readShort();
+                this.created = data.read(8);
+                this.modified = data.read(8);
+                this.xMin = data.readShort_();
+                this.yMin = data.readShort_();
+                this.xMax = data.readShort_();
+                this.yMax = data.readShort_();
+                this.macStyle = data.readShort();
+                this.lowestRecPPEM = data.readShort();
+                this.fontDirectionHint = data.readShort_();
+                this.indexToLocFormat = data.readShort_();
+                this.glyphDataFormat = data.readShort_();
+            },
+            render: function (indexToLocFormat) {
+                var out = BinaryStream();
+                out.writeLong(this.version);
+                out.writeLong(this.revision);
+                out.writeLong(0);
+                out.writeLong(this.magicNumber);
+                out.writeShort(this.flags);
+                out.writeShort(this.unitsPerEm);
+                out.write(this.created);
+                out.write(this.modified);
+                out.writeShort_(this.xMin);
+                out.writeShort_(this.yMin);
+                out.writeShort_(this.xMax);
+                out.writeShort_(this.yMax);
+                out.writeShort(this.macStyle);
+                out.writeShort(this.lowestRecPPEM);
+                out.writeShort_(this.fontDirectionHint);
+                out.writeShort_(indexToLocFormat);
+                out.writeShort_(this.glyphDataFormat);
+                return out.get();
+            }
+        });
+        var LocaTable = deftable({
+            parse: function (data) {
+                data.offset(this.offset);
+                var format = this.file.head.indexToLocFormat;
+                if (format === 0) {
+                    this.offsets = data.times(this.length / 2, function () {
+                        return 2 * data.readShort();
+                    });
+                } else {
+                    this.offsets = data.times(this.length / 4, data.readLong);
+                }
+            },
+            offsetOf: function (id) {
+                return this.offsets[id];
+            },
+            lengthOf: function (id) {
+                return this.offsets[id + 1] - this.offsets[id];
+            },
+            render: function (offsets) {
+                var out = BinaryStream();
+                var needsLongFormat = offsets[offsets.length - 1] > 65535;
+                for (var i = 0; i < offsets.length; ++i) {
+                    if (needsLongFormat) {
+                        out.writeLong(offsets[i]);
+                    } else {
+                        out.writeShort(offsets[i] / 2);
+                    }
+                }
+                return {
+                    format: needsLongFormat ? 1 : 0,
+                    table: out.get()
+                };
+            }
+        });
+        var HheaTable = deftable({
+            parse: function (data) {
+                data.offset(this.offset);
+                this.version = data.readLong();
+                this.ascent = data.readShort_();
+                this.descent = data.readShort_();
+                this.lineGap = data.readShort_();
+                this.advanceWidthMax = data.readShort();
+                this.minLeftSideBearing = data.readShort_();
+                this.minRightSideBearing = data.readShort_();
+                this.xMaxExtent = data.readShort_();
+                this.caretSlopeRise = data.readShort_();
+                this.caretSlopeRun = data.readShort_();
+                this.caretOffset = data.readShort_();
+                data.skip(4 * 2);
+                this.metricDataFormat = data.readShort_();
+                this.numOfLongHorMetrics = data.readShort();
+            },
+            render: function (ids) {
+                var out = BinaryStream();
+                out.writeLong(this.version);
+                out.writeShort_(this.ascent);
+                out.writeShort_(this.descent);
+                out.writeShort_(this.lineGap);
+                out.writeShort(this.advanceWidthMax);
+                out.writeShort_(this.minLeftSideBearing);
+                out.writeShort_(this.minRightSideBearing);
+                out.writeShort_(this.xMaxExtent);
+                out.writeShort_(this.caretSlopeRise);
+                out.writeShort_(this.caretSlopeRun);
+                out.writeShort_(this.caretOffset);
+                out.write([
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]);
+                out.writeShort_(this.metricDataFormat);
+                out.writeShort(ids.length);
+                return out.get();
+            }
+        });
+        var MaxpTable = deftable({
+            parse: function (data) {
+                data.offset(this.offset);
+                this.version = data.readLong();
+                this.numGlyphs = data.readShort();
+                this.maxPoints = data.readShort();
+                this.maxContours = data.readShort();
+                this.maxComponentPoints = data.readShort();
+                this.maxComponentContours = data.readShort();
+                this.maxZones = data.readShort();
+                this.maxTwilightPoints = data.readShort();
+                this.maxStorage = data.readShort();
+                this.maxFunctionDefs = data.readShort();
+                this.maxInstructionDefs = data.readShort();
+                this.maxStackElements = data.readShort();
+                this.maxSizeOfInstructions = data.readShort();
+                this.maxComponentElements = data.readShort();
+                this.maxComponentDepth = data.readShort();
+            },
+            render: function (glyphIds) {
+                var out = BinaryStream();
+                out.writeLong(this.version);
+                out.writeShort(glyphIds.length);
+                out.writeShort(this.maxPoints);
+                out.writeShort(this.maxContours);
+                out.writeShort(this.maxComponentPoints);
+                out.writeShort(this.maxComponentContours);
+                out.writeShort(this.maxZones);
+                out.writeShort(this.maxTwilightPoints);
+                out.writeShort(this.maxStorage);
+                out.writeShort(this.maxFunctionDefs);
+                out.writeShort(this.maxInstructionDefs);
+                out.writeShort(this.maxStackElements);
+                out.writeShort(this.maxSizeOfInstructions);
+                out.writeShort(this.maxComponentElements);
+                out.writeShort(this.maxComponentDepth);
+                return out.get();
+            }
+        });
+        var HmtxTable = deftable({
+            parse: function (data) {
+                data.offset(this.offset);
+                var dir = this.file, hhea = dir.hhea;
+                this.metrics = data.times(hhea.numOfLongHorMetrics, function () {
+                    return {
+                        advance: data.readShort(),
+                        lsb: data.readShort_()
+                    };
+                });
+                var lsbCount = dir.maxp.numGlyphs - dir.hhea.numOfLongHorMetrics;
+                this.leftSideBearings = data.times(lsbCount, data.readShort_);
+            },
+            forGlyph: function (id) {
+                var metrics = this.metrics;
+                var n = metrics.length;
+                if (id < n) {
+                    return metrics[id];
+                }
+                return {
+                    advance: metrics[n - 1].advance,
+                    lsb: this.leftSideBearings[id - n]
+                };
+            },
+            render: function (glyphIds) {
+                var this$1 = this;
+                var out = BinaryStream();
+                for (var i = 0; i < glyphIds.length; ++i) {
+                    var m = this$1.forGlyph(glyphIds[i]);
+                    out.writeShort(m.advance);
+                    out.writeShort_(m.lsb);
+                }
+                return out.get();
+            }
+        });
+        var GlyfTable = function () {
+            function SimpleGlyph(raw) {
+                this.raw = raw;
+            }
+            SimpleGlyph.prototype = {
+                compound: false,
+                render: function () {
+                    return this.raw.get();
+                }
+            };
+            var ARG_1_AND_2_ARE_WORDS = 1;
+            var WE_HAVE_A_SCALE = 8;
+            var MORE_COMPONENTS = 32;
+            var WE_HAVE_AN_X_AND_Y_SCALE = 64;
+            var WE_HAVE_A_TWO_BY_TWO = 128;
+            function CompoundGlyph(data) {
+                this.raw = data;
+                var ids = this.glyphIds = [];
+                var offsets = this.idOffsets = [];
+                while (true) {
+                    var flags = data.readShort();
+                    offsets.push(data.offset());
+                    ids.push(data.readShort());
+                    if (!(flags & MORE_COMPONENTS)) {
+                        break;
+                    }
+                    data.skip(flags & ARG_1_AND_2_ARE_WORDS ? 4 : 2);
+                    if (flags & WE_HAVE_A_TWO_BY_TWO) {
+                        data.skip(8);
+                    } else if (flags & WE_HAVE_AN_X_AND_Y_SCALE) {
+                        data.skip(4);
+                    } else if (flags & WE_HAVE_A_SCALE) {
+                        data.skip(2);
+                    }
+                }
+            }
+            CompoundGlyph.prototype = {
+                compound: true,
+                render: function (old2new) {
+                    var this$1 = this;
+                    var out = BinaryStream(this.raw.get());
+                    for (var i = 0; i < this.glyphIds.length; ++i) {
+                        var id = this$1.glyphIds[i];
+                        out.offset(this$1.idOffsets[i]);
+                        out.writeShort(old2new[id]);
+                    }
+                    return out.get();
+                }
+            };
+            return deftable({
+                parse: function () {
+                    this.cache = {};
+                },
+                glyphFor: function (id) {
+                    var cache = this.cache;
+                    if (hasOwnProperty$1(cache, id)) {
+                        return cache[id];
+                    }
+                    var loca = this.file.loca;
+                    var length = loca.lengthOf(id);
+                    if (length === 0) {
+                        return cache[id] = null;
+                    }
+                    var data = this.rawData;
+                    var offset = this.offset + loca.offsetOf(id);
+                    var raw = BinaryStream(data.slice(offset, length));
+                    var numberOfContours = raw.readShort_();
+                    var xMin = raw.readShort_();
+                    var yMin = raw.readShort_();
+                    var xMax = raw.readShort_();
+                    var yMax = raw.readShort_();
+                    var glyph = cache[id] = numberOfContours == -1 ? new CompoundGlyph(raw) : new SimpleGlyph(raw);
+                    glyph.numberOfContours = numberOfContours;
+                    glyph.xMin = xMin;
+                    glyph.yMin = yMin;
+                    glyph.xMax = xMax;
+                    glyph.yMax = yMax;
+                    return glyph;
+                },
+                render: function (glyphs, oldIds, old2new) {
+                    var out = BinaryStream(), offsets = [];
+                    for (var i = 0; i < oldIds.length; ++i) {
+                        var id = oldIds[i];
+                        var glyph = glyphs[id];
+                        offsets.push(out.offset());
+                        if (glyph) {
+                            out.write(glyph.render(old2new));
+                        }
+                    }
+                    offsets.push(out.offset());
+                    return {
+                        table: out.get(),
+                        offsets: offsets
+                    };
+                }
+            });
+        }();
+        var NameTable = function () {
+            function NameEntry(text, entry) {
+                this.text = text;
+                this.length = text.length;
+                this.platformID = entry.platformID;
+                this.platformSpecificID = entry.platformSpecificID;
+                this.languageID = entry.languageID;
+                this.nameID = entry.nameID;
+            }
+            return deftable({
+                parse: function (data) {
+                    data.offset(this.offset);
+                    data.readShort();
+                    var count = data.readShort();
+                    var stringOffset = this.offset + data.readShort();
+                    var nameRecords = data.times(count, function () {
+                        return {
+                            platformID: data.readShort(),
+                            platformSpecificID: data.readShort(),
+                            languageID: data.readShort(),
+                            nameID: data.readShort(),
+                            length: data.readShort(),
+                            offset: data.readShort() + stringOffset
+                        };
+                    });
+                    var strings = this.strings = {};
+                    for (var i = 0; i < nameRecords.length; ++i) {
+                        var rec = nameRecords[i];
+                        data.offset(rec.offset);
+                        var text = data.readString(rec.length);
+                        if (!strings[rec.nameID]) {
+                            strings[rec.nameID] = [];
+                        }
+                        strings[rec.nameID].push(new NameEntry(text, rec));
+                    }
+                    this.postscriptEntry = strings[6][0];
+                    this.postscriptName = this.postscriptEntry.text.replace(/[^\x20-\x7F]/g, '');
+                },
+                render: function (psName) {
+                    var this$1 = this;
+                    var strings = this.strings;
+                    var strCount = 0;
+                    for (var i in strings) {
+                        if (hasOwnProperty$1(strings, i)) {
+                            strCount += strings[i].length;
+                        }
+                    }
+                    var out = BinaryStream();
+                    var strTable = BinaryStream();
+                    out.writeShort(0);
+                    out.writeShort(strCount);
+                    out.writeShort(6 + 12 * strCount);
+                    for (i in strings) {
+                        if (hasOwnProperty$1(strings, i)) {
+                            var list = i == 6 ? [new NameEntry(psName, this$1.postscriptEntry)] : strings[i];
+                            for (var j = 0; j < list.length; ++j) {
+                                var str = list[j];
+                                out.writeShort(str.platformID);
+                                out.writeShort(str.platformSpecificID);
+                                out.writeShort(str.languageID);
+                                out.writeShort(str.nameID);
+                                out.writeShort(str.length);
+                                out.writeShort(strTable.offset());
+                                strTable.writeString(str.text);
+                            }
+                        }
+                    }
+                    out.write(strTable.get());
+                    return out.get();
+                }
+            });
+        }();
+        var PostTable = function () {
+            var POSTSCRIPT_GLYPHS = '.notdef .null nonmarkingreturn space exclam quotedbl numbersign dollar percent ampersand quotesingle parenleft parenright asterisk plus comma hyphen period slash zero one two three four five six seven eight nine colon semicolon less equal greater question at A B C D E F G H I J K L M N O P Q R S T U V W X Y Z bracketleft backslash bracketright asciicircum underscore grave a b c d e f g h i j k l m n o p q r s t u v w x y z braceleft bar braceright asciitilde Adieresis Aring Ccedilla Eacute Ntilde Odieresis Udieresis aacute agrave acircumflex adieresis atilde aring ccedilla eacute egrave ecircumflex edieresis iacute igrave icircumflex idieresis ntilde oacute ograve ocircumflex odieresis otilde uacute ugrave ucircumflex udieresis dagger degree cent sterling section bullet paragraph germandbls registered copyright trademark acute dieresis notequal AE Oslash infinity plusminus lessequal greaterequal yen mu partialdiff summation product pi integral ordfeminine ordmasculine Omega ae oslash questiondown exclamdown logicalnot radical florin approxequal Delta guillemotleft guillemotright ellipsis nonbreakingspace Agrave Atilde Otilde OE oe endash emdash quotedblleft quotedblright quoteleft quoteright divide lozenge ydieresis Ydieresis fraction currency guilsinglleft guilsinglright fi fl daggerdbl periodcentered quotesinglbase quotedblbase perthousand Acircumflex Ecircumflex Aacute Edieresis Egrave Iacute Icircumflex Idieresis Igrave Oacute Ocircumflex apple Ograve Uacute Ucircumflex Ugrave dotlessi circumflex tilde macron breve dotaccent ring cedilla hungarumlaut ogonek caron Lslash lslash Scaron scaron Zcaron zcaron brokenbar Eth eth Yacute yacute Thorn thorn minus multiply onesuperior twosuperior threesuperior onehalf onequarter threequarters franc Gbreve gbreve Idotaccent Scedilla scedilla Cacute cacute Ccaron ccaron dcroat'.split(/\s+/g);
+            return deftable({
+                parse: function (data) {
+                    var this$1 = this;
+                    data.offset(this.offset);
+                    this.format = data.readLong();
+                    this.italicAngle = data.readFixed_();
+                    this.underlinePosition = data.readShort_();
+                    this.underlineThickness = data.readShort_();
+                    this.isFixedPitch = data.readLong();
+                    this.minMemType42 = data.readLong();
+                    this.maxMemType42 = data.readLong();
+                    this.minMemType1 = data.readLong();
+                    this.maxMemType1 = data.readLong();
+                    var numberOfGlyphs;
+                    switch (this.format) {
+                    case 65536:
+                    case 196608:
+                        break;
+                    case 131072:
+                        numberOfGlyphs = data.readShort();
+                        this.glyphNameIndex = data.times(numberOfGlyphs, data.readShort);
+                        this.names = [];
+                        var limit = this.offset + this.length;
+                        while (data.offset() < limit) {
+                            this$1.names.push(data.readString(data.readByte()));
+                        }
+                        break;
+                    case 151552:
+                        numberOfGlyphs = data.readShort();
+                        this.offsets = data.read(numberOfGlyphs);
+                        break;
+                    case 262144:
+                        this.map = data.times(this.file.maxp.numGlyphs, data.readShort);
+                        break;
+                    }
+                },
+                glyphFor: function (code) {
+                    switch (this.format) {
+                    case 65536:
+                        return POSTSCRIPT_GLYPHS[code] || '.notdef';
+                    case 131072:
+                        var index = this.glyphNameIndex[code];
+                        if (index < POSTSCRIPT_GLYPHS.length) {
+                            return POSTSCRIPT_GLYPHS[index];
+                        }
+                        return this.names[index - POSTSCRIPT_GLYPHS.length] || '.notdef';
+                    case 151552:
+                    case 196608:
+                        return '.notdef';
+                    case 262144:
+                        return this.map[code] || 65535;
+                    }
+                },
+                render: function (mapping) {
+                    var this$1 = this;
+                    if (this.format == 196608) {
+                        return this.raw();
+                    }
+                    var out = BinaryStream(this.rawData.slice(this.offset, 32));
+                    out.writeLong(131072);
+                    out.offset(32);
+                    var indexes = [];
+                    var strings = [];
+                    for (var i = 0; i < mapping.length; ++i) {
+                        var id = mapping[i];
+                        var post = this$1.glyphFor(id);
+                        var index = POSTSCRIPT_GLYPHS.indexOf(post);
+                        if (index >= 0) {
+                            indexes.push(index);
+                        } else {
+                            indexes.push(POSTSCRIPT_GLYPHS.length + strings.length);
+                            strings.push(post);
+                        }
+                    }
+                    out.writeShort(mapping.length);
+                    for (i = 0; i < indexes.length; ++i) {
+                        out.writeShort(indexes[i]);
+                    }
+                    for (i = 0; i < strings.length; ++i) {
+                        out.writeByte(strings[i].length);
+                        out.writeString(strings[i]);
+                    }
+                    return out.get();
+                }
+            });
+        }();
+        var CmapTable = function () {
+            function CmapEntry(data, offset, codeMap) {
+                var self = this;
+                self.platformID = data.readShort();
+                self.platformSpecificID = data.readShort();
+                self.offset = offset + data.readLong();
+                data.saveExcursion(function () {
+                    var code;
+                    data.offset(self.offset);
+                    self.format = data.readShort();
+                    switch (self.format) {
+                    case 0:
+                        self.length = data.readShort();
+                        self.language = data.readShort();
+                        for (var i = 0; i < 256; ++i) {
+                            codeMap[i] = data.readByte();
+                        }
+                        break;
+                    case 4:
+                        self.length = data.readShort();
+                        self.language = data.readShort();
+                        var segCount = data.readShort() / 2;
+                        data.skip(6);
+                        var endCode = data.times(segCount, data.readShort);
+                        data.skip(2);
+                        var startCode = data.times(segCount, data.readShort);
+                        var idDelta = data.times(segCount, data.readShort_);
+                        var idRangeOffset = data.times(segCount, data.readShort);
+                        var count = (self.length + self.offset - data.offset()) / 2;
+                        var glyphIds = data.times(count, data.readShort);
+                        for (i = 0; i < segCount; ++i) {
+                            var start = startCode[i], end = endCode[i];
+                            for (code = start; code <= end; ++code) {
+                                var glyphId;
+                                if (idRangeOffset[i] === 0) {
+                                    glyphId = code + idDelta[i];
+                                } else {
+                                    var index = idRangeOffset[i] / 2 - (segCount - i) + (code - start);
+                                    glyphId = glyphIds[index] || 0;
+                                    if (glyphId !== 0) {
+                                        glyphId += idDelta[i];
+                                    }
+                                }
+                                codeMap[code] = glyphId & 65535;
+                            }
+                        }
+                        break;
+                    case 6:
+                        self.length = data.readShort();
+                        self.language = data.readShort();
+                        code = data.readShort();
+                        var length = data.readShort();
+                        while (length-- > 0) {
+                            codeMap[code++] = data.readShort();
+                        }
+                        break;
+                    case 12:
+                        data.readShort();
+                        self.length = data.readLong();
+                        self.language = data.readLong();
+                        var ngroups = data.readLong();
+                        while (ngroups-- > 0) {
+                            code = data.readLong();
+                            var endCharCode = data.readLong();
+                            var glyphCode = data.readLong();
+                            while (code <= endCharCode) {
+                                codeMap[code++] = glyphCode++;
+                            }
+                        }
+                        break;
+                    default:
+                        if (window.console) {
+                            window.console.error('Unhandled CMAP format: ' + self.format);
+                        }
+                    }
+                });
+            }
+            function renderCharmap(ncid2ogid, ogid2ngid) {
+                var codes = sortedKeys(ncid2ogid);
+                var startCodes = [];
+                var endCodes = [];
+                var last = null;
+                var diff = null;
+                function new_gid(charcode) {
+                    return ogid2ngid[ncid2ogid[charcode]];
+                }
+                for (var i = 0; i < codes.length; ++i) {
+                    var code = codes[i];
+                    var gid = new_gid(code);
+                    var delta = gid - code;
+                    if (last == null || delta !== diff) {
+                        if (last) {
+                            endCodes.push(last);
+                        }
+                        startCodes.push(code);
+                        diff = delta;
+                    }
+                    last = code;
+                }
+                if (last) {
+                    endCodes.push(last);
+                }
+                endCodes.push(65535);
+                startCodes.push(65535);
+                var segCount = startCodes.length;
+                var segCountX2 = segCount * 2;
+                var searchRange = 2 * Math.pow(2, Math.floor(Math.log(segCount) / Math.LN2));
+                var entrySelector = Math.log(searchRange / 2) / Math.LN2;
+                var rangeShift = segCountX2 - searchRange;
+                var deltas = [];
+                var rangeOffsets = [];
+                var glyphIds = [];
+                for (i = 0; i < segCount; ++i) {
+                    var startCode = startCodes[i];
+                    var endCode = endCodes[i];
+                    if (startCode == 65535) {
+                        deltas.push(0);
+                        rangeOffsets.push(0);
+                        break;
+                    }
+                    var startGlyph = new_gid(startCode);
+                    if (startCode - startGlyph >= 32768) {
+                        deltas.push(0);
+                        rangeOffsets.push(2 * (glyphIds.length + segCount - i));
+                        for (var j = startCode; j <= endCode; ++j) {
+                            glyphIds.push(new_gid(j));
+                        }
+                    } else {
+                        deltas.push(startGlyph - startCode);
+                        rangeOffsets.push(0);
+                    }
+                }
+                var out = BinaryStream();
+                out.writeShort(3);
+                out.writeShort(1);
+                out.writeLong(12);
+                out.writeShort(4);
+                out.writeShort(16 + segCount * 8 + glyphIds.length * 2);
+                out.writeShort(0);
+                out.writeShort(segCountX2);
+                out.writeShort(searchRange);
+                out.writeShort(entrySelector);
+                out.writeShort(rangeShift);
+                endCodes.forEach(out.writeShort);
+                out.writeShort(0);
+                startCodes.forEach(out.writeShort);
+                deltas.forEach(out.writeShort_);
+                rangeOffsets.forEach(out.writeShort);
+                glyphIds.forEach(out.writeShort);
+                return out.get();
+            }
+            return deftable({
+                parse: function (data) {
+                    var self = this;
+                    var offset = self.offset;
+                    data.offset(offset);
+                    self.codeMap = {};
+                    self.version = data.readShort();
+                    var tableCount = data.readShort();
+                    self.tables = data.times(tableCount, function () {
+                        return new CmapEntry(data, offset, self.codeMap);
+                    });
+                },
+                render: function (ncid2ogid, ogid2ngid) {
+                    var out = BinaryStream();
+                    out.writeShort(0);
+                    out.writeShort(1);
+                    out.write(renderCharmap(ncid2ogid, ogid2ngid));
+                    return out.get();
+                }
+            });
+        }();
+        var OS2Table = deftable({
+            parse: function (data) {
+                data.offset(this.offset);
+                this.version = data.readShort();
+                this.averageCharWidth = data.readShort_();
+                this.weightClass = data.readShort();
+                this.widthClass = data.readShort();
+                this.type = data.readShort();
+                this.ySubscriptXSize = data.readShort_();
+                this.ySubscriptYSize = data.readShort_();
+                this.ySubscriptXOffset = data.readShort_();
+                this.ySubscriptYOffset = data.readShort_();
+                this.ySuperscriptXSize = data.readShort_();
+                this.ySuperscriptYSize = data.readShort_();
+                this.ySuperscriptXOffset = data.readShort_();
+                this.ySuperscriptYOffset = data.readShort_();
+                this.yStrikeoutSize = data.readShort_();
+                this.yStrikeoutPosition = data.readShort_();
+                this.familyClass = data.readShort_();
+                this.panose = data.times(10, data.readByte);
+                this.charRange = data.times(4, data.readLong);
+                this.vendorID = data.readString(4);
+                this.selection = data.readShort();
+                this.firstCharIndex = data.readShort();
+                this.lastCharIndex = data.readShort();
+                if (this.version > 0) {
+                    this.ascent = data.readShort_();
+                    this.descent = data.readShort_();
+                    this.lineGap = data.readShort_();
+                    this.winAscent = data.readShort();
+                    this.winDescent = data.readShort();
+                    this.codePageRange = data.times(2, data.readLong);
+                    if (this.version > 1) {
+                        this.xHeight = data.readShort();
+                        this.capHeight = data.readShort();
+                        this.defaultChar = data.readShort();
+                        this.breakChar = data.readShort();
+                        this.maxContext = data.readShort();
+                    }
+                }
+            },
+            render: function () {
+                return this.raw();
+            }
+        });
+        var subsetTag = 100000;
+        function nextSubsetTag() {
+            var ret = '', n = String(subsetTag);
+            for (var i = 0; i < n.length; ++i) {
+                ret += String.fromCharCode(n.charCodeAt(i) - 48 + 65);
+            }
+            ++subsetTag;
+            return ret;
+        }
+        function Subfont(font) {
+            this.font = font;
+            this.subset = {};
+            this.unicodes = {};
+            this.ogid2ngid = { 0: 0 };
+            this.ngid2ogid = { 0: 0 };
+            this.ncid2ogid = {};
+            this.next = this.firstChar = 1;
+            this.nextGid = 1;
+            this.psName = nextSubsetTag() + '+' + this.font.psName;
+        }
+        Subfont.prototype = {
+            use: function (ch) {
+                var self = this;
+                if (typeof ch == 'string') {
+                    return ucs2decode(ch).reduce(function (ret, code) {
+                        return ret + String.fromCharCode(self.use(code));
+                    }, '');
+                }
+                var code = self.unicodes[ch];
+                if (!code) {
+                    code = self.next++;
+                    self.subset[code] = ch;
+                    self.unicodes[ch] = code;
+                    var old_gid = self.font.cmap.codeMap[ch];
+                    if (old_gid) {
+                        self.ncid2ogid[code] = old_gid;
+                        if (self.ogid2ngid[old_gid] == null) {
+                            var new_gid = self.nextGid++;
+                            self.ogid2ngid[old_gid] = new_gid;
+                            self.ngid2ogid[new_gid] = old_gid;
+                        }
+                    }
+                }
+                return code;
+            },
+            encodeText: function (text) {
+                return this.use(text);
+            },
+            glyphIds: function () {
+                return sortedKeys(this.ogid2ngid);
+            },
+            glyphsFor: function (glyphIds, result) {
+                var this$1 = this;
+                if (!result) {
+                    result = {};
+                }
+                for (var i = 0; i < glyphIds.length; ++i) {
+                    var id = glyphIds[i];
+                    if (!result[id]) {
+                        var glyph = result[id] = this$1.font.glyf.glyphFor(id);
+                        if (glyph && glyph.compound) {
+                            this$1.glyphsFor(glyph.glyphIds, result);
+                        }
+                    }
+                }
+                return result;
+            },
+            render: function () {
+                var this$1 = this;
+                var glyphs = this.glyphsFor(this.glyphIds());
+                for (var old_gid in glyphs) {
+                    if (hasOwnProperty$1(glyphs, old_gid)) {
+                        old_gid = parseInt(old_gid, 10);
+                        if (this$1.ogid2ngid[old_gid] == null) {
+                            var new_gid = this$1.nextGid++;
+                            this$1.ogid2ngid[old_gid] = new_gid;
+                            this$1.ngid2ogid[new_gid] = old_gid;
+                        }
+                    }
+                }
+                var new_gid_ids = sortedKeys(this.ngid2ogid);
+                var old_gid_ids = new_gid_ids.map(function (id) {
+                    return this.ngid2ogid[id];
+                }, this);
+                var font = this.font;
+                var glyf = font.glyf.render(glyphs, old_gid_ids, this.ogid2ngid);
+                var loca = font.loca.render(glyf.offsets);
+                this.lastChar = this.next - 1;
+                var tables = {
+                    'cmap': CmapTable.render(this.ncid2ogid, this.ogid2ngid),
+                    'glyf': glyf.table,
+                    'loca': loca.table,
+                    'hmtx': font.hmtx.render(old_gid_ids),
+                    'hhea': font.hhea.render(old_gid_ids),
+                    'maxp': font.maxp.render(old_gid_ids),
+                    'post': font.post.render(old_gid_ids),
+                    'name': font.name.render(this.psName),
+                    'head': font.head.render(loca.format),
+                    'OS/2': font.os2.render()
+                };
+                return this.font.directory.render(tables);
+            },
+            cidToGidMap: function () {
+                var this$1 = this;
+                var out = BinaryStream(), len = 0;
+                for (var cid = this.firstChar; cid < this.next; ++cid) {
+                    while (len < cid) {
+                        out.writeShort(0);
+                        len++;
+                    }
+                    var old_gid = this$1.ncid2ogid[cid];
+                    if (old_gid) {
+                        var new_gid = this$1.ogid2ngid[old_gid];
+                        out.writeShort(new_gid);
+                    } else {
+                        out.writeShort(0);
+                    }
+                    len++;
+                }
+                return out.get();
+            }
+        };
+        function TTFFont(rawData, name) {
+            var self = this;
+            var data = self.contents = BinaryStream(rawData);
+            if (data.readString(4) == 'ttcf') {
+                var offset;
+                var parse = function () {
+                    data.offset(offset);
+                    self.parse();
+                };
+                if (!name) {
+                    throw new Error('Must specify a name for TTC files');
+                }
+                data.readLong();
+                var numFonts = data.readLong();
+                for (var i = 0; i < numFonts; ++i) {
+                    offset = data.readLong();
+                    data.saveExcursion(parse);
+                    if (self.psName == name) {
+                        return;
+                    }
+                }
+                throw new Error('Font ' + name + ' not found in collection');
+            } else {
+                data.offset(0);
+                self.parse();
+            }
+        }
+        TTFFont.prototype = {
+            parse: function () {
+                var dir = this.directory = new Directory(this.contents);
+                this.head = dir.readTable('head', HeadTable);
+                this.loca = dir.readTable('loca', LocaTable);
+                this.hhea = dir.readTable('hhea', HheaTable);
+                this.maxp = dir.readTable('maxp', MaxpTable);
+                this.hmtx = dir.readTable('hmtx', HmtxTable);
+                this.glyf = dir.readTable('glyf', GlyfTable);
+                this.name = dir.readTable('name', NameTable);
+                this.post = dir.readTable('post', PostTable);
+                this.cmap = dir.readTable('cmap', CmapTable);
+                this.os2 = dir.readTable('OS/2', OS2Table);
+                this.psName = this.name.postscriptName;
+                this.ascent = this.os2.ascent || this.hhea.ascent;
+                this.descent = this.os2.descent || this.hhea.descent;
+                this.lineGap = this.os2.lineGap || this.hhea.lineGap;
+                this.scale = 1000 / this.head.unitsPerEm;
+            },
+            widthOfGlyph: function (glyph) {
+                return this.hmtx.forGlyph(glyph).advance * this.scale;
+            },
+            makeSubset: function () {
+                return new Subfont(this);
+            }
+        };
+        var browser = kendo.support.browser;
+        var HAS_TYPED_ARRAYS = typeof Uint8Array !== 'undefined';
+        var NL = '\n';
+        var RESOURCE_COUNTER = 0;
         var PAPER_SIZE = {
             a0: [
                 2383.94,
@@ -612,8 +1544,9 @@
         function makeOutput() {
             var indentLevel = 0, output = BinaryStream();
             function out() {
+                var arguments$1 = arguments;
                 for (var i = 0; i < arguments.length; ++i) {
-                    var x = arguments[i];
+                    var x = arguments$1[i];
                     if (x === undefined) {
                         throw new Error('Cannot output undefined to PDF');
                     } else if (x instanceof PDFValue) {
@@ -636,7 +1569,7 @@
                         }
                         output.writeString(num);
                     } else if (/string|boolean/.test(typeof x)) {
-                        output.writeString(x + '');
+                        output.writeString(String(x));
                     } else if (typeof x.get == 'function') {
                         output.write(x.get());
                     } else if (typeof x == 'object') {
@@ -823,12 +1756,12 @@
                     Size: objects.length + 1,
                     Root: catalog,
                     Info: new PDFDictionary({
-                        Producer: new PDFString(getOption('producer', 'Kendo UI PDF Generator v.' + kendo.version)),
+                        Producer: new PDFString(getOption('producer', 'Kendo UI PDF Generator')),
                         Title: new PDFString(getOption('title', '')),
                         Author: new PDFString(getOption('author', '')),
                         Subject: new PDFString(getOption('subject', '')),
                         Keywords: new PDFString(getOption('keywords', '')),
-                        Creator: new PDFString(getOption('creator', 'Kendo UI PDF Generator v.' + kendo.version)),
+                        Creator: new PDFString(getOption('creator', 'Kendo UI PDF Generator')),
                         CreationDate: getOption('date', new Date())
                     })
                 }), NL, NL);
@@ -874,7 +1807,7 @@
                     if (HAS_TYPED_ARRAYS) {
                         cont(new Uint8Array(req.response));
                     } else {
-                        cont(new VBArray(req.responseBody).toArray());
+                        cont(new window.VBArray(req.responseBody).toArray());
                     }
                 } else {
                     error();
@@ -892,7 +1825,7 @@
                     if (data == null) {
                         throw new Error('Cannot load font from ' + url);
                     } else {
-                        var font = new kendo.pdf.TTFFont(data);
+                        var font = new TTFFont(data);
                         FONT_CACHE[url] = font;
                         cont(font);
                     }
@@ -926,7 +1859,7 @@
             }
             function _load(url) {
                 img.src = url;
-                if (img.complete && !kendo.support.browser.msie) {
+                if (img.complete && !browser.msie) {
                     _onload();
                 } else {
                     img.onload = _onload;
@@ -956,7 +1889,8 @@
                 try {
                     imgdata = ctx.getImageData(0, 0, img.width, img.height);
                 } catch (ex) {
-                    return _onerror();
+                    _onerror();
+                    return;
                 } finally {
                     if (bloburl) {
                         URL.revokeObjectURL(bloburl);
@@ -994,12 +1928,13 @@
                 if (n === 0) {
                     return callback();
                 }
+                function next() {
+                    if (--n === 0) {
+                        callback();
+                    }
+                }
                 while (i-- > 0) {
-                    loadOne(urls[i], function () {
-                        if (--n === 0) {
-                            callback();
-                        }
-                    });
+                    loadOne(urls[i], next);
                 }
             };
         }
@@ -1074,7 +2009,7 @@
             return str;
         }
         function zeropad(n, len) {
-            return pad(n + '', len, '0');
+            return pad(String(n), len, '0');
         }
         function hasOwnProperty(obj, key) {
             return Object.prototype.hasOwnProperty.call(obj, key);
@@ -1175,9 +2110,10 @@
             this.value = value;
         }, {
             render: function (out) {
+                var this$1 = this;
                 out('<');
                 for (var i = 0; i < this.value.length; ++i) {
-                    out(zeropad(this.value.charCodeAt(i).toString(16), 4));
+                    out(zeropad(this$1.value.charCodeAt(i).toString(16), 4));
                 }
                 out('>');
             }
@@ -1319,7 +2255,7 @@
             this._resourceName = _('F' + ++RESOURCE_COUNTER);
         }, {
             encodeText: function (str) {
-                return new PDFString(str + '');
+                return new PDFString(String(str));
             }
         }, PDFDictionary);
         var PDFFont = defclass(function PDFFont(pdf, font, props) {
@@ -1353,13 +2289,14 @@
             this.flags = (font.post.isFixedPitch ? 1 : 0) | (this.isSerif ? 1 << 1 : 0) | (this.isScript ? 1 << 3 : 0) | (this.italicAngle !== 0 ? 1 << 6 : 0) | 1 << 5;
         }, {
             encodeText: function (text) {
-                return new PDFHexString(this._sub.encodeText(text + ''));
+                return new PDFHexString(this._sub.encodeText(String(text)));
             },
             getTextWidth: function (fontSize, text) {
+                var this$1 = this;
                 var width = 0, codeMap = this._font.cmap.codeMap;
                 for (var i = 0; i < text.length; ++i) {
                     var glyphId = codeMap[text.charCodeAt(i)];
-                    width += this._font.widthOfGlyph(glyphId || 0);
+                    width += this$1._font.widthOfGlyph(glyphId || 0);
                 }
                 return width * fontSize / 1000;
             },
@@ -1451,7 +2388,7 @@
                 out.withIndent(function () {
                     for (var code = self.firstChar; code <= self.lastChar; ++code) {
                         var unicode = self.map[code];
-                        var str = kendo.util.ucs2encode([unicode]);
+                        var str = ucs2encode([unicode]);
                         out.indent('<', zeropad(code.toString(16), 4), '>', '<');
                         for (var i = 0; i < str.length; ++i) {
                             out(zeropad(str.charCodeAt(i).toString(16), 4));
@@ -2020,186 +2957,6 @@
                 };
             }
         }, PDFDictionary);
-        function BinaryStream(data) {
-            var offset = 0, length = 0;
-            if (data == null) {
-                data = HAS_TYPED_ARRAYS ? new Uint8Array(256) : [];
-            } else {
-                length = data.length;
-            }
-            var ensure = HAS_TYPED_ARRAYS ? function (len) {
-                if (len >= data.length) {
-                    var tmp = new Uint8Array(Math.max(len + 256, data.length * 2));
-                    tmp.set(data, 0);
-                    data = tmp;
-                }
-            } : function () {
-            };
-            var get = HAS_TYPED_ARRAYS ? function () {
-                return new Uint8Array(data.buffer, 0, length);
-            } : function () {
-                return data;
-            };
-            var write = HAS_TYPED_ARRAYS ? function (bytes) {
-                if (typeof bytes == 'string') {
-                    return writeString(bytes);
-                }
-                var len = bytes.length;
-                ensure(offset + len);
-                data.set(bytes, offset);
-                offset += len;
-                if (offset > length) {
-                    length = offset;
-                }
-            } : function (bytes) {
-                if (typeof bytes == 'string') {
-                    return writeString(bytes);
-                }
-                for (var i = 0; i < bytes.length; ++i) {
-                    writeByte(bytes[i]);
-                }
-            };
-            var slice = HAS_TYPED_ARRAYS ? function (start, length) {
-                if (data.buffer.slice) {
-                    return new Uint8Array(data.buffer.slice(start, start + length));
-                } else {
-                    var x = new Uint8Array(length);
-                    x.set(new Uint8Array(data.buffer, start, length));
-                    return x;
-                }
-            } : function (start, length) {
-                return data.slice(start, start + length);
-            };
-            function eof() {
-                return offset >= length;
-            }
-            function readByte() {
-                return offset < length ? data[offset++] : 0;
-            }
-            function writeByte(b) {
-                ensure(offset);
-                data[offset++] = b & 255;
-                if (offset > length) {
-                    length = offset;
-                }
-            }
-            function readShort() {
-                return readByte() << 8 | readByte();
-            }
-            function writeShort(w) {
-                writeByte(w >> 8);
-                writeByte(w);
-            }
-            function readShort_() {
-                var w = readShort();
-                return w >= 32768 ? w - 65536 : w;
-            }
-            function writeShort_(w) {
-                writeShort(w < 0 ? w + 65536 : w);
-            }
-            function readLong() {
-                return readShort() * 65536 + readShort();
-            }
-            function writeLong(w) {
-                writeShort(w >>> 16 & 65535);
-                writeShort(w & 65535);
-            }
-            function readLong_() {
-                var w = readLong();
-                return w >= 2147483648 ? w - 4294967296 : w;
-            }
-            function writeLong_(w) {
-                writeLong(w < 0 ? w + 4294967296 : w);
-            }
-            function readFixed() {
-                return readLong() / 65536;
-            }
-            function writeFixed(f) {
-                writeLong(Math.round(f * 65536));
-            }
-            function readFixed_() {
-                return readLong_() / 65536;
-            }
-            function writeFixed_(f) {
-                writeLong_(Math.round(f * 65536));
-            }
-            function read(len) {
-                return times(len, readByte);
-            }
-            function readString(len) {
-                return String.fromCharCode.apply(String, read(len));
-            }
-            function writeString(str) {
-                for (var i = 0; i < str.length; ++i) {
-                    writeByte(str.charCodeAt(i));
-                }
-            }
-            function times(n, reader) {
-                for (var ret = new Array(n), i = 0; i < n; ++i) {
-                    ret[i] = reader();
-                }
-                return ret;
-            }
-            var stream = {
-                eof: eof,
-                readByte: readByte,
-                writeByte: writeByte,
-                readShort: readShort,
-                writeShort: writeShort,
-                readLong: readLong,
-                writeLong: writeLong,
-                readFixed: readFixed,
-                writeFixed: writeFixed,
-                readShort_: readShort_,
-                writeShort_: writeShort_,
-                readLong_: readLong_,
-                writeLong_: writeLong_,
-                readFixed_: readFixed_,
-                writeFixed_: writeFixed_,
-                read: read,
-                write: write,
-                readString: readString,
-                writeString: writeString,
-                times: times,
-                get: get,
-                slice: slice,
-                offset: function (pos) {
-                    if (pos != null) {
-                        offset = pos;
-                        return stream;
-                    }
-                    return offset;
-                },
-                skip: function (nbytes) {
-                    offset += nbytes;
-                },
-                toString: function () {
-                    throw new Error('FIX CALLER.  BinaryStream is no longer convertible to string!');
-                },
-                length: function () {
-                    return length;
-                },
-                saveExcursion: function (f) {
-                    var pos = offset;
-                    try {
-                        return f();
-                    } finally {
-                        offset = pos;
-                    }
-                },
-                writeBase64: function (base64) {
-                    if (window.atob) {
-                        writeString(window.atob(base64));
-                    } else {
-                        write(BASE64.decode(base64));
-                    }
-                },
-                base64: function () {
-                    return BASE64.encode(get());
-                }
-            };
-            return stream;
-        }
         function unquote(str) {
             return str.replace(/^\s*(['"])(.*)\1\s*$/, '$2');
         }
@@ -2345,26 +3102,6 @@
                 }
             }
         }
-        kendo.pdf = {
-            Document: PDFDocument,
-            BinaryStream: BinaryStream,
-            defineFont: defineFont,
-            parseFontDef: parseFontDef,
-            getFontURL: getFontURL,
-            loadFonts: loadFonts,
-            loadImages: loadImages,
-            getPaperOptions: getPaperOptions,
-            TEXT_RENDERING_MODE: {
-                fill: 0,
-                stroke: 1,
-                fillAndStroke: 2,
-                invisible: 3,
-                fillAndClip: 4,
-                strokeAndClip: 5,
-                fillStrokeClip: 6,
-                clip: 7
-            }
-        };
         function mmul(a, b) {
             var a1 = a[0], b1 = a[1], c1 = a[2], d1 = a[3], e1 = a[4], f1 = a[5];
             var a2 = b[0], b2 = b[1], c2 = b[2], d2 = b[3], e2 = b[4], f2 = b[5];
@@ -2380,1233 +3117,17 @@
         function isIdentityMatrix(m) {
             return m[0] === 1 && m[1] === 0 && m[2] === 0 && m[3] === 1 && m[4] === 0 && m[5] === 0;
         }
-    }(window, parseFloat));
-}, typeof define == 'function' && define.amd ? define : function (a1, a2, a3) {
-    (a3 || a2)();
-}));
-(function (f, define) {
-    define('pdf/ttf', [
-        'pdf/core',
-        'util/main'
-    ], f);
-}(function () {
-    (function (window) {
-        'use strict';
-        function hasOwnProperty(obj, key) {
-            return Object.prototype.hasOwnProperty.call(obj, key);
-        }
-        function sortedKeys(obj) {
-            return Object.keys(obj).sort(function (a, b) {
-                return a - b;
-            }).map(parseFloat);
-        }
-        var PDF = window.kendo.pdf;
-        var BinaryStream = PDF.BinaryStream;
-        function Directory(data) {
-            this.raw = data;
-            this.scalerType = data.readLong();
-            this.tableCount = data.readShort();
-            this.searchRange = data.readShort();
-            this.entrySelector = data.readShort();
-            this.rangeShift = data.readShort();
-            var tables = this.tables = {};
-            for (var i = 0; i < this.tableCount; ++i) {
-                var entry = {
-                    tag: data.readString(4),
-                    checksum: data.readLong(),
-                    offset: data.readLong(),
-                    length: data.readLong()
-                };
-                tables[entry.tag] = entry;
-            }
-        }
-        Directory.prototype = {
-            readTable: function (name, Ctor) {
-                var def = this.tables[name];
-                if (!def) {
-                    throw new Error('Table ' + name + ' not found in directory');
-                }
-                return this[name] = def.table = new Ctor(this, def);
-            },
-            render: function (tables) {
-                var tableCount = Object.keys(tables).length;
-                var maxpow2 = Math.pow(2, Math.floor(Math.log(tableCount) / Math.LN2));
-                var searchRange = maxpow2 * 16;
-                var entrySelector = Math.floor(Math.log(maxpow2) / Math.LN2);
-                var rangeShift = tableCount * 16 - searchRange;
-                var out = BinaryStream();
-                out.writeLong(this.scalerType);
-                out.writeShort(tableCount);
-                out.writeShort(searchRange);
-                out.writeShort(entrySelector);
-                out.writeShort(rangeShift);
-                var directoryLength = tableCount * 16;
-                var offset = out.offset() + directoryLength;
-                var headOffset = null;
-                var tableData = BinaryStream();
-                for (var tag in tables) {
-                    if (hasOwnProperty(tables, tag)) {
-                        var table = tables[tag];
-                        out.writeString(tag);
-                        out.writeLong(this.checksum(table));
-                        out.writeLong(offset);
-                        out.writeLong(table.length);
-                        tableData.write(table);
-                        if (tag == 'head') {
-                            headOffset = offset;
-                        }
-                        offset += table.length;
-                        while (offset % 4) {
-                            tableData.writeByte(0);
-                            offset++;
-                        }
-                    }
-                }
-                out.write(tableData.get());
-                var sum = this.checksum(out.get());
-                var adjustment = 2981146554 - sum;
-                out.offset(headOffset + 8);
-                out.writeLong(adjustment);
-                return out.get();
-            },
-            checksum: function (data) {
-                data = BinaryStream(data);
-                var sum = 0;
-                while (!data.eof()) {
-                    sum += data.readLong();
-                }
-                return sum & 4294967295;
-            }
+        var TEXT_RENDERING_MODE = {
+            fill: 0,
+            stroke: 1,
+            fillAndStroke: 2,
+            invisible: 3,
+            fillAndClip: 4,
+            strokeAndClip: 5,
+            fillStrokeClip: 6,
+            clip: 7
         };
-        function deftable(methods) {
-            function Ctor(file, def) {
-                this.definition = def;
-                this.length = def.length;
-                this.offset = def.offset;
-                this.file = file;
-                this.rawData = file.raw;
-                this.parse(file.raw);
-            }
-            Ctor.prototype.raw = function () {
-                return this.rawData.slice(this.offset, this.length);
-            };
-            for (var i in methods) {
-                if (hasOwnProperty(methods, i)) {
-                    Ctor[i] = Ctor.prototype[i] = methods[i];
-                }
-            }
-            return Ctor;
-        }
-        var HeadTable = deftable({
-            parse: function (data) {
-                data.offset(this.offset);
-                this.version = data.readLong();
-                this.revision = data.readLong();
-                this.checkSumAdjustment = data.readLong();
-                this.magicNumber = data.readLong();
-                this.flags = data.readShort();
-                this.unitsPerEm = data.readShort();
-                this.created = data.read(8);
-                this.modified = data.read(8);
-                this.xMin = data.readShort_();
-                this.yMin = data.readShort_();
-                this.xMax = data.readShort_();
-                this.yMax = data.readShort_();
-                this.macStyle = data.readShort();
-                this.lowestRecPPEM = data.readShort();
-                this.fontDirectionHint = data.readShort_();
-                this.indexToLocFormat = data.readShort_();
-                this.glyphDataFormat = data.readShort_();
-            },
-            render: function (indexToLocFormat) {
-                var out = BinaryStream();
-                out.writeLong(this.version);
-                out.writeLong(this.revision);
-                out.writeLong(0);
-                out.writeLong(this.magicNumber);
-                out.writeShort(this.flags);
-                out.writeShort(this.unitsPerEm);
-                out.write(this.created);
-                out.write(this.modified);
-                out.writeShort_(this.xMin);
-                out.writeShort_(this.yMin);
-                out.writeShort_(this.xMax);
-                out.writeShort_(this.yMax);
-                out.writeShort(this.macStyle);
-                out.writeShort(this.lowestRecPPEM);
-                out.writeShort_(this.fontDirectionHint);
-                out.writeShort_(indexToLocFormat);
-                out.writeShort_(this.glyphDataFormat);
-                return out.get();
-            }
-        });
-        var LocaTable = deftable({
-            parse: function (data) {
-                data.offset(this.offset);
-                var format = this.file.head.indexToLocFormat;
-                if (format === 0) {
-                    this.offsets = data.times(this.length / 2, function () {
-                        return 2 * data.readShort();
-                    });
-                } else {
-                    this.offsets = data.times(this.length / 4, data.readLong);
-                }
-            },
-            offsetOf: function (id) {
-                return this.offsets[id];
-            },
-            lengthOf: function (id) {
-                return this.offsets[id + 1] - this.offsets[id];
-            },
-            render: function (offsets) {
-                var out = BinaryStream();
-                var needsLongFormat = offsets[offsets.length - 1] > 65535;
-                for (var i = 0; i < offsets.length; ++i) {
-                    if (needsLongFormat) {
-                        out.writeLong(offsets[i]);
-                    } else {
-                        out.writeShort(offsets[i] / 2);
-                    }
-                }
-                return {
-                    format: needsLongFormat ? 1 : 0,
-                    table: out.get()
-                };
-            }
-        });
-        var HheaTable = deftable({
-            parse: function (data) {
-                data.offset(this.offset);
-                this.version = data.readLong();
-                this.ascent = data.readShort_();
-                this.descent = data.readShort_();
-                this.lineGap = data.readShort_();
-                this.advanceWidthMax = data.readShort();
-                this.minLeftSideBearing = data.readShort_();
-                this.minRightSideBearing = data.readShort_();
-                this.xMaxExtent = data.readShort_();
-                this.caretSlopeRise = data.readShort_();
-                this.caretSlopeRun = data.readShort_();
-                this.caretOffset = data.readShort_();
-                data.skip(4 * 2);
-                this.metricDataFormat = data.readShort_();
-                this.numOfLongHorMetrics = data.readShort();
-            },
-            render: function (ids) {
-                var out = BinaryStream();
-                out.writeLong(this.version);
-                out.writeShort_(this.ascent);
-                out.writeShort_(this.descent);
-                out.writeShort_(this.lineGap);
-                out.writeShort(this.advanceWidthMax);
-                out.writeShort_(this.minLeftSideBearing);
-                out.writeShort_(this.minRightSideBearing);
-                out.writeShort_(this.xMaxExtent);
-                out.writeShort_(this.caretSlopeRise);
-                out.writeShort_(this.caretSlopeRun);
-                out.writeShort_(this.caretOffset);
-                out.write([
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0
-                ]);
-                out.writeShort_(this.metricDataFormat);
-                out.writeShort(ids.length);
-                return out.get();
-            }
-        });
-        var MaxpTable = deftable({
-            parse: function (data) {
-                data.offset(this.offset);
-                this.version = data.readLong();
-                this.numGlyphs = data.readShort();
-                this.maxPoints = data.readShort();
-                this.maxContours = data.readShort();
-                this.maxComponentPoints = data.readShort();
-                this.maxComponentContours = data.readShort();
-                this.maxZones = data.readShort();
-                this.maxTwilightPoints = data.readShort();
-                this.maxStorage = data.readShort();
-                this.maxFunctionDefs = data.readShort();
-                this.maxInstructionDefs = data.readShort();
-                this.maxStackElements = data.readShort();
-                this.maxSizeOfInstructions = data.readShort();
-                this.maxComponentElements = data.readShort();
-                this.maxComponentDepth = data.readShort();
-            },
-            render: function (glyphIds) {
-                var out = BinaryStream();
-                out.writeLong(this.version);
-                out.writeShort(glyphIds.length);
-                out.writeShort(this.maxPoints);
-                out.writeShort(this.maxContours);
-                out.writeShort(this.maxComponentPoints);
-                out.writeShort(this.maxComponentContours);
-                out.writeShort(this.maxZones);
-                out.writeShort(this.maxTwilightPoints);
-                out.writeShort(this.maxStorage);
-                out.writeShort(this.maxFunctionDefs);
-                out.writeShort(this.maxInstructionDefs);
-                out.writeShort(this.maxStackElements);
-                out.writeShort(this.maxSizeOfInstructions);
-                out.writeShort(this.maxComponentElements);
-                out.writeShort(this.maxComponentDepth);
-                return out.get();
-            }
-        });
-        var HmtxTable = deftable({
-            parse: function (data) {
-                data.offset(this.offset);
-                var dir = this.file, hhea = dir.hhea;
-                this.metrics = data.times(hhea.numOfLongHorMetrics, function () {
-                    return {
-                        advance: data.readShort(),
-                        lsb: data.readShort_()
-                    };
-                });
-                var lsbCount = dir.maxp.numGlyphs - dir.hhea.numOfLongHorMetrics;
-                this.leftSideBearings = data.times(lsbCount, data.readShort_);
-            },
-            forGlyph: function (id) {
-                var metrics = this.metrics;
-                var n = metrics.length;
-                if (id < n) {
-                    return metrics[id];
-                }
-                return {
-                    advance: metrics[n - 1].advance,
-                    lsb: this.leftSideBearings[id - n]
-                };
-            },
-            render: function (glyphIds) {
-                var out = BinaryStream();
-                for (var i = 0; i < glyphIds.length; ++i) {
-                    var m = this.forGlyph(glyphIds[i]);
-                    out.writeShort(m.advance);
-                    out.writeShort_(m.lsb);
-                }
-                return out.get();
-            }
-        });
-        var GlyfTable = function () {
-            function SimpleGlyph(raw) {
-                this.raw = raw;
-            }
-            SimpleGlyph.prototype = {
-                compound: false,
-                render: function () {
-                    return this.raw.get();
-                }
-            };
-            var ARG_1_AND_2_ARE_WORDS = 1;
-            var WE_HAVE_A_SCALE = 8;
-            var MORE_COMPONENTS = 32;
-            var WE_HAVE_AN_X_AND_Y_SCALE = 64;
-            var WE_HAVE_A_TWO_BY_TWO = 128;
-            function CompoundGlyph(data) {
-                this.raw = data;
-                var ids = this.glyphIds = [];
-                var offsets = this.idOffsets = [];
-                while (true) {
-                    var flags = data.readShort();
-                    offsets.push(data.offset());
-                    ids.push(data.readShort());
-                    if (!(flags & MORE_COMPONENTS)) {
-                        break;
-                    }
-                    data.skip(flags & ARG_1_AND_2_ARE_WORDS ? 4 : 2);
-                    if (flags & WE_HAVE_A_TWO_BY_TWO) {
-                        data.skip(8);
-                    } else if (flags & WE_HAVE_AN_X_AND_Y_SCALE) {
-                        data.skip(4);
-                    } else if (flags & WE_HAVE_A_SCALE) {
-                        data.skip(2);
-                    }
-                }
-            }
-            CompoundGlyph.prototype = {
-                compound: true,
-                render: function (old2new) {
-                    var out = BinaryStream(this.raw.get());
-                    for (var i = 0; i < this.glyphIds.length; ++i) {
-                        var id = this.glyphIds[i];
-                        out.offset(this.idOffsets[i]);
-                        out.writeShort(old2new[id]);
-                    }
-                    return out.get();
-                }
-            };
-            return deftable({
-                parse: function () {
-                    this.cache = {};
-                },
-                glyphFor: function (id) {
-                    var cache = this.cache;
-                    if (hasOwnProperty(cache, id)) {
-                        return cache[id];
-                    }
-                    var loca = this.file.loca;
-                    var length = loca.lengthOf(id);
-                    if (length === 0) {
-                        return cache[id] = null;
-                    }
-                    var data = this.rawData;
-                    var offset = this.offset + loca.offsetOf(id);
-                    var raw = BinaryStream(data.slice(offset, length));
-                    var numberOfContours = raw.readShort_();
-                    var xMin = raw.readShort_();
-                    var yMin = raw.readShort_();
-                    var xMax = raw.readShort_();
-                    var yMax = raw.readShort_();
-                    var glyph = cache[id] = numberOfContours == -1 ? new CompoundGlyph(raw) : new SimpleGlyph(raw);
-                    glyph.numberOfContours = numberOfContours;
-                    glyph.xMin = xMin;
-                    glyph.yMin = yMin;
-                    glyph.xMax = xMax;
-                    glyph.yMax = yMax;
-                    return glyph;
-                },
-                render: function (glyphs, oldIds, old2new) {
-                    var out = BinaryStream(), offsets = [];
-                    for (var i = 0; i < oldIds.length; ++i) {
-                        var id = oldIds[i];
-                        var glyph = glyphs[id];
-                        offsets.push(out.offset());
-                        if (glyph) {
-                            out.write(glyph.render(old2new));
-                        }
-                    }
-                    offsets.push(out.offset());
-                    return {
-                        table: out.get(),
-                        offsets: offsets
-                    };
-                }
-            });
-        }();
-        var NameTable = function () {
-            function NameEntry(text, entry) {
-                this.text = text;
-                this.length = text.length;
-                this.platformID = entry.platformID;
-                this.platformSpecificID = entry.platformSpecificID;
-                this.languageID = entry.languageID;
-                this.nameID = entry.nameID;
-            }
-            return deftable({
-                parse: function (data) {
-                    data.offset(this.offset);
-                    data.readShort();
-                    var count = data.readShort();
-                    var stringOffset = this.offset + data.readShort();
-                    var nameRecords = data.times(count, function () {
-                        return {
-                            platformID: data.readShort(),
-                            platformSpecificID: data.readShort(),
-                            languageID: data.readShort(),
-                            nameID: data.readShort(),
-                            length: data.readShort(),
-                            offset: data.readShort() + stringOffset
-                        };
-                    });
-                    var strings = this.strings = {};
-                    for (var i = 0; i < nameRecords.length; ++i) {
-                        var rec = nameRecords[i];
-                        data.offset(rec.offset);
-                        var text = data.readString(rec.length);
-                        if (!strings[rec.nameID]) {
-                            strings[rec.nameID] = [];
-                        }
-                        strings[rec.nameID].push(new NameEntry(text, rec));
-                    }
-                    this.postscriptEntry = strings[6][0];
-                    this.postscriptName = this.postscriptEntry.text.replace(/[^\x20-\x7F]/g, '');
-                },
-                render: function (psName) {
-                    var strings = this.strings;
-                    var strCount = 0;
-                    for (var i in strings) {
-                        if (hasOwnProperty(strings, i)) {
-                            strCount += strings[i].length;
-                        }
-                    }
-                    var out = BinaryStream();
-                    var strTable = BinaryStream();
-                    out.writeShort(0);
-                    out.writeShort(strCount);
-                    out.writeShort(6 + 12 * strCount);
-                    for (i in strings) {
-                        if (hasOwnProperty(strings, i)) {
-                            var list = i == 6 ? [new NameEntry(psName, this.postscriptEntry)] : strings[i];
-                            for (var j = 0; j < list.length; ++j) {
-                                var str = list[j];
-                                out.writeShort(str.platformID);
-                                out.writeShort(str.platformSpecificID);
-                                out.writeShort(str.languageID);
-                                out.writeShort(str.nameID);
-                                out.writeShort(str.length);
-                                out.writeShort(strTable.offset());
-                                strTable.writeString(str.text);
-                            }
-                        }
-                    }
-                    out.write(strTable.get());
-                    return out.get();
-                }
-            });
-        }();
-        var PostTable = function () {
-            var POSTSCRIPT_GLYPHS = '.notdef .null nonmarkingreturn space exclam quotedbl numbersign dollar percent ampersand quotesingle parenleft parenright asterisk plus comma hyphen period slash zero one two three four five six seven eight nine colon semicolon less equal greater question at A B C D E F G H I J K L M N O P Q R S T U V W X Y Z bracketleft backslash bracketright asciicircum underscore grave a b c d e f g h i j k l m n o p q r s t u v w x y z braceleft bar braceright asciitilde Adieresis Aring Ccedilla Eacute Ntilde Odieresis Udieresis aacute agrave acircumflex adieresis atilde aring ccedilla eacute egrave ecircumflex edieresis iacute igrave icircumflex idieresis ntilde oacute ograve ocircumflex odieresis otilde uacute ugrave ucircumflex udieresis dagger degree cent sterling section bullet paragraph germandbls registered copyright trademark acute dieresis notequal AE Oslash infinity plusminus lessequal greaterequal yen mu partialdiff summation product pi integral ordfeminine ordmasculine Omega ae oslash questiondown exclamdown logicalnot radical florin approxequal Delta guillemotleft guillemotright ellipsis nonbreakingspace Agrave Atilde Otilde OE oe endash emdash quotedblleft quotedblright quoteleft quoteright divide lozenge ydieresis Ydieresis fraction currency guilsinglleft guilsinglright fi fl daggerdbl periodcentered quotesinglbase quotedblbase perthousand Acircumflex Ecircumflex Aacute Edieresis Egrave Iacute Icircumflex Idieresis Igrave Oacute Ocircumflex apple Ograve Uacute Ucircumflex Ugrave dotlessi circumflex tilde macron breve dotaccent ring cedilla hungarumlaut ogonek caron Lslash lslash Scaron scaron Zcaron zcaron brokenbar Eth eth Yacute yacute Thorn thorn minus multiply onesuperior twosuperior threesuperior onehalf onequarter threequarters franc Gbreve gbreve Idotaccent Scedilla scedilla Cacute cacute Ccaron ccaron dcroat'.split(/\s+/g);
-            return deftable({
-                parse: function (data) {
-                    data.offset(this.offset);
-                    this.format = data.readLong();
-                    this.italicAngle = data.readFixed_();
-                    this.underlinePosition = data.readShort_();
-                    this.underlineThickness = data.readShort_();
-                    this.isFixedPitch = data.readLong();
-                    this.minMemType42 = data.readLong();
-                    this.maxMemType42 = data.readLong();
-                    this.minMemType1 = data.readLong();
-                    this.maxMemType1 = data.readLong();
-                    var numberOfGlyphs;
-                    switch (this.format) {
-                    case 65536:
-                    case 196608:
-                        break;
-                    case 131072:
-                        numberOfGlyphs = data.readShort();
-                        this.glyphNameIndex = data.times(numberOfGlyphs, data.readShort);
-                        this.names = [];
-                        var limit = this.offset + this.length;
-                        while (data.offset() < limit) {
-                            this.names.push(data.readString(data.readByte()));
-                        }
-                        break;
-                    case 151552:
-                        numberOfGlyphs = data.readShort();
-                        this.offsets = data.read(numberOfGlyphs);
-                        break;
-                    case 262144:
-                        this.map = data.times(this.file.maxp.numGlyphs, data.readShort);
-                        break;
-                    }
-                },
-                glyphFor: function (code) {
-                    switch (this.format) {
-                    case 65536:
-                        return POSTSCRIPT_GLYPHS[code] || '.notdef';
-                    case 131072:
-                        var index = this.glyphNameIndex[code];
-                        if (index < POSTSCRIPT_GLYPHS.length) {
-                            return POSTSCRIPT_GLYPHS[index];
-                        }
-                        return this.names[index - POSTSCRIPT_GLYPHS.length] || '.notdef';
-                    case 151552:
-                    case 196608:
-                        return '.notdef';
-                    case 262144:
-                        return this.map[code] || 65535;
-                    }
-                },
-                render: function (mapping) {
-                    if (this.format == 196608) {
-                        return this.raw();
-                    }
-                    var out = BinaryStream(this.rawData.slice(this.offset, 32));
-                    out.writeLong(131072);
-                    out.offset(32);
-                    var indexes = [];
-                    var strings = [];
-                    for (var i = 0; i < mapping.length; ++i) {
-                        var id = mapping[i];
-                        var post = this.glyphFor(id);
-                        var index = POSTSCRIPT_GLYPHS.indexOf(post);
-                        if (index >= 0) {
-                            indexes.push(index);
-                        } else {
-                            indexes.push(POSTSCRIPT_GLYPHS.length + strings.length);
-                            strings.push(post);
-                        }
-                    }
-                    out.writeShort(mapping.length);
-                    for (i = 0; i < indexes.length; ++i) {
-                        out.writeShort(indexes[i]);
-                    }
-                    for (i = 0; i < strings.length; ++i) {
-                        out.writeByte(strings[i].length);
-                        out.writeString(strings[i]);
-                    }
-                    return out.get();
-                }
-            });
-        }();
-        var CmapTable = function () {
-            function CmapEntry(data, offset, codeMap) {
-                var self = this;
-                self.platformID = data.readShort();
-                self.platformSpecificID = data.readShort();
-                self.offset = offset + data.readLong();
-                data.saveExcursion(function () {
-                    var code;
-                    data.offset(self.offset);
-                    self.format = data.readShort();
-                    switch (self.format) {
-                    case 0:
-                        self.length = data.readShort();
-                        self.language = data.readShort();
-                        for (var i = 0; i < 256; ++i) {
-                            codeMap[i] = data.readByte();
-                        }
-                        break;
-                    case 4:
-                        self.length = data.readShort();
-                        self.language = data.readShort();
-                        var segCount = data.readShort() / 2;
-                        data.skip(6);
-                        var endCode = data.times(segCount, data.readShort);
-                        data.skip(2);
-                        var startCode = data.times(segCount, data.readShort);
-                        var idDelta = data.times(segCount, data.readShort_);
-                        var idRangeOffset = data.times(segCount, data.readShort);
-                        var count = (self.length + self.offset - data.offset()) / 2;
-                        var glyphIds = data.times(count, data.readShort);
-                        for (i = 0; i < segCount; ++i) {
-                            var start = startCode[i], end = endCode[i];
-                            for (code = start; code <= end; ++code) {
-                                var glyphId;
-                                if (idRangeOffset[i] === 0) {
-                                    glyphId = code + idDelta[i];
-                                } else {
-                                    var index = idRangeOffset[i] / 2 - (segCount - i) + (code - start);
-                                    glyphId = glyphIds[index] || 0;
-                                    if (glyphId !== 0) {
-                                        glyphId += idDelta[i];
-                                    }
-                                }
-                                codeMap[code] = glyphId & 65535;
-                            }
-                        }
-                        break;
-                    case 6:
-                        self.length = data.readShort();
-                        self.language = data.readShort();
-                        code = data.readShort();
-                        var length = data.readShort();
-                        while (length-- > 0) {
-                            codeMap[code++] = data.readShort();
-                        }
-                        break;
-                    case 12:
-                        data.readShort();
-                        self.length = data.readLong();
-                        self.language = data.readLong();
-                        var ngroups = data.readLong();
-                        while (ngroups-- > 0) {
-                            code = data.readLong();
-                            var endCharCode = data.readLong();
-                            var glyphCode = data.readLong();
-                            while (code <= endCharCode) {
-                                codeMap[code++] = glyphCode++;
-                            }
-                        }
-                        break;
-                    default:
-                        if (window.console) {
-                            window.console.error('Unhandled CMAP format: ' + self.format);
-                        }
-                    }
-                });
-            }
-            function renderCharmap(ncid2ogid, ogid2ngid) {
-                var codes = sortedKeys(ncid2ogid);
-                var startCodes = [];
-                var endCodes = [];
-                var last = null;
-                var diff = null;
-                function new_gid(charcode) {
-                    return ogid2ngid[ncid2ogid[charcode]];
-                }
-                for (var i = 0; i < codes.length; ++i) {
-                    var code = codes[i];
-                    var gid = new_gid(code);
-                    var delta = gid - code;
-                    if (last == null || delta !== diff) {
-                        if (last) {
-                            endCodes.push(last);
-                        }
-                        startCodes.push(code);
-                        diff = delta;
-                    }
-                    last = code;
-                }
-                if (last) {
-                    endCodes.push(last);
-                }
-                endCodes.push(65535);
-                startCodes.push(65535);
-                var segCount = startCodes.length;
-                var segCountX2 = segCount * 2;
-                var searchRange = 2 * Math.pow(2, Math.floor(Math.log(segCount) / Math.LN2));
-                var entrySelector = Math.log(searchRange / 2) / Math.LN2;
-                var rangeShift = segCountX2 - searchRange;
-                var deltas = [];
-                var rangeOffsets = [];
-                var glyphIds = [];
-                for (i = 0; i < segCount; ++i) {
-                    var startCode = startCodes[i];
-                    var endCode = endCodes[i];
-                    if (startCode == 65535) {
-                        deltas.push(0);
-                        rangeOffsets.push(0);
-                        break;
-                    }
-                    var startGlyph = new_gid(startCode);
-                    if (startCode - startGlyph >= 32768) {
-                        deltas.push(0);
-                        rangeOffsets.push(2 * (glyphIds.length + segCount - i));
-                        for (var j = startCode; j <= endCode; ++j) {
-                            glyphIds.push(new_gid(j));
-                        }
-                    } else {
-                        deltas.push(startGlyph - startCode);
-                        rangeOffsets.push(0);
-                    }
-                }
-                var out = BinaryStream();
-                out.writeShort(3);
-                out.writeShort(1);
-                out.writeLong(12);
-                out.writeShort(4);
-                out.writeShort(16 + segCount * 8 + glyphIds.length * 2);
-                out.writeShort(0);
-                out.writeShort(segCountX2);
-                out.writeShort(searchRange);
-                out.writeShort(entrySelector);
-                out.writeShort(rangeShift);
-                endCodes.forEach(out.writeShort);
-                out.writeShort(0);
-                startCodes.forEach(out.writeShort);
-                deltas.forEach(out.writeShort_);
-                rangeOffsets.forEach(out.writeShort);
-                glyphIds.forEach(out.writeShort);
-                return out.get();
-            }
-            return deftable({
-                parse: function (data) {
-                    var self = this;
-                    var offset = self.offset;
-                    data.offset(offset);
-                    self.codeMap = {};
-                    self.version = data.readShort();
-                    var tableCount = data.readShort();
-                    self.tables = data.times(tableCount, function () {
-                        return new CmapEntry(data, offset, self.codeMap);
-                    });
-                },
-                render: function (ncid2ogid, ogid2ngid) {
-                    var out = BinaryStream();
-                    out.writeShort(0);
-                    out.writeShort(1);
-                    out.write(renderCharmap(ncid2ogid, ogid2ngid));
-                    return out.get();
-                }
-            });
-        }();
-        var OS2Table = deftable({
-            parse: function (data) {
-                data.offset(this.offset);
-                this.version = data.readShort();
-                this.averageCharWidth = data.readShort_();
-                this.weightClass = data.readShort();
-                this.widthClass = data.readShort();
-                this.type = data.readShort();
-                this.ySubscriptXSize = data.readShort_();
-                this.ySubscriptYSize = data.readShort_();
-                this.ySubscriptXOffset = data.readShort_();
-                this.ySubscriptYOffset = data.readShort_();
-                this.ySuperscriptXSize = data.readShort_();
-                this.ySuperscriptYSize = data.readShort_();
-                this.ySuperscriptXOffset = data.readShort_();
-                this.ySuperscriptYOffset = data.readShort_();
-                this.yStrikeoutSize = data.readShort_();
-                this.yStrikeoutPosition = data.readShort_();
-                this.familyClass = data.readShort_();
-                this.panose = data.times(10, data.readByte);
-                this.charRange = data.times(4, data.readLong);
-                this.vendorID = data.readString(4);
-                this.selection = data.readShort();
-                this.firstCharIndex = data.readShort();
-                this.lastCharIndex = data.readShort();
-                if (this.version > 0) {
-                    this.ascent = data.readShort_();
-                    this.descent = data.readShort_();
-                    this.lineGap = data.readShort_();
-                    this.winAscent = data.readShort();
-                    this.winDescent = data.readShort();
-                    this.codePageRange = data.times(2, data.readLong);
-                    if (this.version > 1) {
-                        this.xHeight = data.readShort();
-                        this.capHeight = data.readShort();
-                        this.defaultChar = data.readShort();
-                        this.breakChar = data.readShort();
-                        this.maxContext = data.readShort();
-                    }
-                }
-            },
-            render: function () {
-                return this.raw();
-            }
-        });
-        var subsetTag = 100000;
-        function nextSubsetTag() {
-            var ret = '', n = subsetTag + '';
-            for (var i = 0; i < n.length; ++i) {
-                ret += String.fromCharCode(n.charCodeAt(i) - 48 + 65);
-            }
-            ++subsetTag;
-            return ret;
-        }
-        function Subfont(font) {
-            this.font = font;
-            this.subset = {};
-            this.unicodes = {};
-            this.ogid2ngid = { 0: 0 };
-            this.ngid2ogid = { 0: 0 };
-            this.ncid2ogid = {};
-            this.next = this.firstChar = 1;
-            this.nextGid = 1;
-            this.psName = nextSubsetTag() + '+' + this.font.psName;
-        }
-        Subfont.prototype = {
-            use: function (ch) {
-                var self = this;
-                if (typeof ch == 'string') {
-                    return kendo.util.ucs2decode(ch).reduce(function (ret, code) {
-                        return ret + String.fromCharCode(self.use(code));
-                    }, '');
-                }
-                var code = self.unicodes[ch];
-                if (!code) {
-                    code = self.next++;
-                    self.subset[code] = ch;
-                    self.unicodes[ch] = code;
-                    var old_gid = self.font.cmap.codeMap[ch];
-                    if (old_gid) {
-                        self.ncid2ogid[code] = old_gid;
-                        if (self.ogid2ngid[old_gid] == null) {
-                            var new_gid = self.nextGid++;
-                            self.ogid2ngid[old_gid] = new_gid;
-                            self.ngid2ogid[new_gid] = old_gid;
-                        }
-                    }
-                }
-                return code;
-            },
-            encodeText: function (text) {
-                return this.use(text);
-            },
-            glyphIds: function () {
-                return sortedKeys(this.ogid2ngid);
-            },
-            glyphsFor: function (glyphIds, result) {
-                if (!result) {
-                    result = {};
-                }
-                for (var i = 0; i < glyphIds.length; ++i) {
-                    var id = glyphIds[i];
-                    if (!result[id]) {
-                        var glyph = result[id] = this.font.glyf.glyphFor(id);
-                        if (glyph && glyph.compound) {
-                            this.glyphsFor(glyph.glyphIds, result);
-                        }
-                    }
-                }
-                return result;
-            },
-            render: function () {
-                var glyphs = this.glyphsFor(this.glyphIds());
-                for (var old_gid in glyphs) {
-                    if (hasOwnProperty(glyphs, old_gid)) {
-                        old_gid = parseInt(old_gid, 10);
-                        if (this.ogid2ngid[old_gid] == null) {
-                            var new_gid = this.nextGid++;
-                            this.ogid2ngid[old_gid] = new_gid;
-                            this.ngid2ogid[new_gid] = old_gid;
-                        }
-                    }
-                }
-                var new_gid_ids = sortedKeys(this.ngid2ogid);
-                var old_gid_ids = new_gid_ids.map(function (id) {
-                    return this.ngid2ogid[id];
-                }, this);
-                var font = this.font;
-                var glyf = font.glyf.render(glyphs, old_gid_ids, this.ogid2ngid);
-                var loca = font.loca.render(glyf.offsets);
-                this.lastChar = this.next - 1;
-                var tables = {
-                    'cmap': CmapTable.render(this.ncid2ogid, this.ogid2ngid),
-                    'glyf': glyf.table,
-                    'loca': loca.table,
-                    'hmtx': font.hmtx.render(old_gid_ids),
-                    'hhea': font.hhea.render(old_gid_ids),
-                    'maxp': font.maxp.render(old_gid_ids),
-                    'post': font.post.render(old_gid_ids),
-                    'name': font.name.render(this.psName),
-                    'head': font.head.render(loca.format),
-                    'OS/2': font.os2.render()
-                };
-                return this.font.directory.render(tables);
-            },
-            cidToGidMap: function () {
-                var out = BinaryStream(), len = 0;
-                for (var cid = this.firstChar; cid < this.next; ++cid) {
-                    while (len < cid) {
-                        out.writeShort(0);
-                        len++;
-                    }
-                    var old_gid = this.ncid2ogid[cid];
-                    if (old_gid) {
-                        var new_gid = this.ogid2ngid[old_gid];
-                        out.writeShort(new_gid);
-                    } else {
-                        out.writeShort(0);
-                    }
-                    len++;
-                }
-                return out.get();
-            }
-        };
-        function TTFFont(rawData, name) {
-            var self = this;
-            var data = self.contents = BinaryStream(rawData);
-            if (data.readString(4) == 'ttcf') {
-                if (!name) {
-                    throw new Error('Must specify a name for TTC files');
-                }
-                data.readLong();
-                var numFonts = data.readLong();
-                for (var i = 0; i < numFonts; ++i) {
-                    var offset = data.readLong();
-                    data.saveExcursion(function () {
-                        data.offset(offset);
-                        self.parse();
-                    });
-                    if (self.psName == name) {
-                        return;
-                    }
-                }
-                throw new Error('Font ' + name + ' not found in collection');
-            } else {
-                data.offset(0);
-                self.parse();
-            }
-        }
-        TTFFont.prototype = {
-            parse: function () {
-                var dir = this.directory = new Directory(this.contents);
-                this.head = dir.readTable('head', HeadTable);
-                this.loca = dir.readTable('loca', LocaTable);
-                this.hhea = dir.readTable('hhea', HheaTable);
-                this.maxp = dir.readTable('maxp', MaxpTable);
-                this.hmtx = dir.readTable('hmtx', HmtxTable);
-                this.glyf = dir.readTable('glyf', GlyfTable);
-                this.name = dir.readTable('name', NameTable);
-                this.post = dir.readTable('post', PostTable);
-                this.cmap = dir.readTable('cmap', CmapTable);
-                this.os2 = dir.readTable('OS/2', OS2Table);
-                this.psName = this.name.postscriptName;
-                this.ascent = this.os2.ascent || this.hhea.ascent;
-                this.descent = this.os2.descent || this.hhea.descent;
-                this.lineGap = this.os2.lineGap || this.hhea.lineGap;
-                this.scale = 1000 / this.head.unitsPerEm;
-            },
-            widthOfGlyph: function (glyph) {
-                return this.hmtx.forGlyph(glyph).advance * this.scale;
-            },
-            makeSubset: function () {
-                return new Subfont(this);
-            }
-        };
-        PDF.TTFFont = TTFFont;
-    }(window));
-}, typeof define == 'function' && define.amd ? define : function (a1, a2, a3) {
-    (a3 || a2)();
-}));
-(function (f, define) {
-    define('util/text-metrics', [
-        'kendo.core',
-        'util/main'
-    ], f);
-}(function () {
-    (function ($) {
-        var doc = document, kendo = window.kendo, Class = kendo.Class, util = kendo.util, defined = util.defined;
-        var LRUCache = Class.extend({
-            init: function (size) {
-                this._size = size;
-                this._length = 0;
-                this._map = {};
-            },
-            put: function (key, value) {
-                var lru = this, map = lru._map, entry = {
-                        key: key,
-                        value: value
-                    };
-                map[key] = entry;
-                if (!lru._head) {
-                    lru._head = lru._tail = entry;
-                } else {
-                    lru._tail.newer = entry;
-                    entry.older = lru._tail;
-                    lru._tail = entry;
-                }
-                if (lru._length >= lru._size) {
-                    map[lru._head.key] = null;
-                    lru._head = lru._head.newer;
-                    lru._head.older = null;
-                } else {
-                    lru._length++;
-                }
-            },
-            get: function (key) {
-                var lru = this, entry = lru._map[key];
-                if (entry) {
-                    if (entry === lru._head && entry !== lru._tail) {
-                        lru._head = entry.newer;
-                        lru._head.older = null;
-                    }
-                    if (entry !== lru._tail) {
-                        if (entry.older) {
-                            entry.older.newer = entry.newer;
-                            entry.newer.older = entry.older;
-                        }
-                        entry.older = lru._tail;
-                        entry.newer = null;
-                        lru._tail.newer = entry;
-                        lru._tail = entry;
-                    }
-                    return entry.value;
-                }
-            }
-        });
-        var defaultMeasureBox = $('<div style=\'position: absolute !important; top: -4000px !important; width: auto !important; height: auto !important;' + 'padding: 0 !important; margin: 0 !important; border: 0 !important;' + 'line-height: normal !important; visibility: hidden !important; white-space: nowrap!important;\' />')[0];
-        function zeroSize() {
-            return {
-                width: 0,
-                height: 0,
-                baseline: 0
-            };
-        }
-        var TextMetrics = Class.extend({
-            init: function (options) {
-                this._cache = new LRUCache(1000);
-                this._initOptions(options);
-            },
-            options: { baselineMarkerSize: 1 },
-            measure: function (text, style, box) {
-                if (!text) {
-                    return zeroSize();
-                }
-                var styleKey = util.objectKey(style), cacheKey = util.hashKey(text + styleKey), cachedResult = this._cache.get(cacheKey);
-                if (cachedResult) {
-                    return cachedResult;
-                }
-                var size = zeroSize();
-                var measureBox = box ? box : defaultMeasureBox;
-                var baselineMarker = this._baselineMarker().cloneNode(false);
-                for (var key in style) {
-                    var value = style[key];
-                    if (defined(value)) {
-                        measureBox.style[key] = value;
-                    }
-                }
-                $(measureBox).text(text);
-                measureBox.appendChild(baselineMarker);
-                doc.body.appendChild(measureBox);
-                if ((text + '').length) {
-                    size.width = measureBox.offsetWidth - this.options.baselineMarkerSize;
-                    size.height = measureBox.offsetHeight;
-                    size.baseline = baselineMarker.offsetTop + this.options.baselineMarkerSize;
-                }
-                if (size.width > 0 && size.height > 0) {
-                    this._cache.put(cacheKey, size);
-                }
-                measureBox.parentNode.removeChild(measureBox);
-                return size;
-            },
-            _baselineMarker: function () {
-                return $('<div class=\'k-baseline-marker\' ' + 'style=\'display: inline-block; vertical-align: baseline;' + 'width: ' + this.options.baselineMarkerSize + 'px; height: ' + this.options.baselineMarkerSize + 'px;' + 'overflow: hidden;\' />')[0];
-            }
-        });
-        TextMetrics.current = new TextMetrics();
-        function measureText(text, style, measureBox) {
-            return TextMetrics.current.measure(text, style, measureBox);
-        }
-        function loadFonts(fonts, callback) {
-            var promises = [];
-            if (fonts.length > 0 && document.fonts) {
-                try {
-                    promises = fonts.map(function (font) {
-                        return document.fonts.load(font);
-                    });
-                } catch (e) {
-                    kendo.logToConsole(e);
-                }
-                Promise.all(promises).then(callback, callback);
-            } else {
-                callback();
-            }
-        }
-        kendo.util.TextMetrics = TextMetrics;
-        kendo.util.LRUCache = LRUCache;
-        kendo.util.loadFonts = loadFonts;
-        kendo.util.measureText = measureText;
-    }(window.kendo.jQuery));
-}, typeof define == 'function' && define.amd ? define : function (a1, a2, a3) {
-    (a3 || a2)();
-}));
-(function (f, define) {
-    define('util/base64', ['util/main'], f);
-}(function () {
-    (function () {
-        var kendo = window.kendo, deepExtend = kendo.deepExtend, fromCharCode = String.fromCharCode;
-        var KEY_STR = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-        function encodeBase64(input) {
-            var output = '';
-            var chr1, chr2, chr3, enc1, enc2, enc3, enc4;
-            var i = 0;
-            input = encodeUTF8(input);
-            while (i < input.length) {
-                chr1 = input.charCodeAt(i++);
-                chr2 = input.charCodeAt(i++);
-                chr3 = input.charCodeAt(i++);
-                enc1 = chr1 >> 2;
-                enc2 = (chr1 & 3) << 4 | chr2 >> 4;
-                enc3 = (chr2 & 15) << 2 | chr3 >> 6;
-                enc4 = chr3 & 63;
-                if (isNaN(chr2)) {
-                    enc3 = enc4 = 64;
-                } else if (isNaN(chr3)) {
-                    enc4 = 64;
-                }
-                output = output + KEY_STR.charAt(enc1) + KEY_STR.charAt(enc2) + KEY_STR.charAt(enc3) + KEY_STR.charAt(enc4);
-            }
-            return output;
-        }
-        function encodeUTF8(input) {
-            var output = '';
-            for (var i = 0; i < input.length; i++) {
-                var c = input.charCodeAt(i);
-                if (c < 128) {
-                    output += fromCharCode(c);
-                } else if (c < 2048) {
-                    output += fromCharCode(192 | c >>> 6);
-                    output += fromCharCode(128 | c & 63);
-                } else if (c < 65536) {
-                    output += fromCharCode(224 | c >>> 12);
-                    output += fromCharCode(128 | c >>> 6 & 63);
-                    output += fromCharCode(128 | c & 63);
-                }
-            }
-            return output;
-        }
-        deepExtend(kendo.util, {
-            encodeBase64: encodeBase64,
-            encodeUTF8: encodeUTF8
-        });
-    }());
-    return window.kendo;
-}, typeof define == 'function' && define.amd ? define : function (a1, a2, a3) {
-    (a3 || a2)();
-}));
-(function (f, define) {
-    define('mixins/observers', ['kendo.core'], f);
-}(function () {
-    (function ($) {
-        var math = Math, kendo = window.kendo, deepExtend = kendo.deepExtend, inArray = $.inArray;
-        var ObserversMixin = {
-            observers: function () {
-                this._observers = this._observers || [];
-                return this._observers;
-            },
-            addObserver: function (element) {
-                if (!this._observers) {
-                    this._observers = [element];
-                } else {
-                    this._observers.push(element);
-                }
-                return this;
-            },
-            removeObserver: function (element) {
-                var observers = this.observers();
-                var index = inArray(element, observers);
-                if (index != -1) {
-                    observers.splice(index, 1);
-                }
-                return this;
-            },
-            trigger: function (methodName, event) {
-                var observers = this._observers;
-                var observer;
-                var idx;
-                if (observers && !this._suspended) {
-                    for (idx = 0; idx < observers.length; idx++) {
-                        observer = observers[idx];
-                        if (observer[methodName]) {
-                            observer[methodName](event);
-                        }
-                    }
-                }
-                return this;
-            },
-            optionsChange: function (e) {
-                e = e || {};
-                e.element = this;
-                this.trigger('optionsChange', e);
-            },
-            geometryChange: function () {
-                this.trigger('geometryChange', { element: this });
-            },
-            suspend: function () {
-                this._suspended = (this._suspended || 0) + 1;
-                return this;
-            },
-            resume: function () {
-                this._suspended = math.max((this._suspended || 0) - 1, 0);
-                return this;
-            },
-            _observerField: function (field, value) {
-                if (this[field]) {
-                    this[field].removeObserver(this);
-                }
-                this[field] = value;
-                value.addObserver(this);
-            }
-        };
-        deepExtend(kendo, { mixins: { ObserversMixin: ObserversMixin } });
-    }(window.kendo.jQuery));
-    return window.kendo;
-}, typeof define == 'function' && define.amd ? define : function (a1, a2, a3) {
-    (a3 || a2)();
-}));
-(function (f, define) {
-    define('pdf/drawing', [
-        'kendo.core',
-        'kendo.color',
-        'kendo.drawing',
-        'pdf/core'
-    ], f);
-}(function () {
-    (function (kendo, $) {
-        'use strict';
-        var drawing = kendo.drawing;
-        var geo = kendo.geometry;
-        var TEXT_RENDERING_MODE = kendo.pdf.TEXT_RENDERING_MODE;
+        var TEXT_RENDERING_MODE$1 = TEXT_RENDERING_MODE;
         var DASH_PATTERNS = {
             dash: [4],
             dashDot: [
@@ -3669,8 +3190,8 @@
                         }
                     },
                     Text: function (element) {
-                        var style = kendo.pdf.parseFontDef(element.options.font);
-                        var url = kendo.pdf.getFontURL(style);
+                        var style = parseFontDef(element.options.font);
+                        var url = getFontURL(style);
                         if (fonts.indexOf(url) < 0) {
                             fonts.push(url);
                         }
@@ -3681,7 +3202,7 @@
                 if (--count > 0) {
                     return;
                 }
-                var pdf = new kendo.pdf.Document({
+                var pdf = new PDFDocument({
                     producer: getOption('producer'),
                     title: getOption('title'),
                     author: getOption('author'),
@@ -3706,7 +3227,7 @@
                             addMargin = true;
                             var origin = bbox.getOrigin();
                             tmp = new drawing.Group();
-                            tmp.transform(new geo.Matrix(1, 0, 0, 1, -origin.x, -origin.y));
+                            tmp.transform(new kendoGeometry.Matrix(1, 0, 0, 1, -origin.x, -origin.y));
                             tmp.append(group);
                             group = tmp;
                         } else {
@@ -3730,8 +3251,8 @@
                 callback(pdf.render(), pdf);
             }
             var count = 2;
-            kendo.pdf.loadFonts(fonts, doIt);
-            kendo.pdf.loadImages(images, doIt);
+            loadFonts(fonts, doIt);
+            loadImages(images, doIt);
         }
         function toDataURL(group, callback) {
             render(group, function (data) {
@@ -3740,11 +3261,11 @@
         }
         function toBlob(group, callback) {
             render(group, function (data) {
-                callback(new Blob([data.get()], { type: 'application/pdf' }));
+                callback(new window.Blob([data.get()], { type: 'application/pdf' }));
             });
         }
-        function saveAs(group, filename, proxy, callback) {
-            if (window.Blob && !kendo.support.browser.safari) {
+        function saveAs$1(group, filename, proxy, callback) {
+            if (window.Blob && !supportBrowser.safari) {
                 toBlob(group, function (blob) {
                     kendo.saveAs({
                         dataURI: blob,
@@ -3813,7 +3334,7 @@
             }
             var color = stroke.color;
             if (color) {
-                color = parseColor(color);
+                color = parseColor$1(color);
                 if (color == null) {
                     return;
                 }
@@ -3856,7 +3377,7 @@
             }
             var color = fill.color;
             if (color) {
-                color = parseColor(color);
+                color = parseColor$1(color);
                 if (color == null) {
                     return;
                 }
@@ -3918,7 +3439,7 @@
                     } else {
                         offset = parseFloat(offset);
                     }
-                    var color = parseColor(stop.color());
+                    var color = parseColor$1(stop.color());
                     color.a *= stop.opacity();
                     return {
                         offset: offset,
@@ -4030,19 +3551,19 @@
             maybeFillStroke(element, page, pdf);
         }
         function drawText(element, page) {
-            var style = kendo.pdf.parseFontDef(element.options.font);
+            var style = parseFontDef(element.options.font);
             var pos = element._position;
             var mode;
             if (element.fill() && element.stroke()) {
-                mode = TEXT_RENDERING_MODE.fillAndStroke;
+                mode = TEXT_RENDERING_MODE$1.fillAndStroke;
             } else if (element.fill()) {
-                mode = TEXT_RENDERING_MODE.fill;
+                mode = TEXT_RENDERING_MODE$1.fill;
             } else if (element.stroke()) {
-                mode = TEXT_RENDERING_MODE.stroke;
+                mode = TEXT_RENDERING_MODE$1.stroke;
             }
             page.transform(1, 0, 0, -1, pos.x, pos.y + style.fontSize);
             page.beginText();
-            page.setFont(kendo.pdf.getFontURL(style), style.fontSize);
+            page.setFont(getFontURL(style), style.fontSize);
             page.setTextRenderingMode(mode);
             page.showText(element.content(), element._pdfRect ? element._pdfRect.width() : null);
             page.endText();
@@ -4072,24 +3593,13 @@
             page.rect(geometry.origin.x, geometry.origin.y, geometry.size.width, geometry.size.height);
             maybeFillStroke(element, page, pdf);
         }
-        function exportPDF(group, options) {
-            var defer = $.Deferred();
-            for (var i in options) {
-                if (i == 'margin' && group.options.pdf && group.options.pdf._ignoreMargin) {
-                    continue;
-                }
-                group.options.set('pdf.' + i, options[i]);
-            }
-            drawing.pdf.toDataURL(group, defer.resolve);
-            return defer.promise();
-        }
-        function parseColor(x) {
-            var color = kendo.parseColor(x, true);
+        function parseColor$1(value) {
+            var color = kendo.parseColor(value, true);
             return color ? color.toRGB() : null;
         }
         function optimize(root) {
             var clipbox = false;
-            var matrix = geo.Matrix.unit();
+            var matrix = kendoGeometry.Matrix.unit();
             var currentBox = null;
             var changed;
             do {
@@ -4128,7 +3638,7 @@
                     clip = clip.bbox();
                     if (clip) {
                         clip = clip.bbox(matrix);
-                        clipbox = clipbox ? geo.Rect.intersect(clipbox, clip) : clip;
+                        clipbox = clipbox ? kendoGeometry.Rect.intersect(clipbox, clip) : clip;
                     }
                 }
                 try {
@@ -4144,7 +3654,7 @@
                 }
                 var box = shape.rawBBox().bbox(matrix);
                 if (clipbox && box) {
-                    box = geo.Rect.intersect(box, clipbox);
+                    box = kendoGeometry.Rect.intersect(box, clipbox);
                 }
                 return box;
             }
@@ -4155,7 +3665,7 @@
                         if (!box) {
                             return change(null);
                         }
-                        currentBox = currentBox ? geo.Rect.union(currentBox, box) : box;
+                        currentBox = currentBox ? kendoGeometry.Rect.union(currentBox, box) : box;
                     }
                     return dispatch({
                         Path: function (shape) {
@@ -4218,40 +3728,44 @@
                 });
             }
         }
-        kendo.deepExtend(drawing, {
-            exportPDF: exportPDF,
-            pdf: {
-                toDataURL: toDataURL,
-                toBlob: toBlob,
-                saveAs: saveAs,
-                toStream: render
+        function exportPDF(group, options) {
+            var promise = util.createPromise();
+            for (var i in options) {
+                if (i == 'margin' && group.options.pdf && group.options.pdf._ignoreMargin) {
+                    continue;
+                }
+                group.options.set('pdf.' + i, options[i]);
             }
+            toDataURL(group, promise.resolve);
+            return promise;
+        }
+        kendo.deepExtend(kendo.pdf, {
+            Document: PDFDocument,
+            BinaryStream: BinaryStream,
+            defineFont: defineFont,
+            parseFontDef: parseFontDef,
+            getFontURL: getFontURL,
+            loadFonts: loadFonts,
+            loadImages: loadImages,
+            getPaperOptions: getPaperOptions,
+            TEXT_RENDERING_MODE: TEXT_RENDERING_MODE,
+            exportPDF: exportPDF,
+            saveAs: saveAs$1,
+            toDataURL: toDataURL,
+            toBlob: toBlob,
+            render: render
         });
-    }(window.kendo, window.kendo.jQuery));
+        kendo.drawing.exportPDF = kendo.pdf.exportPDF;
+        kendo.drawing.pdf = kendo.pdf;
+    }(kendo));
+    return kendo;
 }, typeof define == 'function' && define.amd ? define : function (a1, a2, a3) {
     (a3 || a2)();
 }));
 (function (f, define) {
-    define('kendo.pdf', [
-        'kendo.core',
-        'pdf/core',
-        'pdf/ttf',
-        'pdf/drawing',
-        'kendo.drawing'
-    ], f);
+    define('pdf/mixins', ['pdf/core'], f);
 }(function () {
-    var __meta__ = {
-        id: 'pdf',
-        name: 'PDF export',
-        description: 'PDF Generation framework',
-        mixin: true,
-        category: 'framework',
-        depends: [
-            'core',
-            'drawing'
-        ]
-    };
-    (function (kendo, $) {
+    (function ($, undefined) {
         kendo.PDFMixin = {
             extend: function (proto) {
                 proto.events.push('pdfExport');
@@ -4343,8 +3857,30 @@
                 return defer.promise();
             }
         };
-    }(kendo, window.kendo.jQuery));
-    return kendo;
+    }(window.kendo.jQuery));
+    return window.kendo;
+}, typeof define == 'function' && define.amd ? define : function (a1, a2, a3) {
+    (a3 || a2)();
+}));
+(function (f, define) {
+    define('kendo.pdf', [
+        'kendo.core',
+        'kendo.drawing',
+        'pdf/core',
+        'pdf/mixins'
+    ], f);
+}(function () {
+    var __meta__ = {
+        id: 'pdf',
+        name: 'PDF export',
+        description: 'PDF Generation framework',
+        mixin: true,
+        category: 'framework',
+        depends: [
+            'core',
+            'drawing'
+        ]
+    };
 }, typeof define == 'function' && define.amd ? define : function (a1, a2, a3) {
     (a3 || a2)();
 }));

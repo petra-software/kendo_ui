@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1317 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2017.1.118 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -254,7 +254,7 @@ if (kendo.ui.Groupable) {
 if (kendo.ui.Pager) {
     kendo.ui.Pager.prototype.options.messages =
     $.extend(true, kendo.ui.Pager.prototype.options.messages, {
-        "allPages": "All",
+        "allPages": "Alle",
         "display": "{0} - {1} av {2} poster",
         "empty": "Det finnes ingen poster",
         "first": "Gå til første side",

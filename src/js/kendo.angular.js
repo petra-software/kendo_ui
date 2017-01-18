@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2016.3.1317 (http://www.telerik.com/kendo-ui)                                                                                                                                              
+ * Kendo UI v2017.1.118 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -58,7 +58,7 @@
                 Scheduler: 'SchedulerDataSource',
                 PivotGrid: 'PivotDataSource',
                 PivotConfigurator: 'PivotDataSource',
-                PanelBar: '$PLAIN',
+                PanelBar: 'HierarchicalDataSource',
                 Menu: '$PLAIN',
                 ContextMenu: '$PLAIN'
             };
@@ -628,6 +628,7 @@
             MobileDetailButton: 'a',
             ListView: 'ul',
             MobileListView: 'ul',
+            PanelBar: 'ul',
             TreeView: 'ul',
             Menu: 'ul',
             ContextMenu: 'ul',
@@ -970,7 +971,8 @@
         defadvice([
             'ui.Grid',
             'ui.ListView',
-            'ui.TreeView'
+            'ui.TreeView',
+            'ui.PanelBar'
         ], '$angular_makeEventHandler', function (event, scope, handler) {
             if (event != 'change') {
                 return this.next();
@@ -1223,6 +1225,7 @@
                 'MajorTimeHeaderTemplate',
                 'MinorTimeHeaderTemplate'
             ],
+            'PanelBar': ['Template'],
             'TreeView': ['Template'],
             'Validator': ['ErrorTemplate']
         };
