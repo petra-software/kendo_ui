@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.118 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.213 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -1556,7 +1556,9 @@ html .km-pane-wrapper .km-widget,
   color: #cccccc;
 }
 .k-dropdown .k-input,
-.k-menu .k-popup {
+.k-menu .k-popup,
+.k-multiselect .k-button,
+.k-multiselect .k-button:hover {
   color: #787878;
 }
 .k-state-default > .k-select {

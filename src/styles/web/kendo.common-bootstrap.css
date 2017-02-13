@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.118 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.213 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -1631,6 +1631,14 @@ div.k-window-iframecontent {
   .k-safari .k-pager-sizes {
     display: none;
   }
+}
+.k-rtl .k-pager-wrap .k-i-seek-e,
+.k-rtl .k-pager-wrap .k-i-seek-w,
+.k-rtl .k-pager-wrap .k-i-arrow-e,
+.k-rtl .k-pager-wrap .k-i-arrow-w {
+  -webkit-transform: scaleX(-1);
+      -ms-transform: scaleX(-1);
+          transform: scaleX(-1);
 }
 /* Menu */
 .k-menu {
@@ -4175,18 +4183,25 @@ span.k-numerictextbox {
 .k-numerictextbox .k-input {
   margin: 0;
 }
-.k-numerictextbox .k-i-link-horizontal {
+.k-numerictextbox .k-link {
   display: block;
   height: 1em;
   line-height: 1em;
   vertical-align: middle;
   border-width: 0;
   padding: 0;
+  overflow: hidden;
 }
 .k-numerictextbox .k-icon {
   display: block;
   margin: auto;
-  height: 11px;
+  height: 100%;
+}
+.k-numerictextbox .k-i-arrow-60-up {
+  top: 2px;
+}
+.k-numerictextbox .k-i-arrow-60-down {
+  bottom: 2px;
 }
 .k-numeric-wrap .k-input::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -4455,6 +4470,10 @@ div.k-flatcolorpicker {
 }
 .k-ie8 .k-flatcolorpicker .k-hsv-gradient {
   filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ffffffff',endColorstr='#00ffffff',GradientType=1) progid:DXImageTransform.Microsoft.gradient(startColorstr='#00000000',endColorstr='#ff000000',GradientType=0);
+}
+.k-rtl .k-multiselect-wrap {
+  padding-right: 0;
+  padding-left: 22px;
 }
 /* Editor */
 table.k-editor {
@@ -7463,6 +7482,11 @@ span.k-sparkline,
   width: auto;
   text-align: left;
   padding: .1em .2em;
+}
+.k-chart-shared-tooltip-marker {
+  display: block;
+  width: 15px;
+  height: 3px;
 }
 /*Stock Charts*/
 /* Selection */
@@ -10906,6 +10930,9 @@ div.k-navigator .k-navigator-left {
 .k-spreadsheet .k-spreadsheet-column-header {
   position: absolute;
 }
+.k-spreadsheet .k-filter-wrapper {
+  pointer-events: none;
+}
 .k-spreadsheet .k-spreadsheet-sheets-bar {
   border-width: 1px 0 0;
 }
@@ -11025,6 +11052,7 @@ div.k-navigator .k-navigator-left {
 .k-spreadsheet-filter {
   position: absolute;
   cursor: pointer;
+  pointer-events: all;
 }
 .k-spreadsheet-sample {
   float: right;
@@ -11762,7 +11790,7 @@ input.k-textbox {
   top: 7px;
 }
 .k-numerictextbox .k-link {
-  height: 1.15em;
+  height: 1.167em;
 }
 .k-webkit .k-rtl .k-widget .k-dropdown-wrap .k-input,
 .k-webkit .k-rtl .k-widget .k-numeric-wrap .k-input {

@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.118 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.213 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -33,7 +33,7 @@
     };
     (function ($, window, undefined) {
         var kendo = window.kendo = window.kendo || { cultures: {} }, extend = $.extend, each = $.each, isArray = $.isArray, proxy = $.proxy, noop = $.noop, math = Math, Template, JSON = window.JSON || {}, support = {}, percentRegExp = /%/, formatRegExp = /\{(\d+)(:[^\}]+)?\}/g, boxShadowRegExp = /(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+)?/i, numberRegExp = /^(\+|-?)\d+(\.?)\d*$/, FUNCTION = 'function', STRING = 'string', NUMBER = 'number', OBJECT = 'object', NULL = 'null', BOOLEAN = 'boolean', UNDEFINED = 'undefined', getterCache = {}, setterCache = {}, slice = [].slice;
-        kendo.version = '2017.1.118'.replace(/^\s+|\s+$/g, '');
+        kendo.version = '2017.1.213'.replace(/^\s+|\s+$/g, '');
         function Class() {
         }
         Class.extend = function (proto) {
@@ -746,7 +746,7 @@
                         }
                     }
                     if (hasGroup) {
-                        number = groupInteger(number, start + (negative ? 1 : 0), Math.max(end, integerLength + start), numberFormat);
+                        number = groupInteger(number, start + (negative && !hasNegativeFormat ? 1 : 0), Math.max(end, integerLength + start), numberFormat);
                     }
                     if (end >= start) {
                         number += format.substring(end + 1);
@@ -19874,47 +19874,103 @@
             }
         });
         function addClass(el, cls) {
-            el.classList.add(cls);
+            if (el.classList) {
+                el.classList.add(cls);
+            } else {
+                el.className += ' ' + cls;
+            }
         }
         function removeClass(el, cls) {
-            el.classList.remove(cls);
+            if (el.classList) {
+                el.classList.remove(cls);
+            } else {
+                el.className = el.className.split(/\s+/).reduce(function (a, word) {
+                    if (word != cls) {
+                        a.push(word);
+                    }
+                    return a;
+                }, []).join(' ');
+            }
         }
         function setCSS(el, styles) {
             Object.keys(styles).forEach(function (key) {
                 el.style[key] = styles[key];
             });
         }
-        function matches(el, selector) {
-            var p = Element.prototype;
-            var f = p.matches || p.webkitMatchesSelector || p.mozMatchesSelector || p.msMatchesSelector || function (s) {
+        var matches = typeof Element !== 'undefined' && Element.prototype && function (p) {
+            if (p.matches) {
+                return function (el, selector) {
+                    return el.matches(selector);
+                };
+            }
+            if (p.webkitMatchesSelector) {
+                return function (el, selector) {
+                    return el.webkitMatchesSelector(selector);
+                };
+            }
+            if (p.mozMatchesSelector) {
+                return function (el, selector) {
+                    return el.mozMatchesSelector(selector);
+                };
+            }
+            if (p.msMatchesSelector) {
+                return function (el, selector) {
+                    return el.msMatchesSelector(selector);
+                };
+            }
+            return function (s) {
                 return [].indexOf.call(document.querySelectorAll(s), this) !== -1;
             };
-            return f.call(el, selector);
-        }
+        }(Element.prototype);
         function closest(el, selector) {
             if (el.closest) {
                 return el.closest(selector);
             }
-            while (el) {
+            while (el && el !== document) {
                 if (matches(el, selector)) {
                     return el;
                 }
                 el = el.parentNode;
             }
         }
-        function cloneNodes(el) {
-            var clone = el.cloneNode(true);
-            var canvases = el.querySelectorAll('canvas');
-            if (canvases.length) {
-                slice$1(clone.querySelectorAll('canvas')).forEach(function (canvas$$1, i) {
-                    canvas$$1.getContext('2d').drawImage(canvases[i], 0, 0);
-                });
+        var cloneNodes = function ($) {
+            if ($) {
+                return function cloneNodes(el) {
+                    var clone = el.cloneNode(false);
+                    if (el.nodeType == 1) {
+                        var $el = $(el), $clone = $(clone), i;
+                        var data = $el.data();
+                        for (i in data) {
+                            $clone.data(i, data[i]);
+                        }
+                        if (/^canvas$/i.test(el.tagName)) {
+                            clone.getContext('2d').drawImage(el, 0, 0);
+                        } else if (/^input$/i.test(el.tagName)) {
+                            el.removeAttribute('name');
+                        } else {
+                            for (i = el.firstChild; i; i = i.nextSibling) {
+                                clone.appendChild(cloneNodes(i));
+                            }
+                        }
+                    }
+                    return clone;
+                };
+            } else {
+                return function cloneNodes(el) {
+                    var clone = el.cloneNode(true);
+                    var canvases = el.querySelectorAll('canvas');
+                    if (canvases.length) {
+                        slice$1(clone.querySelectorAll('canvas')).forEach(function (canvas$$1, i) {
+                            canvas$$1.getContext('2d').drawImage(canvases[i], 0, 0);
+                        });
+                    }
+                    slice$1(clone.querySelectorAll('input')).forEach(function (input) {
+                        input.removeAttribute('name');
+                    });
+                    return clone;
+                };
             }
-            slice$1(clone.querySelectorAll('input')).forEach(function (input) {
-                input.removeAttribute('name');
-            });
-            return clone;
-        }
+        }(typeof window !== 'undefined' && window.kendo && window.kendo.jQuery);
         function getXY(thing) {
             if (typeof thing == 'number') {
                 return {
@@ -20230,6 +20286,7 @@
                     range.setEndBefore(el);
                     page.appendChild(range.extractContents());
                     copy.parentNode.insertBefore(page, copy);
+                    preventBulletOnListItem(el.parentNode);
                     if (table) {
                         table = closest(el, 'table');
                         if (options.repeatHeaders && thead) {
@@ -20309,9 +20366,17 @@
                             range.setStartBefore(copy);
                             page.appendChild(range.extractContents());
                             copy.parentNode.insertBefore(page, copy);
+                            preventBulletOnListItem(nextnode.parentNode);
                         }
                     }
                     splitText(nextnode);
+                }
+                function preventBulletOnListItem(el) {
+                    var li = closest(el, 'li');
+                    if (li) {
+                        li.setAttribute('kendo-no-bullet', '1');
+                        preventBulletOnListItem(li.parentNode);
+                    }
                 }
             }
             return promise;
@@ -21213,7 +21278,7 @@
             for (i = 0; i < boxes.length; ++i) {
                 drawOneBox(boxes[i], i === 0, i == boxes.length - 1);
             }
-            if (boxes.length > 0 && display == 'list-item') {
+            if (boxes.length > 0 && display == 'list-item' && !element.getAttribute('kendo-no-bullet')) {
                 drawBullet(boxes[0]);
             }
             (function () {
@@ -21785,8 +21850,8 @@
             };
         }
         function maybeRenderWidget(element, group) {
-            if (window.kendo && window.$ && element.getAttribute(window.kendo.attr('role'))) {
-                var widget = window.kendo.widgetInstance(window.$(element));
+            if (window.kendo && window.kendo.jQuery && element.getAttribute(window.kendo.attr('role'))) {
+                var widget = window.kendo.widgetInstance(window.kendo.jQuery(element));
                 if (widget && (widget.exportDOMVisual || widget.exportVisual)) {
                     var visual;
                     if (widget.exportDOMVisual) {
@@ -22032,10 +22097,18 @@
                 estimateLineLength = 500;
             }
             var prevLineBottom = null;
+            var underline = nodeInfo['underline'];
+            var lineThrough = nodeInfo['line-through'];
+            var overline = nodeInfo['overline'];
+            var hasDecoration = underline || lineThrough || overline;
             while (!doChunk()) {
             }
             if (browser.msie && textOverflow == 'ellipsis') {
                 element.style.textOverflow = saveTextOverflow;
+            }
+            if (hasDecoration) {
+                range.selectNode(node);
+                slice$1(range.getClientRects()).forEach(decorate);
             }
             return;
             function actuallyGetRangeBoundingRect(range) {
@@ -22167,12 +22240,11 @@
                     fill: { color: color }
                 });
                 group.append(text);
-                decorate(box);
             }
             function decorate(box) {
-                line(nodeInfo['underline'], box.bottom);
-                line(nodeInfo['line-through'], box.bottom - box.height / 2.7);
-                line(nodeInfo['overline'], box.top);
+                line(underline, box.bottom);
+                line(lineThrough, box.bottom - box.height / 2.7);
+                line(overline, box.top);
                 function line(color, ypos) {
                     if (color) {
                         var width = fontSize / 12;
@@ -22346,6 +22418,7 @@
         kendo.drawing.util.measureText = kendo.util.measureText;
         kendo.drawing.util.objectKey = kendo.util.objectKey;
         kendo.drawing.Color = kendo.Color;
+        kendo.util.encodeBase64 = kendo.drawing.util.encodeBase64;
     }(window.kendo.jQuery));
 }, typeof define == 'function' && define.amd ? define : function (a1, a2, a3) {
     (a3 || a2)();
@@ -22829,7 +22902,9 @@
         var Circle = geometry.Circle;
         var geometryTransform = geometry.transform;
         var Segment = geometry.Segment;
+        var dataviz = kendo.dataviz;
         var deepExtend = kendo.deepExtend;
+        var __common_getter_js = kendo.getter;
         var X = 'x';
         var Y = 'y';
         var TOP = 'top';
@@ -22985,28 +23060,6 @@
                 spacing[LEFT] = value[LEFT] || defaultSpacing;
             }
             return spacing;
-        }
-        var FIELD_REGEX = /\[(\d+)\]|([^\.]+)/g;
-        var getterCache = {};
-        getterCache['undefined'] = function (obj) {
-            return obj;
-        };
-        function getter(field) {
-            if (getterCache[field]) {
-                return getterCache[field];
-            }
-            var fields = [];
-            field.replace(FIELD_REGEX, function (match, index, field) {
-                fields.push(kendo.drawing.util.defined(index) ? index : field);
-            });
-            getterCache[field] = function (obj) {
-                var result = obj;
-                for (var idx = 0; idx < fields.length && result; idx++) {
-                    result = result[fields[idx]];
-                }
-                return result;
-            };
-            return getterCache[field];
         }
         function grep(array, callback) {
             var length = array.length;
@@ -26419,10 +26472,7 @@
                 var options = this.options;
                 var categories = options.categories;
                 var baseUnit = options.baseUnit;
-                var baseUnitStep = options.baseUnitStep;
-                if (baseUnitStep === void 0) {
-                    baseUnitStep = 1;
-                }
+                var baseUnitStep = options.baseUnitStep || 1;
                 var categoryLimits = this.categoriesRange();
                 var min = toDate(options.min || categoryLimits.min);
                 var max = toDate(options.max || categoryLimits.max);
@@ -26530,10 +26580,7 @@
                 var totalLimits = this.totalLimits();
                 var weekStartDay = options.weekStartDay;
                 var baseUnit = options.baseUnit;
-                var baseUnitStep = options.baseUnitStep;
-                if (baseUnitStep === void 0) {
-                    baseUnitStep = 1;
-                }
+                var baseUnitStep = options.baseUnitStep || 1;
                 var ref = this.currentRange();
                 var rangeMin = ref.min;
                 var rangeMax = ref.max;
@@ -26654,10 +26701,7 @@
             groupCategories: function (options) {
                 var categories = options.categories;
                 var baseUnit = options.baseUnit;
-                var baseUnitStep = options.baseUnitStep;
-                if (baseUnitStep === void 0) {
-                    baseUnitStep = 1;
-                }
+                var baseUnitStep = options.baseUnitStep || 1;
                 var maxCategory = toDate(sparseArrayLimits(categories).max);
                 var ref = this.range(options);
                 var min = ref.min;
@@ -26677,10 +26721,7 @@
             _roundToTotalStep: function (value, axisOptions, upper, roundToNext) {
                 var options = axisOptions || this.options;
                 var baseUnit = options.baseUnit;
-                var baseUnitStep = options.baseUnitStep;
-                if (baseUnitStep === void 0) {
-                    baseUnitStep = 1;
-                }
+                var baseUnitStep = options.baseUnitStep || 1;
                 var start = this._groupsStart;
                 if (start) {
                     var step = dateIndex(value, start, baseUnit, baseUnitStep);
@@ -27771,15 +27812,9 @@
                 var this$1 = this;
                 var ref = this;
                 var labels = ref.labels;
-                var ref_options_labels = ref.options.labels;
-                var skip = ref_options_labels.skip;
-                if (skip === void 0) {
-                    skip = 0;
-                }
-                var step = ref_options_labels.step;
-                if (step === void 0) {
-                    step = 1;
-                }
+                var labelOptions = ref.options.labels;
+                var skip = labelOptions.skip || 0;
+                var step = labelOptions.step || 1;
                 var measureBox = new Box();
                 for (var i = 0; i < labels.length; i++) {
                     labels[i].reflow(measureBox);
@@ -27787,13 +27822,7 @@
                     labels[i].reflow(this$1.getSlot(skip + i * step).adjacentBox(0, labelBox.width(), labelBox.height()));
                 }
             },
-            intervals: function (size, skip, step, skipAngles) {
-                if (skip === void 0) {
-                    skip = 0;
-                }
-                if (step === void 0) {
-                    step = 1;
-                }
+            intervals: function (size, skipOption, stepOption, skipAngles) {
                 if (skipAngles === void 0) {
                     skipAngles = false;
                 }
@@ -27801,6 +27830,8 @@
                 var categories = options.categories.length;
                 var divCount = categories / size || 1;
                 var divAngle = 360 / divCount;
+                var skip = skipOption || 0;
+                var step = stepOption || 1;
                 var divs = [];
                 var angle = 0;
                 for (var i = skip; i < divCount; i += step) {
@@ -27962,15 +27993,9 @@
                 var ref = this;
                 var options = ref.options;
                 var labels = ref.labels;
-                var ref_options_labels = ref.options.labels;
-                var skip = ref_options_labels.skip;
-                if (skip === void 0) {
-                    skip = 0;
-                }
-                var step = ref_options_labels.step;
-                if (step === void 0) {
-                    step = 1;
-                }
+                var labelOptions = ref.options.labels;
+                var skip = labelOptions.skip || 0;
+                var step = labelOptions.step || 1;
                 var measureBox = new Box();
                 var divs = this.intervals(options.majorUnit, skip, step);
                 for (var i = 0; i < labels.length; i++) {
@@ -27982,19 +28007,15 @@
             lineBox: function () {
                 return this.box;
             },
-            intervals: function (size, skip, step, skipAngles) {
-                if (skip === void 0) {
-                    skip = 0;
-                }
-                if (step === void 0) {
-                    step = 1;
-                }
+            intervals: function (size, skipOption, stepOption, skipAngles) {
                 if (skipAngles === void 0) {
                     skipAngles = false;
                 }
                 var min = this.options.min;
                 var divisions = this.getDivisions(size);
                 var divs = [];
+                var skip = skipOption || 0;
+                var step = stepOption || 1;
                 for (var i = skip; i < divisions; i += step) {
                     var current = (360 + min + i * size) % 360;
                     if (!(skipAngles && inArray(current, skipAngles))) {
@@ -28515,6 +28536,7 @@
         function numberSign(value) {
             return value <= 0 ? -1 : 1;
         }
+        dataviz.Gradients = GRADIENTS;
         kendo.deepExtend(kendo.dataviz, {
             constants: constants,
             services: services,
@@ -28545,7 +28567,6 @@
             RadarNumericAxis: RadarNumericAxis,
             RadarLogarithmicAxis: RadarLogarithmicAxis,
             CurveProcessor: CurveProcessor,
-            Gradients: GRADIENTS,
             rectToBox: rectToBox,
             addClass: addClass,
             removeClass: removeClass,
@@ -28554,7 +28575,7 @@
             deepExtend: deepExtend,
             elementStyles: elementStyles,
             getSpacing: getSpacing,
-            getter: getter,
+            getter: __common_getter_js,
             grep: grep,
             hasClasses: hasClasses,
             inArray: inArray,
@@ -33508,33 +33529,40 @@
                 var this$1 = this;
                 var seriesPoints = this.seriesPoints;
                 var startIdx = linePoints[0].categoryIx;
-                var endIdx = startIdx + linePoints.length;
+                var length = linePoints.length;
+                if (startIdx < 0) {
+                    startIdx = 0;
+                    length--;
+                }
+                var endIdx = startIdx + length;
+                var pointOffset = this.seriesOptions[0]._outOfRangeMinPoint ? 1 : 0;
                 var stackPoints = [];
                 this._stackPoints = this._stackPoints || [];
-                for (var idx = startIdx; idx < endIdx; idx++) {
+                for (var categoryIx = startIdx; categoryIx < endIdx; categoryIx++) {
+                    var pointIx = categoryIx + pointOffset;
                     var currentSeriesIx = seriesIx;
                     var point = void 0;
                     do {
                         currentSeriesIx--;
-                        point = seriesPoints[currentSeriesIx][idx];
+                        point = seriesPoints[currentSeriesIx][pointIx];
                     } while (currentSeriesIx > 0 && !point);
                     if (point) {
-                        if (style !== STEP && idx > startIdx && !seriesPoints[currentSeriesIx][idx - 1]) {
-                            stackPoints.push(this$1._previousSegmentPoint(idx, idx - 1, currentSeriesIx));
+                        if (style !== STEP && categoryIx > startIdx && !seriesPoints[currentSeriesIx][pointIx - 1]) {
+                            stackPoints.push(this$1._previousSegmentPoint(categoryIx, pointIx, pointIx - 1, currentSeriesIx));
                         }
                         stackPoints.push(point);
-                        if (style !== STEP && idx + 1 < endIdx && !seriesPoints[currentSeriesIx][idx + 1]) {
-                            stackPoints.push(this$1._previousSegmentPoint(idx, idx + 1, currentSeriesIx));
+                        if (style !== STEP && categoryIx + 1 < endIdx && !seriesPoints[currentSeriesIx][pointIx + 1]) {
+                            stackPoints.push(this$1._previousSegmentPoint(categoryIx, pointIx, pointIx + 1, currentSeriesIx));
                         }
                     } else {
-                        var gapStackPoint = this$1._createGapStackPoint(idx);
+                        var gapStackPoint = this$1._createGapStackPoint(categoryIx);
                         this$1._stackPoints.push(gapStackPoint);
                         stackPoints.push(gapStackPoint);
                     }
                 }
                 return stackPoints;
             },
-            _previousSegmentPoint: function (categoryIx, segmentIx, seriesIdx) {
+            _previousSegmentPoint: function (categoryIx, pointIx, segmentIx, seriesIdx) {
                 var seriesPoints = this.seriesPoints;
                 var index = seriesIdx;
                 var point;
@@ -33546,7 +33574,7 @@
                     point = this._createGapStackPoint(categoryIx);
                     this._stackPoints.push(point);
                 } else {
-                    point = seriesPoints[index][categoryIx];
+                    point = seriesPoints[index][pointIx];
                 }
                 return point;
             },
@@ -42887,6 +42915,7 @@
                 }
             },
             _copyMembers: function (instance) {
+                this._instance = instance;
                 this.options = instance.options;
                 this._originalOptions = instance._originalOptions;
                 this.surface = instance.surface;
@@ -67378,9 +67407,9 @@
                 }
             },
             _clearValue: function () {
-                this.listView.value([]);
                 this._clearText();
                 this._accessor('');
+                this.listView.value([]);
                 if (this._isFilterEnabled()) {
                     this._filter({
                         word: '',
@@ -68087,7 +68116,8 @@
                     var activeFilter = that.filterInput && that.filterInput[0] === activeElement();
                     if (current) {
                         dataItem = listView.dataItemByIndex(listView.getElementIndex(current));
-                        if (that.trigger(SELECT, {
+                        var shouldTrigger = that._value(dataItem) !== List.unifyType(that.value(), typeof that._value(dataItem));
+                        if (shouldTrigger && that.trigger(SELECT, {
                                 dataItem: dataItem,
                                 item: current
                             })) {
@@ -69450,33 +69480,18 @@
             },
             _focusoutHandler: function () {
                 var that = this;
-                var filtered = that._state === STATE_FILTER;
                 var isIFrame = window.self !== window.top;
-                var focusedItem = that._focus();
-                var dataItem = that._getElementDataItem(focusedItem);
-                var shouldTrigger;
                 if (!that._prevent) {
                     clearTimeout(that._typingTimeout);
-                    var done = function () {
-                        if (support.mobileOS.ios && isIFrame) {
-                            that._change();
-                        } else {
-                            that._blur();
-                        }
-                        that._inputWrapper.removeClass(FOCUSED);
-                        that._prevent = true;
-                        that._open = false;
-                        that.element.blur();
-                    };
-                    shouldTrigger = !filtered && focusedItem && that._value(dataItem) !== that.value();
-                    if (shouldTrigger && !that.trigger('select', {
-                            dataItem: dataItem,
-                            item: focusedItem
-                        })) {
-                        that._select(focusedItem, !that.dataSource.view().length).done(done);
+                    if (support.mobileOS.ios && isIFrame) {
+                        that._change();
                     } else {
-                        done();
+                        that._blur();
                     }
+                    that._inputWrapper.removeClass(FOCUSED);
+                    that._prevent = true;
+                    that._open = false;
+                    that.element.blur();
                 }
             },
             _wrapperMousedown: function () {

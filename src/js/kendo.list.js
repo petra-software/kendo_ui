@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.118 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.213 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -177,9 +177,9 @@
                 }
             },
             _clearValue: function () {
-                this.listView.value([]);
                 this._clearText();
                 this._accessor('');
+                this.listView.value([]);
                 if (this._isFilterEnabled()) {
                     this._filter({
                         word: '',
@@ -886,7 +886,8 @@
                     var activeFilter = that.filterInput && that.filterInput[0] === activeElement();
                     if (current) {
                         dataItem = listView.dataItemByIndex(listView.getElementIndex(current));
-                        if (that.trigger(SELECT, {
+                        var shouldTrigger = that._value(dataItem) !== List.unifyType(that.value(), typeof that._value(dataItem));
+                        if (shouldTrigger && that.trigger(SELECT, {
                                 dataItem: dataItem,
                                 item: current
                             })) {

@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.118 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.213 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -1998,7 +1998,8 @@ html .km-pane-wrapper .km-widget,
 .k-toolbar .k-split-button .k-button {
   border-radius: 2px 0 0 2px;
 }
-.k-list > .k-item.k-state-focused {
+.k-list > .k-item.k-state-focused,
+.k-treeview .k-in.k-state-focused {
   border-color: #007cc0;
 }
 .k-menu > .k-state-focused,

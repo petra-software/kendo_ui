@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.118 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.213 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -1718,7 +1718,7 @@
                             }
                             columnStart = e.x.location;
                             columnWidth = outerWidth(th);
-                            columnMinWidth = that.columns[index].minResizableWidth || 10;
+                            columnMinWidth = leafColumns(that.columns)[index].minResizableWidth || 10;
                             gridWidth = isLocked ? outerWidth(contentTable.children('tbody')) : outerWidth(that.tbody);
                             if (browser.webkit) {
                                 that.wrapper.addClass('k-grid-column-resizing');

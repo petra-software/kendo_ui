@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.118 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.213 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -1355,6 +1355,15 @@ input.k-textbox:active {
 .k-upload .k-upload-selected:hover {
   color: #fff;
   background-color: #ff4350;
+}
+/* ImageBrowser */
+.k-filebrowser .k-tile .k-folder,
+.k-filebrowser .k-tile .k-file,
+.k-filebrowser .k-tile .k-i-folder,
+.k-filebrowser .k-tile .k-i-file {
+  background-image: url('Nova/imagebrowser.png');
+  -webkit-background-size: auto auto;
+          background-size: auto auto;
 }
 /* Slider */
 .k-slider-track {
