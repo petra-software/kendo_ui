@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.213 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.216 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -33,7 +33,7 @@
     };
     (function ($, window, undefined) {
         var kendo = window.kendo = window.kendo || { cultures: {} }, extend = $.extend, each = $.each, isArray = $.isArray, proxy = $.proxy, noop = $.noop, math = Math, Template, JSON = window.JSON || {}, support = {}, percentRegExp = /%/, formatRegExp = /\{(\d+)(:[^\}]+)?\}/g, boxShadowRegExp = /(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+)?/i, numberRegExp = /^(\+|-?)\d+(\.?)\d*$/, FUNCTION = 'function', STRING = 'string', NUMBER = 'number', OBJECT = 'object', NULL = 'null', BOOLEAN = 'boolean', UNDEFINED = 'undefined', getterCache = {}, setterCache = {}, slice = [].slice;
-        kendo.version = '2017.1.213'.replace(/^\s+|\s+$/g, '');
+        kendo.version = '2017.1.216'.replace(/^\s+|\s+$/g, '');
         function Class() {
         }
         Class.extend = function (proto) {
@@ -14580,6 +14580,9 @@
             };
         }
         function eventElement(e) {
+            if (e === void 0) {
+                e = {};
+            }
             return e.touch ? e.touch.initialTouch : e.target;
         }
         function isTransparent(color) {
@@ -19874,30 +19877,17 @@
             }
         });
         function addClass(el, cls) {
-            if (el.classList) {
-                el.classList.add(cls);
-            } else {
-                el.className += ' ' + cls;
-            }
+            el.classList.add(cls);
         }
         function removeClass(el, cls) {
-            if (el.classList) {
-                el.classList.remove(cls);
-            } else {
-                el.className = el.className.split(/\s+/).reduce(function (a, word) {
-                    if (word != cls) {
-                        a.push(word);
-                    }
-                    return a;
-                }, []).join(' ');
-            }
+            el.classList.remove(cls);
         }
         function setCSS(el, styles) {
             Object.keys(styles).forEach(function (key) {
                 el.style[key] = styles[key];
             });
         }
-        var matches = typeof Element !== 'undefined' && Element.prototype && function (p) {
+        var matches = function (p) {
             if (p.matches) {
                 return function (el, selector) {
                     return el.matches(selector);
@@ -19933,44 +19923,19 @@
                 el = el.parentNode;
             }
         }
-        var cloneNodes = function ($) {
-            if ($) {
-                return function cloneNodes(el) {
-                    var clone = el.cloneNode(false);
-                    if (el.nodeType == 1) {
-                        var $el = $(el), $clone = $(clone), i;
-                        var data = $el.data();
-                        for (i in data) {
-                            $clone.data(i, data[i]);
-                        }
-                        if (/^canvas$/i.test(el.tagName)) {
-                            clone.getContext('2d').drawImage(el, 0, 0);
-                        } else if (/^input$/i.test(el.tagName)) {
-                            el.removeAttribute('name');
-                        } else {
-                            for (i = el.firstChild; i; i = i.nextSibling) {
-                                clone.appendChild(cloneNodes(i));
-                            }
-                        }
-                    }
-                    return clone;
-                };
-            } else {
-                return function cloneNodes(el) {
-                    var clone = el.cloneNode(true);
-                    var canvases = el.querySelectorAll('canvas');
-                    if (canvases.length) {
-                        slice$1(clone.querySelectorAll('canvas')).forEach(function (canvas$$1, i) {
-                            canvas$$1.getContext('2d').drawImage(canvases[i], 0, 0);
-                        });
-                    }
-                    slice$1(clone.querySelectorAll('input')).forEach(function (input) {
-                        input.removeAttribute('name');
-                    });
-                    return clone;
-                };
+        function cloneNodes(el) {
+            var clone = el.cloneNode(true);
+            var canvases = el.querySelectorAll('canvas');
+            if (canvases.length) {
+                slice$1(clone.querySelectorAll('canvas')).forEach(function (canvas$$1, i) {
+                    canvas$$1.getContext('2d').drawImage(canvases[i], 0, 0);
+                });
             }
-        }(typeof window !== 'undefined' && window.kendo && window.kendo.jQuery);
+            slice$1(clone.querySelectorAll('input')).forEach(function (input) {
+                input.removeAttribute('name');
+            });
+            return clone;
+        }
         function getXY(thing) {
             if (typeof thing == 'number') {
                 return {
@@ -20286,7 +20251,6 @@
                     range.setEndBefore(el);
                     page.appendChild(range.extractContents());
                     copy.parentNode.insertBefore(page, copy);
-                    preventBulletOnListItem(el.parentNode);
                     if (table) {
                         table = closest(el, 'table');
                         if (options.repeatHeaders && thead) {
@@ -20366,17 +20330,9 @@
                             range.setStartBefore(copy);
                             page.appendChild(range.extractContents());
                             copy.parentNode.insertBefore(page, copy);
-                            preventBulletOnListItem(nextnode.parentNode);
                         }
                     }
                     splitText(nextnode);
-                }
-                function preventBulletOnListItem(el) {
-                    var li = closest(el, 'li');
-                    if (li) {
-                        li.setAttribute('kendo-no-bullet', '1');
-                        preventBulletOnListItem(li.parentNode);
-                    }
                 }
             }
             return promise;
@@ -21278,7 +21234,7 @@
             for (i = 0; i < boxes.length; ++i) {
                 drawOneBox(boxes[i], i === 0, i == boxes.length - 1);
             }
-            if (boxes.length > 0 && display == 'list-item' && !element.getAttribute('kendo-no-bullet')) {
+            if (boxes.length > 0 && display == 'list-item') {
                 drawBullet(boxes[0]);
             }
             (function () {
@@ -29003,6 +28959,101 @@
     (a3 || a2)();
 }));
 (function (f, define) {
+    define('dataviz/themes/auto-theme', ['kendo.dataviz.core'], f);
+}(function () {
+    var cache;
+    function autoTheme(force) {
+        if (!force && cache) {
+            return cache;
+        }
+        var theme = { chart: kendo.dataviz.chartBaseTheme() };
+        var hook = $('<div style="display: none">' + '  <div class="k-var--accent"></div>' + '  <div class="k-var--base"></div>' + '  <div class="k-var--background"></div>' + '  <div class="k-var--normal-background"></div>' + '  <div class="k-var--normal-text-color"></div>' + '  <div class="k-var--hover-background"></div>' + '  <div class="k-var--hover-text-color"></div>' + '  <div class="k-var--selected-background"></div>' + '  <div class="k-var--selected-text-color"></div>' + '  <div class="k-var--chart-error-bars-background"></div>' + '  <div class="k-var--chart-notes-background"></div>' + '  <div class="k-var--chart-notes-border"></div>' + '  <div class="k-var--chart-notes-lines"></div>' + '  <div class="k-var--chart-crosshair-background"></div>' + '  <div class="k-var--chart-inactive"></div>' + '  <div class="k-var--chart-major-lines"></div>' + '  <div class="k-var--chart-minor-lines"></div>' + '  <div class="k-var--chart-area-opacity"></div>' + '  <div class="k-widget">' + '      <div class="k-var--chart-font"></div>' + '      <div class="k-var--chart-title-font"></div>' + '      <div class="k-var--chart-label-font"></div>' + '  </div>' + '  <div class="k-var--series">' + '    <div class="k-var--series-a"></div>' + '    <div class="k-var--series-b"></div>' + '    <div class="k-var--series-c"></div>' + '    <div class="k-var--series-d"></div>' + '    <div class="k-var--series-e"></div>' + '    <div class="k-var--series-f"></div>' + '  </div>' + '</div>').appendTo(document.body);
+        function mapColor(key, varName) {
+            set(key, queryStyle(varName, 'backgroundColor'));
+        }
+        function queryStyle(varName, prop) {
+            return hook.find('.k-var--' + varName).css(prop);
+        }
+        function set(path, value) {
+            var store = theme;
+            var parts = path.split('.');
+            var key = parts.shift();
+            while (parts.length > 0) {
+                store = store[key] = store[key] || {};
+                key = parts.shift();
+            }
+            store[key] = value;
+        }
+        (function setColors() {
+            mapColor('chart.axisDefaults.crosshair.color', 'chart-crosshair-background');
+            mapColor('chart.axisDefaults.labels.color', 'normal-text-color');
+            mapColor('chart.axisDefaults.line.color', 'chart-major-lines');
+            mapColor('chart.axisDefaults.majorGridLines.color', 'chart-major-lines');
+            mapColor('chart.axisDefaults.minorGridLines.color', 'chart-minor-lines');
+            mapColor('chart.axisDefaults.notes.icon.background', 'chart-notes-background');
+            mapColor('chart.axisDefaults.notes.icon.border.color', 'chart-notes-border');
+            mapColor('chart.axisDefaults.notes.line.color', 'chart-notes-lines');
+            mapColor('chart.axisDefaults.title.color', 'normal-text-color');
+            mapColor('chart.legend.inactiveItems.labels.color', 'chart-inactive');
+            mapColor('chart.legend.inactiveItems.markers.color', 'chart-inactive');
+            mapColor('chart.legend.labels.color', 'normal-text-color');
+            mapColor('chart.seriesDefaults.boxPlot.downColor', 'chart-major-lines');
+            mapColor('chart.seriesDefaults.boxPlot.mean.color', 'base');
+            mapColor('chart.seriesDefaults.boxPlot.median.color', 'base');
+            mapColor('chart.seriesDefaults.bullet.target.color', 'accent');
+            mapColor('chart.seriesDefaults.candlestick.downColor', 'chart-major-lines');
+            mapColor('chart.seriesDefaults.candlestick.line.color', 'chart-major-lines');
+            mapColor('chart.seriesDefaults.errorBars.color', 'chart-error-bars-background');
+            mapColor('chart.seriesDefaults.horizontalWaterfall.line.color', 'chart-major-lines');
+            mapColor('chart.seriesDefaults.icon.border.color', 'chart-major-lines');
+            mapColor('chart.seriesDefaults.labels.background', 'background');
+            mapColor('chart.seriesDefaults.labels.color', 'normal-text-color');
+            mapColor('chart.seriesDefaults.notes.icon.background', 'chart-notes-background');
+            mapColor('chart.seriesDefaults.notes.icon.border.color', 'chart-notes-border');
+            mapColor('chart.seriesDefaults.notes.line.color', 'chart-notes-lines');
+            mapColor('chart.seriesDefaults.verticalBullet.target.color', 'accent');
+            mapColor('chart.seriesDefaults.waterfall.line.color', 'chart-major-lines');
+            mapColor('chart.title.color', 'normal-text-color');
+        }());
+        (function setFonts() {
+            function font(varName) {
+                return queryStyle(varName, 'fontSize') + ' ' + queryStyle(varName, 'fontFamily');
+            }
+            var defaultFont = font('chart-font');
+            var titleFont = font('chart-title-font');
+            var labelFont = font('chart-label-font');
+            set('chart.axisDefaults.labels.font', labelFont);
+            set('chart.axisDefaults.notes.label.font', defaultFont);
+            set('chart.axisDefaults.title.font', defaultFont);
+            set('chart.legend.labels.font', defaultFont);
+            set('chart.seriesDefaults.labels.font', labelFont);
+            set('chart.seriesDefaults.notes.label.font', defaultFont);
+            set('chart.title.font', titleFont);
+        }());
+        (function setSeriesColors() {
+            function letterPos(letter) {
+                return letter.toLowerCase().charCodeAt(0) - 'a'.charCodeAt(0);
+            }
+            function seriesPos(name) {
+                return letterPos(name.match(/series-([a-z])$/)[1]);
+            }
+            var series = $('.k-var--series div').toArray();
+            var seriesColors = series.reduce(function (arr, el) {
+                var pos = seriesPos(el.className);
+                arr[pos] = $(el).css('backgroundColor');
+                return arr;
+            }, []);
+            set('chart.seriesColors', seriesColors);
+        }());
+        hook.remove();
+        cache = theme;
+        return theme;
+    }
+    kendo.dataviz.autoTheme = autoTheme;
+}, typeof define == 'function' && define.amd ? define : function (a1, a2, a3) {
+    (a3 || a2)();
+}));
+(function (f, define) {
     define('dataviz/themes/themes', ['dataviz/themes/chart-base-theme'], f);
 }(function () {
     (function ($) {
@@ -31376,10 +31427,8 @@
         }());
         (function () {
             var TEXT = '#656565';
-            var INACTIVE = 'rgba( 255, 255, 255, .5 )';
             var INACTIVE_SHAPE = '#bdbdbd';
             var AXIS = 'rgba(0, 0, 0, .04)';
-            var AXIS_MINOR = 'rgba(0, 0, 0, .08)';
             var SERIES = [
                 '#ff6358',
                 '#ffd246',
@@ -31398,51 +31447,8 @@
             ];
             var PRIMARY = SERIES[0];
             var DIAGRAM_HOVER = WHITE;
-            function noteStyle() {
-                return {
-                    icon: {
-                        background: '#007cc0',
-                        border: { color: '#007cc0' }
-                    },
-                    label: { color: '#ffffff' },
-                    line: { color: AXIS }
-                };
-            }
             registerTheme('default-v2', {
-                chart: {
-                    title: { color: TEXT },
-                    legend: {
-                        labels: { color: TEXT },
-                        inactiveItems: {
-                            labels: { color: INACTIVE },
-                            markers: { color: INACTIVE }
-                        }
-                    },
-                    seriesDefaults: {
-                        labels: { color: TEXT },
-                        errorBars: { color: TEXT },
-                        notes: noteStyle(),
-                        candlestick: {
-                            downColor: AXIS,
-                            line: { color: INACTIVE_SHAPE }
-                        },
-                        area: { opacity: 0.8 },
-                        waterfall: { line: { color: AXIS } },
-                        horizontalWaterfall: { line: { color: AXIS } },
-                        overlay: { gradient: 'none' },
-                        border: { _brightness: 1 }
-                    },
-                    seriesColors: SERIES,
-                    axisDefaults: {
-                        line: { color: AXIS },
-                        labels: { color: TEXT },
-                        minorGridLines: { color: AXIS_MINOR },
-                        majorGridLines: { color: AXIS },
-                        title: { color: TEXT },
-                        crosshair: { color: TEXT },
-                        notes: noteStyle()
-                    }
-                },
+                chart: {},
                 gauge: {
                     pointer: { color: PRIMARY },
                     scale: {
@@ -31517,6 +31523,7 @@
     define('kendo.dataviz.themes', [
         'kendo.dataviz.core',
         'dataviz/themes/chart-base-theme',
+        'dataviz/themes/auto-theme',
         'dataviz/themes/themes'
     ], f);
 }(function () {
@@ -33529,40 +33536,33 @@
                 var this$1 = this;
                 var seriesPoints = this.seriesPoints;
                 var startIdx = linePoints[0].categoryIx;
-                var length = linePoints.length;
-                if (startIdx < 0) {
-                    startIdx = 0;
-                    length--;
-                }
-                var endIdx = startIdx + length;
-                var pointOffset = this.seriesOptions[0]._outOfRangeMinPoint ? 1 : 0;
+                var endIdx = startIdx + linePoints.length;
                 var stackPoints = [];
                 this._stackPoints = this._stackPoints || [];
-                for (var categoryIx = startIdx; categoryIx < endIdx; categoryIx++) {
-                    var pointIx = categoryIx + pointOffset;
+                for (var idx = startIdx; idx < endIdx; idx++) {
                     var currentSeriesIx = seriesIx;
                     var point = void 0;
                     do {
                         currentSeriesIx--;
-                        point = seriesPoints[currentSeriesIx][pointIx];
+                        point = seriesPoints[currentSeriesIx][idx];
                     } while (currentSeriesIx > 0 && !point);
                     if (point) {
-                        if (style !== STEP && categoryIx > startIdx && !seriesPoints[currentSeriesIx][pointIx - 1]) {
-                            stackPoints.push(this$1._previousSegmentPoint(categoryIx, pointIx, pointIx - 1, currentSeriesIx));
+                        if (style !== STEP && idx > startIdx && !seriesPoints[currentSeriesIx][idx - 1]) {
+                            stackPoints.push(this$1._previousSegmentPoint(idx, idx - 1, currentSeriesIx));
                         }
                         stackPoints.push(point);
-                        if (style !== STEP && categoryIx + 1 < endIdx && !seriesPoints[currentSeriesIx][pointIx + 1]) {
-                            stackPoints.push(this$1._previousSegmentPoint(categoryIx, pointIx, pointIx + 1, currentSeriesIx));
+                        if (style !== STEP && idx + 1 < endIdx && !seriesPoints[currentSeriesIx][idx + 1]) {
+                            stackPoints.push(this$1._previousSegmentPoint(idx, idx + 1, currentSeriesIx));
                         }
                     } else {
-                        var gapStackPoint = this$1._createGapStackPoint(categoryIx);
+                        var gapStackPoint = this$1._createGapStackPoint(idx);
                         this$1._stackPoints.push(gapStackPoint);
                         stackPoints.push(gapStackPoint);
                     }
                 }
                 return stackPoints;
             },
-            _previousSegmentPoint: function (categoryIx, pointIx, segmentIx, seriesIdx) {
+            _previousSegmentPoint: function (categoryIx, segmentIx, seriesIdx) {
                 var seriesPoints = this.seriesPoints;
                 var index = seriesIdx;
                 var point;
@@ -33574,7 +33574,7 @@
                     point = this._createGapStackPoint(categoryIx);
                     this._stackPoints.push(point);
                 } else {
-                    point = seriesPoints[index][pointIx];
+                    point = seriesPoints[index][categoryIx];
                 }
                 return point;
             },
@@ -42841,6 +42841,9 @@
             },
             _getThemeOptions: function (userOptions) {
                 var themeName = (userOptions || {}).theme;
+                if (themeName === 'inherit' || themeName === 'default-v2') {
+                    return dataviz.autoTheme().chart;
+                }
                 if (defined(themeName)) {
                     var themes = dataviz.ui.themes || {};
                     var theme = themes[themeName] || themes[themeName.toLowerCase()] || {};

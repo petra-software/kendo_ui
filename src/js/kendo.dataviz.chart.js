@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.213 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.216 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -2161,40 +2161,33 @@
                 var this$1 = this;
                 var seriesPoints = this.seriesPoints;
                 var startIdx = linePoints[0].categoryIx;
-                var length = linePoints.length;
-                if (startIdx < 0) {
-                    startIdx = 0;
-                    length--;
-                }
-                var endIdx = startIdx + length;
-                var pointOffset = this.seriesOptions[0]._outOfRangeMinPoint ? 1 : 0;
+                var endIdx = startIdx + linePoints.length;
                 var stackPoints = [];
                 this._stackPoints = this._stackPoints || [];
-                for (var categoryIx = startIdx; categoryIx < endIdx; categoryIx++) {
-                    var pointIx = categoryIx + pointOffset;
+                for (var idx = startIdx; idx < endIdx; idx++) {
                     var currentSeriesIx = seriesIx;
                     var point = void 0;
                     do {
                         currentSeriesIx--;
-                        point = seriesPoints[currentSeriesIx][pointIx];
+                        point = seriesPoints[currentSeriesIx][idx];
                     } while (currentSeriesIx > 0 && !point);
                     if (point) {
-                        if (style !== STEP && categoryIx > startIdx && !seriesPoints[currentSeriesIx][pointIx - 1]) {
-                            stackPoints.push(this$1._previousSegmentPoint(categoryIx, pointIx, pointIx - 1, currentSeriesIx));
+                        if (style !== STEP && idx > startIdx && !seriesPoints[currentSeriesIx][idx - 1]) {
+                            stackPoints.push(this$1._previousSegmentPoint(idx, idx - 1, currentSeriesIx));
                         }
                         stackPoints.push(point);
-                        if (style !== STEP && categoryIx + 1 < endIdx && !seriesPoints[currentSeriesIx][pointIx + 1]) {
-                            stackPoints.push(this$1._previousSegmentPoint(categoryIx, pointIx, pointIx + 1, currentSeriesIx));
+                        if (style !== STEP && idx + 1 < endIdx && !seriesPoints[currentSeriesIx][idx + 1]) {
+                            stackPoints.push(this$1._previousSegmentPoint(idx, idx + 1, currentSeriesIx));
                         }
                     } else {
-                        var gapStackPoint = this$1._createGapStackPoint(categoryIx);
+                        var gapStackPoint = this$1._createGapStackPoint(idx);
                         this$1._stackPoints.push(gapStackPoint);
                         stackPoints.push(gapStackPoint);
                     }
                 }
                 return stackPoints;
             },
-            _previousSegmentPoint: function (categoryIx, pointIx, segmentIx, seriesIdx) {
+            _previousSegmentPoint: function (categoryIx, segmentIx, seriesIdx) {
                 var seriesPoints = this.seriesPoints;
                 var index = seriesIdx;
                 var point;
@@ -2206,7 +2199,7 @@
                     point = this._createGapStackPoint(categoryIx);
                     this._stackPoints.push(point);
                 } else {
-                    point = seriesPoints[index][pointIx];
+                    point = seriesPoints[index][categoryIx];
                 }
                 return point;
             },
@@ -11473,6 +11466,9 @@
             },
             _getThemeOptions: function (userOptions) {
                 var themeName = (userOptions || {}).theme;
+                if (themeName === 'inherit' || themeName === 'default-v2') {
+                    return dataviz.autoTheme().chart;
+                }
                 if (defined(themeName)) {
                     var themes = dataviz.ui.themes || {};
                     var theme = themes[themeName] || themes[themeName.toLowerCase()] || {};
