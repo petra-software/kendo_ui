@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.216 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.223 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -33,7 +33,7 @@
     };
     (function ($, window, undefined) {
         var kendo = window.kendo = window.kendo || { cultures: {} }, extend = $.extend, each = $.each, isArray = $.isArray, proxy = $.proxy, noop = $.noop, math = Math, Template, JSON = window.JSON || {}, support = {}, percentRegExp = /%/, formatRegExp = /\{(\d+)(:[^\}]+)?\}/g, boxShadowRegExp = /(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+)?/i, numberRegExp = /^(\+|-?)\d+(\.?)\d*$/, FUNCTION = 'function', STRING = 'string', NUMBER = 'number', OBJECT = 'object', NULL = 'null', BOOLEAN = 'boolean', UNDEFINED = 'undefined', getterCache = {}, setterCache = {}, slice = [].slice;
-        kendo.version = '2017.1.216'.replace(/^\s+|\s+$/g, '');
+        kendo.version = '2017.1.223'.replace(/^\s+|\s+$/g, '');
         function Class() {
         }
         Class.extend = function (proto) {
@@ -19877,17 +19877,30 @@
             }
         });
         function addClass(el, cls) {
-            el.classList.add(cls);
+            if (el.classList) {
+                el.classList.add(cls);
+            } else {
+                el.className += ' ' + cls;
+            }
         }
         function removeClass(el, cls) {
-            el.classList.remove(cls);
+            if (el.classList) {
+                el.classList.remove(cls);
+            } else {
+                el.className = el.className.split(/\s+/).reduce(function (a, word) {
+                    if (word != cls) {
+                        a.push(word);
+                    }
+                    return a;
+                }, []).join(' ');
+            }
         }
         function setCSS(el, styles) {
             Object.keys(styles).forEach(function (key) {
                 el.style[key] = styles[key];
             });
         }
-        var matches = function (p) {
+        var matches = typeof Element !== 'undefined' && Element.prototype && function (p) {
             if (p.matches) {
                 return function (el, selector) {
                     return el.matches(selector);
@@ -19923,19 +19936,44 @@
                 el = el.parentNode;
             }
         }
-        function cloneNodes(el) {
-            var clone = el.cloneNode(true);
-            var canvases = el.querySelectorAll('canvas');
-            if (canvases.length) {
-                slice$1(clone.querySelectorAll('canvas')).forEach(function (canvas$$1, i) {
-                    canvas$$1.getContext('2d').drawImage(canvases[i], 0, 0);
-                });
+        var cloneNodes = function ($) {
+            if ($) {
+                return function cloneNodes(el) {
+                    var clone = el.cloneNode(false);
+                    if (el.nodeType == 1) {
+                        var $el = $(el), $clone = $(clone), i;
+                        var data = $el.data();
+                        for (i in data) {
+                            $clone.data(i, data[i]);
+                        }
+                        if (/^canvas$/i.test(el.tagName)) {
+                            clone.getContext('2d').drawImage(el, 0, 0);
+                        } else if (/^input$/i.test(el.tagName)) {
+                            el.removeAttribute('name');
+                        } else {
+                            for (i = el.firstChild; i; i = i.nextSibling) {
+                                clone.appendChild(cloneNodes(i));
+                            }
+                        }
+                    }
+                    return clone;
+                };
+            } else {
+                return function cloneNodes(el) {
+                    var clone = el.cloneNode(true);
+                    var canvases = el.querySelectorAll('canvas');
+                    if (canvases.length) {
+                        slice$1(clone.querySelectorAll('canvas')).forEach(function (canvas$$1, i) {
+                            canvas$$1.getContext('2d').drawImage(canvases[i], 0, 0);
+                        });
+                    }
+                    slice$1(clone.querySelectorAll('input')).forEach(function (input) {
+                        input.removeAttribute('name');
+                    });
+                    return clone;
+                };
             }
-            slice$1(clone.querySelectorAll('input')).forEach(function (input) {
-                input.removeAttribute('name');
-            });
-            return clone;
-        }
+        }(typeof window !== 'undefined' && window.kendo && window.kendo.jQuery);
         function getXY(thing) {
             if (typeof thing == 'number') {
                 return {
@@ -20251,6 +20289,7 @@
                     range.setEndBefore(el);
                     page.appendChild(range.extractContents());
                     copy.parentNode.insertBefore(page, copy);
+                    preventBulletOnListItem(el.parentNode);
                     if (table) {
                         table = closest(el, 'table');
                         if (options.repeatHeaders && thead) {
@@ -20330,9 +20369,17 @@
                             range.setStartBefore(copy);
                             page.appendChild(range.extractContents());
                             copy.parentNode.insertBefore(page, copy);
+                            preventBulletOnListItem(nextnode.parentNode);
                         }
                     }
                     splitText(nextnode);
+                }
+                function preventBulletOnListItem(el) {
+                    var li = closest(el, 'li');
+                    if (li) {
+                        li.setAttribute('kendo-no-bullet', '1');
+                        preventBulletOnListItem(li.parentNode);
+                    }
                 }
             }
             return promise;
@@ -21234,7 +21281,7 @@
             for (i = 0; i < boxes.length; ++i) {
                 drawOneBox(boxes[i], i === 0, i == boxes.length - 1);
             }
-            if (boxes.length > 0 && display == 'list-item') {
+            if (boxes.length > 0 && display == 'list-item' && !element.getAttribute('kendo-no-bullet')) {
                 drawBullet(boxes[0]);
             }
             (function () {
@@ -21437,7 +21484,25 @@
                             }
                         }
                     }
-                    var pos = String(backgroundPosition).split(/\s+/);
+                    var pos = String(backgroundPosition);
+                    switch (pos) {
+                    case 'bottom':
+                        pos = '50% 100%';
+                        break;
+                    case 'top':
+                        pos = '50% 0';
+                        break;
+                    case 'left':
+                        pos = '0 50%';
+                        break;
+                    case 'right':
+                        pos = '100% 50%';
+                        break;
+                    case 'center':
+                        pos = '50% 50%';
+                        break;
+                    }
+                    pos = pos.split(/\s+/);
                     if (pos.length == 1) {
                         pos[1] = '50%';
                     }
@@ -28913,7 +28978,6 @@
                     funnel: funnelSeries(),
                     horizontalWaterfall: waterfallSeries(),
                     line: lineSeries(),
-                    verticalLine: lineSeries(),
                     notes: notes(),
                     ohlc: ohlcSeries(),
                     radarArea: radarAreaSeries(),
@@ -28924,7 +28988,9 @@
                     rangeColumn: rangeColumnSeries(),
                     scatterLine: scatterLineSeries(),
                     verticalArea: areaSeries(),
+                    verticalBoxPlot: boxPlotSeries(),
                     verticalBullet: bulletSeries(),
+                    verticalLine: lineSeries(),
                     waterfall: waterfallSeries()
                 };
             };
@@ -29000,9 +29066,10 @@
             mapColor('chart.seriesDefaults.boxPlot.downColor', 'chart-major-lines');
             mapColor('chart.seriesDefaults.boxPlot.mean.color', 'base');
             mapColor('chart.seriesDefaults.boxPlot.median.color', 'base');
+            mapColor('chart.seriesDefaults.boxPlot.whiskers.color', 'accent');
             mapColor('chart.seriesDefaults.bullet.target.color', 'accent');
-            mapColor('chart.seriesDefaults.candlestick.downColor', 'chart-major-lines');
-            mapColor('chart.seriesDefaults.candlestick.line.color', 'chart-major-lines');
+            mapColor('chart.seriesDefaults.candlestick.downColor', 'normal-text-color');
+            mapColor('chart.seriesDefaults.candlestick.line.color', 'normal-text-color');
             mapColor('chart.seriesDefaults.errorBars.color', 'chart-error-bars-background');
             mapColor('chart.seriesDefaults.horizontalWaterfall.line.color', 'chart-major-lines');
             mapColor('chart.seriesDefaults.icon.border.color', 'chart-major-lines');
@@ -29011,9 +29078,14 @@
             mapColor('chart.seriesDefaults.notes.icon.background', 'chart-notes-background');
             mapColor('chart.seriesDefaults.notes.icon.border.color', 'chart-notes-border');
             mapColor('chart.seriesDefaults.notes.line.color', 'chart-notes-lines');
+            mapColor('chart.seriesDefaults.verticalBoxPlot.downColor', 'chart-major-lines');
+            mapColor('chart.seriesDefaults.verticalBoxPlot.mean.color', 'base');
+            mapColor('chart.seriesDefaults.verticalBoxPlot.median.color', 'base');
+            mapColor('chart.seriesDefaults.verticalBoxPlot.whiskers.color', 'accent');
             mapColor('chart.seriesDefaults.verticalBullet.target.color', 'accent');
             mapColor('chart.seriesDefaults.waterfall.line.color', 'chart-major-lines');
             mapColor('chart.title.color', 'normal-text-color');
+            set('chart.seriesDefaults.labels.opacity', queryStyle('chart-area-opacity', 'opacity'));
         }());
         (function setFonts() {
             function font(varName) {
@@ -31505,6 +31577,7 @@
                 },
                 treeMap: { colors: fuse(SERIES, SERIES_LIGHT) }
             });
+            themes.sass = themes['default-v2'];
         }());
         function fuse(arr1, arr2) {
             return $.map(arr1, function (item, index) {
@@ -42841,7 +42914,7 @@
             },
             _getThemeOptions: function (userOptions) {
                 var themeName = (userOptions || {}).theme;
-                if (themeName === 'inherit' || themeName === 'default-v2') {
+                if (themeName === 'sass' || themeName === 'default-v2') {
                     return dataviz.autoTheme().chart;
                 }
                 if (defined(themeName)) {
@@ -65174,7 +65247,7 @@
                         }
                     });
                 }
-                element.attr('aria-valuemin', options.min).attr('aria-valuemax', options.max);
+                element.attr('aria-valuemin', options.min !== NULL ? options.min * options.factor : options.min).attr('aria-valuemax', options.max !== NULL ? options.max * options.factor : options.max);
                 options.format = extractFormat(options.format);
                 value = options.value;
                 that.value(value !== NULL ? value : element.val());
@@ -65199,6 +65272,7 @@
                 format: 'n',
                 spinners: true,
                 placeholder: '',
+                factor: 1,
                 upArrowText: 'Increase value',
                 downArrowText: 'Decrease value'
             },
@@ -65310,9 +65384,15 @@
                 that._downArrowEventHandler = new kendo.UserEvents(that._downArrow, { release: _release });
             },
             _blur: function () {
-                var that = this;
+                var that = this, factor = that.options.factor, curreValue = that.element.val();
                 that._toggleText(true);
-                that._change(that.element.val());
+                if (factor && factor !== 1) {
+                    curreValue = parseFloat(curreValue);
+                    if (curreValue !== null) {
+                        curreValue = curreValue / factor;
+                    }
+                }
+                that._change(curreValue);
             },
             _click: function (e) {
                 var that = this;
@@ -65396,8 +65476,8 @@
                 }
                 that._text = text.addClass(element.className).attr({
                     'role': 'spinbutton',
-                    'aria-valuemin': options.min,
-                    'aria-valuemax': options.max
+                    'aria-valuemin': options.min !== NULL ? options.min * options.factor : options.min,
+                    'aria-valuemax': options.max !== NULL ? options.max * options.factor : options.max
                 });
             },
             _keydown: function (e) {
@@ -65505,6 +65585,9 @@
                 if (activeElement() != element[0]) {
                     that._focusin();
                 }
+                if (that.options.factor && value) {
+                    value = value / that.options.factor;
+                }
                 value += that.options.step * step;
                 that._update(that._adjust(value));
                 that._typing = false;
@@ -65526,7 +65609,7 @@
                 return rounder(value, precision);
             },
             _update: function (value) {
-                var that = this, options = that.options, format = options.format, decimals = options.decimals, culture = that._culture(), numberFormat = that._format(format, culture), isNotNull;
+                var that = this, options = that.options, factor = options.factor, format = options.format, decimals = options.decimals, culture = that._culture(), numberFormat = that._format(format, culture), isNotNull;
                 if (decimals === NULL) {
                     decimals = numberFormat.decimals;
                 }
@@ -65538,6 +65621,9 @@
                 that._value = value = that._adjust(value);
                 that._placeholder(kendo.toString(value, format, culture));
                 if (isNotNull) {
+                    if (factor) {
+                        value = parseFloat(that._round(value * factor, decimals), 10);
+                    }
                     value = value.toString();
                     if (value.indexOf('e') !== -1) {
                         value = that._round(+value, decimals);
@@ -67995,7 +68081,7 @@
             _hideBusy: function () {
                 var that = this;
                 clearTimeout(that._busy);
-                that._arrow.removeClass(LOADING);
+                that._arrowIcon.removeClass(LOADING);
                 that._focused.attr('aria-busy', false);
                 that._busy = null;
                 that._showClear();
@@ -68007,9 +68093,9 @@
                     return;
                 }
                 that._busy = setTimeout(function () {
-                    if (that._arrow) {
+                    if (that._arrowIcon) {
                         that._focused.attr('aria-busy', true);
-                        that._arrow.addClass(LOADING);
+                        that._arrowIcon.addClass(LOADING);
                         that._hideClear();
                     }
                 }, 100);
@@ -69197,6 +69283,7 @@
                 that._inputWrapper.off(ns);
                 that._arrow.off();
                 that._arrow = null;
+                that._arrowIcon = null;
                 that.optionLabel.off();
             },
             open: function () {
@@ -69942,7 +70029,8 @@
                 }
                 that.span = span;
                 that._inputWrapper = $(wrapper[0].firstChild);
-                that._arrow = wrapper.find('.k-icon');
+                that._arrow = wrapper.find('.k-select');
+                that._arrowIcon = that._arrow.find('.k-icon');
             },
             _wrapper: function () {
                 var that = this, element = that.element, DOMelement = element[0], wrapper;

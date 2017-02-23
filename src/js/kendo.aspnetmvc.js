@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.216 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.223 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -717,6 +717,20 @@
             'validator'
         ]
     };
+    (function ($, undefined) {
+        var extend = $.extend;
+        $(function () {
+            kendo.__documentIsReady = true;
+        });
+        function syncReady(cb) {
+            if (kendo.__documentIsReady) {
+                cb();
+            } else {
+                $(cb);
+            }
+        }
+        extend(kendo, { syncReady: syncReady });
+    }(window.kendo.jQuery));
 }, typeof define == 'function' && define.amd ? define : function (a1, a2, a3) {
     (a3 || a2)();
 }));

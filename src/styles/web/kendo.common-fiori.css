@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.216 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.223 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -1631,6 +1631,14 @@ div.k-window-iframecontent {
   .k-safari .k-pager-sizes {
     display: none;
   }
+}
+.k-rtl .k-pager-wrap .k-i-seek-e,
+.k-rtl .k-pager-wrap .k-i-seek-w,
+.k-rtl .k-pager-wrap .k-i-arrow-e,
+.k-rtl .k-pager-wrap .k-i-arrow-w {
+  -webkit-transform: scaleX(-1);
+      -ms-transform: scaleX(-1);
+          transform: scaleX(-1);
 }
 /* Menu */
 .k-menu {
@@ -11717,6 +11725,10 @@ div.k-spreadsheet-window {
 .kendo-pdf-hide-pseudo-elements:before,
 .kendo-pdf-hide-pseudo-elements:after {
   display: none !important;
+}
+.k-pdf-export sub,
+.k-pdf-export sup {
+  display: inline-block;
 }
 .k-icon {
   position: relative;

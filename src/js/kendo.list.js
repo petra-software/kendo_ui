@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.216 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.223 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -762,7 +762,7 @@
             _hideBusy: function () {
                 var that = this;
                 clearTimeout(that._busy);
-                that._arrow.removeClass(LOADING);
+                that._arrowIcon.removeClass(LOADING);
                 that._focused.attr('aria-busy', false);
                 that._busy = null;
                 that._showClear();
@@ -774,9 +774,9 @@
                     return;
                 }
                 that._busy = setTimeout(function () {
-                    if (that._arrow) {
+                    if (that._arrowIcon) {
                         that._focused.attr('aria-busy', true);
-                        that._arrow.addClass(LOADING);
+                        that._arrowIcon.addClass(LOADING);
                         that._hideClear();
                     }
                 }, 100);

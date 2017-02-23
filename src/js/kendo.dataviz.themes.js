@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.216 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.223 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -396,7 +396,6 @@
                     funnel: funnelSeries(),
                     horizontalWaterfall: waterfallSeries(),
                     line: lineSeries(),
-                    verticalLine: lineSeries(),
                     notes: notes(),
                     ohlc: ohlcSeries(),
                     radarArea: radarAreaSeries(),
@@ -407,7 +406,9 @@
                     rangeColumn: rangeColumnSeries(),
                     scatterLine: scatterLineSeries(),
                     verticalArea: areaSeries(),
+                    verticalBoxPlot: boxPlotSeries(),
                     verticalBullet: bulletSeries(),
+                    verticalLine: lineSeries(),
                     waterfall: waterfallSeries()
                 };
             };
@@ -483,9 +484,10 @@
             mapColor('chart.seriesDefaults.boxPlot.downColor', 'chart-major-lines');
             mapColor('chart.seriesDefaults.boxPlot.mean.color', 'base');
             mapColor('chart.seriesDefaults.boxPlot.median.color', 'base');
+            mapColor('chart.seriesDefaults.boxPlot.whiskers.color', 'accent');
             mapColor('chart.seriesDefaults.bullet.target.color', 'accent');
-            mapColor('chart.seriesDefaults.candlestick.downColor', 'chart-major-lines');
-            mapColor('chart.seriesDefaults.candlestick.line.color', 'chart-major-lines');
+            mapColor('chart.seriesDefaults.candlestick.downColor', 'normal-text-color');
+            mapColor('chart.seriesDefaults.candlestick.line.color', 'normal-text-color');
             mapColor('chart.seriesDefaults.errorBars.color', 'chart-error-bars-background');
             mapColor('chart.seriesDefaults.horizontalWaterfall.line.color', 'chart-major-lines');
             mapColor('chart.seriesDefaults.icon.border.color', 'chart-major-lines');
@@ -494,9 +496,14 @@
             mapColor('chart.seriesDefaults.notes.icon.background', 'chart-notes-background');
             mapColor('chart.seriesDefaults.notes.icon.border.color', 'chart-notes-border');
             mapColor('chart.seriesDefaults.notes.line.color', 'chart-notes-lines');
+            mapColor('chart.seriesDefaults.verticalBoxPlot.downColor', 'chart-major-lines');
+            mapColor('chart.seriesDefaults.verticalBoxPlot.mean.color', 'base');
+            mapColor('chart.seriesDefaults.verticalBoxPlot.median.color', 'base');
+            mapColor('chart.seriesDefaults.verticalBoxPlot.whiskers.color', 'accent');
             mapColor('chart.seriesDefaults.verticalBullet.target.color', 'accent');
             mapColor('chart.seriesDefaults.waterfall.line.color', 'chart-major-lines');
             mapColor('chart.title.color', 'normal-text-color');
+            set('chart.seriesDefaults.labels.opacity', queryStyle('chart-area-opacity', 'opacity'));
         }());
         (function setFonts() {
             function font(varName) {
@@ -2988,6 +2995,7 @@
                 },
                 treeMap: { colors: fuse(SERIES, SERIES_LIGHT) }
             });
+            themes.sass = themes['default-v2'];
         }());
         function fuse(arr1, arr2) {
             return $.map(arr1, function (item, index) {

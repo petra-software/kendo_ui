@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.216 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.223 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -5706,17 +5706,30 @@
             }
         });
         function addClass(el, cls) {
-            el.classList.add(cls);
+            if (el.classList) {
+                el.classList.add(cls);
+            } else {
+                el.className += ' ' + cls;
+            }
         }
         function removeClass(el, cls) {
-            el.classList.remove(cls);
+            if (el.classList) {
+                el.classList.remove(cls);
+            } else {
+                el.className = el.className.split(/\s+/).reduce(function (a, word) {
+                    if (word != cls) {
+                        a.push(word);
+                    }
+                    return a;
+                }, []).join(' ');
+            }
         }
         function setCSS(el, styles) {
             Object.keys(styles).forEach(function (key) {
                 el.style[key] = styles[key];
             });
         }
-        var matches = function (p) {
+        var matches = typeof Element !== 'undefined' && Element.prototype && function (p) {
             if (p.matches) {
                 return function (el, selector) {
                     return el.matches(selector);
@@ -5752,19 +5765,44 @@
                 el = el.parentNode;
             }
         }
-        function cloneNodes(el) {
-            var clone = el.cloneNode(true);
-            var canvases = el.querySelectorAll('canvas');
-            if (canvases.length) {
-                slice$1(clone.querySelectorAll('canvas')).forEach(function (canvas$$1, i) {
-                    canvas$$1.getContext('2d').drawImage(canvases[i], 0, 0);
-                });
+        var cloneNodes = function ($) {
+            if ($) {
+                return function cloneNodes(el) {
+                    var clone = el.cloneNode(false);
+                    if (el.nodeType == 1) {
+                        var $el = $(el), $clone = $(clone), i;
+                        var data = $el.data();
+                        for (i in data) {
+                            $clone.data(i, data[i]);
+                        }
+                        if (/^canvas$/i.test(el.tagName)) {
+                            clone.getContext('2d').drawImage(el, 0, 0);
+                        } else if (/^input$/i.test(el.tagName)) {
+                            el.removeAttribute('name');
+                        } else {
+                            for (i = el.firstChild; i; i = i.nextSibling) {
+                                clone.appendChild(cloneNodes(i));
+                            }
+                        }
+                    }
+                    return clone;
+                };
+            } else {
+                return function cloneNodes(el) {
+                    var clone = el.cloneNode(true);
+                    var canvases = el.querySelectorAll('canvas');
+                    if (canvases.length) {
+                        slice$1(clone.querySelectorAll('canvas')).forEach(function (canvas$$1, i) {
+                            canvas$$1.getContext('2d').drawImage(canvases[i], 0, 0);
+                        });
+                    }
+                    slice$1(clone.querySelectorAll('input')).forEach(function (input) {
+                        input.removeAttribute('name');
+                    });
+                    return clone;
+                };
             }
-            slice$1(clone.querySelectorAll('input')).forEach(function (input) {
-                input.removeAttribute('name');
-            });
-            return clone;
-        }
+        }(typeof window !== 'undefined' && window.kendo && window.kendo.jQuery);
         function getXY(thing) {
             if (typeof thing == 'number') {
                 return {
@@ -6080,6 +6118,7 @@
                     range.setEndBefore(el);
                     page.appendChild(range.extractContents());
                     copy.parentNode.insertBefore(page, copy);
+                    preventBulletOnListItem(el.parentNode);
                     if (table) {
                         table = closest(el, 'table');
                         if (options.repeatHeaders && thead) {
@@ -6159,9 +6198,17 @@
                             range.setStartBefore(copy);
                             page.appendChild(range.extractContents());
                             copy.parentNode.insertBefore(page, copy);
+                            preventBulletOnListItem(nextnode.parentNode);
                         }
                     }
                     splitText(nextnode);
+                }
+                function preventBulletOnListItem(el) {
+                    var li = closest(el, 'li');
+                    if (li) {
+                        li.setAttribute('kendo-no-bullet', '1');
+                        preventBulletOnListItem(li.parentNode);
+                    }
                 }
             }
             return promise;
@@ -7063,7 +7110,7 @@
             for (i = 0; i < boxes.length; ++i) {
                 drawOneBox(boxes[i], i === 0, i == boxes.length - 1);
             }
-            if (boxes.length > 0 && display == 'list-item') {
+            if (boxes.length > 0 && display == 'list-item' && !element.getAttribute('kendo-no-bullet')) {
                 drawBullet(boxes[0]);
             }
             (function () {
@@ -7266,7 +7313,25 @@
                             }
                         }
                     }
-                    var pos = String(backgroundPosition).split(/\s+/);
+                    var pos = String(backgroundPosition);
+                    switch (pos) {
+                    case 'bottom':
+                        pos = '50% 100%';
+                        break;
+                    case 'top':
+                        pos = '50% 0';
+                        break;
+                    case 'left':
+                        pos = '0 50%';
+                        break;
+                    case 'right':
+                        pos = '100% 50%';
+                        break;
+                    case 'center':
+                        pos = '50% 50%';
+                        break;
+                    }
+                    pos = pos.split(/\s+/);
                     if (pos.length == 1) {
                         pos[1] = '50%';
                     }
