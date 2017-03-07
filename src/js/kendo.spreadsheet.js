@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.223 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.307 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -5299,9 +5299,12 @@
                         sheet._set(ref, propName, propValue);
                     };
                     for (ci = topLeftCol; ci <= bottomRightCol; ci++) {
+                        if (sheet.isHiddenColumn(ci)) {
+                            continue;
+                        }
                         for (ri = topLeftRow; ri <= bottomRightRow; ri++) {
                             var row = props[ri - topLeftRow];
-                            if (row) {
+                            if (row && !sheet.isHiddenRow(ri)) {
                                 data = row[ci - topLeftCol];
                                 if (data) {
                                     Object.keys(data).forEach(setProp);
@@ -5550,13 +5553,14 @@
                         this.unmerge();
                     }
                     var row = origin.row;
+                    var hasFilter = this.hasFilter();
                     state.data.forEach(function (data, dr) {
-                        if (clipboard && !clipboard.isExternal() && sheet.isHiddenRow(state.ref.row + dr)) {
+                        if (hasFilter && clipboard && !clipboard.isExternal() && sheet.isHiddenRow(state.ref.row + dr)) {
                             return;
                         }
                         var col = origin.col;
                         data.forEach(function (cellState, dc) {
-                            if (clipboard && !clipboard.isExternal() && sheet.isHiddenColumn(state.ref.col + dc)) {
+                            if (hasFilter && clipboard && !clipboard.isExternal() && sheet.isHiddenColumn(state.ref.col + dc)) {
                                 return;
                             }
                             var range = clipboard ? sheet.range(row, col) : sheet.range(origin.row + dr, origin.col + dc);

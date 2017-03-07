@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.223 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.307 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -765,10 +765,11 @@
                 var that = this;
                 if (that.textarea) {
                     that._destroyResizings();
-                    that.textarea.val(that.value());
+                    var value = that.value();
+                    that.textarea.val(value);
                     that.wrapper.find('iframe').remove();
                     that._initializeContentElement(that);
-                    that.value(that.textarea.val());
+                    that.value(value);
                 }
             },
             events: [
@@ -5246,9 +5247,14 @@
             },
             exec: function () {
                 var that = this;
-                var range = this.lockRange(true);
-                this.editor.saveAsPDF().then(function () {
+                var range = that.lockRange(true);
+                var editor = that.editor;
+                editor._destroyResizings();
+                editor.saveAsPDF().then(function () {
                     that.releaseRange(range);
+                    editor._initializeColumnResizing();
+                    editor._initializeRowResizing();
+                    editor._initializeTableResizing();
                 });
             }
         });

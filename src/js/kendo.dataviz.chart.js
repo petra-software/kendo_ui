@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.223 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.307 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -10823,7 +10823,7 @@
                     options.transitions = false;
                     transitionsState = true;
                 }
-                this.redraw();
+                this._redraw();
                 if (transitionsState) {
                     options.transitions = true;
                 }
@@ -11222,6 +11222,7 @@
         var services = dataviz.services;
         var proxy = $.proxy;
         var isArray = $.isArray;
+        var extend = $.extend;
         var template = kendo.template;
         var MOUSELEAVE_NS = 'mouseleave' + NS;
         var AXIS_LABEL_CLICK = constants.AXIS_LABEL_CLICK;
@@ -11287,6 +11288,7 @@
                 if (userOptions) {
                     userOptions.dataSource = dataSource;
                 }
+                this._seriesVisibility = new SeriesVisibilityState();
                 this.bind(this.events, this.options);
                 this._initDataSource(userOptions);
                 kendo.notify(this, dataviz.ui);
@@ -11584,7 +11586,7 @@
                     pointVisibility[pointIndex] = defined(visible) ? !visible : false;
                 } else {
                     currentSeries.visible = !currentSeries.visible;
-                    this._saveGroupVisibleState(currentSeries);
+                    this._seriesVisibility.save(currentSeries);
                 }
                 chart._noTransitionsRedraw();
             },
@@ -11597,14 +11599,17 @@
                 highlight.hide();
             },
             _bindData: function (e) {
-                var chart = this, options = chart.options, series = chart._sourceSeries || options.series, seriesIx, seriesLength = series.length, data = chart.dataSource.view(), grouped = (chart.dataSource.group() || []).length > 0, processedSeries = [], currentSeries;
+                var chart = this, options = chart.options, series = chart._sourceSeries || options.series, seriesIx, seriesLength = series.length, data = chart.dataSource.view(), grouped = (chart.dataSource.group() || []).length > 0, processedSeries = [], seriesVisibility = this._seriesVisibility, currentSeries, groupedSeries;
                 for (seriesIx = 0; seriesIx < seriesLength; seriesIx++) {
                     currentSeries = series[seriesIx];
                     if (chart._isBindable(currentSeries) && grouped) {
-                        processedSeries = processedSeries.concat(groupSeries(currentSeries, data));
-                        this._applyGroupVisibleState(processedSeries, e);
+                        groupedSeries = groupSeries(currentSeries, data);
+                        processedSeries = processedSeries.concat(groupedSeries);
+                        seriesVisibility.applyByGroup(groupedSeries, e);
                     } else {
-                        processedSeries.push(currentSeries || []);
+                        currentSeries = extend({}, currentSeries);
+                        processedSeries.push(currentSeries);
+                        seriesVisibility.applyByIndex(currentSeries, e);
                     }
                 }
                 chart._sourceSeries = series;
@@ -11618,26 +11623,6 @@
                 this._bindData(e);
                 this.trigger(DATABOUND);
                 this._redraw();
-            },
-            _applyGroupVisibleState: function (processedSeries, e) {
-                if (e && e.action) {
-                    var visibleState = this._groupVisibleState = this._groupVisibleState || {};
-                    for (var idx = 0; idx < processedSeries.length; idx++) {
-                        if (visibleState[processedSeries[idx]._groupValue] === false) {
-                            processedSeries[idx].visible = false;
-                        }
-                    }
-                } else {
-                    delete this._groupVisibleState;
-                }
-            },
-            _saveGroupVisibleState: function (series) {
-                if (defined(series._groupValue)) {
-                    if (!this._groupVisibleState) {
-                        this._groupVisibleState = {};
-                    }
-                    this._groupVisibleState[series._groupValue] = series.visible;
-                }
             },
             _bindSeries: function () {
                 var chart = this, data = chart.dataSource.view(), series = chart.options.series, seriesIx, seriesLength = series.length, currentSeries, groupIx, seriesData;
@@ -11767,6 +11752,42 @@
             kendo.PDFMixin.extend(Chart.fn);
         }
         dataviz.ui.plugin(Chart);
+        var SeriesVisibilityState = Class.extend({
+            init: function () {
+                this.groups = {};
+                this.index = {};
+            },
+            applyByGroup: function (series, e) {
+                if (e && e.action) {
+                    for (var idx = 0; idx < series.length; idx++) {
+                        if (this.groups[series[idx]._groupValue] === false) {
+                            series[idx].visible = false;
+                        }
+                    }
+                } else {
+                    this.groups = {};
+                }
+            },
+            applyByIndex: function (series, e) {
+                if (e && e.action) {
+                    if (this.index[series.index] === false) {
+                        series.visible = false;
+                    }
+                } else {
+                    this.index = {};
+                }
+            },
+            save: function (series) {
+                if (!series) {
+                    return;
+                }
+                if (defined(series._groupValue)) {
+                    this.groups[series._groupValue] = series.visible;
+                } else {
+                    this.index[series.index] = series.visible;
+                }
+            }
+        });
         var geom = kendo.geometry;
         var Tooltip = Observable.extend({
             init: function (chartElement, options) {
@@ -12082,7 +12103,7 @@
                 var hasFilter = kendo.isFunction(filter);
                 if (!hasFilter) {
                     seriesOptions.visible = visible;
-                    chart._saveGroupVisibleState(seriesOptions);
+                    chart._seriesVisibility.save(seriesOptions);
                 } else {
                     if (inArray(seriesOptions.type, [
                             PIE,

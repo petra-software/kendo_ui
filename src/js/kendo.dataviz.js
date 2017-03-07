@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.223 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.307 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -33,7 +33,7 @@
     };
     (function ($, window, undefined) {
         var kendo = window.kendo = window.kendo || { cultures: {} }, extend = $.extend, each = $.each, isArray = $.isArray, proxy = $.proxy, noop = $.noop, math = Math, Template, JSON = window.JSON || {}, support = {}, percentRegExp = /%/, formatRegExp = /\{(\d+)(:[^\}]+)?\}/g, boxShadowRegExp = /(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+)?/i, numberRegExp = /^(\+|-?)\d+(\.?)\d*$/, FUNCTION = 'function', STRING = 'string', NUMBER = 'number', OBJECT = 'object', NULL = 'null', BOOLEAN = 'boolean', UNDEFINED = 'undefined', getterCache = {}, setterCache = {}, slice = [].slice;
-        kendo.version = '2017.1.223'.replace(/^\s+|\s+$/g, '');
+        kendo.version = '2017.1.307'.replace(/^\s+|\s+$/g, '');
         function Class() {
         }
         Class.extend = function (proto) {
@@ -2966,20 +2966,30 @@
                 }
                 return last;
             }
-            function weekInYear(date, weekStart) {
-                var year, days;
-                date = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-                adjustDST(date, 0);
-                year = date.getFullYear();
-                if (weekStart !== undefined) {
-                    setDayOfWeek(date, weekStart, -1);
-                    date.setDate(date.getDate() + 4);
-                } else {
-                    date.setDate(date.getDate() + (4 - (date.getDay() || 7)));
+            function moveDateToWeekStart(date, weekStartDay) {
+                if (weekStartDay !== 1) {
+                    return addDays(dayOfWeek(date, weekStartDay, -1), 4);
                 }
-                adjustDST(date, 0);
-                days = Math.floor((date.getTime() - new Date(year, 0, 1, -6)) / 86400000);
+                return addDays(date, 4 - (date.getDay() || 7));
+            }
+            function calcWeekInYear(date, weekStartDay) {
+                var firstWeekInYear = new Date(date.getFullYear(), 0, 1, -6);
+                var newDate = moveDateToWeekStart(date, weekStartDay);
+                var diffInMS = newDate.getTime() - firstWeekInYear.getTime();
+                var days = Math.floor(diffInMS / MS_PER_DAY);
                 return 1 + Math.floor(days / 7);
+            }
+            function weekInYear(date, weekStartDay) {
+                var prevWeekDate = addDays(date, -7);
+                var nextWeekDate = addDays(date, 7);
+                var weekNumber = calcWeekInYear(date, weekStartDay);
+                if (weekNumber === 0) {
+                    return calcWeekInYear(prevWeekDate, weekStartDay) + 1;
+                }
+                if (weekNumber === 53 && calcWeekInYear(nextWeekDate, weekStartDay) > 1) {
+                    return 1;
+                }
+                return weekNumber;
             }
             function getDate(date) {
                 date = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
@@ -14947,14 +14957,8 @@
         }
         var Point = Class.extend({
             init: function (x, y) {
-                if (x === void 0) {
-                    x = 0;
-                }
-                if (y === void 0) {
-                    y = 0;
-                }
-                this.x = x;
-                this.y = y;
+                this.x = x || 0;
+                this.y = y || 0;
             },
             equals: function (other) {
                 return other && other.x === this.x && other.y === this.y;
@@ -15096,14 +15100,8 @@
         ObserversMixin.extend(Point.prototype);
         var Size = Class.extend({
             init: function (width, height) {
-                if (width === void 0) {
-                    width = 0;
-                }
-                if (height === void 0) {
-                    height = 0;
-                }
-                this.width = width;
-                this.height = height;
+                this.width = width || 0;
+                this.height = height || 0;
             },
             equals: function (other) {
                 return other && other.width === this.width && other.height === this.height;
@@ -19929,7 +19927,7 @@
             if (el.closest) {
                 return el.closest(selector);
             }
-            while (el && el !== document) {
+            while (el && !/^\[object (?:HTML)?Document\]$/.test(String(el))) {
                 if (matches(el, selector)) {
                     return el;
                 }
@@ -22031,7 +22029,7 @@
                 renderFormField(element, group);
                 break;
             default:
-                var blocks = [], floats = [], inline = [], positioned = [];
+                var children = [], floats = [], positioned = [];
                 for (var i = element.firstChild; i; i = i.nextSibling) {
                     switch (i.nodeType) {
                     case 3:
@@ -22041,30 +22039,22 @@
                         break;
                     case 1:
                         var style = getComputedStyle(i);
-                        var display = getPropertyValue(style, 'display');
                         var floating = getPropertyValue(style, 'float');
                         var position = getPropertyValue(style, 'position');
                         if (position != 'static') {
                             positioned.push(i);
-                        } else if (display != 'inline') {
-                            if (floating != 'none') {
-                                floats.push(i);
-                            } else {
-                                blocks.push(i);
-                            }
+                        } else if (floating != 'none') {
+                            floats.push(i);
                         } else {
-                            inline.push(i);
+                            children.push(i);
                         }
                         break;
                     }
                 }
-                mergeSort(blocks, zIndexSort).forEach(function (el) {
+                mergeSort(children, zIndexSort).forEach(function (el) {
                     renderElement(el, group);
                 });
                 mergeSort(floats, zIndexSort).forEach(function (el) {
-                    renderElement(el, group);
-                });
-                mergeSort(inline, zIndexSort).forEach(function (el) {
                     renderElement(el, group);
                 });
                 mergeSort(positioned, zIndexSort).forEach(function (el) {
@@ -42271,7 +42261,7 @@
                     options.transitions = false;
                     transitionsState = true;
                 }
-                this.redraw();
+                this._redraw();
                 if (transitionsState) {
                     options.transitions = true;
                 }
@@ -42670,6 +42660,7 @@
         var services = dataviz.services;
         var proxy = $.proxy;
         var isArray = $.isArray;
+        var extend = $.extend;
         var template = kendo.template;
         var MOUSELEAVE_NS = 'mouseleave' + NS;
         var AXIS_LABEL_CLICK = constants.AXIS_LABEL_CLICK;
@@ -42735,6 +42726,7 @@
                 if (userOptions) {
                     userOptions.dataSource = dataSource;
                 }
+                this._seriesVisibility = new SeriesVisibilityState();
                 this.bind(this.events, this.options);
                 this._initDataSource(userOptions);
                 kendo.notify(this, dataviz.ui);
@@ -43032,7 +43024,7 @@
                     pointVisibility[pointIndex] = defined(visible) ? !visible : false;
                 } else {
                     currentSeries.visible = !currentSeries.visible;
-                    this._saveGroupVisibleState(currentSeries);
+                    this._seriesVisibility.save(currentSeries);
                 }
                 chart._noTransitionsRedraw();
             },
@@ -43045,14 +43037,17 @@
                 highlight.hide();
             },
             _bindData: function (e) {
-                var chart = this, options = chart.options, series = chart._sourceSeries || options.series, seriesIx, seriesLength = series.length, data = chart.dataSource.view(), grouped = (chart.dataSource.group() || []).length > 0, processedSeries = [], currentSeries;
+                var chart = this, options = chart.options, series = chart._sourceSeries || options.series, seriesIx, seriesLength = series.length, data = chart.dataSource.view(), grouped = (chart.dataSource.group() || []).length > 0, processedSeries = [], seriesVisibility = this._seriesVisibility, currentSeries, groupedSeries;
                 for (seriesIx = 0; seriesIx < seriesLength; seriesIx++) {
                     currentSeries = series[seriesIx];
                     if (chart._isBindable(currentSeries) && grouped) {
-                        processedSeries = processedSeries.concat(groupSeries(currentSeries, data));
-                        this._applyGroupVisibleState(processedSeries, e);
+                        groupedSeries = groupSeries(currentSeries, data);
+                        processedSeries = processedSeries.concat(groupedSeries);
+                        seriesVisibility.applyByGroup(groupedSeries, e);
                     } else {
-                        processedSeries.push(currentSeries || []);
+                        currentSeries = extend({}, currentSeries);
+                        processedSeries.push(currentSeries);
+                        seriesVisibility.applyByIndex(currentSeries, e);
                     }
                 }
                 chart._sourceSeries = series;
@@ -43066,26 +43061,6 @@
                 this._bindData(e);
                 this.trigger(DATABOUND);
                 this._redraw();
-            },
-            _applyGroupVisibleState: function (processedSeries, e) {
-                if (e && e.action) {
-                    var visibleState = this._groupVisibleState = this._groupVisibleState || {};
-                    for (var idx = 0; idx < processedSeries.length; idx++) {
-                        if (visibleState[processedSeries[idx]._groupValue] === false) {
-                            processedSeries[idx].visible = false;
-                        }
-                    }
-                } else {
-                    delete this._groupVisibleState;
-                }
-            },
-            _saveGroupVisibleState: function (series) {
-                if (defined(series._groupValue)) {
-                    if (!this._groupVisibleState) {
-                        this._groupVisibleState = {};
-                    }
-                    this._groupVisibleState[series._groupValue] = series.visible;
-                }
             },
             _bindSeries: function () {
                 var chart = this, data = chart.dataSource.view(), series = chart.options.series, seriesIx, seriesLength = series.length, currentSeries, groupIx, seriesData;
@@ -43215,6 +43190,42 @@
             kendo.PDFMixin.extend(Chart.fn);
         }
         dataviz.ui.plugin(Chart);
+        var SeriesVisibilityState = Class.extend({
+            init: function () {
+                this.groups = {};
+                this.index = {};
+            },
+            applyByGroup: function (series, e) {
+                if (e && e.action) {
+                    for (var idx = 0; idx < series.length; idx++) {
+                        if (this.groups[series[idx]._groupValue] === false) {
+                            series[idx].visible = false;
+                        }
+                    }
+                } else {
+                    this.groups = {};
+                }
+            },
+            applyByIndex: function (series, e) {
+                if (e && e.action) {
+                    if (this.index[series.index] === false) {
+                        series.visible = false;
+                    }
+                } else {
+                    this.index = {};
+                }
+            },
+            save: function (series) {
+                if (!series) {
+                    return;
+                }
+                if (defined(series._groupValue)) {
+                    this.groups[series._groupValue] = series.visible;
+                } else {
+                    this.index[series.index] = series.visible;
+                }
+            }
+        });
         var geom = kendo.geometry;
         var Tooltip = Observable.extend({
             init: function (chartElement, options) {
@@ -43530,7 +43541,7 @@
                 var hasFilter = kendo.isFunction(filter);
                 if (!hasFilter) {
                     seriesOptions.visible = visible;
-                    chart._saveGroupVisibleState(seriesOptions);
+                    chart._seriesVisibility.save(seriesOptions);
                 } else {
                     if (inArray(seriesOptions.type, [
                             PIE,
@@ -53665,15 +53676,20 @@
                 return this._origin;
             },
             _setExtent: function (extent) {
-                extent = Extent.create(extent);
+                var raw = Extent.create(extent);
+                var se = raw.se.clone();
+                if (this.options.wraparound && se.lng < 0 && extent.nw.lng > 0) {
+                    se.lng = 180 + (180 + se.lng);
+                }
+                extent = new Extent(raw.nw, se);
                 this.center(extent.center());
                 var width = this.element.width();
                 var height = this.element.height();
                 for (var zoom = this.options.maxZoom; zoom >= this.options.minZoom; zoom--) {
-                    var nw = this.locationToLayer(extent.nw, zoom);
-                    var se = this.locationToLayer(extent.se, zoom);
-                    var layerWidth = math.abs(se.x - nw.x);
-                    var layerHeight = math.abs(se.y - nw.y);
+                    var topLeft = this.locationToLayer(extent.nw, zoom);
+                    var bottomRight = this.locationToLayer(extent.se, zoom);
+                    var layerWidth = math.abs(bottomRight.x - topLeft.x);
+                    var layerHeight = math.abs(bottomRight.y - topLeft.y);
                     if (layerWidth <= width && layerHeight <= height) {
                         break;
                     }
@@ -64338,7 +64354,7 @@
                             },
                             weekNumberBuild: function (date) {
                                 return {
-                                    weekNumber: weekInYear(date, date),
+                                    weekNumber: weekInYear(date, kendo.culture().calendar.firstDay),
                                     currentDate: date
                                 };
                             }

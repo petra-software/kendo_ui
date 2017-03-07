@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.223 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.307 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -776,14 +776,8 @@
         }
         var Point = Class.extend({
             init: function (x, y) {
-                if (x === void 0) {
-                    x = 0;
-                }
-                if (y === void 0) {
-                    y = 0;
-                }
-                this.x = x;
-                this.y = y;
+                this.x = x || 0;
+                this.y = y || 0;
             },
             equals: function (other) {
                 return other && other.x === this.x && other.y === this.y;
@@ -925,14 +919,8 @@
         ObserversMixin.extend(Point.prototype);
         var Size = Class.extend({
             init: function (width, height) {
-                if (width === void 0) {
-                    width = 0;
-                }
-                if (height === void 0) {
-                    height = 0;
-                }
-                this.width = width;
-                this.height = height;
+                this.width = width || 0;
+                this.height = height || 0;
             },
             equals: function (other) {
                 return other && other.width === this.width && other.height === this.height;
@@ -5758,7 +5746,7 @@
             if (el.closest) {
                 return el.closest(selector);
             }
-            while (el && el !== document) {
+            while (el && !/^\[object (?:HTML)?Document\]$/.test(String(el))) {
                 if (matches(el, selector)) {
                     return el;
                 }
@@ -7860,7 +7848,7 @@
                 renderFormField(element, group);
                 break;
             default:
-                var blocks = [], floats = [], inline = [], positioned = [];
+                var children = [], floats = [], positioned = [];
                 for (var i = element.firstChild; i; i = i.nextSibling) {
                     switch (i.nodeType) {
                     case 3:
@@ -7870,30 +7858,22 @@
                         break;
                     case 1:
                         var style = getComputedStyle(i);
-                        var display = getPropertyValue(style, 'display');
                         var floating = getPropertyValue(style, 'float');
                         var position = getPropertyValue(style, 'position');
                         if (position != 'static') {
                             positioned.push(i);
-                        } else if (display != 'inline') {
-                            if (floating != 'none') {
-                                floats.push(i);
-                            } else {
-                                blocks.push(i);
-                            }
+                        } else if (floating != 'none') {
+                            floats.push(i);
                         } else {
-                            inline.push(i);
+                            children.push(i);
                         }
                         break;
                     }
                 }
-                mergeSort(blocks, zIndexSort).forEach(function (el) {
+                mergeSort(children, zIndexSort).forEach(function (el) {
                     renderElement(el, group);
                 });
                 mergeSort(floats, zIndexSort).forEach(function (el) {
-                    renderElement(el, group);
-                });
-                mergeSort(inline, zIndexSort).forEach(function (el) {
                     renderElement(el, group);
                 });
                 mergeSort(positioned, zIndexSort).forEach(function (el) {

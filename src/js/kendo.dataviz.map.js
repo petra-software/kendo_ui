@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.223 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.307 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -2342,15 +2342,20 @@
                 return this._origin;
             },
             _setExtent: function (extent) {
-                extent = Extent.create(extent);
+                var raw = Extent.create(extent);
+                var se = raw.se.clone();
+                if (this.options.wraparound && se.lng < 0 && extent.nw.lng > 0) {
+                    se.lng = 180 + (180 + se.lng);
+                }
+                extent = new Extent(raw.nw, se);
                 this.center(extent.center());
                 var width = this.element.width();
                 var height = this.element.height();
                 for (var zoom = this.options.maxZoom; zoom >= this.options.minZoom; zoom--) {
-                    var nw = this.locationToLayer(extent.nw, zoom);
-                    var se = this.locationToLayer(extent.se, zoom);
-                    var layerWidth = math.abs(se.x - nw.x);
-                    var layerHeight = math.abs(se.y - nw.y);
+                    var topLeft = this.locationToLayer(extent.nw, zoom);
+                    var bottomRight = this.locationToLayer(extent.se, zoom);
+                    var layerWidth = math.abs(bottomRight.x - topLeft.x);
+                    var layerHeight = math.abs(bottomRight.y - topLeft.y);
                     if (layerWidth <= width && layerHeight <= height) {
                         break;
                     }
