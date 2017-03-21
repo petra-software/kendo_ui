@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.307 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.321 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -6688,7 +6688,7 @@
         function getComputedStyle(element, pseudoElt) {
             return window.getComputedStyle(element, pseudoElt || null);
         }
-        function getPropertyValue(style, prop) {
+        function getPropertyValue(style, prop, defa) {
             var val = style.getPropertyValue(prop);
             if (val == null || val === '') {
                 if (browser.webkit) {
@@ -6701,7 +6701,11 @@
                     val = style.getPropertyValue('-ms-' + prop);
                 }
             }
-            return val;
+            if (arguments.length > 2 && (val == null || val === '')) {
+                return defa;
+            } else {
+                return val;
+            }
         }
         function pleaseSetPropertyValue(style, prop, value, important) {
             style.setProperty(prop, value, important);
@@ -7482,57 +7486,55 @@
                 if (top.width === 0 && left.width === 0 && right.width === 0 && bottom.width === 0) {
                     return;
                 }
-                {
-                    if (top.color == right.color && top.color == bottom.color && top.color == left.color) {
-                        if (top.width == right.width && top.width == bottom.width && top.width == left.width) {
-                            if (shouldDrawLeft && shouldDrawRight) {
-                                box = innerBox(box, top.width / 2);
-                                var path = elementRoundBox(element, box, top.width / 2);
-                                path.options.stroke = {
-                                    color: top.color,
-                                    width: top.width
-                                };
-                                group.append(path);
-                                return;
-                            }
-                        }
-                    }
-                    if (rTL0.x === 0 && rTR0.x === 0 && rBR0.x === 0 && rBL0.x === 0) {
-                        if (top.width < 2 && left.width < 2 && right.width < 2 && bottom.width < 2) {
-                            if (top.width > 0) {
-                                group.append(new Path({
-                                    stroke: {
-                                        width: top.width,
-                                        color: top.color
-                                    }
-                                }).moveTo(box.left, box.top + top.width / 2).lineTo(box.right, box.top + top.width / 2));
-                            }
-                            if (bottom.width > 0) {
-                                group.append(new Path({
-                                    stroke: {
-                                        width: bottom.width,
-                                        color: bottom.color
-                                    }
-                                }).moveTo(box.left, box.bottom - bottom.width / 2).lineTo(box.right, box.bottom - bottom.width / 2));
-                            }
-                            if (shouldDrawLeft) {
-                                group.append(new Path({
-                                    stroke: {
-                                        width: left.width,
-                                        color: left.color
-                                    }
-                                }).moveTo(box.left + left.width / 2, box.top).lineTo(box.left + left.width / 2, box.bottom));
-                            }
-                            if (shouldDrawRight) {
-                                group.append(new Path({
-                                    stroke: {
-                                        width: right.width,
-                                        color: right.color
-                                    }
-                                }).moveTo(box.right - right.width / 2, box.top).lineTo(box.right - right.width / 2, box.bottom));
-                            }
+                if (top.color == right.color && top.color == bottom.color && top.color == left.color) {
+                    if (top.width == right.width && top.width == bottom.width && top.width == left.width) {
+                        if (shouldDrawLeft && shouldDrawRight) {
+                            box = innerBox(box, top.width / 2);
+                            var path = elementRoundBox(element, box, top.width / 2);
+                            path.options.stroke = {
+                                color: top.color,
+                                width: top.width
+                            };
+                            group.append(path);
                             return;
                         }
+                    }
+                }
+                if (rTL0.x === 0 && rTR0.x === 0 && rBR0.x === 0 && rBL0.x === 0) {
+                    if (top.width < 2 && left.width < 2 && right.width < 2 && bottom.width < 2) {
+                        if (top.width > 0) {
+                            group.append(new Path({
+                                stroke: {
+                                    width: top.width,
+                                    color: top.color
+                                }
+                            }).moveTo(box.left, box.top + top.width / 2).lineTo(box.right, box.top + top.width / 2));
+                        }
+                        if (bottom.width > 0) {
+                            group.append(new Path({
+                                stroke: {
+                                    width: bottom.width,
+                                    color: bottom.color
+                                }
+                            }).moveTo(box.left, box.bottom - bottom.width / 2).lineTo(box.right, box.bottom - bottom.width / 2));
+                        }
+                        if (shouldDrawLeft) {
+                            group.append(new Path({
+                                stroke: {
+                                    width: left.width,
+                                    color: left.color
+                                }
+                            }).moveTo(box.left + left.width / 2, box.top).lineTo(box.left + left.width / 2, box.bottom));
+                        }
+                        if (shouldDrawRight) {
+                            group.append(new Path({
+                                stroke: {
+                                    width: right.width,
+                                    color: right.color
+                                }
+                            }).moveTo(box.right - right.width / 2, box.top).lineTo(box.right - right.width / 2, box.bottom));
+                        }
+                        return;
                     }
                 }
                 var tmp = adjustBorderRadiusForBox(box, rTL0, rTR0, rBR0, rBL0);
@@ -7913,6 +7915,7 @@
             var range = element.ownerDocument.createRange();
             var align$$1 = getPropertyValue(style, 'text-align');
             var isJustified = align$$1 == 'justify';
+            var columnCount = getPropertyValue(style, 'column-count', 1);
             var whiteSpace = getPropertyValue(style, 'white-space');
             var textOverflow, saveTextOverflow;
             if (browser.msie) {
@@ -7976,7 +7979,7 @@
                 range.setEnd(node, start + 1);
                 box = actuallyGetRangeBoundingRect(range);
                 var found = false;
-                if (isJustified) {
+                if (isJustified || columnCount > 1) {
                     pos = text.substr(start).search(/\s/);
                     if (pos >= 0) {
                         range.setEnd(node, start + pos);

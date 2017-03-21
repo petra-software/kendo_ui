@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.307 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.321 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -535,6 +535,44 @@
                 return a.index - b.index;
             });
         }
+        function pushUnique(array, el) {
+            if (array.indexOf(el) < 0) {
+                array.push(el);
+            }
+        }
+        function getSpan(mergedCells, ref) {
+            ref = ref;
+            for (var i = 0; i < mergedCells.length; ++i) {
+                var range = mergedCells[i];
+                var topLeft = range.substr(0, 2);
+                if (topLeft == ref) {
+                    var bottomRight = range.substr(3);
+                    topLeft = parseRef(topLeft);
+                    bottomRight = parseRef(bottomRight);
+                    return {
+                        rowSpan: bottomRight.row - topLeft.row + 1,
+                        colSpan: bottomRight.col - topLeft.col + 1
+                    };
+                }
+            }
+        }
+        function parseRef(ref) {
+            function getcol(str) {
+                str = str.toUpperCase();
+                for (var col = 0, i = 0; i < str.length; ++i) {
+                    col = col * 26 + str.charCodeAt(i) - 64;
+                }
+                return col - 1;
+            }
+            function getrow(str) {
+                return parseInt(str, 10) - 1;
+            }
+            var m = /^([a-z]+)(\d+)$/i.exec(ref);
+            return {
+                row: getrow(m[2]),
+                col: getcol(m[1])
+            };
+        }
         function fillCells(data, ctx) {
             var row = data._source;
             var rowIndex = data.index;
@@ -548,9 +586,17 @@
                 var rowSpan = cell.rowSpan || 1;
                 var colSpan = cell.colSpan || 1;
                 var cellIndex = insertCell(cellData, cell);
+                var topLeftRef = ref(rowIndex, cellIndex);
+                if (rowSpan == 1 && colSpan == 1) {
+                    var tmp = getSpan(ctx.mergedCells, topLeftRef);
+                    if (tmp) {
+                        colSpan = tmp.colSpan;
+                        rowSpan = tmp.rowSpan;
+                    }
+                }
                 spanCell(cell, cellData, cellIndex, colSpan);
                 if (rowSpan > 1 || colSpan > 1) {
-                    ctx.mergedCells.push(ref(rowIndex, cellIndex) + ':' + ref(rowIndex + rowSpan - 1, cellIndex + colSpan - 1));
+                    pushUnique(ctx.mergedCells, topLeftRef + ':' + ref(rowIndex + rowSpan - 1, cellIndex + colSpan - 1));
                 }
                 if (rowSpan > 1) {
                     for (var ri = rowIndex + 1; ri < rowIndex + rowSpan; ri++) {

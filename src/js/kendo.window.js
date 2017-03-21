@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.307 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.321 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -444,7 +444,7 @@
             _object: function (element) {
                 var content = element.children(KWINDOWCONTENT);
                 var widget = kendo.widgetInstance(content);
-                if (widget instanceof Window) {
+                if (widget) {
                     return widget;
                 }
                 return undefined;

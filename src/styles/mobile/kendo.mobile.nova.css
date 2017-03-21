@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.307 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.321 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -3841,7 +3841,8 @@ div.km-split-horizontal > .km-content > .km-pane {
   background: #fff;
 }
 .km-nova .km-actionsheet > li:nth-last-child(2) > a {
-  border-image: none;
+  -webkit-border-image: none;
+          border-image: none;
 }
 .km-nova .km-footer .km-tabstrip .km-button,
 .km-nova .km-actionsheet-wrapper,
