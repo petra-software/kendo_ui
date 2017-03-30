@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.321 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.330 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -33,7 +33,7 @@
     };
     (function ($, window, undefined) {
         var kendo = window.kendo = window.kendo || { cultures: {} }, extend = $.extend, each = $.each, isArray = $.isArray, proxy = $.proxy, noop = $.noop, math = Math, Template, JSON = window.JSON || {}, support = {}, percentRegExp = /%/, formatRegExp = /\{(\d+)(:[^\}]+)?\}/g, boxShadowRegExp = /(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+)?/i, numberRegExp = /^(\+|-?)\d+(\.?)\d*$/, FUNCTION = 'function', STRING = 'string', NUMBER = 'number', OBJECT = 'object', NULL = 'null', BOOLEAN = 'boolean', UNDEFINED = 'undefined', getterCache = {}, setterCache = {}, slice = [].slice;
-        kendo.version = '2017.1.321'.replace(/^\s+|\s+$/g, '');
+        kendo.version = '2017.1.330'.replace(/^\s+|\s+$/g, '');
         function Class() {
         }
         Class.extend = function (proto) {
@@ -19498,7 +19498,7 @@
                     }
                 });
                 var promise = createPromise();
-                promiseAll(loadingStates).then(function () {
+                var resolveDataURL = function () {
                     root._invalidate();
                     try {
                         var data = rootElement.toDataURL();
@@ -19506,9 +19506,8 @@
                     } catch (e) {
                         promise.reject(e);
                     }
-                }, function (e) {
-                    promise.reject(e);
-                });
+                };
+                promiseAll(loadingStates).then(resolveDataURL, resolveDataURL);
                 return promise;
             },
             suspendTracking: function () {
@@ -20725,6 +20724,16 @@
                 }
             }
         }
+        function updateCounters(style) {
+            var counterReset = getPropertyValue(style, 'counter-reset');
+            if (counterReset) {
+                doCounters(splitProperty(counterReset, /^\s+/), resetCounter, 0);
+            }
+            var counterIncrement = getPropertyValue(style, 'counter-increment');
+            if (counterIncrement) {
+                doCounters(splitProperty(counterIncrement, /^\s+/), incCounter, 1);
+            }
+        }
         function parseColor$1(str, css) {
             var color = kendo.parseColor(str, true);
             if (color) {
@@ -21209,6 +21218,7 @@
             var fake = [];
             function pseudo(kind, place) {
                 var style = getComputedStyle(element, kind);
+                updateCounters(style);
                 if (style.content && style.content != 'normal' && style.content != 'none' && style.width != '0px') {
                     var psel = element.ownerDocument.createElement(KENDO_PSEUDO_ELEMENT);
                     psel.style.cssText = getCssText(style);
@@ -22304,14 +22314,7 @@
         }
         function renderElement(element, container) {
             var style = getComputedStyle(element);
-            var counterReset = getPropertyValue(style, 'counter-reset');
-            if (counterReset) {
-                doCounters(splitProperty(counterReset, /^\s+/), resetCounter, 0);
-            }
-            var counterIncrement = getPropertyValue(style, 'counter-increment');
-            if (counterIncrement) {
-                doCounters(splitProperty(counterIncrement, /^\s+/), incCounter, 1);
-            }
+            updateCounters(style);
             if (/^(style|script|link|meta|iframe|svg|col|colgroup)$/i.test(element.tagName)) {
                 return;
             }
@@ -29053,6 +29056,7 @@
             mapColor('chart.axisDefaults.notes.icon.border.color', 'chart-notes-border');
             mapColor('chart.axisDefaults.notes.line.color', 'chart-notes-lines');
             mapColor('chart.axisDefaults.title.color', 'normal-text-color');
+            mapColor('chart.chartArea.background', 'background');
             mapColor('chart.legend.inactiveItems.labels.color', 'chart-inactive');
             mapColor('chart.legend.inactiveItems.markers.color', 'chart-inactive');
             mapColor('chart.legend.labels.color', 'normal-text-color');
@@ -33602,33 +33606,40 @@
                 var this$1 = this;
                 var seriesPoints = this.seriesPoints;
                 var startIdx = linePoints[0].categoryIx;
-                var endIdx = startIdx + linePoints.length;
+                var length = linePoints.length;
+                if (startIdx < 0) {
+                    startIdx = 0;
+                    length--;
+                }
+                var endIdx = startIdx + length;
+                var pointOffset = this.seriesOptions[0]._outOfRangeMinPoint ? 1 : 0;
                 var stackPoints = [];
                 this._stackPoints = this._stackPoints || [];
-                for (var idx = startIdx; idx < endIdx; idx++) {
+                for (var categoryIx = startIdx; categoryIx < endIdx; categoryIx++) {
+                    var pointIx = categoryIx + pointOffset;
                     var currentSeriesIx = seriesIx;
                     var point = void 0;
                     do {
                         currentSeriesIx--;
-                        point = seriesPoints[currentSeriesIx][idx];
+                        point = seriesPoints[currentSeriesIx][pointIx];
                     } while (currentSeriesIx > 0 && !point);
                     if (point) {
-                        if (style !== STEP && idx > startIdx && !seriesPoints[currentSeriesIx][idx - 1]) {
-                            stackPoints.push(this$1._previousSegmentPoint(idx, idx - 1, currentSeriesIx));
+                        if (style !== STEP && categoryIx > startIdx && !seriesPoints[currentSeriesIx][pointIx - 1]) {
+                            stackPoints.push(this$1._previousSegmentPoint(categoryIx, pointIx, pointIx - 1, currentSeriesIx));
                         }
                         stackPoints.push(point);
-                        if (style !== STEP && idx + 1 < endIdx && !seriesPoints[currentSeriesIx][idx + 1]) {
-                            stackPoints.push(this$1._previousSegmentPoint(idx, idx + 1, currentSeriesIx));
+                        if (style !== STEP && categoryIx + 1 < endIdx && !seriesPoints[currentSeriesIx][pointIx + 1]) {
+                            stackPoints.push(this$1._previousSegmentPoint(categoryIx, pointIx, pointIx + 1, currentSeriesIx));
                         }
                     } else {
-                        var gapStackPoint = this$1._createGapStackPoint(idx);
+                        var gapStackPoint = this$1._createGapStackPoint(categoryIx);
                         this$1._stackPoints.push(gapStackPoint);
                         stackPoints.push(gapStackPoint);
                     }
                 }
                 return stackPoints;
             },
-            _previousSegmentPoint: function (categoryIx, segmentIx, seriesIdx) {
+            _previousSegmentPoint: function (categoryIx, pointIx, segmentIx, seriesIdx) {
                 var seriesPoints = this.seriesPoints;
                 var index = seriesIdx;
                 var point;
@@ -33640,7 +33651,7 @@
                     point = this._createGapStackPoint(categoryIx);
                     this._stackPoints.push(point);
                 } else {
-                    point = seriesPoints[index][categoryIx];
+                    point = seriesPoints[index][pointIx];
                 }
                 return point;
             },
@@ -66735,7 +66746,7 @@
                         that._actions();
                         titleBar = wrapper.children(KWINDOWTITLEBAR);
                     } else {
-                        title.html(text);
+                        title.html(kendo.htmlEncode(text));
                     }
                     titleBarHeight = parseInt(outerHeight(titleBar), 10);
                     wrapper.css('padding-top', titleBarHeight);
@@ -67168,7 +67179,7 @@
         templates = {
             wrapper: template('<div class=\'k-widget k-window\' />'),
             action: template('<a role=\'button\' href=\'\\#\' class=\'k-window-action k-link\' aria-label=\'#= name #\'>' + '<span class=\'k-icon k-i-#= name.toLowerCase() #\'></span>' + '</a>'),
-            titlebar: template('<div class=\'k-window-titlebar k-header\'>&nbsp;' + '<span class=\'k-window-title\'>#= title #</span>' + '<div class=\'k-window-actions\' />' + '</div>'),
+            titlebar: template('<div class=\'k-window-titlebar k-header\'>&nbsp;' + '<span class=\'k-window-title\'>#: title #</span>' + '<div class=\'k-window-actions\' />' + '</div>'),
             overlay: '<div class=\'k-overlay\' />',
             contentFrame: template('<iframe frameborder=\'0\' title=\'#= title #\' class=\'' + KCONTENTFRAME + '\' ' + 'src=\'#= content.url #\'>' + 'This page requires frames in order to show content' + '</iframe>'),
             resizeHandle: template('<div class=\'k-resize-handle k-resize-#= data #\'></div>')
@@ -68231,7 +68242,10 @@
                     var activeFilter = that.filterInput && that.filterInput[0] === activeElement();
                     if (current) {
                         dataItem = listView.dataItemByIndex(listView.getElementIndex(current));
-                        var shouldTrigger = that._value(dataItem) !== List.unifyType(that.value(), typeof that._value(dataItem));
+                        var shouldTrigger = true;
+                        if (dataItem) {
+                            shouldTrigger = that._value(dataItem) !== List.unifyType(that.value(), typeof that._value(dataItem));
+                        }
                         if (shouldTrigger && that.trigger(SELECT, {
                                 dataItem: dataItem,
                                 item: current
@@ -69936,17 +69950,18 @@
                 }
             },
             _focusItem: function () {
+                var options = this.options;
                 var listView = this.listView;
                 var focusedItem = listView.focus();
                 var index = listView.select();
                 index = index[index.length - 1];
-                if (index === undefined && this.options.highlightFirst && !focusedItem) {
+                if (index === undefined && options.highlightFirst && !focusedItem) {
                     index = 0;
                 }
                 if (index !== undefined) {
                     listView.focus(index);
                 } else {
-                    if (this.options.optionLabel) {
+                    if (options.optionLabel && (!options.virtual || options.virtual.mapValueTo !== 'dataItem')) {
                         this._focus(this.optionLabel);
                         this._select(this.optionLabel);
                     } else {

@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.321 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.330 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -711,6 +711,7 @@
                         click: function (e) {
                             selector.options._clearedColor = true;
                             that.value(null);
+                            that.element.val(null);
                             that._updateUI(null);
                             selector._colorAsText.val('');
                             selector._hsvHandle.css({
@@ -718,6 +719,7 @@
                                 left: '0px'
                             });
                             selector._selectedColor.css(BACKGROUNDCOLOR, WHITE);
+                            that.trigger('change', { value: that.value() });
                             e.preventDefault();
                         }
                     });

@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.321 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.330 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -13866,8 +13866,8 @@
                     if (!pane) {
                         object = { type: 'outside' };
                     } else {
-                        var row = pane._grid.rows.index(y, this.scroller.scrollTop);
-                        var column = pane._grid.columns.index(x, this.scroller.scrollLeft);
+                        var row = pane._grid.rows.indexVisible(y, this.scroller.scrollTop);
+                        var column = pane._grid.columns.indexVisible(x, this.scroller.scrollLeft);
                         var type = 'cell';
                         var ref = new CellRef(row, column);
                         var selecting = this._sheet.selectionInProgress();
@@ -15199,6 +15199,13 @@
                 }
                 return index;
             },
+            indexVisible: function (value) {
+                var index = this.index(value);
+                if (this.hidden(index)) {
+                    index = this.prevVisible(index);
+                }
+                return index;
+            },
             _refresh: function () {
                 var current = 0;
                 this._pixelValues = this.values.map(function (range) {
@@ -15245,6 +15252,9 @@
             },
             index: function (value, offset) {
                 return this._axis.index(value + (this.frozen ? 0 : offset) - this.headerSize);
+            },
+            indexVisible: function (value, offset) {
+                return this._axis.indexVisible(value + (this.frozen ? 0 : offset) - this.headerSize);
             },
             paneSegment: function () {
                 var offset = this.start();

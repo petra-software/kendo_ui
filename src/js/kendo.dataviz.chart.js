@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.321 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.330 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -2161,33 +2161,40 @@
                 var this$1 = this;
                 var seriesPoints = this.seriesPoints;
                 var startIdx = linePoints[0].categoryIx;
-                var endIdx = startIdx + linePoints.length;
+                var length = linePoints.length;
+                if (startIdx < 0) {
+                    startIdx = 0;
+                    length--;
+                }
+                var endIdx = startIdx + length;
+                var pointOffset = this.seriesOptions[0]._outOfRangeMinPoint ? 1 : 0;
                 var stackPoints = [];
                 this._stackPoints = this._stackPoints || [];
-                for (var idx = startIdx; idx < endIdx; idx++) {
+                for (var categoryIx = startIdx; categoryIx < endIdx; categoryIx++) {
+                    var pointIx = categoryIx + pointOffset;
                     var currentSeriesIx = seriesIx;
                     var point = void 0;
                     do {
                         currentSeriesIx--;
-                        point = seriesPoints[currentSeriesIx][idx];
+                        point = seriesPoints[currentSeriesIx][pointIx];
                     } while (currentSeriesIx > 0 && !point);
                     if (point) {
-                        if (style !== STEP && idx > startIdx && !seriesPoints[currentSeriesIx][idx - 1]) {
-                            stackPoints.push(this$1._previousSegmentPoint(idx, idx - 1, currentSeriesIx));
+                        if (style !== STEP && categoryIx > startIdx && !seriesPoints[currentSeriesIx][pointIx - 1]) {
+                            stackPoints.push(this$1._previousSegmentPoint(categoryIx, pointIx, pointIx - 1, currentSeriesIx));
                         }
                         stackPoints.push(point);
-                        if (style !== STEP && idx + 1 < endIdx && !seriesPoints[currentSeriesIx][idx + 1]) {
-                            stackPoints.push(this$1._previousSegmentPoint(idx, idx + 1, currentSeriesIx));
+                        if (style !== STEP && categoryIx + 1 < endIdx && !seriesPoints[currentSeriesIx][pointIx + 1]) {
+                            stackPoints.push(this$1._previousSegmentPoint(categoryIx, pointIx, pointIx + 1, currentSeriesIx));
                         }
                     } else {
-                        var gapStackPoint = this$1._createGapStackPoint(idx);
+                        var gapStackPoint = this$1._createGapStackPoint(categoryIx);
                         this$1._stackPoints.push(gapStackPoint);
                         stackPoints.push(gapStackPoint);
                     }
                 }
                 return stackPoints;
             },
-            _previousSegmentPoint: function (categoryIx, segmentIx, seriesIdx) {
+            _previousSegmentPoint: function (categoryIx, pointIx, segmentIx, seriesIdx) {
                 var seriesPoints = this.seriesPoints;
                 var index = seriesIdx;
                 var point;
@@ -2199,7 +2206,7 @@
                     point = this._createGapStackPoint(categoryIx);
                     this._stackPoints.push(point);
                 } else {
-                    point = seriesPoints[index][categoryIx];
+                    point = seriesPoints[index][pointIx];
                 }
                 return point;
             },

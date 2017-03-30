@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.321 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.330 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -5317,7 +5317,7 @@
                     }
                 });
                 var promise = createPromise();
-                promiseAll(loadingStates).then(function () {
+                var resolveDataURL = function () {
                     root._invalidate();
                     try {
                         var data = rootElement.toDataURL();
@@ -5325,9 +5325,8 @@
                     } catch (e) {
                         promise.reject(e);
                     }
-                }, function (e) {
-                    promise.reject(e);
-                });
+                };
+                promiseAll(loadingStates).then(resolveDataURL, resolveDataURL);
                 return promise;
             },
             suspendTracking: function () {
@@ -6544,6 +6543,16 @@
                 }
             }
         }
+        function updateCounters(style) {
+            var counterReset = getPropertyValue(style, 'counter-reset');
+            if (counterReset) {
+                doCounters(splitProperty(counterReset, /^\s+/), resetCounter, 0);
+            }
+            var counterIncrement = getPropertyValue(style, 'counter-increment');
+            if (counterIncrement) {
+                doCounters(splitProperty(counterIncrement, /^\s+/), incCounter, 1);
+            }
+        }
         function parseColor$1(str, css) {
             var color = kendo.parseColor(str, true);
             if (color) {
@@ -7028,6 +7037,7 @@
             var fake = [];
             function pseudo(kind, place) {
                 var style = getComputedStyle(element, kind);
+                updateCounters(style);
                 if (style.content && style.content != 'normal' && style.content != 'none' && style.width != '0px') {
                     var psel = element.ownerDocument.createElement(KENDO_PSEUDO_ELEMENT);
                     psel.style.cssText = getCssText(style);
@@ -8123,14 +8133,7 @@
         }
         function renderElement(element, container) {
             var style = getComputedStyle(element);
-            var counterReset = getPropertyValue(style, 'counter-reset');
-            if (counterReset) {
-                doCounters(splitProperty(counterReset, /^\s+/), resetCounter, 0);
-            }
-            var counterIncrement = getPropertyValue(style, 'counter-increment');
-            if (counterIncrement) {
-                doCounters(splitProperty(counterIncrement, /^\s+/), incCounter, 1);
-            }
+            updateCounters(style);
             if (/^(style|script|link|meta|iframe|svg|col|colgroup)$/i.test(element.tagName)) {
                 return;
             }

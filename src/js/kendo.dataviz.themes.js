@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.321 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.330 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -478,6 +478,7 @@
             mapColor('chart.axisDefaults.notes.icon.border.color', 'chart-notes-border');
             mapColor('chart.axisDefaults.notes.line.color', 'chart-notes-lines');
             mapColor('chart.axisDefaults.title.color', 'normal-text-color');
+            mapColor('chart.chartArea.background', 'background');
             mapColor('chart.legend.inactiveItems.labels.color', 'chart-inactive');
             mapColor('chart.legend.inactiveItems.markers.color', 'chart-inactive');
             mapColor('chart.legend.labels.color', 'normal-text-color');
