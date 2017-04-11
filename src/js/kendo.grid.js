@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.330 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.411 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -5866,7 +5866,7 @@
                 var result = new $.Deferred();
                 var dataSource = grid.dataSource;
                 var allPages = grid.options.pdf.allPages;
-                var origBody = grid.wrapper.find('.k-grid-content tbody');
+                var origBody = grid.wrapper.find('table[role="grid"] > tbody');
                 var cont = $('<div>').css({
                     position: 'absolute',
                     left: -10000,
@@ -5881,10 +5881,15 @@
                     width: 'auto',
                     overflow: 'visible'
                 });
+                clone.find('table[role="grid"]').css({
+                    height: 'auto',
+                    width: '100%',
+                    overflow: 'visible'
+                });
                 clone.find('.k-grid-pager, .k-grid-toolbar, .k-grouping-header').remove();
                 clone.find('.k-grid-header').css({ paddingRight: 0 });
                 this._initPDFProgress(progress);
-                var body = clone.find('.k-grid-content tbody').empty();
+                var body = clone.find('table[role="grid"] > tbody').empty();
                 var startingPage = dataSource.page();
                 function resolve() {
                     if (allPages && startingPage !== undefined) {

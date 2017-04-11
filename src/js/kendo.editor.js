@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.330 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.411 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -3994,7 +3994,7 @@
                 if (editor.immutables) {
                     this._handleImmutables(marker);
                 }
-                this._surroundFullySelectedAnchor(marker);
+                this._surroundFullySelectedAnchor(marker, range);
                 range.setStartAfter(marker.start);
                 range.setEndBefore(marker.end);
                 var start = range.startContainer;
@@ -4038,12 +4038,13 @@
                     dom.remove(endImmutable);
                 }
             },
-            _surroundFullySelectedAnchor: function (marker) {
-                var start = marker.start, startParent = start.parentNode, end = marker.end, anchorParent = dom.is(startParent, 'a') && startParent === end.parentNode && startParent, parent;
-                if (anchorParent && start === anchorParent.firstChild && end === anchorParent.lastChild) {
-                    parent = anchorParent.parentNode;
-                    parent.insertBefore(start, anchorParent);
-                    parent.insertBefore(end, anchorParent.nextSibling);
+            _surroundFullySelectedAnchor: function (marker, range) {
+                var start = marker.start, startParent = $(start).closest('a').get(0), end = marker.end, endParent = $(end).closest('a').get(0);
+                if (startParent && RangeUtils.isStartOf(range, startParent)) {
+                    dom.insertBefore(start, startParent);
+                }
+                if (endParent && RangeUtils.isEndOf(range, endParent)) {
+                    dom.insertAfter(end, endParent);
                 }
             },
             _root: function (node) {

@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.330 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.1.411 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -33,7 +33,7 @@
     };
     (function ($, window, undefined) {
         var kendo = window.kendo = window.kendo || { cultures: {} }, extend = $.extend, each = $.each, isArray = $.isArray, proxy = $.proxy, noop = $.noop, math = Math, Template, JSON = window.JSON || {}, support = {}, percentRegExp = /%/, formatRegExp = /\{(\d+)(:[^\}]+)?\}/g, boxShadowRegExp = /(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+)?/i, numberRegExp = /^(\+|-?)\d+(\.?)\d*$/, FUNCTION = 'function', STRING = 'string', NUMBER = 'number', OBJECT = 'object', NULL = 'null', BOOLEAN = 'boolean', UNDEFINED = 'undefined', getterCache = {}, setterCache = {}, slice = [].slice;
-        kendo.version = '2017.1.330'.replace(/^\s+|\s+$/g, '');
+        kendo.version = '2017.1.411'.replace(/^\s+|\s+$/g, '');
         function Class() {
         }
         Class.extend = function (proto) {
@@ -19945,12 +19945,15 @@
                         }
                         if (/^canvas$/i.test(el.tagName)) {
                             clone.getContext('2d').drawImage(el, 0, 0);
-                        } else if (/^input$/i.test(el.tagName)) {
-                            el.removeAttribute('name');
-                        } else {
-                            for (i = el.firstChild; i; i = i.nextSibling) {
-                                clone.appendChild(cloneNodes(i));
-                            }
+                        } else if (/^(?:input|select|textarea|option)$/i.test(el.tagName)) {
+                            clone.removeAttribute('id');
+                            clone.removeAttribute('name');
+                            clone.value = el.value;
+                            clone.checked = el.checked;
+                            clone.selected = el.selected;
+                        }
+                        for (i = el.firstChild; i; i = i.nextSibling) {
+                            clone.appendChild(cloneNodes(i));
                         }
                     }
                     return clone;
@@ -19964,8 +19967,13 @@
                             canvas$$1.getContext('2d').drawImage(canvases[i], 0, 0);
                         });
                     }
-                    slice$1(clone.querySelectorAll('input')).forEach(function (input) {
-                        input.removeAttribute('name');
+                    var orig = el.querySelectorAll('input, select, textarea, option');
+                    slice$1(clone.querySelectorAll('input, select, textarea, option')).forEach(function (el, i) {
+                        el.removeAttribute('id');
+                        el.removeAttribute('name');
+                        el.value = orig[i].value;
+                        el.checked = orig[i].checked;
+                        el.selected = orig[i].selected;
                     });
                     return clone;
                 };
@@ -20212,6 +20220,9 @@
                     return el.getAttribute('data-kendo-chart') || /^(?:img|tr|thead|th|tfoot|iframe|svg|object|canvas|input|textarea|select|video|h[1-6])/i.test(el.tagName);
                 }
                 function splitElement(element) {
+                    if (element.tagName == 'TABLE') {
+                        setCSS(element, { tableLayout: 'fixed' });
+                    }
                     var style = getComputedStyle(element);
                     var bottomPadding = parseFloat(getPropertyValue(style, 'padding-bottom'));
                     var bottomBorder = parseFloat(getPropertyValue(style, 'border-bottom-width'));
