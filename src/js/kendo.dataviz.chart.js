@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.1.411 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.2.504 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -4159,7 +4159,9 @@
                 this.chartService.notify(SHOW_TOOLTIP, options);
             },
             hide: function () {
-                this.chartService.notify(HIDE_TOOLTIP);
+                if (this.chartService) {
+                    this.chartService.notify(HIDE_TOOLTIP);
+                }
             },
             destroy: function () {
                 delete this.chartService;
@@ -7075,6 +7077,7 @@
         });
         PlotAreaFactory.current = new PlotAreaFactory();
         var ZOOM_ACCELERATION = 3;
+        var SELECTOR_HEIGHT_ADJUST = 0.1;
         function createDiv(className) {
             var element = document.createElement('div');
             if (className) {
@@ -7186,7 +7189,7 @@
                 var paddingTop = ref$1.paddingTop;
                 this.options = deepExtend({}, {
                     width: categoryAxisLineBox.width(),
-                    height: valueAxisLineBox.height(),
+                    height: valueAxisLineBox.height() + SELECTOR_HEIGHT_ADJUST,
                     padding: {
                         left: paddingLeft,
                         top: paddingTop
@@ -7552,7 +7555,8 @@
                         shared: true,
                         points: points,
                         category: point.category,
-                        categoryText: this.formatService.auto(this.options.categoryFormat, point.category)
+                        categoryText: this.formatService.auto(this.options.categoryFormat, point.category),
+                        series: this.plotArea.series
                     }, this.options);
                 }
             },
@@ -9879,7 +9883,7 @@
                 this._initTheme(options, themeOptions);
                 this._initSurface();
                 this._initHandlers();
-                this._bindCategories();
+                this.bindCategories();
                 dataviz.FontLoader.preloadFonts(userOptions, function () {
                     if (!this$1._destroyed) {
                         this$1._redraw();
@@ -9906,12 +9910,12 @@
                 }
                 options.series = seriesCopies;
                 resolveAxisAliases(options);
-                this._applyDefaults(options, themeOptions);
+                this.applyDefaults(options, themeOptions);
                 if (options.seriesColors === null) {
                     delete options.seriesColors;
                 }
                 this.options = deepExtend({}, themeOptions, options);
-                this._applySeriesColors();
+                this.applySeriesColors();
             },
             getSize: function () {
                 return {
@@ -9932,8 +9936,8 @@
                 this._noTransitionsRedraw();
             },
             redraw: function (paneName) {
-                this._applyDefaults(this.options);
-                this._applySeriesColors();
+                this.applyDefaults(this.options);
+                this.applySeriesColors();
                 if (paneName) {
                     var plotArea = this._model._plotArea;
                     var pane = plotArea.findPane(paneName);
@@ -9979,10 +9983,10 @@
                     }
                 }
                 if (points) {
-                    this._togglePointsHighlight(show, points);
+                    this.togglePointsHighlight(show, points);
                 }
             },
-            _togglePointsHighlight: function (show, points) {
+            togglePointsHighlight: function (show, points) {
                 var highlight = this._highlight;
                 for (var idx = 0; idx < points.length; idx++) {
                     highlight.togglePointHighlight(points[idx], show);
@@ -10114,17 +10118,20 @@
                 var tooltipOptions = ref.options.tooltip;
                 var tooltip;
                 if (this._sharedTooltip()) {
-                    tooltip = new SharedTooltip(this._plotArea, tooltipOptions);
+                    tooltip = this._createSharedTooltip(tooltipOptions);
                 } else {
                     tooltip = new Tooltip(this.chartService, tooltipOptions);
                 }
                 return tooltip;
             },
-            _applyDefaults: function (options, themeOptions) {
+            _createSharedTooltip: function (options) {
+                return new SharedTooltip(this._plotArea, options);
+            },
+            applyDefaults: function (options, themeOptions) {
                 applyAxisDefaults(options, themeOptions);
                 applySeriesDefaults(options, themeOptions);
             },
-            _applySeriesColors: function () {
+            applySeriesColors: function () {
                 var options = this.options;
                 var series = options.series;
                 var colors = options.seriesColors || [];
@@ -10755,18 +10762,18 @@
                     this._redrawTimeout = null;
                 }
             },
-            _bindCategories: function () {
+            bindCategories: function () {
                 var this$1 = this;
                 var options = this.options;
                 var definitions = [].concat(options.categoryAxis);
                 for (var axisIx = 0; axisIx < definitions.length; axisIx++) {
                     var axis = definitions[axisIx];
                     if (axis.autoBind !== false) {
-                        this$1._bindCategoryAxisFromSeries(axis, axisIx);
+                        this$1.bindCategoryAxisFromSeries(axis, axisIx);
                     }
                 }
             },
-            _bindCategoryAxisFromSeries: function (axis, axisIx) {
+            bindCategoryAxisFromSeries: function (axis, axisIx) {
                 var this$1 = this;
                 var series = this.options.series;
                 var seriesLength = series.length;
@@ -10877,7 +10884,7 @@
             },
             setOptions: function (options, theme) {
                 this.applyOptions(options, theme);
-                this._bindCategories();
+                this.bindCategories();
                 this.redraw();
                 this.updateMouseMoveHandler();
             },
@@ -10892,8 +10899,10 @@
                 var obj$1;
                 unbindEvents(document, (obj$1 = {}, obj$1[MOUSEMOVE] = this._mouseMoveTrackHandler, obj$1));
                 this._destroyView();
-                this.surface.destroy();
-                this.surface = null;
+                if (this.surface) {
+                    this.surface.destroy();
+                    this.surface = null;
+                }
                 this._clearRedrawTimeout();
             },
             _destroyView: function () {
@@ -11350,8 +11359,8 @@
             refresh: function () {
                 var chart = this;
                 var instance = chart._instance;
-                instance._applyDefaults(chart.options);
-                instance._applySeriesColors();
+                instance.applyDefaults(chart.options);
+                instance.applySeriesColors();
                 chart._bindSeries();
                 chart._bindCategories();
                 chart.trigger(DATABOUND);
@@ -11475,7 +11484,7 @@
             },
             _getThemeOptions: function (userOptions) {
                 var themeName = (userOptions || {}).theme;
-                if (themeName === 'sass' || themeName === 'default-v2') {
+                if (themeName === 'sass' || themeName === 'default-v2' || themeName === 'bootstrap-v4') {
                     return dataviz.autoTheme().chart;
                 }
                 if (defined(themeName)) {
@@ -11621,7 +11630,7 @@
                 }
                 chart._sourceSeries = series;
                 options.series = processedSeries;
-                this._instance._applySeriesColors();
+                this._instance.applySeriesColors();
                 chart._bindSeries();
                 chart._bindCategories();
                 this._hasData = true;
@@ -11674,7 +11683,7 @@
                         }
                     }
                 } else if (this._instance) {
-                    this._instance._bindCategoryAxisFromSeries(axis, axisIx);
+                    this._instance.bindCategoryAxisFromSeries(axis, axisIx);
                 }
             },
             _isBindable: function (series) {
@@ -11828,7 +11837,7 @@
             options: {
                 opacity: 1,
                 animation: { duration: TOOLTIP_ANIMATION_DURATION },
-                sharedTemplate: '<table>' + '<th colspan=\'3\'>#= categoryText #</th>' + '# for(var i = 0; i < points.length; i++) { #' + '# var point = points[i]; #' + '<tr>' + '<td><span class=\'k-chart-shared-tooltip-marker\' style=\'background-color:#:point.series.color#\'></span></td>' + '# if(point.series.name) { # ' + '<td> #= point.series.name #:</td>' + '# } #' + '<td>#= content(point) #</td>' + '</tr>' + '# } #' + '</table>',
+                sharedTemplate: '<table>' + '<th colspan=\'#= colspan #\'>#= categoryText #</th>' + '# for(var i = 0; i < points.length; i++) { #' + '# var point = points[i]; #' + '<tr>' + '# if(colorMarker) { # ' + '<td><span class=\'k-chart-shared-tooltip-marker\' style=\'background-color:#:point.series.color#\'></span></td>' + '# } #' + '# if(nameColumn) { # ' + '<td> #if (point.series.name) {# #: point.series.name #: #} else {# &nbsp; #}#</td>' + '# } #' + '<td>#= content(point) #</td>' + '</tr>' + '# } #' + '</table>',
                 categoryFormat: '{0:d}'
             },
             move: function () {
@@ -11917,13 +11926,27 @@
                 }
             },
             _sharedContent: function (e) {
-                var tooltip = this, template, content;
-                template = kendo.template(tooltip.options.sharedTemplate);
-                content = template({
-                    points: e.points,
+                var points = e.points;
+                var nameColumn = dataviz.grep(points, function (point) {
+                    return defined(point.series.name);
+                }).length;
+                var colorMarker = e.series.length > 1;
+                var colspan = 1;
+                if (nameColumn) {
+                    colspan++;
+                }
+                if (colorMarker) {
+                    colspan++;
+                }
+                var template = kendo.template(this.options.sharedTemplate);
+                var content = template({
+                    points: points,
                     category: e.category,
                     categoryText: e.categoryText,
-                    content: tooltip._pointContent
+                    content: this._pointContent,
+                    colorMarker: colorMarker,
+                    nameColumn: nameColumn,
+                    colspan: colspan
                 });
                 return content;
             },
@@ -12079,7 +12102,7 @@
                     if (series.categoryField) {
                         var axis = plotArea.seriesCategoryAxis(series);
                         var options = [].concat(chart.options.categoryAxis);
-                        chart._instance._bindCategoryAxisFromSeries(options[axis.axisIndex], axis.axisIndex);
+                        chart._instance.bindCategoryAxisFromSeries(options[axis.axisIndex], axis.axisIndex);
                     }
                     chart._noTransitionsRedraw();
                     this._clearFields();
@@ -12102,7 +12125,7 @@
                 } else {
                     elements = isArray(elements) ? elements : [elements];
                 }
-                this._chart._instance._togglePointsHighlight(show, elements);
+                this._chart._instance.togglePointsHighlight(show, elements);
             },
             toggleVisibility: function (visible, filter) {
                 var chart = this._chart;
