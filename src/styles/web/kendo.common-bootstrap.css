@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.2.621 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.2.823 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -11932,6 +11932,9 @@ div.k-spreadsheet-window {
   z-index: 10;
   margin-left: 2px;
   padding: 0 !important;
+}
+.k-spreadsheet-editor-button.k-spreadsheet-last-column {
+  margin-left: -21px;
 }
 .k-spreadsheet-editor-button span {
   position: absolute;

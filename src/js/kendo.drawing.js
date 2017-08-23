@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.2.621 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.2.823 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -197,6 +197,7 @@
         var Class = kendo.Class;
         var kendoUtil = kendo.util;
         var support = kendo.support;
+        var supportBrowser = support.browser;
         var createPromise = kendoDrawingUtil.createPromise;
         var promiseAll = kendoDrawingUtil.promiseAll;
         var ObserversMixin = {
@@ -3792,7 +3793,7 @@
             var href = document.location.href;
             var hashIndex = href.indexOf('#');
             var url = '';
-            if (base && !support.browser.msie) {
+            if (base && !supportBrowser.msie) {
                 if (hashIndex !== -1) {
                     href = href.substring(0, hashIndex);
                 }
@@ -4767,7 +4768,7 @@
             },
             renderTextAnchor: function () {
                 var anchor;
-                if ((this.options || {}).rtl) {
+                if ((this.options || {}).rtl && !(supportBrowser.msie || supportBrowser.edge)) {
                     anchor = 'end';
                 }
                 return renderAttr('text-anchor', anchor);
@@ -5769,7 +5770,7 @@
             }
             return createPromise().resolve(svg);
         }
-        var browser = support.browser;
+        var browser = supportBrowser;
         function slice$1(thing) {
             return Array.prototype.slice.call(thing);
         }

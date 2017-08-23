@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.2.621 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.2.823 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -541,12 +541,12 @@
             }
         }
         function getSpan(mergedCells, ref) {
-            ref = ref;
             for (var i = 0; i < mergedCells.length; ++i) {
                 var range = mergedCells[i];
-                var topLeft = range.substr(0, 2);
+                var a = range.split(':');
+                var topLeft = a[0];
                 if (topLeft == ref) {
-                    var bottomRight = range.substr(3);
+                    var bottomRight = a[1];
                     topLeft = parseRef(topLeft);
                     bottomRight = parseRef(bottomRight);
                     return {

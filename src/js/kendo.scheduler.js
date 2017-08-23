@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.2.621 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.2.823 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -1714,6 +1714,12 @@
                         return;
                     }
                     if (!isRight) {
+                        if (e.ctrlKey) {
+                            that._ctrlKey = e.ctrlKey;
+                        }
+                        if (e.shiftKey) {
+                            that._shiftKey = e.shiftKey;
+                        }
                         that._createSelection(e.currentTarget);
                     }
                     wrapper.focus();
@@ -1938,7 +1944,12 @@
                     }
                     selection.index = dataItem.index;
                     if (this._ctrlKey) {
-                        selection.events = selection.events.concat(events || []);
+                        var indexOfEvent = events && events.length ? selection.events.indexOf(events[0]) : -1;
+                        if (indexOfEvent > -1) {
+                            selection.events.splice(indexOfEvent, 1);
+                        } else {
+                            selection.events = selection.events.concat(events || []);
+                        }
                     } else {
                         selection.events = events || [];
                     }

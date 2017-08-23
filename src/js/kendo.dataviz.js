@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.2.621 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.2.823 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -33,7 +33,7 @@
     };
     (function ($, window, undefined) {
         var kendo = window.kendo = window.kendo || { cultures: {} }, extend = $.extend, each = $.each, isArray = $.isArray, proxy = $.proxy, noop = $.noop, math = Math, Template, JSON = window.JSON || {}, support = {}, percentRegExp = /%/, formatRegExp = /\{(\d+)(:[^\}]+)?\}/g, boxShadowRegExp = /(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+(?:\.?)\d*)px\s*(\d+)?/i, numberRegExp = /^(\+|-?)\d+(\.?)\d*$/, FUNCTION = 'function', STRING = 'string', NUMBER = 'number', OBJECT = 'object', NULL = 'null', BOOLEAN = 'boolean', UNDEFINED = 'undefined', getterCache = {}, setterCache = {}, slice = [].slice;
-        kendo.version = '2017.2.621'.replace(/^\s+|\s+$/g, '');
+        kendo.version = '2017.2.823'.replace(/^\s+|\s+$/g, '');
         function Class() {
         }
         Class.extend = function (proto) {
@@ -8913,7 +8913,13 @@
             read: function (data) {
                 var result = DataSource.fn.read.call(this, data);
                 if (this._hierarchicalFilter) {
-                    this.filter(this._hierarchicalFilter);
+                    if (this._data && this._data.length > 0) {
+                        this.filter(this._hierarchicalFilter);
+                    } else {
+                        this.options.filter = this._hierarchicalFilter;
+                        this._filter = normalizeFilter(this.options.filter);
+                        this._hierarchicalFilter = null;
+                    }
                 }
                 return result;
             },
@@ -8942,8 +8948,7 @@
                 if (val === undefined) {
                     return this._filter;
                 }
-                if (!this.options.serverFiltering) {
-                    this._markHierarchicalQuery(val);
+                if (!this.options.serverFiltering && this._markHierarchicalQuery(val)) {
                     val = {
                         logic: 'or',
                         filters: [
@@ -8970,7 +8975,10 @@
                 var filter;
                 expressions = normalizeFilter(expressions);
                 if (!expressions || expressions.filters.length === 0) {
-                    return this;
+                    this._updateHierarchicalFilter(function () {
+                        return true;
+                    });
+                    return false;
                 }
                 compiled = Query.filterExpr(expressions);
                 fields = compiled.fields;
@@ -8982,6 +8990,7 @@
                     };
                 }
                 this._updateHierarchicalFilter(filter);
+                return true;
             },
             _updateHierarchicalFilter: function (filter) {
                 var current;
@@ -14562,6 +14571,7 @@
         var Class = kendo.Class;
         var kendoUtil = kendo.util;
         var support = kendo.support;
+        var supportBrowser = support.browser;
         var createPromise = kendoDrawingUtil.createPromise;
         var promiseAll = kendoDrawingUtil.promiseAll;
         var ObserversMixin = {
@@ -18157,7 +18167,7 @@
             var href = document.location.href;
             var hashIndex = href.indexOf('#');
             var url = '';
-            if (base && !support.browser.msie) {
+            if (base && !supportBrowser.msie) {
                 if (hashIndex !== -1) {
                     href = href.substring(0, hashIndex);
                 }
@@ -19132,7 +19142,7 @@
             },
             renderTextAnchor: function () {
                 var anchor;
-                if ((this.options || {}).rtl) {
+                if ((this.options || {}).rtl && !(supportBrowser.msie || supportBrowser.edge)) {
                     anchor = 'end';
                 }
                 return renderAttr('text-anchor', anchor);
@@ -20134,7 +20144,7 @@
             }
             return createPromise().resolve(svg);
         }
-        var browser = support.browser;
+        var browser = supportBrowser;
         function slice$1(thing) {
             return Array.prototype.slice.call(thing);
         }
@@ -23715,6 +23725,9 @@
                 this.x2 = x2 || 0;
                 this.y2 = y2 || 0;
             },
+            equals: function (box) {
+                return this.x1 === box.x1 && this.x2 === box.x2 && this.y1 === box.y1 && this.y2 === box.y2;
+            },
             width: function () {
                 return this.x2 - this.x1;
             },
@@ -24017,10 +24030,14 @@
                 return this;
             }
         });
+        var DIRECTION_ANGLE = 0.001;
         var ShapeBuilder = Class.extend({
             createRing: function (sector, options) {
                 var startAngle = sector.startAngle + 180;
                 var endAngle = sector.angle + startAngle;
+                if (sector.angle > 0 && startAngle === endAngle) {
+                    endAngle += DIRECTION_ANGLE;
+                }
                 var center = new geometry.Point(sector.center.x, sector.center.y);
                 var radius = Math.max(sector.radius, 0);
                 var innerRadius = Math.max(sector.innerRadius, 0);
@@ -24248,7 +24265,7 @@
                         highlight = this._highlight = this.createHighlight(highlightOptions);
                     }
                     if (!defined(highlight.options.zIndex)) {
-                        highlight.options.zIndex = valueOrDefault(options.zIndex, HIGHLIGHT_ZINDEX);
+                        highlight.options.zIndex = valueOrDefault(options.zIndex, this.options.zIndex);
                     }
                     this.appendVisual(highlight);
                 }
@@ -25840,7 +25857,7 @@
                     var labels = this.labels;
                     var angle;
                     for (var idx = 0; idx < labels.length; idx++) {
-                        var width = tickPositions[idx + 1] - tickPositions[idx];
+                        var width = Math.abs(tickPositions[idx + 1] - tickPositions[idx]);
                         var labelBox = labels[idx].box;
                         if (labelBox.width() > width) {
                             if (labelBox.height() > width) {
@@ -26432,13 +26449,12 @@
                 return cache;
             },
             getSlot: function (from, to, limit) {
-                var ref = this;
-                var options = ref.options;
+                var options = this.options;
                 var reverse = options.reverse;
                 var justified = options.justified;
                 var vertical = options.vertical;
-                var ref$1 = this.rangeIndices();
-                var min = ref$1.min;
+                var ref = this.rangeIndices();
+                var min = ref.min;
                 var valueAxis = vertical ? Y : X;
                 var lineBox = this.lineBox();
                 var scale = this.getScale();
@@ -26461,6 +26477,15 @@
                 slotBox[valueAxis + 1] = reverse ? p2 : p1;
                 slotBox[valueAxis + 2] = reverse ? p1 : p2;
                 return slotBox;
+            },
+            limitSlot: function (slot) {
+                var vertical = this.options.vertical;
+                var valueAxis = vertical ? Y : X;
+                var lineBox = this.lineBox();
+                var limittedSlot = slot.clone();
+                limittedSlot[valueAxis + 1] = limitValue(slot[valueAxis + 1], lineBox[valueAxis + 1], lineBox[valueAxis + 2]);
+                limittedSlot[valueAxis + 2] = limitValue(slot[valueAxis + 2], lineBox[valueAxis + 1], lineBox[valueAxis + 2]);
+                return limittedSlot;
             },
             slot: function (from, to, limit) {
                 var start = from;
@@ -27468,8 +27493,11 @@
         }
         function axisOptions(autoOptions, userOptions) {
             var options = userOptions;
+            var userSetMin, userSetMax;
             if (userOptions) {
-                var userSetLimits = defined(userOptions.min) || defined(userOptions.max);
+                userSetMin = defined(userOptions.min);
+                userSetMax = defined(userOptions.max);
+                var userSetLimits = userSetMin || userSetMax;
                 if (userSetLimits) {
                     if (userOptions.min === userOptions.max) {
                         if (userOptions.min > 0) {
@@ -27488,7 +27516,15 @@
                 }
             }
             autoOptions.minorUnit = (options.majorUnit || autoOptions.majorUnit) / 5;
-            return deepExtend(autoOptions, options);
+            var result = deepExtend(autoOptions, options);
+            if (result.min >= result.max) {
+                if (userSetMin && !userSetMax) {
+                    result.max = result.min + result.majorUnit;
+                } else if (!userSetMin && userSetMax) {
+                    result.min = result.max - result.majorUnit;
+                }
+            }
+            return result;
         }
         function remainderClose(value, divisor, ratio) {
             var remainder = round(Math.abs(value % divisor), DEFAULT_PRECISION);
@@ -32770,7 +32806,7 @@
                 var axisCrossingValue = this.categoryAxisCrossingValue(valueAxis);
                 return [
                     axisCrossingValue,
-                    point.value || axisCrossingValue
+                    isNumber(point.value) ? point.value : axisCrossingValue
                 ];
             },
             stackLimits: function (axisName, stackName) {
@@ -33014,7 +33050,24 @@
                     }
                 });
                 this.reflowCategories(categorySlots);
+                if (!this.options.clip && this.options.limitPoints && this.points.length) {
+                    this.limitPoints();
+                }
                 this.box = targetBox;
+            },
+            limitPoints: function () {
+                var this$1 = this;
+                var categoryPoints = this.categoryPoints;
+                var points = categoryPoints[0].concat(last(categoryPoints));
+                for (var idx = 0; idx < points.length; idx++) {
+                    this$1.limitPoint(points[idx]);
+                }
+            },
+            limitPoint: function (point) {
+                var limittedSlot = this.categoryAxis.limitSlot(point.box);
+                if (!limittedSlot.equals(point.box)) {
+                    point.reflow(limittedSlot);
+                }
             },
             aboveAxis: function (point, valueAxis) {
                 var axisCrossingValue = this.categoryAxisCrossingValue(valueAxis);
@@ -33110,7 +33163,8 @@
             series: [],
             invertAxes: false,
             isStacked: false,
-            clip: true
+            clip: true,
+            limitPoints: true
         });
         var PointEventsMixin = {
             click: function (chart, e) {
@@ -33404,7 +33458,8 @@
                         color: '#fff',
                         width: 2
                     }
-                }
+                },
+                zIndex: datavizConstants.HIGHLIGHT_ZINDEX
             },
             errorBars: { line: { width: 1 } }
         };
@@ -40983,6 +41038,7 @@
         RadarBarChart.prototype.reflow = CategoricalChart.prototype.reflow;
         setDefaultOptions(RadarBarChart, {
             clip: false,
+            limitPoints: false,
             animation: { type: 'pie' }
         });
         var RadarPlotArea = PolarPlotAreaBase.extend({
@@ -43420,9 +43476,14 @@
                         DONUT,
                         FUNNEL
                     ]) >= 0) {
-                    var pointVisibility = currentSeries.pointVisibility = currentSeries.pointVisibility || {};
-                    var visible = pointVisibility[pointIndex];
-                    pointVisibility[pointIndex] = defined(visible) ? !visible : false;
+                    var point = currentSeries.data[pointIndex];
+                    if (point && defined(point.visible)) {
+                        point.visible = !point.visible;
+                    } else {
+                        var pointVisibility = currentSeries.pointVisibility = currentSeries.pointVisibility || {};
+                        var visible = pointVisibility[pointIndex];
+                        pointVisibility[pointIndex] = defined(visible) ? !visible : false;
+                    }
                 } else {
                     currentSeries.visible = !currentSeries.visible;
                     this._seriesVisibility.save(currentSeries);

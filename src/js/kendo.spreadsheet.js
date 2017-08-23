@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.2.621 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.2.823 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -673,6 +673,7 @@
                 this._range = range;
             },
             redo: function () {
+                this.range().select();
                 this.exec();
             },
             undo: function () {
@@ -774,7 +775,7 @@
         kendo.spreadsheet.ClearContentCommand = Command.extend({
             exec: function () {
                 this.getState();
-                this.range().clearContent();
+                this.range().skipHiddenCells().clearContent();
             }
         });
         kendo.spreadsheet.EditCommand = PropertyChangeCommand.extend({
@@ -1364,24 +1365,56 @@
                 }
             }
         });
-        var DeleteCommand = kendo.spreadsheet.DeleteCommand = Command.extend({
+        var DeleteCommand = Command.extend({
+            exec: function () {
+                this._expandedRange = this._expand(this.range());
+                this._state = this._expandedRange.getState();
+                this._indexes = this._exec(this._expandedRange.sheet());
+            },
             undo: function () {
-                var sheet = this.range().sheet();
-                sheet.setState(this._state);
+                var self = this;
+                var range = self._expandedRange;
+                var sheet = range.sheet();
+                sheet.batch(function () {
+                    self._indexes.forEach(function (x) {
+                        self._undoOne(sheet, x);
+                        sheet._restoreModifiedFormulas(x.formulas);
+                    });
+                    range.setState(self._state);
+                }, {
+                    layout: true,
+                    recalc: true
+                });
             }
         });
         kendo.spreadsheet.DeleteRowCommand = DeleteCommand.extend({
-            exec: function () {
-                var sheet = this.range().sheet();
-                this._state = sheet.getState();
-                sheet.axisManager().deleteSelectedRows();
+            _expand: function (range) {
+                return range.resize({
+                    left: -Infinity,
+                    right: +Infinity
+                });
+            },
+            _exec: function (sheet) {
+                return sheet.axisManager().deleteSelectedRows();
+            },
+            _undoOne: function (sheet, x) {
+                sheet.insertRow(x.index);
+                sheet.rowHeight(x.index, x.height);
             }
         });
         kendo.spreadsheet.DeleteColumnCommand = DeleteCommand.extend({
-            exec: function () {
-                var sheet = this.range().sheet();
-                this._state = sheet.getState();
-                sheet.axisManager().deleteSelectedColumns();
+            _expand: function (range) {
+                return range.resize({
+                    top: -Infinity,
+                    bottom: +Infinity
+                });
+            },
+            _exec: function (sheet) {
+                return sheet.axisManager().deleteSelectedColumns();
+            },
+            _undoOne: function (sheet, x) {
+                sheet.insertColumn(x.index);
+                sheet.columnWidth(x.index, x.width);
             }
         });
         var AddCommand = Command.extend({
@@ -1390,8 +1423,16 @@
                 this._value = options.value;
             },
             undo: function () {
-                var sheet = this.range().sheet();
-                sheet.setState(this._state);
+                var self = this;
+                var sheet = self.range().sheet();
+                sheet.batch(function () {
+                    for (var i = self._pos.count; --i >= 0;) {
+                        self._undoOne(sheet, self._pos.base);
+                    }
+                }, {
+                    layout: true,
+                    recalc: true
+                });
             }
         });
         kendo.spreadsheet.AddColumnCommand = AddCommand.extend({
@@ -1401,12 +1442,14 @@
                 if (result) {
                     return result;
                 }
-                this._state = sheet.getState();
                 if (this._value === 'left') {
-                    sheet.axisManager().addColumnLeft();
+                    this._pos = sheet.axisManager().addColumnLeft();
                 } else {
-                    sheet.axisManager().addColumnRight();
+                    this._pos = sheet.axisManager().addColumnRight();
                 }
+            },
+            _undoOne: function (sheet, index) {
+                sheet.deleteColumn(index);
             }
         });
         kendo.spreadsheet.AddRowCommand = AddCommand.extend({
@@ -1416,12 +1459,14 @@
                 if (result) {
                     return result;
                 }
-                this._state = sheet.getState();
                 if (this._value === 'above') {
-                    sheet.axisManager().addRowAbove();
+                    this._pos = sheet.axisManager().addRowAbove();
                 } else {
-                    sheet.axisManager().addRowBelow();
+                    this._pos = sheet.axisManager().addRowBelow();
                 }
+            },
+            _undoOne: function (sheet, index) {
+                sheet.deleteRow(index);
             }
         });
         kendo.spreadsheet.EditValidationCommand = Command.extend({
@@ -2407,9 +2452,6 @@
             this.right = this;
             this.level = 0;
         }();
-        function passThrough(value) {
-            return value;
-        }
         function skew(node) {
             if (node.left.level === node.level) {
                 var temp = node;
@@ -2476,13 +2518,16 @@
             return node;
         }
         var Range = kendo.Class.extend({
-            init: function Value(start, end, value) {
+            init: function ValueRange(start, end, value) {
                 this.start = start;
                 this.end = end;
                 this.value = value;
             },
             intersects: function (range) {
                 return range.start <= this.end && range.end >= this.start;
+            },
+            clone: function () {
+                return new Range(this.start, this.end, this.value);
             }
         });
         var RangeTree = kendo.Class.extend({
@@ -2524,7 +2569,9 @@
                 return tree;
             },
             clone: function () {
-                return this.map(passThrough);
+                return this.map(function (value) {
+                    return value.clone();
+                });
             },
             first: function () {
                 var first = this.root;
@@ -2717,7 +2764,7 @@
                 return this.tree.clone();
             },
             setState: function (state) {
-                this.tree = state;
+                this.tree = state.clone();
             }
         });
         var Iterator = kendo.Class.extend({
@@ -3003,8 +3050,11 @@
                         value = spec.value;
                     }
                     this.lists[name] = new kendo.spreadsheet.SparseRangeList(0, cellCount, value);
-                    this.properties[name] = new spec.property(this.lists[name], this.lists[spec.depends]);
+                    var prop = this.properties[name] = new spec.property(this.lists[name], this.lists[spec.depends]);
+                    prop.spec = spec;
                 }, this);
+                this.lists.formula.tree.clone = cloneFormulaTree;
+                this.lists.validation.tree.clone = cloneFormulaTree;
             },
             getState: function () {
                 var state = {};
@@ -3088,7 +3138,7 @@
                     return index > cellCount ? null : prop.parse(at.call(iter, index));
                 };
                 iter.name = name;
-                iter.value = prop.list.range.value;
+                iter.value = prop.spec.value;
                 return iter;
             },
             sortable: function () {
@@ -3142,6 +3192,16 @@
                 }
             }
         });
+        function cloneFormulaValue(x) {
+            x = x.clone();
+            x.value = x.value.deepClone();
+            return x;
+        }
+        function cloneFormulaTree() {
+            var tree = this.map(cloneFormulaValue);
+            tree.clone = cloneFormulaTree;
+            return tree;
+        }
         kendo.spreadsheet.ALL_PROPERTIES = kendo.spreadsheet.PropertyBag.prototype.specs.reduce(function (a, spec) {
             if (spec.serializable) {
                 a.push(spec.name);
@@ -4552,14 +4612,36 @@
                 return this.includesHiddenRows(this._sheet.select());
             },
             deleteSelectedColumns: function () {
+                var indexes = [];
                 this.forEachSelectedColumn(function (sheet, index, i) {
-                    sheet.deleteColumn(index - i);
+                    index -= i;
+                    var formulas = [];
+                    indexes.unshift({
+                        index: index,
+                        formulas: formulas,
+                        width: sheet.columnWidth(index)
+                    });
+                    sheet._saveModifiedFormulas(formulas, function () {
+                        sheet.deleteColumn(index);
+                    });
                 });
+                return indexes;
             },
             deleteSelectedRows: function () {
+                var indexes = [];
                 this.forEachSelectedRow(function (sheet, index, i) {
-                    sheet.deleteRow(index - i);
+                    index -= i;
+                    var formulas = [];
+                    indexes.unshift({
+                        index: index,
+                        formulas: formulas,
+                        height: sheet.rowHeight(index)
+                    });
+                    sheet._saveModifiedFormulas(formulas, function () {
+                        sheet.deleteRow(index);
+                    });
                 });
+                return indexes;
             },
             hideSelectedColumns: function () {
                 this.forEachSelectedColumn(function (sheet, index) {
@@ -4633,16 +4715,6 @@
                     sheet.unhideRow(index);
                 });
             },
-            addColumnLeft: function () {
-                this.forEachSelectedColumn(function (sheet, index, i) {
-                    sheet.insertColumn(index - i);
-                });
-            },
-            addColumnRight: function () {
-                this.forEachSelectedColumn(function (sheet, index, i) {
-                    sheet.insertColumn(index + (i + 1));
-                });
-            },
             preventAddRow: function () {
                 var range = this._sheet.select().toRangeRef();
                 var rowCount = range.height();
@@ -4653,15 +4725,85 @@
                 var columnCount = range.width();
                 return this._sheet.preventInsertColumn(0, columnCount);
             },
-            addRowAbove: function () {
-                this.forEachSelectedRow(function (sheet, index, i) {
-                    sheet.insertRow(index - i);
+            addColumnLeft: function () {
+                var sheet = this._sheet;
+                var base, count = 0;
+                sheet.batch(function () {
+                    sheet.select().forEachColumnIndex(function (index) {
+                        if (!base) {
+                            base = index;
+                        }
+                        sheet.insertColumn(base);
+                        ++count;
+                    });
+                }, {
+                    recalc: true,
+                    layout: true
                 });
+                return {
+                    base: base,
+                    count: count
+                };
+            },
+            addColumnRight: function () {
+                var sheet = this._sheet;
+                var base, count = 0;
+                sheet.batch(function () {
+                    sheet.select().forEachColumnIndex(function (index) {
+                        base = index + 1;
+                        ++count;
+                    });
+                    for (var i = 0; i < count; ++i) {
+                        sheet.insertColumn(base);
+                    }
+                }, {
+                    recalc: true,
+                    layout: true
+                });
+                return {
+                    base: base,
+                    count: count
+                };
+            },
+            addRowAbove: function () {
+                var sheet = this._sheet;
+                var base, count = 0;
+                sheet.batch(function () {
+                    sheet.select().forEachRowIndex(function (index) {
+                        if (!base) {
+                            base = index;
+                        }
+                        sheet.insertRow(base);
+                        ++count;
+                    });
+                }, {
+                    recalc: true,
+                    layout: true
+                });
+                return {
+                    base: base,
+                    count: count
+                };
             },
             addRowBelow: function () {
-                this.forEachSelectedRow(function (sheet, index, i) {
-                    sheet.insertRow(index + (i + 1));
+                var sheet = this._sheet;
+                var base, count = 0;
+                sheet.batch(function () {
+                    sheet.select().forEachRowIndex(function (index) {
+                        base = index + 1;
+                        ++count;
+                    });
+                    for (var i = 0; i < count; ++i) {
+                        sheet.insertRow(base);
+                    }
+                }, {
+                    recalc: true,
+                    layout: true
                 });
+                return {
+                    base: base,
+                    count: count
+                };
             }
         });
         kendo.spreadsheet.AxisManager = AxisManager;
@@ -5519,7 +5661,11 @@
                     }
                     data[dr][dc] = cellState;
                     properties.forEach(function (property) {
-                        cellState[property] = typeof cell[property] == 'undefined' ? null : cell[property];
+                        var value = typeof cell[property] == 'undefined' ? null : cell[property];
+                        if (value instanceof kendo.spreadsheet.calc.runtime.Formula || value instanceof kendo.spreadsheet.validation.Validation) {
+                            value = value.deepClone();
+                        }
+                        cellState[property] = value;
                     });
                 });
                 return state;
@@ -6229,6 +6375,12 @@
             }
             return new Formula(refs, this.handler, this.print, sheet, row, col);
         },
+        deepClone: function () {
+            var refs = this.refs.map(function (ref) {
+                return ref.clone();
+            });
+            return new Formula(refs, this.handler, this.print, this.sheet, this.row, this.col);
+        },
         resolve: function (val) {
             this.pending = false;
             this.onReady.forEach(function (callback) {
@@ -6308,7 +6460,19 @@
             var newFormulaRow = this.row;
             var newFormulaCol = this.col;
             this.absrefs = null;
-            this.refs = this.refs.map(function (ref) {
+            var prevRefs = this.refs;
+            var modified = formulaMoves;
+            this.refs = prevRefs.map(function (ref) {
+                var newRef = adjust(ref);
+                if (!modified && !sameRef(newRef, ref)) {
+                    modified = true;
+                }
+                return newRef;
+            });
+            if (modified) {
+                return new Formula(prevRefs, this.handler, this.print, this.sheet, formulaRow, formulaCol);
+            }
+            function adjust(ref) {
                 if (ref === NULL) {
                     return ref;
                 }
@@ -6324,12 +6488,35 @@
                     return ref;
                 }
                 return ref.adjust(formulaRow, formulaCol, newFormulaRow, newFormulaCol, operation == 'row', start, delta);
-            }, this);
+            }
         },
         toString: function () {
             return this.print(this.row, this.col);
         }
     });
+    function sameRef(r1, r2) {
+        if (r1.constructor !== r2.constructor) {
+            return false;
+        }
+        if (r1 instanceof CellRef) {
+            return r1.sheet == r2.sheet && r1.row == r2.row && r1.col == r2.col && r1.rel == r2.rel;
+        }
+        if (r1 instanceof RangeRef) {
+            return sameRef(r1.topLeft, r2.topLeft) && sameRef(r1.bottomRight, r2.bottomRight) && r1.endSheet == r2.endSheet;
+        }
+        if (r1 instanceof UnionRef) {
+            var i = r1.refs.length;
+            if (i != r2.refs.length) {
+                return false;
+            }
+            while (--i >= 0) {
+                if (!sameRef(r1.refs[i], r2.refs[i])) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
     var FUNCS = Object.create(null);
     FUNCS['if'] = function (callback, args) {
         var self = this;
@@ -7387,6 +7574,14 @@
                 col: col
             }));
         },
+        deepClone: function () {
+            var v = new Validation(this);
+            v.from = v.from.deepClone();
+            if (v.to) {
+                v.to = v.to.deepClone();
+            }
+            return v;
+        },
         exec: function (ss, compareValue, compareFormat, callback) {
             var self = this;
             function getValue(val) {
@@ -7425,27 +7620,38 @@
             delete this.value;
         },
         adjust: function (affectedSheet, operation, start, delta) {
+            var prevFrom, prevTo, modified;
+            var formulaRow = this.row;
+            var formulaCol = this.col;
             if (this.from) {
-                this.from.adjust(affectedSheet, operation, start, delta);
+                prevFrom = this.from.adjust(affectedSheet, operation, start, delta);
             }
             if (this.to) {
-                this.to.adjust(affectedSheet, operation, start, delta);
+                prevTo = this.to.adjust(affectedSheet, operation, start, delta);
             }
             if (this.sheet.toLowerCase() == affectedSheet.toLowerCase()) {
-                var formulaRow = this.row;
-                var formulaCol = this.col;
                 switch (operation) {
                 case 'row':
                     if (formulaRow >= start) {
+                        modified = true;
                         this.row += delta;
                     }
                     break;
                 case 'col':
                     if (formulaCol >= start) {
+                        modified = true;
                         this.col += delta;
                     }
                     break;
                 }
+            }
+            if (modified || prevFrom || prevTo) {
+                var v = new Validation(this);
+                v.from = prevFrom;
+                v.to = prevTo;
+                v.row = formulaRow;
+                v.col = formulaCol;
+                return v;
             }
         },
         toJSON: function () {
@@ -7549,6 +7755,7 @@
         var RangeRef = kendo.spreadsheet.RangeRef;
         var CellRef = kendo.spreadsheet.CellRef;
         var Range = kendo.spreadsheet.Range;
+        var MODIFIED_FORMULAS;
         var Selection = kendo.Class.extend({
             init: function (sheet) {
                 this._sheet = sheet;
@@ -7760,6 +7967,27 @@
                 var targetIndex = targetRef.col * rowCount + targetRef.row;
                 this._properties.copy(nextIndex, nextBottomIndex, targetIndex);
             },
+            _saveModifiedFormulas: function (array, callback) {
+                var save = MODIFIED_FORMULAS;
+                MODIFIED_FORMULAS = array;
+                var ret = callback();
+                MODIFIED_FORMULAS = save;
+                return ret;
+            },
+            _restoreModifiedFormulas: function (array) {
+                var wb = this._workbook;
+                array.forEach(function (f) {
+                    var sheet = wb.sheetByName(f.sheet), index;
+                    if (f instanceof kendo.spreadsheet.calc.runtime.Formula) {
+                        index = sheet._grid.cellRefIndex(f);
+                        sheet._properties.set('formula', index, index, f);
+                    }
+                    if (f instanceof kendo.spreadsheet.validation.Validation) {
+                        index = sheet._grid.cellRefIndex(f);
+                        sheet._properties.set('validation', index, index, f);
+                    }
+                });
+            },
             _adjustReferences: function (operation, start, delta, mergedCells) {
                 this._mergedCells = mergedCells.reduce(function (a, ref) {
                     ref = ref.adjust(null, null, null, null, operation == 'row', start, delta);
@@ -7772,10 +8000,16 @@
                     var affectedSheet = this._name();
                     this._workbook._sheets.forEach(function (sheet) {
                         sheet._forFormulas(function (formula) {
-                            formula.adjust(affectedSheet, operation, start, delta);
+                            var prev = formula.adjust(affectedSheet, operation, start, delta);
+                            if (prev && MODIFIED_FORMULAS) {
+                                MODIFIED_FORMULAS.push(prev);
+                            }
                         });
                         sheet._forValidations(function (validation) {
-                            validation.adjust(affectedSheet, operation, start, delta);
+                            var prev = validation.adjust(affectedSheet, operation, start, delta);
+                            if (prev && MODIFIED_FORMULAS) {
+                                MODIFIED_FORMULAS.push(prev);
+                            }
                         });
                     });
                     this._workbook.adjustNames(affectedSheet, operation == 'row', start, delta);
@@ -8738,6 +8972,7 @@
                         columns: columns
                     };
                 }, {
+                    recalc: true,
                     layout: true,
                     filter: true
                 });
@@ -8760,6 +8995,7 @@
                         });
                         this._refreshFilter();
                     }, {
+                        recalc: true,
                         layout: true,
                         filter: true
                     });
@@ -13829,12 +14065,13 @@
                 var rectangle = this._rectangle(pane, selection);
                 return Math.abs(rectangle.right - x) < 8 && Math.abs(rectangle.bottom - y) < 8;
             },
-            isEditButton: function (x, y) {
+            isEditButton: function (x, y, column, columnCount) {
                 var ed = this._sheet.activeCellCustomEditor();
                 if (ed) {
+                    var editorOnLastColumn = column == columnCount - 2;
                     var r = this.activeCellRectangle();
-                    if (x > r.right && x <= r.right + 20 && y >= r.top && y <= r.bottom) {
-                        return true;
+                    if (y >= r.top && y <= r.bottom) {
+                        return editorOnLastColumn ? x < r.left && x >= r.left - 20 : x > r.right && x <= r.right + 20;
                     }
                 }
             },
@@ -13865,7 +14102,7 @@
                         } else if (!selecting && y < grid._headerHeight) {
                             ref = new CellRef(-Infinity, column);
                             type = this.isColumnResizer(x, pane, ref) ? 'columnresizehandle' : 'columnheader';
-                        } else if (this.isEditButton(x, y)) {
+                        } else if (this.isEditButton(x, y, column, grid.columnCount)) {
                             type = 'editor';
                         }
                         object = {
@@ -14594,6 +14831,7 @@
                 var self = this;
                 var sheet = self._sheet;
                 var view = self._currentView;
+                var columnCount = self._grid.columns._axis._count;
                 if (view.ref.intersects(ref)) {
                     var rectangle = self._rectangle(ref);
                     var ed = self._sheet.activeCellCustomEditor();
@@ -14604,10 +14842,15 @@
                         cell.height = rectangle.height;
                         drawCell(collection, cell, className, true);
                         if (ed) {
+                            var btnClass = 'k-button k-spreadsheet-editor-button';
+                            var isLastColumn = col == columnCount - 1;
+                            if (isLastColumn) {
+                                btnClass += ' k-spreadsheet-last-column';
+                            }
                             var btn = kendo.dom.element('div', {
-                                className: 'k-button k-spreadsheet-editor-button',
+                                className: btnClass,
                                 style: {
-                                    left: cell.left + cell.width + 'px',
+                                    left: cell.left + (isLastColumn ? 0 : cell.width) + 'px',
                                     top: cell.top + 'px',
                                     height: cell.height + 'px'
                                 }
@@ -15109,17 +15352,12 @@
                 if (index === end) {
                     return overflow ? index + 1 : index;
                 }
-                index += 1;
-                var range = this._hidden.intersecting(index, index)[0];
-                if (range.value !== 0) {
-                    if (range.end === end) {
-                        return index - 1;
-                    } else {
-                        return range.end + 1;
+                for (var i = index + 1; i <= end; ++i) {
+                    if (!this.hidden(i)) {
+                        return i;
                     }
-                } else {
-                    return index;
                 }
+                return index;
             },
             nextPage: function (index, pageSize) {
                 return this.index(this.sum(0, index - 1) + pageSize);
@@ -15147,17 +15385,12 @@
                 if (index === 0) {
                     return overflow ? -1 : 0;
                 }
-                index -= 1;
-                var range = this._hidden.intersecting(index, index)[0];
-                if (range.value !== 0) {
-                    if (range.start === 0) {
-                        return index + 1;
-                    } else {
-                        return range.start - 1;
+                for (var i = index - 1; i >= 0; --i) {
+                    if (!this.hidden(i)) {
+                        return i;
                     }
-                } else {
-                    return index;
                 }
+                return index;
             },
             unhide: function (index) {
                 if (this.hidden(index)) {
@@ -16420,7 +16653,12 @@
                             add(' ');
                         }
                     } else {
-                        add(value.charAt(iv--));
+                        if (value == '0' && chf == '?') {
+                            add(' ');
+                        } else {
+                            add(value.charAt(iv));
+                        }
+                        iv--;
                     }
                 }
                 if (j === 0) {
@@ -17257,43 +17495,23 @@
         ]
     ]);
     defineFunction('min', function (numbers) {
-        return Math.min.apply(Math, numbers);
-    }).args([
-        [
+        return numbers.length ? Math.min.apply(Math, numbers) : 0;
+    }).args([[
             'numbers',
             [
                 'collect',
                 'number'
             ]
-        ],
-        [
-            '?',
-            [
-                'assert',
-                '$numbers.length > 0',
-                'N/A'
-            ]
-        ]
-    ]);
+        ]]);
     defineFunction('max', function (numbers) {
-        return Math.max.apply(Math, numbers);
-    }).args([
-        [
+        return numbers.length ? Math.max.apply(Math, numbers) : 0;
+    }).args([[
             'numbers',
             [
                 'collect',
                 'number'
             ]
-        ],
-        [
-            '?',
-            [
-                'assert',
-                '$numbers.length > 0',
-                'N/A'
-            ]
-        ]
-    ]);
+        ]]);
     defineFunction('counta', function (values) {
         return values.length;
     }).args([[

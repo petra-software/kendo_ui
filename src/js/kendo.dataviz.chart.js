@@ -1,5 +1,5 @@
 /** 
- * Kendo UI v2017.2.621 (http://www.telerik.com/kendo-ui)                                                                                                                                               
+ * Kendo UI v2017.2.823 (http://www.telerik.com/kendo-ui)                                                                                                                                               
  * Copyright 2017 Telerik AD. All rights reserved.                                                                                                                                                      
  *                                                                                                                                                                                                      
  * Kendo UI commercial licenses may be obtained at                                                                                                                                                      
@@ -991,7 +991,7 @@
                 var axisCrossingValue = this.categoryAxisCrossingValue(valueAxis);
                 return [
                     axisCrossingValue,
-                    point.value || axisCrossingValue
+                    isNumber(point.value) ? point.value : axisCrossingValue
                 ];
             },
             stackLimits: function (axisName, stackName) {
@@ -1235,7 +1235,24 @@
                     }
                 });
                 this.reflowCategories(categorySlots);
+                if (!this.options.clip && this.options.limitPoints && this.points.length) {
+                    this.limitPoints();
+                }
                 this.box = targetBox;
+            },
+            limitPoints: function () {
+                var this$1 = this;
+                var categoryPoints = this.categoryPoints;
+                var points = categoryPoints[0].concat(last(categoryPoints));
+                for (var idx = 0; idx < points.length; idx++) {
+                    this$1.limitPoint(points[idx]);
+                }
+            },
+            limitPoint: function (point) {
+                var limittedSlot = this.categoryAxis.limitSlot(point.box);
+                if (!limittedSlot.equals(point.box)) {
+                    point.reflow(limittedSlot);
+                }
             },
             aboveAxis: function (point, valueAxis) {
                 var axisCrossingValue = this.categoryAxisCrossingValue(valueAxis);
@@ -1331,7 +1348,8 @@
             series: [],
             invertAxes: false,
             isStacked: false,
-            clip: true
+            clip: true,
+            limitPoints: true
         });
         var PointEventsMixin = {
             click: function (chart, e) {
@@ -1625,7 +1643,8 @@
                         color: '#fff',
                         width: 2
                     }
-                }
+                },
+                zIndex: datavizConstants.HIGHLIGHT_ZINDEX
             },
             errorBars: { line: { width: 1 } }
         };
@@ -9204,6 +9223,7 @@
         RadarBarChart.prototype.reflow = CategoricalChart.prototype.reflow;
         setDefaultOptions(RadarBarChart, {
             clip: false,
+            limitPoints: false,
             animation: { type: 'pie' }
         });
         var RadarPlotArea = PolarPlotAreaBase.extend({
@@ -11641,9 +11661,14 @@
                         DONUT,
                         FUNNEL
                     ]) >= 0) {
-                    var pointVisibility = currentSeries.pointVisibility = currentSeries.pointVisibility || {};
-                    var visible = pointVisibility[pointIndex];
-                    pointVisibility[pointIndex] = defined(visible) ? !visible : false;
+                    var point = currentSeries.data[pointIndex];
+                    if (point && defined(point.visible)) {
+                        point.visible = !point.visible;
+                    } else {
+                        var pointVisibility = currentSeries.pointVisibility = currentSeries.pointVisibility || {};
+                        var visible = pointVisibility[pointIndex];
+                        pointVisibility[pointIndex] = defined(visible) ? !visible : false;
+                    }
                 } else {
                     currentSeries.visible = !currentSeries.visible;
                     this._seriesVisibility.save(currentSeries);
